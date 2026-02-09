@@ -1,11 +1,13 @@
 ---
 title: "Web Bot Auth"
-description: "Cryptographically sign browser requests with Cloudflare's Web Bot Auth"
+description: "Cryptographically sign browser requests with Web Bot Auth"
 ---
 
-[Web Bot Auth](https://github.com/cloudflare/web-bot-auth) is Cloudflare's implementation of cryptographic authentication for automated web agents. It uses [RFC 9421 HTTP Message Signatures](https://datatracker.ietf.org/doc/html/rfc9421) to sign outgoing HTTP requests, allowing websites to verify the identity and integrity of bot traffic.
+[Web Bot Auth](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture) is quickly becoming the standard way for agents to establish identity. That's why we've partnered with [Vercel](https://bots.fyi/d/kernel) to support Web Bot Auth on Kernel.
 
-By integrating Web Bot Auth with Kernel, your browser automations can cryptographically prove their identity to websites that support signature verification.
+![Kernel on Vercel's public directory of known bots used across the web](/images/botsfyi.png)
+
+You can now cryptographically sign browser requests, so your agents can prove who they are to services like Vercel. 
 
 ## How it works
 
@@ -15,11 +17,13 @@ Web Bot Auth works via a Chrome extension that intercepts all outgoing HTTP requ
 - **`Signature-Input`**: Metadata about how the signature was created
 - **`Signature-Agent`**: URL that points to your key directory
 
-Websites can verify these signatures against your public key to confirm the request came from your authenticated agent.
+Platforms like [Vercel](https://bots.fyi/) or other hosting providers can verify these signatures against your public key, confirming that the request came from your authenticated agent.
 
-## Quick Start with Test Key
+<AccordionGroup>
+  <Accordion title="Quick Start with Test Key">
+ ## Quick Start with Test Key
 
-The fastest way to get started is using Cloudflare's RFC9421 test key, which works with their [test verification site](https://http-message-signatures-example.research.cloudflare.com/).
+The fastest way to get started is using a test key, which works with this [test verification site](https://http-message-signatures-example.research.cloudflare.com/).
 
 ### 1. Build the extension
 
@@ -28,11 +32,6 @@ Use the Kernel CLI to build the Web Bot Auth extension:
 ```bash
 kernel extensions build-web-bot-auth --to ./web-bot-auth-ext --upload my-web-bot-auth
 ```
-
-This command:
-- Downloads Cloudflare's web-bot-auth browser extension source
-- Builds it with the default RFC9421 test key
-- Uploads it to Kernel as `my-web-bot-auth`
 
 <Info>
 The build command requires Node.js and npm to be installed on your system.
@@ -93,15 +92,13 @@ with sync_playwright() as p:
 
 ### 3. Verify it's working
 
-Navigate to Cloudflare's test site to verify your signatures are being accepted:
-
-```
-https://http-message-signatures-example.research.cloudflare.com/
-```
+Navigate to the [test site](https://http-message-signatures-example.research.cloudflare.com/) to verify your signatures are being accepted:
 
 This site validates requests signed with the RFC9421 test key and shows whether the signature was verified successfully.
+  </Accordion>
 
-## Using Your Own Keys
+  <Accordion title="Using Your Own Keys">
+  ## Using Your Own Keys
 
 For production use, you'll want to use your own signing keys instead of the test key.
 
@@ -119,7 +116,7 @@ Create a JWK file with your Ed25519 private key. The key must include both the p
 ```
 
 <Info>
-See [Cloudflare's web-bot-auth documentation](https://github.com/cloudflare/web-bot-auth) for tools to generate Ed25519 key pairs.
+See [web-bot-auth documentation](https://github.com/cloudflare/web-bot-auth) for tools to generate Ed25519 key pairs.
 </Info>
 
 ### 2. Host your public key
@@ -156,22 +153,21 @@ kernel extensions build-web-bot-auth \
   --upload my-web-bot-auth
 ```
 
-### 4. Register with Cloudflare (optional)
+### 4. Register with Vercel and other Web Bot Auth-aware directories (optional)
 
-If you want Cloudflare-protected sites to recognize your bot, you can register your key directory with Cloudflare:
+If you want Vercel-protected sites to recognize your agent, you can register your key directory with [Vercel](https://bots.fyi/new-bot). Kernel is officially listed in the Vercel directory.
+  </Accordion>
+</AccordionGroup>
 
-1. Log into the Cloudflare dashboard
-2. Navigate to **Manage Account > Configurations**
-3. Select the **Bot Submission Form** tab
-4. Choose **Request Signature** as the verification method
-5. Enter your key directory URL
 
-See [Cloudflare's Web Bot Auth documentation](https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/) for complete details.
 
+
+ 
 ## References
 
+- [Vercel's Public Directory](https://bots.fyi/?query=kernel)
 - [Web Bot Auth GitHub Repository](https://github.com/cloudflare/web-bot-auth)
-- [Cloudflare Web Bot Auth Documentation](https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/)
+- [Web Bot Auth Documentation](https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/)
 - [RFC 9421 - HTTP Message Signatures](https://datatracker.ietf.org/doc/html/rfc9421)
-- [Cloudflare Test Verification Site](https://http-message-signatures-example.research.cloudflare.com/)
+- [Test Verification Site](https://http-message-signatures-example.research.cloudflare.com/)
 - [Web Bot Auth Architecture Draft](https://thibmeu.github.io/http-message-signatures-directory/draft-meunier-web-bot-auth-architecture.html)
