@@ -145,7 +145,8 @@ The API and SDKs support listing, deleting, and downloading profile data as JSON
 ## Notes
 
 - A profile's `name` must be unique within your organization.
-- Profiles store cookies and local storage. Start the session with `save_changes: true` to write changes back when the browser is closed.
+- Profiles store the full browser state, including cookies, local storage, and session data. When you create a new browser with a profile, it restores to the exact state when the profile was last saved—including open tabs and the current page.
+- Start the session with `save_changes: true` to write changes back when the browser is closed.
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
 - Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
 - Profile data is encrypted end to end using a per-organization key.
