@@ -5,7 +5,15 @@ description: Frequently asked questions about Managed Auth
 
 ## How does re-authentication work?
 
-When you link credentials to a connection, Kernel monitors the session and re-authenticates automatically when it expires. Periodic health checks (default: every hour) detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without any action on your part.
+When you link credentials to a connection, Kernel monitors the session and re-authenticates automatically when it expires. Periodic health checks detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without any action on your part.
+
+The default health check interval is 1 hour. You can configure a lower interval when creating a connection—the minimum depends on your plan:
+
+| Plan | Minimum interval |
+|------|-----------------|
+| Hobbyist | 1 hour |
+| Startup | 15 minutes |
+| Enterprise | 5 minutes |
 
 <Warning>
 Automatic re-authentication only works when credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
@@ -63,4 +71,4 @@ Managed Auth works with any website. Sites with aggressive bot detection may req
 
 Managed Auth is included on all paid plans with no per-connection fees. It uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage like any other browser session.
 
-Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage. See [Pricing & Limits](/info/pricing#managed-auth-billing) for details.
+Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. Lower health check intervals use more browser time, so keep that in mind when choosing an interval. See [Pricing & Limits](/info/pricing#managed-auth-billing) for details.
