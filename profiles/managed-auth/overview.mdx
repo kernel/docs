@@ -36,9 +36,7 @@ auth = await kernel.auth.connections.create(
 
 <CodeGroup>
 ```typescript TypeScript
-const login = await kernel.auth.connections.login(auth.id, {
-  save_credential_as: 'my-netflix-creds', // Optional: save for auto-reauth
-});
+const login = await kernel.auth.connections.login(auth.id);
 
 // Send user to login page
 console.log('Login URL:', login.hosted_url);
@@ -56,10 +54,7 @@ if (state.status === 'AUTHENTICATED') {
 ```
 
 ```python Python
-login = await kernel.auth.connections.login(
-    auth.id,
-    save_credential_as="my-netflix-creds",  # Optional: save for auto-reauth
-)
+login = await kernel.auth.connections.login(auth.id)
 
 # Send user to login page
 print(f"Login URL: {login.hosted_url}")
