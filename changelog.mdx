@@ -9,6 +9,16 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="February 9" tags={["Product"]}>
+## Product updates
+- Launched [Auth Connections](/profiles/managed-auth/overview) (formerly Managed Auth), a new system that keeps your browser profiles automatically logged in. Configure a profile with credentials and a target domain, and Kernel handles login, session maintenance, and automatic re-authentication — no manual intervention required.
+- Added a [batch computer actions](/api-reference/browser-computer-controls/batch-execute-computer-actions) API endpoint that lets you chain up to 100 mouse, keyboard, and sleep actions in a single request, reducing network round-trip latency for multi-step automations.
+- Introduced a re-authentication circuit breaker that stops automatic login retries after repeated failures, preventing infinite retry loops. Auth connections now include a `can_reauth_reason` field so you can see exactly why re-authentication is or isn't possible.
+- Reorganized browser API endpoints into dedicated groups (Replays, Computer Controls, Filesystem, Processes, Logs, Playwright) for clearer documentation and improved SDK method discovery.
+- Fixed an issue where deleting API keys could fail due to database constraint errors.
+- Improved deployment build times with optimized Dockerfile templates that embed entrypoint paths at build time, enabling faster startup for Node.js and Python apps.
+</Update>
+
 <Update label="February 6" tags={["Product", "Docs"]}>
 ## Product updates
 - Added a `/json` endpoint to the CDP proxy, enabling native Playwright `connectOverCDP()` connections.
