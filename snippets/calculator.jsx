@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { Card, Columns } from '@mintlify/components';
+// Note: These imports are provided by the Mintlify runtime environment
+// import { useState, useEffect, useRef } from 'react';
+// import { Card, Columns } from '@mintlify/components';
+
+const { useState, useEffect, useRef } = React;
+const { Card, Columns } = MintlifyComponents;
 
 export const PricingCalculator = () => {
     const planPrices = {

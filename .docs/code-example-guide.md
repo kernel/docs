@@ -331,7 +331,7 @@ await kernel.browsers.deleteByID('session_id');
 
 Always use `<CodeGroup>` with proper language labels:
 
-```markdown
+````markdown
 <CodeGroup>
 ```typescript Typescript/Javascript
 // TypeScript code here
@@ -341,7 +341,7 @@ Always use `<CodeGroup>` with proper language labels:
 # Python code here
 ```
 </CodeGroup>
-```
+````
 
 ## Checklist
 
