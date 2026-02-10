@@ -1,26 +1,30 @@
 ---
 title: FAQ
-description: Frequently asked questions about Managed Auth
 ---
 
-## How does re-authentication work?
+## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel monitors the session and re-authenticates automatically when it expires. Periodic health checks (default: every hour) detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without any action on your part.
+When you link credentials to a connection, Kernel monitors the login session and re-authenticates automatically when it expires. Periodic health checks detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without additional action on your part.
 
 <Warning>
-Automatic re-authentication only works when credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
+Automatic re-authentication only works when the stored credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
 </Warning>
 
-## How do I know if a connection can auto-reauth?
 
-Check the `can_reauth` field on a connection. This boolean tells you whether Kernel can automatically re-authenticate the connection when the session expires.
+## How often are health checks performed?
 
-`can_reauth` is `true` when **all** of the following are met:
+Health checks are performed every hour.
 
-1. **Credential linked** — A credential is attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
-2. **Login URL set** — The connection has a `login_url` (set automatically after the first successful login, or provided manually)
-3. **Login flow learned** — At least one successful login has completed so Kernel has learned the login flow for the site
-4. **No external action required** — The learned login flow doesn't require human intervention (see below)
+## How do I know if a Kernel can automatically re-authenticate a connection?
+
+Check the `can_reauth` field on a connection. This boolean checks the following conditions:
+
+1. **Credential linked** — A credential must be attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
+2. **Login URL set** — The connection must have a `login_url` (set automatically after the first successful login, or provided manually)
+3. **Login flow learned** — At least one successful login has been completed so Kernel has learned the login flow for the site
+4. **No external action required** — The learned login flow doesn't require human intervention
+
+Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
 
 ### External actions that prevent auto-reauth
 
@@ -28,18 +32,9 @@ After a successful login, Kernel saves the login flow. If the flow includes step
 
 If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
-- **Trigger manual re-auth** — Start a new login session when `status` is `NEEDS_AUTH` and route the user through the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
+- **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
 
-## How do I know if a connection needs authentication?
-
-Check the connection's `status` field:
-
-- `AUTHENTICATED` — Profile is logged in and ready to use
-- `NEEDS_AUTH` — Profile needs authentication (auto-reauth failed or isn't possible)
-
-If `status` is `NEEDS_AUTH`, start a new login session. This happens when auto-reauth fails (e.g., password changed), when credentials require human input, or when `can_reauth` is `false`.
-
-## What authentication methods are supported?
+## Which authentication methods are supported?
 
 Managed Auth supports username/password authentication and most SSO providers. 
 
@@ -53,11 +48,11 @@ If a login attempt fails, Kernel will retry with exponential backoff. After mult
 
 - Invalid credentials
 - Bot detection blocking the login page
-- Captcha that couldn't be solved
+- CAPTCHAs that couldn't be solved
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth works with any website. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
 
 ## How is Managed Auth billed?
 
