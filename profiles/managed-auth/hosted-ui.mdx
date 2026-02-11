@@ -208,26 +208,11 @@ if state.status == "AUTHENTICATED":
 
 The basic flow above gets you started. Add these features as needed:
 
-### Save Credentials for Auto-Reauth
+### Credentials and Auto-Reauth
 
-Capture the user's credentials during login so future sessions can re-authenticate automatically when the session expires:
+Credentials are saved after every successful login, enabling automatic re-authentication when the session expires. One-time codes (TOTP, SMS, etc.) are not saved.
 
-<CodeGroup>
-```typescript TypeScript
-const login = await kernel.auth.connections.login(auth.id, {
-  save_credential_as: 'my-saved-creds',
-});
-```
-
-```python Python
-login = await kernel.auth.connections.login(
-    auth.id,
-    save_credential_as="my-saved-creds",
-)
-```
-</CodeGroup>
-
-After successful login, future login sessions for this connection will automatically use the saved credentials without requiring user interaction. See [Credentials](/profiles/credentials) for more on automated authentication.
+To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/profiles/credentials) for more on automated authentication.
 
 ### Custom Login URL
 
