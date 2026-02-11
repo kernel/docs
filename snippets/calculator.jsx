@@ -9,10 +9,30 @@ export const PricingCalculator = () => {
     }
     const usagePrices = 0.0000166667
 
-    const [plan, setPlan] = useState('free');
-    const [headless, setHeadless] = useState(true);
-    const [avgSessionLength, setAvgSessionLength] = useState(30);
-    const [numSessions, setNumSessions] = useState(100);
+    // Initialize state from URL params
+    const getInitialState = () => {
+        if (typeof window === 'undefined') {
+            return {
+                plan: 'free',
+                headless: true,
+                avgSessionLength: 30,
+                numSessions: 100
+            };
+        }
+        const params = new URLSearchParams(window.location.search);
+        return {
+            plan: params.get('plan') || 'free',
+            headless: params.get('headless') === 'false' ? false : true,
+            avgSessionLength: parseInt(params.get('length')) || 30,
+            numSessions: parseInt(params.get('sessions')) || 100
+        };
+    };
+
+    const initialState = getInitialState();
+    const [plan, setPlan] = useState(initialState.plan);
+    const [headless, setHeadless] = useState(initialState.headless);
+    const [avgSessionLength, setAvgSessionLength] = useState(initialState.avgSessionLength);
+    const [numSessions, setNumSessions] = useState(initialState.numSessions);
     const [flash, setFlash] = useState(false);
     const prevPriceRef = useRef(null);
 
@@ -42,6 +62,20 @@ export const PricingCalculator = () => {
         }
         prevPriceRef.current = { usageCost, includedUsageCredits, price };
     }, [usageCost, includedUsageCredits, price]);
+
+    // Update URL params when state changes
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const params = new URLSearchParams();
+        params.set('plan', plan);
+        params.set('headless', headless.toString());
+        params.set('length', avgSessionLength.toString());
+        params.set('sessions', numSessions.toString());
+
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+    }, [plan, headless, avgSessionLength, numSessions]);
     const labelStyle = { fontWeight: 600, fontSize: '0.875rem', minWidth: '10rem', flexShrink: 0, maxWidth: '10rem' };
     const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem' };
     const inputStyle = { minWidth: 0, flex: 1, maxWidth: '100%', boxSizing: 'border-box', background: 'transparent' };
