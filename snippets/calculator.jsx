@@ -2,49 +2,38 @@ const { useState, useEffect, useRef } = React;
 const { Card, Columns } = MintlifyComponents;
 
 export const PricingCalculator = () => {
-    const planPrices = {
-        free: 0,
-        hobbyist: 30,
-        startup: 200,
-    }
-    const usagePrices = 0.0000166667
+    const defaults = { plan: 'free', headless: true, avgSessionLength: 30, numSessions: 100 };
+    const planPrices = { free: 0, hobbyist: 30, startup: 200 };
+    const usagePrices = 0.0000166667;
 
-    // Initialize state from URL params
-    const getInitialState = () => {
-        if (typeof window === 'undefined') {
-            return {
-                plan: 'free',
-                headless: true,
-                avgSessionLength: 30,
-                numSessions: 100
-            };
-        }
-        const params = new URLSearchParams(window.location.search);
-        return {
-            plan: params.get('plan') || 'free',
-            headless: params.get('headless') === 'false' ? false : true,
-            avgSessionLength: parseInt(params.get('length')) || 30,
-            numSessions: parseInt(params.get('sessions')) || 100
-        };
-    };
-
-    const initialState = getInitialState();
-    const [plan, setPlan] = useState(initialState.plan);
-    const [headless, setHeadless] = useState(initialState.headless);
-    const [avgSessionLength, setAvgSessionLength] = useState(initialState.avgSessionLength);
-    const [numSessions, setNumSessions] = useState(initialState.numSessions);
+    const [plan, setPlan] = useState(defaults.plan);
+    const [headless, setHeadless] = useState(defaults.headless);
+    const [avgSessionLength, setAvgSessionLength] = useState(defaults.avgSessionLength);
+    const [numSessions, setNumSessions] = useState(defaults.numSessions);
     const [flash, setFlash] = useState(false);
     const prevPriceRef = useRef(null);
+    const hasInteracted = useRef(false);
 
-    let price = planPrices[plan];
-    let usageCost = 0
+    useEffect(() => {
+        if (!hasInteracted.current) return;
+        var url = new URL(window.location);
+        url.searchParams.set('plan', plan);
+        url.searchParams.set('headless', headless);
+        url.searchParams.set('duration', avgSessionLength);
+        url.searchParams.set('sessions', numSessions);
+        url.hash = 'pricing-calculator';
+        window.history.replaceState(null, '', url);
+    }, [plan, headless, avgSessionLength, numSessions]);
+
+    var price = planPrices[plan];
+    var usageCost = 0;
     if (headless) {
         usageCost += usagePrices * 1 * numSessions * avgSessionLength;
     } else {
         usageCost += usagePrices * 8 * numSessions * avgSessionLength;
     }
 
-    let includedUsageCredits = 5;
+    var includedUsageCredits = 5;
     if (plan === 'hobbyist') {
         includedUsageCredits = 10;
     } else if (plan === 'startup') {
@@ -54,28 +43,14 @@ export const PricingCalculator = () => {
         price += Math.max(0, usageCost - includedUsageCredits);
     }
     useEffect(() => {
-        const prev = prevPriceRef.current;
+        var prev = prevPriceRef.current;
         if (prev !== null && (prev.usageCost !== usageCost || prev.includedUsageCredits !== includedUsageCredits || prev.price !== price)) {
             setFlash(true);
-            const t = setTimeout(() => setFlash(false), 300);
+            var t = setTimeout(() => setFlash(false), 300);
             return () => clearTimeout(t);
         }
         prevPriceRef.current = { usageCost, includedUsageCredits, price };
     }, [usageCost, includedUsageCredits, price]);
-
-    // Update URL params when state changes
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const params = new URLSearchParams();
-        params.set('plan', plan);
-        params.set('headless', headless.toString());
-        params.set('length', avgSessionLength.toString());
-        params.set('sessions', numSessions.toString());
-
-        const newUrl = `${window.location.pathname}?${params.toString()}`;
-        window.history.replaceState({}, '', newUrl);
-    }, [plan, headless, avgSessionLength, numSessions]);
     const labelStyle = { fontWeight: 600, fontSize: '0.875rem', minWidth: '10rem', flexShrink: 0, maxWidth: '10rem' };
     const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem' };
     const inputStyle = { minWidth: 0, flex: 1, maxWidth: '100%', boxSizing: 'border-box', background: 'transparent' };
@@ -96,7 +71,7 @@ export const PricingCalculator = () => {
             <Card title="Controls" icon="calculator">
                 <div style={rowStyle}>
                     <label style={labelStyle}>Plan</label>
-                    <select style={selectStyle} value={plan} onChange={(e) => setPlan(e.target.value)}>
+                    <select style={selectStyle} value={plan} onChange={(e) => { hasInteracted.current = true; setPlan(e.target.value); }}>
                         <option value="free">Free</option>
                         <option value="hobbyist">Hobbyist</option>
                         <option value="startup">Startup</option>
@@ -104,15 +79,15 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={rowStyle}>
                     <label style={labelStyle}>Session length (seconds)</label>
-                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={avgSessionLength} onChange={(e) => setAvgSessionLength(parseInt(e.target.value))} />
+                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={avgSessionLength} onChange={(e) => { hasInteracted.current = true; setAvgSessionLength(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
                     <label style={labelStyle}>Number of sessions</label>
-                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={numSessions} onChange={(e) => setNumSessions(parseInt(e.target.value))} />
+                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${!headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: !headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => setHeadless(false)}>Headful</button>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => setHeadless(true)}>Headless</button>
+                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${!headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: !headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(false); }}>Headful</button>
+                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(true); }}>Headless</button>
                 </div>
                 <div style={rowStyle}><span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>${headless ? usagePrices.toFixed(8) : (usagePrices * 8).toFixed(8)}/second</span></div>
             </Card>
