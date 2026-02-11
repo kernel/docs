@@ -3,7 +3,7 @@ title: "Overview"
 description: "Persist and reuse browser session state (cookies, local storage) across sessions"
 ---
 
-Profiles let you capture browser state created during a session (cookies and local storage) and reuse it in later sessions. This is useful for persisting login state or other site preferences across browser sessions.
+Profiles let you capture browser state created during a session (cookies and local storage) and reuse it in later sessions. This is useful for persisting login state, site preferences, and starting on the same page across browser sessions.
 
 <Tip>
   If you're looking to maintain authenticated browser sessions, check out [Managed Auth](/profiles/managed-auth/overview).
@@ -153,3 +153,5 @@ The API and SDKs support listing, deleting, and downloading profile data as JSON
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
 - Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
 - Profile data is encrypted end to end using a per-organization key.
+- Browsers loaded with a profile start on the same page as the page last visited using that profile.
+
