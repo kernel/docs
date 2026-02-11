@@ -3,7 +3,7 @@ title: "Hosted UI"
 description: "The simplest way to create authenticated browser sessions"
 ---
 
-Collect credentials via Kernel's hosted page, then use the authenticated session in your automations. This is the recommended approach for most applications.
+Collect credentials securely via Kernel's hosted page, then use the authenticated session in your automations. This is the recommended approach for most applications.
 
 Use the Hosted UI when:
 - You need users to provide their credentials
@@ -97,12 +97,12 @@ if state.status == "AUTHENTICATED":
 </CodeGroup>
 
 <Info>
-Poll every 2 seconds. The session expires after 5 minutes if not completed.
+Poll no more than every 2 seconds. The session expires after 5 minutes if not completed.
 </Info>
 
 ### 5. Use the Profile
 
-Create browsers with the profile and navigate to the site—the session is already authenticated:
+Create browsers with the profile and navigate to the site. The browser session will already be authenticated:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -127,7 +127,7 @@ await page.goto("https://linkedin.com")
 </CodeGroup>
 
 <Info>
-Use `stealth: true` when creating browsers for authenticated sessions.
+Managed Auth Connections are generated using Kernel's [stealth](/browsers/bot-detection/stealth) mode. Use `stealth: true` when creating authenticated browser sessions for the best experience.
 </Info>
 
 
@@ -238,7 +238,9 @@ auth = await kernel.auth.connections.create(
 
 ### SSO/OAuth Support
 
-For sites with "Sign in with Google/GitHub/Microsoft", add the OAuth provider's domains to `allowed_domains`:
+Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
+
+Make sure to add all of the OAuth provider's domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -258,11 +260,9 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-The user can click the SSO button on the hosted page, complete OAuth with the provider, and the authenticated session is saved to the profile.
-
 ### Post-Login URL
 
-After successful authentication, retrieve the connection to get `post_login_url`—the page where the login landed. Use this to start your automation from the right place:
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
 
 <CodeGroup>
 ```typescript TypeScript

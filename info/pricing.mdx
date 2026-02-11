@@ -4,14 +4,24 @@ title: "Pricing & Limits"
 
 With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), and you're never charged for proxies. Our goal is to be cost-effective, scalable, and transparent. 
 
+## Pricing
+
+| Browser type | Memory | Price ($/sec) |
+| --- | --- | --- |
+| Headless | 1 GB | 0.0000166667 |
+| Headful | 8 GB | 0.0001333336 |
+
+### Pricing calculator
+
+import { PricingCalculator } from '/snippets/calculator.jsx';
+
+<PricingCalculator />
+
 ## Managed infrastructure
 
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
-| Price per gb-second ($) | 0.0000166667 | 0.0000166667 | 0.0000166667 | Custom |
-| Headless browsers resource | 1 gb | 1 gb | 1 gb | 1 gb |
-| Headful browsers resource | 8 gb | 8 gb | 8 gb | 8 gb |
-| Free usage credits / mo | $5 | $10 | $50 | Custom |
+| Included credits / mo | $5 | $10 | $50 | Custom |
 | Extended browser timeouts | ✅ | ✅ | ✅ | ✅ |
 | Browser live view | ✅ | ✅ | ✅ | ✅ |
 | Configurable browser viewports | ✅ | ✅ | ✅ | ✅ |
@@ -42,6 +52,12 @@ With Browser Pools, you pay the standard usage-based price per GB-second while b
 
 > Note: Disk space charges are waived for Enterprise plan customers.
 
+## Managed Auth
+
+Managed Auth is included on all paid plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
+
+Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
+
 ## Concurrency limits
 
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
@@ -53,15 +69,3 @@ With Browser Pools, you pay the standard usage-based price per GB-second while b
 | Managed auth profiles | N/A | 3 | 20 | Custom |
 
 > Note: Limits are org-wide by default unless stated otherwise. `Managed auth profiles` refer to the number of active auth connections that Kernel maintains using your stored [Credentials](/profiles/credentials) or [1Password connection](/integrations/1password).
-
-## Managed Auth billing
-
-Managed Auth is included on all paid plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
-
-Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
-
-## Pricing calculator
-
-import { PricingCalculator } from '/snippets/calculator.jsx';
-
-<PricingCalculator />
