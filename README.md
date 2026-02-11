@@ -1,10 +1,10 @@
 # Kernel Documentation
 
 <p align="left">
-  <img alt="GitHub License" src="https://img.shields.io/github/license/onkernel/docs">
-  <a href="https://discord.gg/FBrveQRcud"><img src="https://img.shields.io/discord/1342243238748225556?logo=discord&logoColor=white&color=7289DA" alt="Discord"></a>
-  <a href="https://x.com/juecd__"><img src="https://img.shields.io/twitter/follow/juecd__" alt="Follow @juecd__"></a>
-  <a href="https://x.com/rfgarcia"><img src="https://img.shields.io/twitter/follow/rfgarcia" alt="Follow @rfgarcia"></a>
+  <img alt="GitHub License" src="https://img.shields.io/github/license/onkernel/docs" />
+  <a href="https://discord.gg/FBrveQRcud"><img src="https://img.shields.io/discord/1342243238748225556?logo=discord&logoColor=white&color=7289DA" alt="Discord" /></a>
+  <a href="https://x.com/juecd__"><img src="https://img.shields.io/twitter/follow/juecd__" alt="Follow @juecd__" /></a>
+  <a href="https://x.com/rfgarcia"><img src="https://img.shields.io/twitter/follow/rfgarcia" alt="Follow @rfgarcia" /></a>
 </p>
 
 This is the documentation for the Kernel platform. It's connected to [onkernel.com/docs](https://onkernel.com/docs).
