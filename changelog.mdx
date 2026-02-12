@@ -9,6 +9,21 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="February 13" tags={["Product", "Docs"]}>
+## Product updates
+<YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
+- Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
+- Released [Managed Auth](/profiles/managed-auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
+- Added a `POST /computer/batch` [endpoint](/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
+- Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
+- Improved input reliability with context-aware timing in key press and mouse drag operations.
+- Fixed an issue where stealth mode browsers couldn't access plain HTTP websites due to forced HTTPS redirects.
+
+## Documentation updates
+- Clarified [pricing](/info/pricing) for headful browser sessions.
+- Added comprehensive [Managed Auth](/profiles/managed-auth/overview) documentation, including billing guidance.
+</Update>
+
 <Update label="February 6" tags={["Product", "Docs"]}>
 ## Product updates
 - Added a `/json` endpoint to the CDP proxy, enabling native Playwright `connectOverCDP()` connections.
