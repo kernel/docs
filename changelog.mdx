@@ -12,31 +12,31 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="February 13" tags={["Product", "Docs"]}>
 ## Product updates
 <YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
-- Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
-- Released [Managed Auth](/profiles/managed-auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
-- Added a `POST /computer/batch` [endpoint](/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
+- Launched [Web Bot Auth](https://www.kernel.sh/docs/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
+- Released [Managed Auth](https://www.kernel.sh/docs/profiles/managed-auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
+- Added a `POST /computer/batch` [endpoint](https://www.kernel.sh/docs/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
 - Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
 - Improved input reliability with context-aware timing in key press and mouse drag operations.
 - Fixed an issue where stealth mode browsers couldn't access plain HTTP websites due to forced HTTPS redirects.
 
 ## Documentation updates
-- Clarified [pricing](/info/pricing) for headful browser sessions.
-- Added comprehensive [Managed Auth](/profiles/managed-auth/overview) documentation, including billing guidance.
+- Clarified [pricing](https://www.kernel.sh/docs/info/pricing) for headful browser sessions.
+- Added comprehensive [Managed Auth](https://www.kernel.sh/docs/profiles/managed-auth/overview) documentation, including billing guidance.
 </Update>
 
 <Update label="February 6" tags={["Product", "Docs"]}>
 ## Product updates
 - Added a `/json` endpoint to the CDP proxy, enabling native Playwright `connectOverCDP()` connections.
-- Launched an [API](/api-reference/browsers/get-the-current-mouse-cursor-position-on-the-browser-instance) to get the current cursor position, which is useful for debugging and building adaptive automation logic.
-- Released an [API](/api-reference/invocations/list-browsers-for-an-invocation) to retrieve browser session IDs associated with a specific invocation.
-- Added [SSH access](/browsers/ssh) to Kernel browsers for debugging, running commands, and tunneling your local development server to the browser.
-- Enabled support for the [1280x800 viewport](/browsers/viewport#supported-viewport-configurations) size, which improves click coordinate accuracy.
+- Launched an [API](https://www.kernel.sh/docs/api-reference/browsers/get-the-current-mouse-cursor-position-on-the-browser-instance) to get the current cursor position, which is useful for debugging and building adaptive automation logic.
+- Released an [API](https://www.kernel.sh/docs/api-reference/invocations/list-browsers-for-an-invocation) to retrieve browser session IDs associated with a specific invocation.
+- Added [SSH access](https://www.kernel.sh/docs/browsers/ssh) to Kernel browsers for debugging, running commands, and tunneling your local development server to the browser.
+- Enabled support for the [1280x800 viewport](https://www.kernel.sh/docs/browsers/viewport#supported-viewport-configurations) size, which improves click coordinate accuracy.
 - The Live View clipboard now syncs correctly between browser and local machine.
 - Chrome address autofill prompts are now automatically disabled.
 
 ## Documentation updates
-- Added a [pricing calculator](/info/pricing#pricing-calculator) to help you estimate costs based on your plan, session length, and browser type.
-- Clarified [file](/browsers/file-io) access limitations and browser session deletion behavior.
+- Added a [pricing calculator](https://www.kernel.sh/docs/info/pricing#pricing-calculator) to help you estimate costs based on your plan, session length, and browser type.
+- Clarified [file](https://www.kernel.sh/docs/browsers/file-io) access limitations and browser session deletion behavior.
 </Update>
 
 <Update label="January 30" tags={["Product", "Docs"]}>
@@ -46,18 +46,18 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - We released [skills](https://skills.sh/?q=kernel/skills) for Kernel, so you can easily build browser agents directly from Claude Code.
 
 ## Documentation updates
-- We published a [Scaling in Production guide](/browsers/scaling/overview) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
+- We published a [Scaling in Production guide](https://www.kernel.sh/docs/browsers/scaling/overview) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
 - Added a new [integration guide](https://www.kernel.sh/docs/integrations/agent-browser) for [Agent Browser](https://github.com/vercel-labs/agent-browser), Vercel's headless browser automation CLI, which has built-in support for Kernel browsers.
 </Update>
 
 <Update label="January 23" tags={["Product"]}>
 ## Product updates
 <YouTubeVideo videoId="JICMuiC7H4M" title="Introducing Browser Pools" />
-- [Browser pools](/browsers/pools) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
+- [Browser pools](https://www.kernel.sh/docs/browsers/pools) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
 - We improved the Browsers page user experience. Enjoy instant clickability of browser cards, shift+click range selection, preserved view state when switching between grid and list views, a live toggle for auto-refresh, keyboard shortcut support (Cmd+B / Ctrl+B to toggle sidebar), and more.
-- We added support for viewing [replays](/browsers/replays) of deleted browser sessions. Deleted browsers now navigate to their detail page, which shows the replay player with multiple replays displayed as tabs. The API now supports fetching deleted browser details using new query parameters.
-- Overhauled our [Anthropic Computer Use template](https://github.com/onkernel/cli/tree/main/pkg/templates/typescript/anthropic-computer-use) to use Kernel's [Computer Controls](/browsers/computer-controls) API instead of Playwright, improving reliability and performance.
-- We improved the [live view](/browsers/live-view) experience to show a clear "disconnected" screen when a browser is destroyed, instead of leaving users on a blank page.
+- We added support for viewing [replays](https://www.kernel.sh/docs/browsers/replays) of deleted browser sessions. Deleted browsers now navigate to their detail page, which shows the replay player with multiple replays displayed as tabs. The API now supports fetching deleted browser details using new query parameters.
+- Overhauled our [Anthropic Computer Use template](https://github.com/onkernel/cli/tree/main/pkg/templates/typescript/anthropic-computer-use) to use Kernel's [Computer Controls](https://www.kernel.sh/docs/browsers/computer-controls) API instead of Playwright, improving reliability and performance.
+- We improved the [live view](https://www.kernel.sh/docs/browsers/live-view) experience to show a clear "disconnected" screen when a browser is destroyed, instead of leaving users on a blank page.
 </Update>
 
 <Update label="January 16" tags={["Product", "Docs"]}>
@@ -73,18 +73,18 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="January 9" tags={["Product", "Docs"]}>
 ## Product updates
 - Introduced a new [Hobbyist plan](https://www.kernel.sh/#pricing), which provides affordable access to features like session replays, uploading and downloading files, and using custom Chrome extensions.
-- Updated the Gemini [Computer Use template](/integrations/computer-use/gemini) to [use](https://github.com/kernel/cli) Stagehand V3, resolving compatibility issues.
+- Updated the Gemini [Computer Use template](https://www.kernel.sh/docs/integrations/computer-use/gemini) to [use](https://github.com/kernel/cli) Stagehand V3, resolving compatibility issues.
 - Added support for Actor and Thinker [OpenAGI models](https://github.com/kernel/kernel-oagi), with guidance on when to use each approach.
-- Added new [Claude Agent SDK templates](/integrations/claude-agent-sdk) for TypeScript and Python that demonstrate browser automation using Kernel's Playwright execution API.
+- Added new [Claude Agent SDK templates](https://www.kernel.sh/docs/integrations/claude-agent-sdk) for TypeScript and Python that demonstrate browser automation using Kernel's Playwright execution API.
 
 ## Documentation updates
-- Added documentation for the OpenAGI Lux [integration](/integrations/computer-use/openagi) using the `kernel create` method, including examples for both `AsyncDefaultAgent` and `TaskerAgent`.
-- Improved [file I/O documentation](/browsers/file-io) with code examples for uploading and downloading files from remote browsers.
+- Added documentation for the OpenAGI Lux [integration](https://www.kernel.sh/docs/integrations/computer-use/openagi) using the `kernel create` method, including examples for both `AsyncDefaultAgent` and `TaskerAgent`.
+- Improved [file I/O documentation](https://www.kernel.sh/docs/browsers/file-io) with code examples for uploading and downloading files from remote browsers.
 </Update>
 
 <Update label="December 19" tags={["Product"]}>
 ## Product updates
-- Added a new `kernel mcp install` [command](/reference/cli/mcp) to the [Kernel CLI](https://github.com/onkernel/cli) that automatically configures the Kernel MCP server for AI development tools like Cursor, Claude, and Visual Studio Code.
+- Added a new `kernel mcp install` [command](https://www.kernel.sh/docs/reference/cli/mcp) to the [Kernel CLI](https://github.com/onkernel/cli) that automatically configures the Kernel MCP server for AI development tools like Cursor, Claude, and Visual Studio Code.
 - Added a new Python template to the [Kernel CLI](https://github.com/onkernel/cli) for OpenAGI's Lux computer use model, supporting both AsyncDefaultAgent and TaskerAgent with Kernel browser session management.
 - Improved CLI performance when looking up browsers by using a direct API call instead of fetching the full list of browsers.
 - Fixed bug where headless browsers started with no pages. Headless browsers now initialize with an initial page.
@@ -94,24 +94,24 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="December 12" tags={["Product", "Docs"]}>
 ## Product updates
 - Refreshed our [Vercel template](https://kernel-nextjs-template.vercel.app/) with an enhanced UI and AI agent example
-- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/browsers/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
-- Unified browser creation tools by porting [Create Kernel App](/reference/cli/create) functionality into the Kernel CLI
+- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](https://www.kernel.sh/docs/browsers/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
+- Unified browser creation tools by porting [Create Kernel App](https://www.kernel.sh/docs/reference/cli/create) functionality into the Kernel CLI
 - Improved replay videos to include full video length metadata, enabling timestamp navigation and deep linking
 
 ## Documentation updates
-- Added OpenAGI [integration guide](/integrations/computer-use/openagi) to the Computer Use integrations section
+- Added OpenAGI [integration guide](https://www.kernel.sh/docs/integrations/computer-use/openagi) to the Computer Use integrations section
 </Update>
 
 <Update label="December 5" tags={["Product", "Docs"]}>
 ## Product updates
-- Added option to include ephemeral and deleted browsers when [listing sessions](/api-reference/browsers/list-browser-sessions) via API
-- Updated the [maximum timeout](/browsers/termination#automatic-deletion-via-timeout) available from 24 hours to 72 hours of no CDP activity
-- Updated the maximum async invocation [duration](/apps/invoke#asynchronous-invocations) from 15 minutes to 1 hour
+- Added option to include ephemeral and deleted browsers when [listing sessions](https://www.kernel.sh/docs/api-reference/browsers/list-browser-sessions) via API
+- Updated the [maximum timeout](https://www.kernel.sh/docs/browsers/termination#automatic-deletion-via-timeout) available from 24 hours to 72 hours of no CDP activity
+- Updated the maximum async invocation [duration](https://www.kernel.sh/docs/apps/invoke#asynchronous-invocations) from 15 minutes to 1 hour
 - Improved error messaging when invalid invocation IDs are provided
 
 ## Documentation updates
-- [Stagehand v3](/integrations/stagehand): Added code example for using Stagehand v3 with Kernel browsers
-- [Vercel AI SDK integration](/integrations/vercel/ai-sdk): Expanded Vercel integration documentation for the `@onkernel/ai-sdk` package
-- [Live view](/browsers/live-view#embedding-in-an-iframe): Added code example showing how to embed browser live views in an iFrame
-- CAPTCHA handling in [stealth mode](/browsers/bot-detection/stealth#cloudflare-challenge): Added documentation on CAPTCHA handling behavior with Cloudflare challenges
+- [Stagehand v3](https://www.kernel.sh/docs/integrations/stagehand): Added code example for using Stagehand v3 with Kernel browsers
+- [Vercel AI SDK integration](https://www.kernel.sh/docs/integrations/vercel/ai-sdk): Expanded Vercel integration documentation for the `@onkernel/ai-sdk` package
+- [Live view](https://www.kernel.sh/docs/browsers/live-view#embedding-in-an-iframe): Added code example showing how to embed browser live views in an iFrame
+- CAPTCHA handling in [stealth mode](https://www.kernel.sh/docs/browsers/bot-detection/stealth#cloudflare-challenge): Added documentation on CAPTCHA handling behavior with Cloudflare challenges
 </Update>
