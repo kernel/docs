@@ -55,7 +55,7 @@ export const PricingCalculator = () => {
     const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem' };
     const inputStyle = { minWidth: 0, flex: 1, maxWidth: '100%', boxSizing: 'border-box', background: 'transparent' };
     const numberInputStyle = {
-        borderBottom: '1px solid #7c3aed', textAlign: 'right'
+        borderBottom: '1px solid #81b300', textAlign: 'right'
     };
     const selectStyle = {
         ...inputStyle,
@@ -86,16 +86,16 @@ export const PricingCalculator = () => {
                     <input type="number" style={{...inputStyle, ...numberInputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${!headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: !headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(false); }}>Headful</button>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${headless ? '#7c3aed' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(true); }}>Headless</button>
+                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${!headless ? '#81b300' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: !headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(false); }}>Headful</button>
+                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${headless ? '#81b300' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(true); }}>Headless</button>
                 </div>
                 <div style={rowStyle}><span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>${headless ? usagePrices.toFixed(8) : (usagePrices * 8).toFixed(8)}/second</span></div>
             </Card>
             <Card title="Price" icon="circle-dollar">
-                <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#e9d5ff' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#e9d5ff' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#e9d5ff' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#e9d5ff' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
             </Card>
         </Columns>
     );
