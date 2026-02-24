@@ -46,10 +46,10 @@ const app = kernel.app('my-app-name');
 ```
 
 ```python Python
-from kernel import Kernel, KernelContext
+from kernel import Kernel, App, KernelContext
 
 kernel = Kernel()
-app = kernel.App("my-app-name")
+app = App("my-app-name")
 ```
 </CodeGroup>
 
@@ -201,11 +201,11 @@ app.action('get-page-title', async (ctx: KernelContext, payload) => {
 ```
 
 ```python Python
-from kernel import Kernel, KernelContext
+from kernel import Kernel, App, KernelContext
 from playwright.async_api import async_playwright
 
 kernel = Kernel()
-app = kernel.App("browser-automation")
+app = App("browser-automation")
 
 @app.action("get-page-title")
 async def get_page_title(ctx: KernelContext, payload):
