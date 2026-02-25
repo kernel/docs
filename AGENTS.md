@@ -14,3 +14,11 @@
 ## Code examples
 - Ensure there's a TypeScript/Javascript version and a Python version
 - Use real-world parameter values in examples, not placeholders
+
+## Cursor Cloud specific instructions
+
+This is a Mintlify documentation site (no `package.json`). The only service is the docs preview server.
+
+- **Run the docs site:** `mintlify dev` (serves on `http://localhost:3000` by default; auto-increments if the port is busy)
+- **Lint/build:** Mintlify handles rendering; there's no separate lint or build step. Validate by running `mintlify dev` and checking pages load.
+- **Config:** `docs.json` is the main Mintlify config (navigation, theme, OpenAPI spec URL, redirects).
