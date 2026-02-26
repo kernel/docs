@@ -105,7 +105,67 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
 </CodeGroup>
 
-## 4. Delete a proxy
+## 4. Bypass hosts
+
+Configure specific hostnames to bypass the proxy and connect directly. This is useful for accessing internal services, metadata endpoints, or reducing latency for trusted domains.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'datacenter',
+  name: 'proxy-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'internal.company.local',
+    'metadata.google.internal',
+    '*.amazonaws.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="datacenter",
+    name="proxy-with-bypass",
+    config={
+        "country": "US",
+    },
+    bypass_hosts=[
+        "localhost",
+        "internal.company.local",
+        "metadata.google.internal",
+        "*.amazonaws.com",
+    ]
+)
+```
+</CodeGroup>
+
+### Bypass host rules
+
+- **Exact hostnames**: `example.com`, `api.service.local`
+- **Wildcard subdomains**: `*.example.com` matches `api.example.com`, `cdn.example.com`, etc.
+- **Maximum 100 entries** per proxy
+- **Maximum 253 characters** per hostname
+- Hostnames are case-insensitive and automatically normalized
+- Ports, paths, and URL schemes are not allowed
+- IP addresses are not supported—use hostnames only
+
+<Info>
+Bypass hosts is available on Start-Up and Enterprise plans.
+</Info>
+
+## 5. Delete a proxy
 
 When no longer needed, delete the proxy configuration:
 
