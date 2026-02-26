@@ -160,3 +160,41 @@ proxy = kernel.proxies.create(
 <Note>
 If the ASN is not matched, the API will return the most-available 10 examples.
 </Note>
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy and connect directly:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'residential-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'metadata.google.internal',
+    '*.internal.company.com',
+  ],
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='residential-with-bypass',
+    config={
+        'country': 'US',
+    },
+    bypass_hosts=[
+        'localhost',
+        'metadata.google.internal',
+        '*.internal.company.com',
+    ]
+)
+```
+</CodeGroup>
+
+See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules and examples.
