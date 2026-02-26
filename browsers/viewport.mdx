@@ -83,7 +83,7 @@ The `refresh_rate` parameter only applies to live view sessions and is ignored f
 
 ## Supported viewport configurations
 
-Kernel supports specific viewport configurations. The server will reject unsupported combinations. When you provide width and height without specifying refresh_rate, it will be automatically determined if the dimensions match one of the supported resolutions exactly. The following resolutions are supported:
+Kernel supports specific viewport configurations tuned for optimal performance and Computer Use compatibility. When you provide width and height without specifying refresh_rate, it will be automatically determined if the dimensions match one of the supported resolutions exactly. The following resolutions are supported:
 
 | Resolution | Width | Height | Refresh Rate |
 |------------|-------|--------|--------------|
@@ -94,6 +94,11 @@ Kernel supports specific viewport configurations. The server will reject unsuppo
 | WXGA | 1280 | 800 | 60 Hz |
 | WXGA | 1200 | 800 | 60 Hz |
 | XGA | 1024 | 768 | 60 Hz |
+
+When specifying a viewport:
+- **Width** and **Height** are required
+- **Viewport configurations** outside of the supported list are available, but they are provided on a "use at your own risk" basis and may not work as expected.
+- **Refresh Rate** is optional - if omitted, it will be automatically determined from the width and height combination
 
 <Warning>
 Higher resolutions may affect the responsiveness of [live view](/browsers/live-view) browser sessions.
@@ -194,25 +199,6 @@ wuxga = kernel.browsers.create(
 ```
 
 </CodeGroup>
-
-## Viewport constraints
-
-Only the specific viewport configurations listed in the [supported configurations table](#supported-viewport-configurations) above are supported:
-- **2560x1440** (QHD) at 10 Hz
-- **1920x1080** (Full HD) at 25 Hz
-- **1920x1200** (WUXGA) at 25 Hz
-- **1440x900** (WXGA+) at 25 Hz
-- **1280x800** (WXGA) at 60 Hz
-- **1200x800** (WXGA) at 60 Hz
-- **1024x768** (XGA) at 60 Hz
-
-When specifying a viewport:
-- **Width** and **Height** are required and must match one of the supported configurations exactly
-- **Refresh Rate** is optional - if omitted, it will be automatically determined from the width and height combination
-
-<Warning>
-The server will reject any viewport configuration that doesn't exactly match one of the supported combinations listed above.
-</Warning>
 
 ## Changing viewport after browser creation
 
