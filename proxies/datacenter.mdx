@@ -47,3 +47,50 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 ## Configuration Parameters
 
 - **`country`** (optional) - ISO 3166 country code (e.g., `US`, `GB`, `FR`) or `EU` for European Union exit nodes
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'datacenter',
+  name: 'datacenter-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'internal.service.local',
+    '*.amazonaws.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="datacenter",
+    name="datacenter-with-bypass",
+    config={
+        "country": "US",
+    },
+    bypass_hosts=[
+        "localhost",
+        "internal.service.local",
+        "*.amazonaws.com",
+    ]
+)
+```
+</CodeGroup>
+
+Bypass hosts support exact hostnames and wildcard subdomains (`*.example.com`). See the [overview](/proxies/overview#bypass-hosts) for full details.
