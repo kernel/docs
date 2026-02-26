@@ -62,7 +62,62 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 - **`port`** (required) - Proxy server port (1-65535)
 - **`username`** - Username for proxy authentication
 - **`password`** - Password for proxy authentication (minimum 5 characters)
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
 <Info>
 When creating a proxy with authentication, provide the password. The API response will only indicate if a password exists (`has_password: true`) but won't return the actual password for security reasons.
 </Info>
+
+## Bypass hosts
+
+Configure specific hostnames to bypass your custom proxy:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'custom',
+  name: 'custom-with-bypass',
+  protocol: 'https',
+  config: {
+    host: 'proxy.example.com',
+    port: 443,
+    username: 'user123',
+    password: 'secure_password',
+  },
+  bypass_hosts: [
+    'localhost',
+    'internal.service.local',
+    '*.trusted-domain.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="custom",
+    name="custom-with-bypass",
+    protocol="https",
+    config={
+        "host": "proxy.example.com",
+        "port": 443,
+        "username": "user123",
+        "password": "secure_password",
+    },
+    bypass_hosts=[
+        "localhost",
+        "internal.service.local",
+        "*.trusted-domain.com",
+    ]
+)
+```
+</CodeGroup>
+
+This is useful for accessing internal services or metadata endpoints without routing through your proxy. See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules.
