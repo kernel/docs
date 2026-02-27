@@ -21,16 +21,8 @@ Playwright performs downloads via the browser itself, so there are a few steps:
 - Perform the download
 - Retrieve the file from the browser's filesystem
 
-<Note>
-  With `behavior: 'default'`, downloads are saved to the browser's default download directory. The CDP `downloadProgress` event includes a `filePath` field when the download completes, which tells you exactly where the file was saved. Use this path with Kernel's File I/O APIs to retrieve the file.
-</Note>
-
 <Info>
-  The CDP `downloadProgress` event signals when the browser finishes writing a
-  file, but there may be a brief delay before the file becomes available through
-  Kernel's File I/O APIs. This is especially true for larger downloads. We
-  recommend polling `listFiles` to confirm the file exists before attempting to
-  read it.
+  With `behavior: 'default'`, downloads are saved to the browser's default download directory. The CDP `downloadProgress` event includes a `filePath` field when the download completes, which tells you exactly where the file was saved. Use this path with Kernel's File I/O APIs to retrieve the file.
 </Info>
 
 <CodeGroup>
@@ -243,8 +235,6 @@ if __name__ == "__main__":
 
 </CodeGroup>
 
-<Info>We recommend using the [list files](/api-reference/browsers/list-files-in-a-directory) API to poll for file availability before calling [read file](/api-reference/browsers/read-file-contents), as shown in the examples above. This approach ensures reliable downloads, especially for larger files. You can also use `listFiles` to enumerate and save all downloads at the end of a session.</Info>
-
 ### Stagehand v3
 
 When using Stagehand with Kernel browsers, you need to configure the download behavior in the `localBrowserLaunchOptions`:
@@ -359,7 +349,7 @@ main().catch((err) => {
 
 ### Browser Use
 
-Browser Use handles downloads automatically when configured properly. Documentation for Browser Use downloads coming soon.
+Browser Use handles downloads automatically when configured properly.
 
 ## Uploads
 
@@ -451,3 +441,6 @@ if __name__ == '__main__':
 ````
 
 </CodeGroup>
+
+## Considerations
+- The CDP `downloadProgress` event signals when the browser finishes writing a file, but there may be a brief delay before the file becomes available through Kernel's File I/O APIs. This is especially true for larger downloads. We recommend polling `listFiles` to confirm the file exists before attempting to read it.

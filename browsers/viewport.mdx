@@ -27,6 +27,10 @@ default_viewport = kernel.browsers.create()
 
 You can configure the viewport when creating a browser by specifying the `viewport` parameter with `width` and `height`. The `refresh_rate` is optional and will be automatically determined from the dimensions if they match a supported configuration:
 
+<Info>
+    Setting a custom viewport configuration triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/scaling/pools) to access browsers with custom viewport configurations faster.
+</Info>
+
 <CodeGroup>
 
 ```typescript Typescript/Javascript
@@ -77,9 +81,9 @@ kernel_browser_auto = kernel.browsers.create(
 
 </CodeGroup>
 
-<Note>
+<Info>
 The `refresh_rate` parameter only applies to live view sessions and is ignored for [headless](/browsers/headless) browsers.
-</Note>
+</Info>
 
 ## Supported viewport configurations
 
@@ -101,10 +105,6 @@ When specifying a viewport:
 - **Width** and **Height** are required
 - **Viewport configurations** outside of the supported list are available, but they are provided on a "use at your own risk" basis and may not work as expected.
 - **Refresh Rate** is optional - if omitted, it will be automatically determined from the width and height combination
-
-<Warning>
-Higher resolutions may affect the responsiveness of [live view](/browsers/live-view) browser sessions.
-</Warning>
 
 ## Example configurations
 
@@ -202,7 +202,7 @@ wuxga = kernel.browsers.create(
 
 </CodeGroup>
 
-## Changing viewport after browser creation
+## Dynamically changing the viewport
 
 You can change the viewport of a browser after it has been created using the [update browser endpoint](/api-reference/browsers/update-browser-session).
 
@@ -232,7 +232,7 @@ await kernel.browsers.update(kernel_browser.session_id, viewport={"width": 1024,
 <Warning>
 There are important limitations when changing the viewport:
 - **Headful browsers**: You cannot resize the viewport while [live view](/browsers/live-view) is active or while a [replay](/browsers/replays) is actively recording.
-- **Headless browsers**: Changing the viewport triggers a Chromium restart, which may disrupt active CDP connections.
+- **Headless browsers**: Changing the viewport triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
 </Warning>
 
 ## Considerations
@@ -241,4 +241,3 @@ There are important limitations when changing the viewport:
 - Higher resolutions (like 2560x1440) may impact the performance and responsiveness of live view sessions
 - The viewport size affects how websites render, especially those with responsive designs
 - Screenshots taken from the browser will match the configured viewport dimensions
-- In [headless mode](/browsers/headless), the viewport width and height still apply for rendering and screenshots, but the `refresh_rate` parameter is ignored

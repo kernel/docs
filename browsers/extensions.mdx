@@ -46,7 +46,12 @@ This name must be unique within your organization.
 
 ## Using extensions in a browser
 
-Passing the extension name or ID to the `create` method will load it into the browser:
+Passing the extension name or ID to the `create` method will load it into the browser.
+
+<Info>
+    Loading an extension into a browser triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/scaling/pools) to access browsers with extensions faster.
+</Info>
+
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -94,9 +99,9 @@ If you have a browser running and would like to load an extension into it after 
 kernel browsers extensions upload <session_id> ./my-extension
 ```
 
-<Info>
-Note that this will restart the browser process and break any connections to the browser CDP URL.
-</Info>
+<Warning>
+Loading an extension triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
+</Warning>
 
 ## Extensions requiring enterprise policies
 
