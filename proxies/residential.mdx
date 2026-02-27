@@ -51,6 +51,7 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 - **`city`** - City name (lowercase, no spaces, e.g., `sanfrancisco`, `newyork`).
 - **`zip`** - US ZIP code (5 digits). Conflicts with city and state.
 - **`asn`** - Autonomous System Number. Conflicts with city and state.
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
 ## Advanced Targeting Examples
 
@@ -159,3 +160,41 @@ proxy = kernel.proxies.create(
 <Note>
 If the ASN is not matched, the API will return the most-available 10 examples.
 </Note>
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy and connect directly:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'residential-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'metadata.google.internal',
+    '*.internal.company.com',
+  ],
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='residential-with-bypass',
+    config={
+        'country': 'US',
+    },
+    bypass_hosts=[
+        'localhost',
+        'metadata.google.internal',
+        '*.internal.company.com',
+    ]
+)
+```
+</CodeGroup>
+
+See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules and examples.
