@@ -21,6 +21,10 @@ const pool = await kernel.browserPools.create({
   stealth: true,
   headless: false,
   timeout_seconds: 600,
+  viewport: {
+    width: 1280,
+    height: 800
+  }
 });
 
 console.log(pool.id);
@@ -37,6 +41,10 @@ pool = kernel.browser_pools.create(
     stealth=True,
     headless=False,
     timeout_seconds=600,
+    viewport={
+        "width": 1280,
+        "height": 800
+    }
 )
 
 print(pool.id)
@@ -45,7 +53,7 @@ print(pool.id)
 
 ### Pool configuration options
 
-Pools can be pre-configured with options like custom extensions, stealth mode, residential proxies, profiles, and more. See the [API reference](/api-reference/browser-pools/create-a-browser-pool) for more details.
+Pools can be pre-configured with options like custom extensions, supported viewports, residential proxies, profiles, and more. See the [API reference](/api-reference/browser-pools/create-a-browser-pool) for more details.
 
 ## Acquire a browser
 
