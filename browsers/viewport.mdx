@@ -231,9 +231,32 @@ await kernel.browsers.update(kernel_browser.session_id, viewport={"width": 1024,
 
 <Warning>
 There are important limitations when changing the viewport:
-- **Headful browsers**: You cannot resize the viewport while [live view](/browsers/live-view) is active or while a [replay](/browsers/replays) is actively recording.
+- **Headful browsers**: You can't resize the viewport while [live view](/browsers/live-view) is active or while a [replay](/browsers/replays) is actively recording unless you set the `force` flag to `true`.
 - **Headless browsers**: Changing the viewport triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
 </Warning>
+
+### Force resizing during recording
+
+If you need to resize the viewport while a replay is actively recording, set `force` to `true` in the update request. This stops the current recording, resizes the viewport, and restarts the recording — resulting in multiple replay segments for the session.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(kernelBrowser.session_id, {
+  viewport: {
+    width: 1024,
+    height: 768,
+    force: true
+  }
+});
+```
+
+```python Python
+await kernel.browsers.update(
+    kernel_browser.session_id,
+    viewport={"width": 1024, "height": 768, "force": True}
+)
+```
+</CodeGroup>
 
 ## Considerations
 
