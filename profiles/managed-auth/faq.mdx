@@ -20,7 +20,7 @@ Health checks run on regular cadences based on your plan:
 
 ## How do I trigger re-authentication before a health check runs?
 
-If you can't wait for the next scheduled health check, you can trigger re-authentication immediately by calling `login` with the connection id. Calling `login` on a connection that's already authenticated returns immediately without re-triggering the auth flow, so it's safe to call before every use:
+Call `login` with the connection id. If the connection is already authenticated, `login` returns immediately. If it needs re-authentication and has a linked [credential](/profiles/credentials) with `can_reauth` set to `true`, Kernel re-authenticates automatically.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -32,7 +32,7 @@ await kernel.auth.connections.login(auth.id)
 ```
 </CodeGroup>
 
-If the connection has a linked [credential](/profiles/credentials) with `can_reauth` set to `true`, the re-authentication happens automatically. Otherwise, you'll need to handle the login flow via the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
+If the login flow requires human input, handle it via the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
