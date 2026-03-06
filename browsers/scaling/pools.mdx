@@ -213,7 +213,53 @@ kernel.browser_pools.delete("my-pool", force=True)
 
 ## Full example
 
-This example assumes you've already created a pool named "my-pool". In practice, you'd create pools once (via the SDK, CLI, or dashboard) and then acquire from them repeatedly.
+This example creates a pool with a capacity of 50 browsers and a fill rate of 20 browsers per minute.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const pool = await kernel.browserPools.create({
+  name: "scraping-pool",
+  size: 50,
+  fill_rate_per_minute: 20,
+  stealth: true,
+  headless: true,
+  timeout_seconds: 300,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+pool = kernel.browser_pools.create(
+    name="scraping-pool",
+    size=50,
+    fill_rate_per_minute=20,
+    stealth=True,
+    headless=True,
+    timeout_seconds=300,
+)
+```
+</CodeGroup>
+
+### Understanding fill rate
+
+The `fill_rate_per_minute` controls how quickly the pool creates new browsers. With a capacity of 50 and a fill rate of 20:
+
+- **Initial fill**: The pool takes approximately 2.5 minutes to reach full capacity (50 browsers ÷ 20 per minute)
+- **After releasing with `reuse: false`**: If you acquire and release all 50 browsers with `reuse: false`, each browser is destroyed and a fresh one is created at the fill rate. Replenishing all 50 browsers takes approximately 2.5 minutes.
+- **After releasing with `reuse: true`**: The browser is immediately returned to the pool and available for the next `acquire` call—no wait time.
+
+<Tip>
+Use `reuse: true` (the default) when browser state doesn't matter for your next task. Use `reuse: false` when you need a clean browser with no cookies, cache, or history from prior sessions.
+</Tip>
+
+The example below assumes you've already created the pool. In practice, you'd create pools once (via the SDK, CLI, or dashboard) and then acquire from them repeatedly.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
