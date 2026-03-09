@@ -6,101 +6,118 @@ title: "Vibium"
 
 ## Adding Kernel to existing Vibium implementations
 
-If you already have a Vibium implementation, you can switch to using Kernel's cloud browsers by connecting to Kernel's CDP endpoint with authentication.
+If you already have a Vibium implementation, you can switch to using Kernel's cloud browsers by creating a Kernel browser session and connecting Vibium to the returned `webdriver_ws_url`.
 
-### 1. Install the Kernel SDK
+<Info>
+Kernel returns an authenticated `webdriver_ws_url` for each browser session, so you can pass that URL directly to Vibium. You do not need to add custom authorization headers or set extra Vibium auth environment variables for the examples below.
+</Info>
 
-<CodeGroup>
-```bash npm
-npm install @onkernel/sdk
-```
-
-```bash pip
-pip install kernel
-```
-</CodeGroup>
-
-### 2. Install Vibium
+### 1. Install Kernel and Vibium
 
 <CodeGroup>
 ```bash npm
-npm install vibium
+npm install @onkernel/sdk vibium
 ```
 
 ```bash pip
-pip install vibium
+pip install kernel vibium
+```
+
+```bash CLI
+# Install Vibium for the CLI and MCP examples
+npm install -g vibium
 ```
 </CodeGroup>
 
-### 3. Initialize Kernel and create a browser
+### 2. Create a Kernel browser
 
 <CodeGroup>
+```bash CLI
+browser_json="$(kernel browsers create -o json)"
+session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
+webdriver_ws_url="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
+```
+
 ```typescript TypeScript
-import Kernel from "@onkernel/sdk";
-import { browser } from "vibium";
+import { Kernel } from "@onkernel/sdk";
+import { browser } from "vibium/sync";
 
 const kernel = new Kernel();
-
-const kernelBrowser = await kernel.browsers.create({ stealth: true });
+const kernelBrowser = await kernel.browsers.create();
 
 console.log("Live view url: ", kernelBrowser.browser_live_view_url);
+console.log("WebDriver URL: ", kernelBrowser.webdriver_ws_url);
 ```
 
 ```python Python
-from onkernel import Kernel
+from kernel import Kernel
 from vibium.sync_api import browser
 
 kernel = Kernel()
-
-kernel_browser = kernel.browsers.create(stealth=True)
+kernel_browser = kernel.browsers.create()
 
 print("Live view url: ", kernel_browser.browser_live_view_url)
+print("WebDriver URL: ", kernel_browser.webdriver_ws_url)
 ```
 </CodeGroup>
 
-### 4. Connect Vibium to your Kernel browser
-
-Connect Vibium to Kernel's BiDi WebSocket endpoint with authentication:
+### 3. Connect Vibium to your Kernel browser
 
 <CodeGroup>
-```typescript TypeScript
-const bro = await browser.start(kernelBrowser.cdp_ws_url, {
-  headers: { Authorization: `Bearer ${process.env.KERNEL_API_KEY}` },
-});
+```bash CLI
+export VIBIUM_CONNECT_URL="$webdriver_ws_url"
+```
 
-const vibe = await bro.page();
+```typescript TypeScript
+const bro = browser.start(kernelBrowser.webdriver_ws_url);
+const page = bro.page();
 ```
 
 ```python Python
-bro = browser.start(kernel_browser.cdp_ws_url, headers={
-    "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
-})
-
-vibe = bro.page()
+bro = browser.start(kernel_browser.webdriver_ws_url)
+page = bro.page()
 ```
 </CodeGroup>
 
-### 5. Use your Vibium automation
+### 4. Use your Vibium automation
 
 Use Vibium's page methods with the Kernel-powered browser:
 
 <CodeGroup>
-```typescript TypeScript
-await vibe.go("https://kernel.sh");
-console.log(await vibe.title());
-console.log(await vibe.find("h1").text());
+```bash CLI
+vibium go https://example.com
+vibium title        # "Example Domain"
+vibium text h1      # "Example Domain"
+```
 
-// Clean up
-await bro.stop();
+```typescript TypeScript
+page.go("https://example.com");
+console.log(page.title());
+console.log(page.find("h1").text());
+```
+
+```python Python
+page.go("https://example.com")
+print(page.title())
+print(page.find("h1").text())
+```
+</CodeGroup>
+
+### 5. Clean up
+
+When you're done, close Vibium and delete the Kernel browser session:
+
+<CodeGroup>
+```bash CLI
+kernel browsers delete "$session_id"
+```
+
+```typescript TypeScript
+bro.stop();
 await kernel.browsers.deleteByID(kernelBrowser.session_id);
 ```
 
 ```python Python
-vibe.go("https://kernel.sh")
-print(vibe.title())
-print(vibe.find("h1").text())
-
-# Clean up
 bro.stop()
 kernel.browsers.delete_by_id(kernel_browser.session_id)
 ```
@@ -108,25 +125,26 @@ kernel.browsers.delete_by_id(kernel_browser.session_id)
 
 ## Using Vibium CLI with Kernel
 
-You can also use Vibium's CLI with Kernel by setting environment variables:
+The CLI uses the same `VIBIUM_CONNECT_URL` environment variable:
 
 ```bash
-export VIBIUM_CONNECT_URL=<your-kernel-cdp-ws-url>
-export VIBIUM_CONNECT_API_KEY=<your-kernel-api-key>
+browser_json="$(kernel browsers create -o json)"
+session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
+export VIBIUM_CONNECT_URL="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
 
 vibium go https://example.com
 vibium title        # "Example Domain"
 vibium text h1      # "Example Domain"
+
+kernel browsers delete "$session_id"
 ```
 
 ## Using Vibium MCP server with Kernel
 
-The MCP server reads the same environment variables, so AI agents can use a Kernel-powered browser:
+The MCP server reads the same environment variable, so AI agents can use a Kernel-powered browser:
 
 ```bash
-VIBIUM_CONNECT_URL=<your-kernel-cdp-ws-url> \
-VIBIUM_CONNECT_API_KEY=<your-kernel-api-key> \
-vibium mcp
+VIBIUM_CONNECT_URL=<your-kernel-webdriver-ws-url> vibium mcp
 ```
 
 Or in your Claude Desktop / Claude Code config:
@@ -138,8 +156,7 @@ Or in your Claude Desktop / Claude Code config:
       "command": "vibium",
       "args": ["mcp"],
       "env": {
-        "VIBIUM_CONNECT_URL": "<your-kernel-cdp-ws-url>",
-        "VIBIUM_CONNECT_API_KEY": "<your-kernel-api-key>"
+        "VIBIUM_CONNECT_URL": "<your-kernel-webdriver-ws-url>"
       }
     }
   }
