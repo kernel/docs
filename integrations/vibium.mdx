@@ -2,7 +2,7 @@
 title: "Vibium"
 ---
 
-[Vibium](https://github.com/VibiumDev/vibium) is a browser automation library that provides a simple, consistent API for controlling Chrome across CLI, JavaScript, and Python. By integrating with Kernel, you can run Vibium automations with cloud-hosted browsers.
+[Vibium](https://github.com/VibiumDev/vibium) is a brand-new browser automation framework for AI agents that is built on WebDriver BiDi. With their [latest release](https://github.com/VibiumDev/vibium/releases/tag/v26.3.9), any agent can now use Vibium to connect to Kernel and navigate pages, fill forms, click buttons, and take screenshots across 1 or 10,000 cloud browsers running in parallel. We're really excited to keep working with Jason Huggins and to keep supporting open web standards.
 
 ## Adding Kernel to existing Vibium implementations
 
@@ -68,7 +68,7 @@ const bro = await browser.start(kernelBrowser.cdp_ws_url, {
   headers: { Authorization: `Bearer ${process.env.KERNEL_API_KEY}` },
 });
 
-const page = await bro.page();
+const vibe = await bro.page();
 ```
 
 ```python Python
@@ -76,7 +76,7 @@ bro = browser.start(kernel_browser.cdp_ws_url, headers={
     "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
 })
 
-page = bro.page()
+vibe = bro.page()
 ```
 </CodeGroup>
 
@@ -86,9 +86,9 @@ Use Vibium's page methods with the Kernel-powered browser:
 
 <CodeGroup>
 ```typescript TypeScript
-await page.go("https://onkernel.com");
-console.log(await page.title());
-console.log(await page.find("h1").text());
+await vibe.go("https://kernel.sh");
+console.log(await vibe.title());
+console.log(await vibe.find("h1").text());
 
 // Clean up
 await bro.stop();
@@ -96,9 +96,9 @@ await kernel.browsers.deleteByID(kernelBrowser.session_id);
 ```
 
 ```python Python
-page.go("https://onkernel.com")
-print(page.title())
-print(page.find("h1").text())
+vibe.go("https://kernel.sh")
+print(vibe.title())
+print(vibe.find("h1").text())
 
 # Clean up
 bro.stop()
