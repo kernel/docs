@@ -1,0 +1,162 @@
+---
+title: "Vibium"
+---
+
+[Vibium](https://github.com/VibiumDev/vibium) is a browser automation library that provides a simple, consistent API for controlling Chrome across CLI, JavaScript, and Python. By integrating with Kernel, you can run Vibium automations with cloud-hosted browsers.
+
+## Adding Kernel to existing Vibium implementations
+
+If you already have a Vibium implementation, you can switch to using Kernel's cloud browsers by connecting to Kernel's CDP endpoint with authentication.
+
+### 1. Install the Kernel SDK
+
+<CodeGroup>
+```bash npm
+npm install @onkernel/sdk
+```
+
+```bash pip
+pip install onkernel
+```
+</CodeGroup>
+
+### 2. Install Vibium
+
+<CodeGroup>
+```bash npm
+npm install vibium
+```
+
+```bash pip
+pip install vibium
+```
+</CodeGroup>
+
+### 3. Initialize Kernel and create a browser
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+import { browser } from "vibium";
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({ stealth: true });
+
+console.log("Live view url: ", kernelBrowser.browser_live_view_url);
+```
+
+```python Python
+from onkernel import Kernel
+from vibium.sync_api import browser
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(stealth=True)
+
+print("Live view url: ", kernel_browser.browser_live_view_url)
+```
+</CodeGroup>
+
+### 4. Connect Vibium to your Kernel browser
+
+Connect Vibium to Kernel's BiDi WebSocket endpoint with authentication:
+
+<CodeGroup>
+```typescript TypeScript
+const bro = await browser.start(kernelBrowser.cdp_ws_url, {
+  headers: { Authorization: `Bearer ${process.env.KERNEL_API_KEY}` },
+});
+
+const page = await bro.page();
+```
+
+```python Python
+bro = browser.start(kernel_browser.cdp_ws_url, headers={
+    "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
+})
+
+page = bro.page()
+```
+</CodeGroup>
+
+### 5. Use your Vibium automation
+
+Use Vibium's page methods with the Kernel-powered browser:
+
+<CodeGroup>
+```typescript TypeScript
+await page.go("https://onkernel.com");
+console.log(await page.title());
+console.log(await page.find("h1").text());
+
+// Clean up
+await bro.stop();
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+page.go("https://onkernel.com")
+print(page.title())
+print(page.find("h1").text())
+
+# Clean up
+bro.stop()
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
+## Using Vibium CLI with Kernel
+
+You can also use Vibium's CLI with Kernel by setting environment variables:
+
+```bash
+export VIBIUM_CONNECT_URL=<your-kernel-cdp-ws-url>
+export VIBIUM_CONNECT_API_KEY=<your-kernel-api-key>
+
+vibium go https://example.com
+vibium title        # "Example Domain"
+vibium text h1      # "Example Domain"
+```
+
+## Using Vibium MCP server with Kernel
+
+The MCP server reads the same environment variables, so AI agents can use a Kernel-powered browser:
+
+```bash
+VIBIUM_CONNECT_URL=<your-kernel-cdp-ws-url> \
+VIBIUM_CONNECT_API_KEY=<your-kernel-api-key> \
+vibium mcp
+```
+
+Or in your Claude Desktop / Claude Code config:
+
+```json
+{
+  "mcpServers": {
+    "vibium": {
+      "command": "vibium",
+      "args": ["mcp"],
+      "env": {
+        "VIBIUM_CONNECT_URL": "<your-kernel-cdp-ws-url>",
+        "VIBIUM_CONNECT_API_KEY": "<your-kernel-api-key>"
+      }
+    }
+  }
+}
+```
+
+## Benefits of using Kernel with Vibium
+
+- **No local browser management**: Run automations without installing or maintaining browsers locally
+- **Scalability**: Launch multiple browser sessions in parallel
+- **Stealth mode**: Built-in anti-detection features for web scraping
+- **Session state**: Maintain browser state across runs via [Profiles](/profiles/overview)
+- **Live view**: Debug your automations with real-time browser viewing
+
+## Next steps
+
+- Check out [live view](/browsers/live-view) for debugging your automations
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
+- Learn how to properly [terminate browser sessions](/browsers/termination)
+- Learn how to [deploy](/apps/deploy) your Vibium app to Kernel
