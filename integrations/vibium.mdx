@@ -2,30 +2,25 @@
 title: "Vibium"
 ---
 
-[Vibium](https://github.com/VibiumDev/vibium) is a brand-new browser automation framework for AI agents that is built on WebDriver BiDi, a W3C standard. With their [latest release](https://github.com/VibiumDev/vibium/releases/tag/v26.3.9), any agent can now use Vibium to connect to Kernel and navigate pages, fill forms, click buttons, and take screenshots across 1 or 10,000 cloud browsers running in parallel. We're really excited to keep working with Jason Huggins and to keep supporting open web standards.
+[Vibium](https://github.com/VibiumDev/vibium) is a brand-new browser automation framework for AI agents that is built on WebDriver BiDi, a W3C standard. As of [v26.3.9](https://github.com/VibiumDev/vibium/releases/tag/v26.3.9), any agent can now use Vibium to connect to Kernel cloud browsers to navigate pages, fill forms, click buttons, and take screenshots. We're really excited to keep working with Jason Huggins and to keep supporting open web standards.
 
 ## Adding Kernel to existing Vibium implementations
 
 If you already have a Vibium implementation, you can switch to using Kernel's cloud browsers by creating a Kernel browser session and connecting Vibium to the returned `webdriver_ws_url`.
 
-<Info>
-Kernel returns an authenticated `webdriver_ws_url` for each browser session, so you can pass that URL directly to Vibium. You do not need to add custom authorization headers or set extra Vibium auth environment variables for the examples below.
-</Info>
-
 ### 1. Install Kernel and Vibium
 
 <CodeGroup>
-```bash npm
+```bash CLI
+npm install -g @onkernel/cli vibium
+```
+
+```bash TypeScript
 npm install @onkernel/sdk vibium
 ```
 
-```bash pip
+```bash Python
 pip install kernel vibium
-```
-
-```bash CLI
-# Install Vibium for the CLI and MCP examples
-npm install -g vibium
 ```
 </CodeGroup>
 
