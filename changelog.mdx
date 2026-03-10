@@ -33,7 +33,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 - Added mouse position tracking to the [CLI](https://github.com/kernel/cli), enabling retrieval of current mouse coordinates.
 - Updated Yutori computer use [templates](https://github.com/kernel/cli/tree/main/pkg/templates) to support the n1-latest model for improved agent performance.
-- Updated [Managed Auth](/profiles/managed-auth/overview) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
+- Updated [Managed Auth](/auth/overview) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
 - Improved browser display by auto-toggling Chromium app mode on small viewports for a cleaner, more immersive experience.
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
@@ -45,7 +45,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 <YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
 - Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
-- Released [Managed Auth](/profiles/managed-auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
+- Released [Managed Auth](/auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
 - Added a `POST /computer/batch` [endpoint](/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
 - Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
 - Improved input reliability with context-aware timing in key press and mouse drag operations.
@@ -53,7 +53,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 - Clarified [pricing](/info/pricing) for headful browser sessions.
-- Added comprehensive [Managed Auth](/profiles/managed-auth/overview) documentation, including billing guidance.
+- Added comprehensive [Managed Auth](/auth/overview) documentation, including billing guidance.
 </Update>
 
 <Update label="February 6" tags={["Product", "Docs"]}>
@@ -78,14 +78,14 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - We released [skills](https://skills.sh/?q=kernel/skills) for Kernel, so you can easily build browser agents directly from Claude Code.
 
 ## Documentation updates
-- We published a [Scaling in Production guide](/browsers/scaling/overview) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
+- We published a [Scaling in Production guide](/browsers/pools/scaling) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
 - Added a new [integration guide](https://www.kernel.sh/docs/integrations/agent-browser) for [Agent Browser](https://github.com/vercel-labs/agent-browser), Vercel's headless browser automation CLI, which has built-in support for Kernel browsers.
 </Update>
 
 <Update label="January 23" tags={["Product"]}>
 ## Product updates
 <YouTubeVideo videoId="JICMuiC7H4M" title="Introducing Browser Pools" />
-- [Browser pools](/browsers/pools) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
+- [Browser pools](/browsers/pools/overview) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
 - We improved the Browsers page user experience. Enjoy instant clickability of browser cards, shift+click range selection, preserved view state when switching between grid and list views, a live toggle for auto-refresh, keyboard shortcut support (Cmd+B / Ctrl+B to toggle sidebar), and more.
 - We added support for viewing [replays](/browsers/replays) of deleted browser sessions. Deleted browsers now navigate to their detail page, which shows the replay player with multiple replays displayed as tabs. The API now supports fetching deleted browser details using new query parameters.
 - Overhauled our [Anthropic Computer Use template](https://github.com/onkernel/cli/tree/main/pkg/templates/typescript/anthropic-computer-use) to use Kernel's [Computer Controls](/browsers/computer-controls) API instead of Playwright, improving reliability and performance.
@@ -126,7 +126,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="December 12" tags={["Product", "Docs"]}>
 ## Product updates
 - Refreshed our [Vercel template](https://kernel-nextjs-template.vercel.app/) with an enhanced UI and AI agent example
-- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/browsers/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
+- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/auth/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
 - Unified browser creation tools by porting [Create Kernel App](/reference/cli/create) functionality into the Kernel CLI
 - Improved replay videos to include full video length metadata, enabling timestamp navigation and deep linking
 
