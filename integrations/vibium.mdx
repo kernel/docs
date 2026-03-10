@@ -35,7 +35,7 @@ webdriver_ws_url="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
 
 ```typescript TypeScript
 import { Kernel } from "@onkernel/sdk";
-import { browser } from "vibium/sync";
+import { browser } from "vibium";
 
 const kernel = new Kernel();
 const kernelBrowser = await kernel.browsers.create();
@@ -64,8 +64,8 @@ export VIBIUM_CONNECT_URL="$webdriver_ws_url"
 ```
 
 ```typescript TypeScript
-const bro = browser.start(kernelBrowser.webdriver_ws_url);
-const page = bro.page();
+const bro = await browser.start(kernelBrowser.webdriver_ws_url);
+const page = await bro.page();
 ```
 
 ```python Python
@@ -86,9 +86,9 @@ vibium text h1      # "Example Domain"
 ```
 
 ```typescript TypeScript
-page.go("https://example.com");
-console.log(page.title());
-console.log(page.find("h1").text());
+await page.go("https://example.com");
+console.log(await page.title());
+console.log(await page.find("h1").text());
 ```
 
 ```python Python
@@ -108,7 +108,7 @@ kernel browsers delete "$session_id"
 ```
 
 ```typescript TypeScript
-bro.stop();
+await bro.stop();
 await kernel.browsers.deleteByID(kernelBrowser.session_id);
 ```
 
