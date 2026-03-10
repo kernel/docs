@@ -1,0 +1,174 @@
+---
+title: "Vibium"
+---
+
+[Vibium](https://github.com/VibiumDev/vibium) is a brand-new browser automation framework for AI agents that is built on WebDriver BiDi, a W3C standard. As of [v26.3.9](https://github.com/VibiumDev/vibium/releases/tag/v26.3.9), any agent can now use Vibium to connect to Kernel cloud browsers to navigate pages, fill forms, click buttons, and take screenshots. We're really excited to keep working with Jason Huggins and to keep supporting open web standards.
+
+## Adding Kernel to existing Vibium implementations
+
+If you already have a Vibium implementation, you can switch to using Kernel's cloud browsers by creating a Kernel browser session and connecting Vibium to the returned `webdriver_ws_url`.
+
+### 1. Install Kernel and Vibium
+
+<CodeGroup>
+```bash CLI
+npm install -g @onkernel/cli vibium
+```
+
+```bash TypeScript
+npm install @onkernel/sdk vibium
+```
+
+```bash Python
+pip install kernel vibium
+```
+</CodeGroup>
+
+### 2. Create a Kernel browser
+
+<CodeGroup>
+```bash CLI
+browser_json="$(kernel browsers create -o json)"
+session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
+webdriver_ws_url="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
+```
+
+```typescript TypeScript
+import { Kernel } from "@onkernel/sdk";
+import { browser } from "vibium";
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create();
+
+console.log("Live view url: ", kernelBrowser.browser_live_view_url);
+console.log("WebDriver URL: ", kernelBrowser.webdriver_ws_url);
+```
+
+```python Python
+from kernel import Kernel
+from vibium.sync_api import browser
+
+kernel = Kernel()
+kernel_browser = kernel.browsers.create()
+
+print("Live view url: ", kernel_browser.browser_live_view_url)
+print("WebDriver URL: ", kernel_browser.webdriver_ws_url)
+```
+</CodeGroup>
+
+### 3. Connect Vibium to your Kernel browser
+
+<CodeGroup>
+```bash CLI
+export VIBIUM_CONNECT_URL="$webdriver_ws_url"
+```
+
+```typescript TypeScript
+const bro = await browser.start(kernelBrowser.webdriver_ws_url);
+const page = await bro.page();
+```
+
+```python Python
+bro = browser.start(kernel_browser.webdriver_ws_url)
+page = bro.page()
+```
+</CodeGroup>
+
+### 4. Use your Vibium automation
+
+Use Vibium's page methods with the Kernel-powered browser:
+
+<CodeGroup>
+```bash CLI
+vibium go https://example.com
+vibium title        # "Example Domain"
+vibium text h1      # "Example Domain"
+```
+
+```typescript TypeScript
+await page.go("https://example.com");
+console.log(await page.title());
+console.log(await page.find("h1").text());
+```
+
+```python Python
+page.go("https://example.com")
+print(page.title())
+print(page.find("h1").text())
+```
+</CodeGroup>
+
+### 5. Clean up
+
+When you're done, close Vibium and delete the Kernel browser session:
+
+<CodeGroup>
+```bash CLI
+kernel browsers delete "$session_id"
+```
+
+```typescript TypeScript
+await bro.stop();
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+bro.stop()
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
+## Using Vibium CLI with Kernel
+
+The CLI uses the same `VIBIUM_CONNECT_URL` environment variable:
+
+```bash
+browser_json="$(kernel browsers create -o json)"
+session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
+export VIBIUM_CONNECT_URL="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
+
+vibium go https://example.com
+vibium title        # "Example Domain"
+vibium text h1      # "Example Domain"
+
+kernel browsers delete "$session_id"
+```
+
+## Using Vibium MCP server with Kernel
+
+The MCP server reads the same environment variable, so AI agents can use a Kernel-powered browser:
+
+```bash
+VIBIUM_CONNECT_URL=<your-kernel-webdriver-ws-url> vibium mcp
+```
+
+Or in your Claude Desktop / Claude Code config:
+
+```json
+{
+  "mcpServers": {
+    "vibium": {
+      "command": "vibium",
+      "args": ["mcp"],
+      "env": {
+        "VIBIUM_CONNECT_URL": "<your-kernel-webdriver-ws-url>"
+      }
+    }
+  }
+}
+```
+
+## Benefits of using Kernel with Vibium
+
+- **No local browser management**: Run automations without installing or maintaining browsers locally
+- **Scalability**: Launch multiple browser sessions in parallel
+- **Stealth mode**: Built-in anti-detection features for web scraping
+- **Session state**: Maintain browser state across runs via [Profiles](/profiles/overview)
+- **Live view**: Debug your automations with real-time browser viewing
+
+## Next steps
+
+- Check out [live view](/browsers/live-view) for debugging your automations
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
+- Learn how to properly [terminate browser sessions](/browsers/termination)
+- Learn how to [deploy](/apps/deploy) your Vibium app to Kernel
