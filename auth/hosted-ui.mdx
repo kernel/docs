@@ -14,20 +14,20 @@ Use the Hosted UI when:
 
 ### 1. Create a Connection
 
-A Managed Auth Connection links a profile to a domain you want to keep authenticated.
+A Managed Auth Connection associates a [profile](/auth/profiles) to a domain you want to keep authenticated so you can use the auth connection future browsers.
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'linkedin.com',
-  profile_name: 'linkedin-profile',
+  profile_name: 'linkedin-profile', // Name of the profile to associate with the connection
 });
 ```
 
 ```python Python
 auth = await kernel.auth.connections.create(
     domain="linkedin.com",
-    profile_name="linkedin-profile",
+    profile_name="linkedin-profile",  # Name of the profile to associate with the connection
 )
 ```
 </CodeGroup>
