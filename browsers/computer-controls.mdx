@@ -3,30 +3,7 @@ title: "Computer Controls"
 description: "Control the computer's mouse, keyboard, and screen"
 ---
 
-Use OS-level controls to move and click the mouse, type and press keys, scroll, drag, and capture screenshots from a running browser session.
-
-<Tip>
-Smooth movement is enabled by default — every `moveMouse` and `dragMouse` call already uses [Bézier curves](https://en.wikipedia.org/wiki/B%C3%A9zier_curve). Run this script and open the [live view](/browsers/live-view) link to watch it in action:
-
-```python smooth_demo.py
-from kernel import Kernel
-import time, urllib.request
-
-k = Kernel()
-b = k.browsers.create()
-print(f"\n  Watch live: {b.live_view_url}\n")
-
-html = urllib.request.urlopen(
-    "https://gist.githubusercontent.com/ulziibay-kernel/f6d8063ba223a81293cfe1fde06d8624/raw/cursor-trail-demo.html"
-).read().decode()
-k.browsers.playwright.execute(id=b.session_id, code="await page.setContent(" + repr(html) + ");")
-input("Press Enter when live view is open...")
-
-for x, y in [(200, 200), (900, 150), (1700, 250), (1700, 700), (960, 800), (200, 750), (500, 480), (1400, 480)]:
-    k.browsers.computer.move_mouse(id=b.session_id, x=x, y=y, duration_ms=1200)
-    time.sleep(0.3)
-```
-</Tip>
+Use OS-level controls to move and click the mouse, type and press keys, scroll, drag, and capture screenshots from a running browser session. Both `moveMouse` and `dragMouse` use human-like [Bézier curves](https://en.wikipedia.org/wiki/B%C3%A9zier_curve) by default.
 
 ## Click the mouse
 
@@ -176,6 +153,28 @@ kernel browsers computer move-mouse <session id> --x 500 --y 300 --smooth=false
 <Frame caption="Blue = smooth Bezier path, Red = instant teleport">
   <img src="/images/smooth-mouse-demo.gif" />
 </Frame>
+
+Try it yourself — open [live view](/browsers/live-view) and paste this (requires CLI v0.15.4+ — run `kernel upgrade` to update):
+
+```bash
+ID=$(kernel browsers create -o json | jq -r '.session_id')
+echo "Open live view: https://dashboard.onkernel.com/browsers/$ID"
+HTML=$(curl -sL "https://gist.githubusercontent.com/ulziibay-kernel/f6d8063ba223a81293cfe1fde06d8624/raw/cursor-trail-demo.html")
+kernel browsers playwright execute $ID "await page.setContent($(echo "$HTML" | jq -Rs .))"
+sleep 3
+
+kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'instant'})))"
+for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
+  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --smooth=false
+  sleep 0.5
+done
+
+kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'smooth'})))"
+for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
+  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --duration-ms 1200
+  sleep 0.3
+done
+```
 
 ## Take screenshots
 
