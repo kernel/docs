@@ -371,6 +371,9 @@ if (state.flow_status === 'FAILED') {
     case 'captcha_blocked':
       // Try again with a proxy or stealth mode
       break;
+    case 'domain_not_allowed':
+      // Add the redirect domain to allowed_domains
+      break;
     case 'mfa_required':
       // MFA needed but not handled — use programmatic flow
       break;
@@ -391,6 +394,9 @@ if state.flow_status == "FAILED":
     elif state.error_code in ("bot_detected", "captcha_blocked"):
         # Try again with a proxy or stealth mode
         pass
+    elif state.error_code == "domain_not_allowed":
+        # Add the redirect domain to allowed_domains
+        pass
     elif state.error_code == "mfa_required":
         # MFA needed but not handled — use programmatic flow
         pass
@@ -402,22 +408,24 @@ if state.flow_status == "FAILED":
 
 ### Error code reference
 
-| Error Code | Description | Recoverable |
-|------------|-------------|-------------|
-| `credentials_invalid` | The credentials were rejected by the website | Yes — re-enter credentials |
-| `bot_detected` | The website detected automated access | Yes — try a proxy or different IP |
-| `captcha_blocked` | A CAPTCHA challenge couldn't be solved | Yes — try a proxy |
-| `login_form_not_found` | Couldn't find the login form on the page | Yes — set `login_url` on the connection |
-| `mfa_required` | MFA is required but wasn't provided | Yes — handle via programmatic flow |
-| `external_action_required` | An external action (push, security key) is needed | Yes — inform the user |
-| `session_expired` | The login session timed out | Yes — start a new session |
-| `stuck_in_loop` | The login flow got stuck in a redirect loop | Maybe — check `allowed_domains` |
-| `max_attempts_reached` | Too many login attempts | Maybe — wait and retry |
-| `navigation_confused` | Unexpected navigation during login | Maybe — set `login_url` |
-| `website_error` | The website returned a server error | Maybe — retry later |
-| `element_not_found` | A required form element wasn't found | Maybe — the site may have changed |
-| `browser_error` | Browser or connection error | Yes — retry |
-| `internal_error` | Internal Kernel error | Yes — retry |
+| Error Code | Description | Suggested Action |
+|------------|-------------|------------------|
+| `credentials_invalid` | The credentials were rejected by the website | Re-enter credentials |
+| `bot_detected` | The website detected automated access | Try with a [proxy](/proxies/overview) or different IP |
+| `captcha_blocked` | A CAPTCHA challenge blocked the login | Try with a proxy |
+| `login_form_not_found` | Couldn't find the login form on the page | Set `login_url` on the connection |
+| `navigation_confused` | Unexpected navigation during login | Set `login_url` on the connection |
+| `domain_not_allowed` | Login redirected to a domain not in `allowed_domains` | Update `allowed_domains` on the connection |
+| `stuck_in_loop` | The login flow repeated the same action | Check `allowed_domains` and `login_url` |
+| `max_attempts_reached` | Too many attempts without completing login | Verify credentials and retry |
+| `mfa_required` | MFA is required but wasn't provided | Handle MFA via [programmatic flow](#handling-different-input-types) |
+| `external_action_required` | An external action (push, SMS, security key) is needed | Prompt user to complete the action |
+| `element_not_found` | A required page element wasn't found | The site layout may have changed — retry |
+| `website_error` | The website returned an error page during login | Retry later |
+| `session_expired` | The login session timed out | Start a new login session |
+| `flow_failed` | The login flow failed for an unclassified reason | Retry or contact support |
+| `browser_error` | Browser or connection error | Retry |
+| `internal_error` | Internal Kernel error | Retry or contact support |
 
 ## Step Reference
 
