@@ -125,8 +125,42 @@ The most valuable workflows live behind logins. Managed Auth provides:
 - **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials, with [configurable health check intervals](#health-check-interval)
+- **Live view** - Watch the login flow in real-time via `live_view_url` for debugging and monitoring
+- **Proxy support** - Route auth flows through [proxies](/proxies/overview) for geo-restricted sites
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+
+## Health check interval
+
+By default, Kernel checks authentication status every hour and re-authenticates if needed. You can configure this interval per connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'netflix.com',
+  profile_name: 'netflix-user-123',
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="netflix.com",
+    profile_name="netflix-user-123",
+    health_check_interval=1800,  # 30 minutes
+)
+```
+</CodeGroup>
+
+The minimum interval depends on your plan:
+
+| Plan | Minimum | Default |
+|------|---------|---------|
+| Enterprise | 300s (5 min) | 3600s (1 hr) |
+| Startup | 1200s (20 min) | 3600s (1 hr) |
+| Hobbyist | 3600s (1 hr) | 3600s (1 hr) |
+
+Maximum is 86400 seconds (24 hours).
 
 ## Security
 

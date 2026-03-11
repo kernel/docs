@@ -13,10 +13,15 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+The default interval is 1 hour. You can configure it per connection with `health_check_interval` (in seconds). The minimum depends on your plan:
+
+| Plan | Minimum | Default |
+|------|---------|---------|
+| Enterprise | 300s (5 min) | 3600s (1 hr) |
+| Startup | 1200s (20 min) | 3600s (1 hr) |
+| Hobbyist | 3600s (1 hr) | 3600s (1 hr) |
+
+See [Health check interval](/profiles/managed-auth/overview#health-check-interval) for usage examples.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 

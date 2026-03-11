@@ -58,6 +58,18 @@ login = await kernel.auth.connections.login(auth.id)
 
 Credentials are saved automatically on successful login, enabling automatic re-authentication when the session expires.
 
+The response includes a `live_view_url` for watching the login flow in real-time:
+
+<CodeGroup>
+```typescript TypeScript
+console.log('Live view:', login.live_view_url);
+```
+
+```python Python
+print(f"Live view: {login.live_view_url}")
+```
+</CodeGroup>
+
 ### 3. Poll and Submit Credentials
 
 A single loop handles everything—initial login, 2FA, and completion:
@@ -254,7 +266,7 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and others) are [automatically allowed](/profiles/managed-auth/hosted-ui#ssooauth-support). For other providers, add their domains to `allowed_domains` on the connection.
 </Info>
 
 ### MFA Selection
