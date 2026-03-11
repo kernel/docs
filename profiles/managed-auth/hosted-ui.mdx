@@ -5,6 +5,8 @@ description: "The simplest way to create authenticated browser sessions"
 
 Collect credentials securely via Kernel's hosted page, then use the authenticated session in your automations. This is the recommended approach for most applications.
 
+Behind the scenes, Kernel uses CUA (Computer Use Agent) — an AI agent that visually interacts with the target website to perform the login. You can watch the login happen in real time via the `live_view_url` returned when starting a session.
+
 Use the Hosted UI when:
 - You need users to provide their credentials
 - You want the simplest integration with minimal code
@@ -34,15 +36,21 @@ auth = await kernel.auth.connections.create(
 
 ### 2. Start a Login Session
 
-Start a Managed Auth Session to get the hosted login URL.
+Start a Managed Auth Session to get the hosted login URL. The response also includes a `live_view_url` you can use to watch the CUA agent interact with the login page in real time.
 
 <CodeGroup>
 ```typescript TypeScript
 const login = await kernel.auth.connections.login(auth.id);
+
+console.log('Hosted URL:', login.hosted_url);
+console.log('Live view:', login.live_view_url);
 ```
 
 ```python Python
 login = await kernel.auth.connections.login(auth.id)
+
+print(f"Hosted URL: {login.hosted_url}")
+print(f"Live view: {login.live_view_url}")
 ```
 </CodeGroup>
 
@@ -238,16 +246,18 @@ auth = await kernel.auth.connections.create(
 
 ### SSO/OAuth Support
 
-Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
+Sites with "Sign in with Google/GitHub/Microsoft" are supported. CUA clicks the SSO button, completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO provider domains are automatically allowed, including Google (`accounts.google.com`), Microsoft (`login.microsoftonline.com`, `login.live.com`), Okta (`*.okta.com`), Auth0 (`*.auth0.com`), GitHub (`github.com`), Apple (`appleid.apple.com`), Facebook (`www.facebook.com`), LinkedIn (`www.linkedin.com`), OneLogin (`*.onelogin.com`), Ping Identity (`*.pingone.com`), and Amazon Cognito (`*.amazoncognito.com`).
+
+For other OAuth providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  allowed_domains: ['accounts.google.com', 'google.com'],
+  allowed_domains: ['auth.custom-provider.com'],
 });
 ```
 
@@ -255,10 +265,34 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    allowed_domains=["accounts.google.com", "google.com"],
+    allowed_domains=["auth.custom-provider.com"],
 )
 ```
 </CodeGroup>
+
+### Health check interval
+
+Configure how often Kernel checks if the session is still authenticated. The interval is set in seconds when creating the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,
+)
+```
+</CodeGroup>
+
+The minimum interval depends on your plan: Enterprise (300s), Startup (1200s), Hobbyist (3600s). Maximum is 86400s. Default is 3600s.
 
 ### Post-Login URL
 

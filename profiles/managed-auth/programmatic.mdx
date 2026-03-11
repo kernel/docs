@@ -3,7 +3,9 @@ title: "Programmatic Flow"
 description: "Build your own credential collection UI with full control"
 ---
 
-Build your own credential collection UI instead of using the hosted page. Poll for login fields, then submit credentials via the API.
+Build your own credential collection UI instead of using the hosted page. Poll for login fields discovered by CUA (Computer Use Agent), then submit credentials via the API.
+
+CUA is an AI agent that visually interacts with the target website's login page. It discovers form fields, detects SSO buttons, and identifies MFA prompts — you just need to supply the values. You can watch the agent work in real time via the `live_view_url`.
 
 Use the Programmatic flow when:
 - You need a custom credential collection UI that matches your app's design
@@ -49,10 +51,14 @@ auth = await kernel.auth.connections.create(
 <CodeGroup>
 ```typescript TypeScript
 const login = await kernel.auth.connections.login(auth.id);
+
+console.log('Live view:', login.live_view_url);
 ```
 
 ```python Python
 login = await kernel.auth.connections.login(auth.id)
+
+print(f"Live view: {login.live_view_url}")
 ```
 </CodeGroup>
 
@@ -222,17 +228,17 @@ The basic polling loop handles `discovered_fields`, but login pages can require 
 
 ### SSO Buttons
 
-When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`:
+When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`. Each button includes a `provider` name (e.g., `google`, `github`, `microsoft`) and a `label` with the visible button text.
+
+Submit the selected SSO button using `sso_button_selector`:
 
 <CodeGroup>
 ```typescript TypeScript
 if (state.pending_sso_buttons?.length) {
-  // Show the user available SSO options
   for (const btn of state.pending_sso_buttons) {
     console.log(`${btn.provider}: ${btn.label}`);
   }
-  
-  // Submit the selected SSO button
+
   await kernel.auth.connections.submit(auth.id, {
     sso_button_selector: state.pending_sso_buttons[0].selector
   });
@@ -241,11 +247,9 @@ if (state.pending_sso_buttons?.length) {
 
 ```python Python
 if state.pending_sso_buttons:
-    # Show the user available SSO options
     for btn in state.pending_sso_buttons:
         print(f"{btn['provider']}: {btn['label']}")
-    
-    # Submit the selected SSO button
+
     await kernel.auth.connections.submit(
         auth.id,
         sso_button_selector=state.pending_sso_buttons[0]["selector"],
@@ -254,7 +258,7 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, Apple, Facebook, LinkedIn, OneLogin, Ping Identity, Amazon Cognito) are automatically allowed. For other providers, set `allowed_domains` on the connection to include the OAuth provider's domain.
 </Info>
 
 ### MFA Selection
@@ -264,7 +268,7 @@ When the site offers multiple MFA methods, they appear in `mfa_options`:
 <CodeGroup>
 ```typescript TypeScript
 if (state.mfa_options?.length) {
-  // Available types: sms, email, totp, push, call, security_key
+  // Available types: sms, email, totp, push, call, password
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
   }
@@ -278,7 +282,7 @@ if (state.mfa_options?.length) {
 
 ```python Python
 if state.mfa_options:
-    # Available types: sms, email, totp, push, call, security_key
+    # Available types: sms, email, totp, push, call, password
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
     
@@ -317,6 +321,25 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
 ```
 </CodeGroup>
 
+### Website errors
+
+When the website itself shows an error (e.g., "Incorrect password"), CUA detects it and surfaces it in the `website_error` field:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log('Website error:', state.website_error);
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website error: {state.website_error}")
+```
+</CodeGroup>
+
+This is different from `error_message`, which reports Kernel-level errors. `website_error` reflects what the user would see on the actual login page.
+
 ## Step Reference
 
 The `flow_step` field indicates what the flow is waiting for:
@@ -324,7 +347,7 @@ The `flow_step` field indicates what the flow is waiting for:
 | Step | Description |
 |------|-------------|
 | `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, or MFA selection |
+| `AWAITING_INPUT` | Waiting for field values, SSO selection, or MFA selection |
 | `SUBMITTING` | Processing submitted values |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
 | `COMPLETED` | Flow has finished |
@@ -347,6 +370,32 @@ The `status` field indicates the overall connection state:
 |--------|-------------|
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
+
+## Error codes
+
+When a flow fails, the `error_code` field provides a machine-readable code:
+
+| Code | Description |
+|------|-------------|
+| `credentials_invalid` | The submitted credentials were rejected by the website |
+| `login_form_not_found` | CUA could not find a login form on the page |
+| `bot_detected` | The website detected and blocked the login attempt |
+| `captcha_blocked` | A CAPTCHA could not be solved |
+| `mfa_required` | MFA is required but no method was selected or available |
+| `external_action_required` | An external action (push notification, security key) is needed |
+| `session_expired` | The login session timed out |
+| `navigation_confused` | CUA could not determine the correct page to navigate to |
+| `stuck_in_loop` | The login flow entered a loop and could not progress |
+| `max_attempts_reached` | Too many failed attempts |
+| `element_not_found` | A required page element could not be found |
+| `website_error` | The website displayed an error (see `website_error` field) |
+| `browser_error` | The browser encountered an error |
+| `domain_not_allowed` | Redirected to a domain not in `allowed_domains` |
+| `no_active_flow` | No active login flow for this connection |
+| `flow_failed` | The login flow failed for an unspecified reason |
+| `internal_error` | An internal Kernel error occurred |
+
+The error response also includes a `recoverable` boolean indicating whether the error can be retried, and an optional `doc_url` linking to relevant documentation.
 
 ## Real-Time Updates with SSE
 

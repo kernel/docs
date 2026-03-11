@@ -2,9 +2,21 @@
 title: FAQ
 ---
 
+## How does CUA-powered login work?
+
+Managed Auth uses CUA (Computer Use Agent) — an AI agent that visually interacts with web pages to perform login flows. When you start a login session, CUA:
+
+1. Navigates to the website's login page
+2. Discovers form fields, SSO buttons, and MFA prompts
+3. Fills in credentials (from stored credentials or user input via the Hosted UI / Programmatic flow)
+4. Handles multi-step flows, redirects, and CAPTCHAs
+5. Confirms successful authentication
+
+Because CUA adapts to each website's layout in real time, it works across sites without site-specific configuration. You can watch the agent work via the `live_view_url` returned when starting a session.
+
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel monitors the login session and re-authenticates automatically when it expires. Periodic health checks detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without additional action on your part.
+When you link credentials to a connection, Kernel monitors the login session and re-authenticates automatically when it expires. Periodic health checks detect logged-out sessions and trigger CUA to re-auth in the background, so the profile stays logged in without additional action on your part.
 
 <Warning>
 Automatic re-authentication only works when the stored credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
@@ -13,10 +25,15 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health checks run on regular cadences based on your plan. You can configure the interval with the `health_check_interval` parameter (in seconds) when creating a connection:
+
+| Plan | Minimum interval | Default |
+|------|-----------------|---------|
+| Hobbyist | 3600s (1 hr) | 3600s (1 hr) |
+| Startup | 1200s (20 min) | 3600s (1 hr) |
+| Enterprise | 300s (5 min) | 3600s (1 hr) |
+
+Maximum interval is 86400s (24 hours).
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -37,23 +54,34 @@ If your login flow requires one of these, you can still automate around it:
 
 ## Which authentication methods are supported?
 
-Managed Auth supports username/password authentication and most SSO providers. 
+CUA supports username/password authentication and most SSO providers. Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, Apple, Facebook, LinkedIn, OneLogin, Ping Identity, Amazon Cognito) are automatically allowed — you don't need to add them to `allowed_domains`.
 
 <Warning>
 Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail.
 </Warning>
 
+## What happens when the website shows a login error?
+
+When the website displays a visible error during login (e.g., "Incorrect password" or "Account locked"), CUA detects it and surfaces it in the `website_error` field on the connection state. In the Hosted UI, the error is shown automatically. In the Programmatic flow, check `state.website_error` to display it in your UI.
+
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/profiles/managed-auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, CUA will retry with exponential backoff. After multiple failures, the [login flow](/profiles/managed-auth/hosted-ui) will be marked as failed and you'll receive an error with a machine-readable `error_code`. Common failure reasons include:
 
-- Invalid credentials
-- Bot detection blocking the login page
-- CAPTCHAs that couldn't be solved
+- `credentials_invalid` — Invalid credentials
+- `bot_detected` — Bot detection blocking the login page
+- `captcha_blocked` — CAPTCHAs that couldn't be solved
+- `login_form_not_found` — CUA couldn't find a login form on the page
+
+See the [error codes reference](/profiles/managed-auth/programmatic#error-codes) for the full list.
+
+## Can I watch the login happening?
+
+Yes. When you start a login session, the response includes a `live_view_url` — a browser live view URL that lets you watch CUA interact with the login page in real time. This is useful for debugging failed logins or understanding how a particular site's flow is handled.
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+CUA works with most websites by adapting to each site's login flow. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
 
 ## How is Managed Auth billed?
 
