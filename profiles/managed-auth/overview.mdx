@@ -3,11 +3,9 @@ title: "Overview"
 description: "Create authenticated browser sessions for your automations"
 ---
 
-<Note>
-  Managed Auth is currently in public beta. Features are subject to change.
-</Note>
-
 Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
+
+Managed Auth is powered by CUA (Computer Use Agent) — an AI agent that visually interacts with login pages to discover forms, fill credentials, handle SSO redirects, and complete multi-step authentication flows. Instead of brittle, hardcoded scripts, CUA adapts to each website's login flow in real time.
 
 ## How It Works
 
@@ -121,11 +119,12 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **Works on any website** - CUA discovers and navigates login pages automatically, adapting to each site's layout
+- **Live view** - Watch the login flow in real time via `live_view_url` for debugging and transparency
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box. Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are automatically allowed — no need to specify them in `allowed_domains`
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - Automatic re-authentication when sessions expire, with configurable `health_check_interval`
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
 
 ## Security
