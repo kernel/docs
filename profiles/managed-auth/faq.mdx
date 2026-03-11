@@ -13,10 +13,15 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health checks run on regular cadences based on your plan. The minimum interval per plan is:
+
+| Plan | Minimum Interval |
+|------|-----------------|
+| Hobbyist | 1 hour |
+| Start-Up | 20 minutes |
+| Enterprise | 5 minutes |
+
+You can set a custom interval with `health_check_interval` when creating a connection (between 300 and 86400 seconds). The interval you set must be at least your plan's minimum.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -54,6 +59,28 @@ If a login attempt fails, Kernel will retry with exponential backoff. After mult
 ## Can I use Managed Auth with any website?
 
 Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+
+## How does Kernel discover login forms?
+
+Kernel uses AI-based page analysis to discover login forms automatically. When starting a login session, Kernel navigates to the site, analyzes the page structure and visual layout, and identifies input fields, SSO buttons, and MFA options. After a successful login, Kernel saves the discovered flow as a reusable plan so future logins are faster and don't require AI discovery.
+
+## Can I debug a failed login?
+
+Yes. The login response includes a `live_view_url` that lets you watch the login flow in real-time as Kernel navigates the page. You can also check `error_code` and `website_error` on failed flows to understand what went wrong. See the [error code reference](/profiles/managed-auth/programmatic#error-code-reference) for a full list.
+
+## Can I use a proxy with Managed Auth?
+
+Yes. Set `proxy` when creating a connection or starting a login session. This routes the login browser through your proxy, which is useful for sites that block datacenter IPs. See [Proxies](/proxies/overview) for setup instructions.
+
+## What are login timeouts?
+
+Login sessions have three timeout windows:
+
+- **10 minutes** — Maximum wait for user input (e.g., entering a 2FA code)
+- **5 minutes** — Maximum wait for an external action (e.g., push notification approval)
+- **20 minutes** — Maximum total session duration
+
+If any timeout is reached, the flow expires and you'll need to start a new login session.
 
 ## How is Managed Auth billed?
 

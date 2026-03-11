@@ -9,6 +9,18 @@ description: "Create authenticated browser sessions for your automations"
 
 Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
 
+## How Kernel authenticates
+
+Kernel uses an AI-driven **Computer Use Agent (CUA)** to automate login flows. When you start a login session, Kernel:
+
+1. **Launches a browser** with your profile and navigates to the site's login page
+2. **Discovers the login form** using AI-based page analysis — detecting input fields, SSO buttons, MFA options, and CAPTCHAs
+3. **Fills and submits credentials** using values from your stored credential or user input via the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow
+4. **Handles multi-step flows** automatically — 2FA prompts, SSO redirects, MFA selection, and external actions like push notifications
+5. **Saves the login flow** as a reusable plan so future logins (including automatic re-authentication) are faster and more reliable
+
+On subsequent logins, Kernel replays the saved plan directly without needing AI discovery, making re-authentication fast and deterministic. If the site's login flow changes, Kernel falls back to AI discovery and saves a new plan.
+
 ## How It Works
 
 <Steps>
@@ -33,7 +45,7 @@ auth = await kernel.auth.connections.create(
   </Step>
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a Kernel-hosted page or your own UI.
-   
+
     Specify a [Credential](/profiles/credentials) to enable re-authentication without user input.
 
 <CodeGroup>
@@ -42,6 +54,9 @@ const login = await kernel.auth.connections.login(auth.id);
 
 // Send user to login page
 console.log('Login URL:', login.hosted_url);
+
+// Watch the login live (useful for debugging)
+console.log('Live view:', login.live_view_url);
 
 // Poll until complete
 let state = await kernel.auth.connections.retrieve(auth.id);
@@ -60,6 +75,9 @@ login = await kernel.auth.connections.login(auth.id)
 
 # Send user to login page
 print(f"Login URL: {login.hosted_url}")
+
+# Watch the login live (useful for debugging)
+print(f"Live view: {login.live_view_url}")
 
 # Poll until complete
 state = await kernel.auth.connections.retrieve(auth.id)
@@ -121,11 +139,13 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
+- **Works on any website** - Login pages are discovered and handled automatically using AI-based page analysis
+- **Learns and improves** - Login flows are saved as reusable plans, making re-authentication fast and reliable
 - **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
+- **Live view** - Watch the login flow in real-time via `live_view_url` for debugging
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - Configurable health checks with automatic re-authentication when sessions expire
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
 
 ## Security

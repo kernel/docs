@@ -216,6 +216,22 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
+## Live view for debugging
+
+The login response includes a `live_view_url` that lets you watch Kernel navigate the login page in real-time. This is useful when building or debugging your integration:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Watch login:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Watch login: {login.live_view_url}")
+```
+</CodeGroup>
+
 ## Handling Different Input Types
 
 The basic polling loop handles `discovered_fields`, but login pages can require other input types too.
@@ -316,6 +332,92 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
     # Keep polling—the flow resumes automatically when the user completes the action
 ```
 </CodeGroup>
+
+### Website errors
+
+When the target website displays an error (e.g., "incorrect password" or "account locked"), Kernel captures it in the `website_error` field:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log('Website says:', state.website_error);
+  // e.g., "The password you entered is incorrect"
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website says: {state.website_error}")
+    # e.g., "The password you entered is incorrect"
+```
+</CodeGroup>
+
+This is different from `error_message`, which describes a Kernel-level failure. `website_error` contains the actual error text visible on the login page.
+
+## Error handling
+
+When a login flow fails, the `error_message` and `error_code` fields describe what went wrong. Use `error_code` for programmatic handling:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.flow_status === 'FAILED') {
+  console.log(`Error [${state.error_code}]: ${state.error_message}`);
+
+  switch (state.error_code) {
+    case 'credentials_invalid':
+      // Prompt user to re-enter credentials
+      break;
+    case 'bot_detected':
+    case 'captcha_blocked':
+      // Try again with a proxy or stealth mode
+      break;
+    case 'mfa_required':
+      // MFA needed but not handled — use programmatic flow
+      break;
+    default:
+      // Log and retry
+      break;
+  }
+}
+```
+
+```python Python
+if state.flow_status == "FAILED":
+    print(f"Error [{state.error_code}]: {state.error_message}")
+
+    if state.error_code == "credentials_invalid":
+        # Prompt user to re-enter credentials
+        pass
+    elif state.error_code in ("bot_detected", "captcha_blocked"):
+        # Try again with a proxy or stealth mode
+        pass
+    elif state.error_code == "mfa_required":
+        # MFA needed but not handled — use programmatic flow
+        pass
+    else:
+        # Log and retry
+        pass
+```
+</CodeGroup>
+
+### Error code reference
+
+| Error Code | Description | Recoverable |
+|------------|-------------|-------------|
+| `credentials_invalid` | The credentials were rejected by the website | Yes — re-enter credentials |
+| `bot_detected` | The website detected automated access | Yes — try a proxy or different IP |
+| `captcha_blocked` | A CAPTCHA challenge couldn't be solved | Yes — try a proxy |
+| `login_form_not_found` | Couldn't find the login form on the page | Yes — set `login_url` on the connection |
+| `mfa_required` | MFA is required but wasn't provided | Yes — handle via programmatic flow |
+| `external_action_required` | An external action (push, security key) is needed | Yes — inform the user |
+| `session_expired` | The login session timed out | Yes — start a new session |
+| `stuck_in_loop` | The login flow got stuck in a redirect loop | Maybe — check `allowed_domains` |
+| `max_attempts_reached` | Too many login attempts | Maybe — wait and retry |
+| `navigation_confused` | Unexpected navigation during login | Maybe — set `login_url` |
+| `website_error` | The website returned a server error | Maybe — retry later |
+| `element_not_found` | A required form element wasn't found | Maybe — the site may have changed |
+| `browser_error` | Browser or connection error | Yes — retry |
+| `internal_error` | Internal Kernel error | Yes — retry |
 
 ## Step Reference
 

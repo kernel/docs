@@ -260,9 +260,87 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### Post-Login URL
+### Proxy support
 
-After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
+Route the login flow through a proxy for sites that require residential or ISP IP addresses:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { name: 'my-residential-proxy' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"name": "my-residential-proxy"},
+)
+```
+</CodeGroup>
+
+You can also override the proxy when starting a login session:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { name: 'different-proxy' },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id, proxy={"name": "different-proxy"})
+```
+</CodeGroup>
+
+### Health check interval
+
+Configure how often Kernel checks if the session is still authenticated. The interval is in seconds and must be between 300 (5 minutes) and 86400 (24 hours):
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,  # 30 minutes
+)
+```
+</CodeGroup>
+
+<Info>
+The minimum health check interval depends on your plan: Hobbyist (1 hour), Start-Up (20 minutes), Enterprise (5 minutes). See [FAQ](/profiles/managed-auth/faq#how-often-are-health-checks-performed) for details.
+</Info>
+
+### Live view
+
+The login response includes a `live_view_url` that lets you watch the login flow happening in real-time. This is useful for debugging failed logins or understanding how Kernel navigates a site's login page:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Watch login:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Watch login: {login.live_view_url}")
+```
+</CodeGroup>
+
+### Post-login URL
+
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
 
 <CodeGroup>
 ```typescript TypeScript
