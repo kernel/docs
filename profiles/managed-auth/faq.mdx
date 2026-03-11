@@ -13,10 +13,15 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health checks run on regular cadences based on your plan. You can customize the interval with `health_check_interval` when creating or updating a connection:
+
+| Plan | Default / Minimum interval |
+|------|---------------------------|
+| Hobbyist | 3600s (1 hour) |
+| Start-Up | 1200s (20 minutes) |
+| Enterprise | 300s (5 minutes) |
+
+Maximum interval is 86400s (24 hours). Set `health_check_interval` to `0` to disable automatic health checks.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -26,6 +31,17 @@ Check the `can_reauth` field on a connection. This boolean checks the following 
 2. **No external action required** — The learned login flow doesn't require human intervention
 
 Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
+
+The `can_reauth_reason` field explains why re-auth is or isn't possible:
+
+| Reason | Description |
+|--------|-------------|
+| `has_credential` | Credential linked, re-auth possible |
+| `external_credential` | External credential (e.g., 1Password) linked, re-auth possible |
+| `viable_plans_found` | Credential linked and login flow is automatable |
+| `no_credential` | No credential attached to the connection |
+| `no_viable_plans` | Credential exists but no automatable login flow found |
+| `viable_plans_require_external_action` | Login flow requires human action (SMS, push, etc.) |
 
 ### External actions that prevent auto-reauth
 
@@ -45,11 +61,23 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/profiles/managed-auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, the flow will be marked as `FAILED`. The `error_code` field contains a machine-readable code, and `error_message` contains a human-readable description. Common failure reasons include:
 
-- Invalid credentials
-- Bot detection blocking the login page
-- CAPTCHAs that couldn't be solved
+- **Invalid credentials** (`credentials_invalid`) — The username or password was not accepted
+- **Bot detection** (`bot_detected`) — The website detected automated access
+- **CAPTCHAs** (`captcha_blocked`) — A CAPTCHA challenge couldn't be solved
+- **Login form not found** (`login_form_not_found`) — The login page couldn't be located
+- **Domain not allowed** (`domain_not_allowed`) — The login flow redirected to an unconfigured domain
+
+During login, the `website_error` field shows errors the website itself displays (e.g., "Incorrect password"), which can help diagnose issues before the flow reaches a terminal state.
+
+See [Error Codes](/profiles/managed-auth/programmatic#error-codes) for the full list.
+
+## How do I debug a failing login flow?
+
+Use the `live_view_url` returned by `connections.login()` to watch the login flow in real-time in your browser. During the flow, check `website_error` for errors the site displays, and after failure, check `error_code` and `error_message` for details.
+
+If using SSE (`GET /auth/connections/{id}/events`), the `live_view_url` is included in state events so you can open it at any point during the flow.
 
 ## Can I use Managed Auth with any website?
 

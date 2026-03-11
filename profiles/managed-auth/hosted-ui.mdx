@@ -34,15 +34,17 @@ auth = await kernel.auth.connections.create(
 
 ### 2. Start a Login Session
 
-Start a Managed Auth Session to get the hosted login URL.
+Start a Managed Auth Session to get the hosted login URL. The response also includes a `live_view_url` for watching the login flow in real-time.
 
 <CodeGroup>
 ```typescript TypeScript
 const login = await kernel.auth.connections.login(auth.id);
+console.log('Live view:', login.live_view_url);
 ```
 
 ```python Python
 login = await kernel.auth.connections.login(auth.id)
+print(f"Live view: {login.live_view_url}")
 ```
 </CodeGroup>
 
@@ -240,14 +242,28 @@ auth = await kernel.auth.connections.create(
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO/OAuth providers are automatically allowed by default, so you don't need to configure `allowed_domains` for them:
+
+- Google (`accounts.google.com`)
+- Microsoft/Azure AD (`login.microsoftonline.com`, `login.live.com`)
+- Okta (`*.okta.com`, `*.oktapreview.com`)
+- Auth0 (`*.auth0.com`, `*.us.auth0.com`, `*.eu.auth0.com`, `*.au.auth0.com`)
+- Apple (`appleid.apple.com`)
+- GitHub (`github.com`)
+- Facebook/Meta (`www.facebook.com`)
+- LinkedIn (`www.linkedin.com`)
+- Amazon Cognito (`*.amazoncognito.com`)
+- OneLogin (`*.onelogin.com`)
+- Ping Identity (`*.pingone.com`, `*.pingidentity.com`)
+
+For other OAuth providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  allowed_domains: ['accounts.google.com', 'google.com'],
+  allowed_domains: ['sso.custom-provider.com'],
 });
 ```
 
@@ -255,10 +271,62 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    allowed_domains=["accounts.google.com", "google.com"],
+    allowed_domains=["sso.custom-provider.com"],
 )
 ```
 </CodeGroup>
+
+### Health Check Interval
+
+Control how often Kernel checks if the session is still authenticated. The default is 3600 seconds (1 hour). Minimums depend on your plan:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,  # 30 minutes
+)
+```
+</CodeGroup>
+
+| Plan | Minimum interval |
+|------|-----------------|
+| Enterprise | 300s (5 minutes) |
+| Start-Up | 1200s (20 minutes) |
+| Hobbyist | 3600s (1 hour) |
+
+### Proxy Support
+
+Route login flows through a proxy for sites that require specific IP addresses or geolocation:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { id: 'proxy_abc123' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"id": "proxy_abc123"},
+)
+```
+</CodeGroup>
+
+See [Proxies](/proxies/overview) for more on proxy configuration.
 
 ### Post-Login URL
 

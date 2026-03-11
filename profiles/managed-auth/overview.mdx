@@ -121,11 +121,14 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **Works on any website** - Login pages are discovered and handled automatically using AI vision
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box. Common SSO providers (Google, Microsoft, Okta, Auth0, and others) are automatically allowed — no need to configure `allowed_domains` for them
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
+- **Live view** - Watch the login flow in real-time via `live_view_url` for debugging
+- **Website error detection** - Get real-time feedback when the website shows errors (e.g., "Incorrect password") via `website_error`
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials. Check `can_reauth` and `can_reauth_reason` to understand re-auth eligibility
+- **Proxy support** - Route login flows through residential, ISP, or datacenter proxies
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
 
 ## Security

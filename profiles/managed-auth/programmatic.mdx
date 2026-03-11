@@ -317,6 +317,47 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
 ```
 </CodeGroup>
 
+### Website Errors
+
+When the target website displays an error during login (e.g., "Incorrect password", "Account locked"), the `website_error` field contains the visible error message. Use this to give users real-time feedback:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log(`Website error: ${state.website_error}`);
+  // e.g., "Incorrect password. Please try again."
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website error: {state.website_error}")
+    # e.g., "Incorrect password. Please try again."
+```
+</CodeGroup>
+
+<Info>
+`website_error` reflects what the website itself shows, not a Kernel error. It's useful for telling users exactly why their credentials were rejected.
+</Info>
+
+### Live View
+
+The login response includes a `live_view_url` for watching the login flow in real-time. This is useful for debugging:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Live view:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Live view: {login.live_view_url}")
+```
+</CodeGroup>
+
+The `live_view_url` is also available on the connection object while a flow is in progress.
+
 ## Step Reference
 
 The `flow_step` field indicates what the flow is waiting for:
@@ -337,7 +378,7 @@ The `flow_status` field indicates the current flow state:
 |--------|-------------|
 | `IN_PROGRESS` | Authentication is ongoing—keep polling |
 | `SUCCESS` | Login completed, profile saved |
-| `FAILED` | Login failed (check `error_message`) |
+| `FAILED` | Login failed (check `error_message` and `error_code`) |
 | `EXPIRED` | Flow timed out (10 minutes for user input, 20 minutes overall) |
 | `CANCELED` | Flow was canceled |
 
@@ -347,6 +388,25 @@ The `status` field indicates the overall connection state:
 |--------|-------------|
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
+
+## Error Codes
+
+When `flow_status` is `FAILED`, the `error_code` field contains a machine-readable code:
+
+| Error code | Description |
+|------------|-------------|
+| `credentials_invalid` | The username or password was not accepted by the website |
+| `bot_detected` | The website detected automated access and blocked the login |
+| `captcha_blocked` | A CAPTCHA challenge blocked the login |
+| `login_form_not_found` | No login form was found on the page |
+| `domain_not_allowed` | The login flow redirected to a domain not in `allowed_domains` |
+| `stuck_in_loop` | The login flow got stuck in a loop |
+| `max_attempts_reached` | Login failed after several attempts |
+| `website_error` | The website returned an error page during login |
+| `mfa_required` | Multi-factor authentication is required |
+| `external_action_required` | An external action (push notification, security key) is required |
+| `session_expired` | The login session timed out |
+| `browser_error` | There was an issue with the browser |
 
 ## Real-Time Updates with SSE
 
