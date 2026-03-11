@@ -13,10 +13,33 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health check frequency is configurable per connection via `health_check_interval` (in seconds). Each plan has a minimum interval:
+
+| Plan | Minimum interval | Default |
+|------|-----------------|---------|
+| Enterprise | 300s (5 min) | 3600s (1 hr) |
+| Start-Up | 1200s (20 min) | 3600s (1 hr) |
+| Hobbyist | 3600s (1 hr) | 3600s (1 hr) |
+
+Set the interval when creating a connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,
+)
+```
+</CodeGroup>
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -25,7 +48,7 @@ Check the `can_reauth` field on a connection. This boolean checks the following 
 1. **Credential linked** — A credential must be attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
 2. **No external action required** — The learned login flow doesn't require human intervention
 
-Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
+Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection. The `can_reauth_reason` field provides a human-readable explanation of why auto-reauth is or isn't possible.
 
 ### External actions that prevent auto-reauth
 
@@ -45,11 +68,13 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/profiles/managed-auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, the flow is marked as failed with an `error_message` and `error_code`. If the website itself shows an error (e.g., "Incorrect password"), it's captured in `website_error`. Common failure reasons include:
 
 - Invalid credentials
 - Bot detection blocking the login page
 - CAPTCHAs that couldn't be solved
+
+For automatic re-authentication, Kernel stops retrying after 3 consecutive failures to avoid locking accounts.
 
 ## Can I use Managed Auth with any website?
 

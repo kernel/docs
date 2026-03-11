@@ -9,6 +9,8 @@ description: "Create authenticated browser sessions for your automations"
 
 Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
 
+Under the hood, Managed Auth uses a Computer Use Agent (CUA) to navigate login pages. The agent discovers forms, fills credentials, handles multi-step flows, and completes authentication. Successful login flows are recorded as plans and replayed for faster subsequent logins.
+
 ## How It Works
 
 <Steps>
@@ -121,11 +123,13 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **Works on any website** - Login pages are discovered and handled automatically by the CUA
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box. Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are auto-allowed.
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
+- **Live view** - Watch the login flow in real-time via `live_view_url` for debugging
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Proxy support** - Route auth flows through a proxy for geo-restricted or bot-protected sites
+- **Session monitoring** - Automatic re-authentication when sessions expire, with configurable health check intervals
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
 
 ## Security

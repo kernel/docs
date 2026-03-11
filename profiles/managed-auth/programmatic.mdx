@@ -99,14 +99,25 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
-The `discovered_fields` array tells you what the login form needs:
+The `discovered_fields` array tells you what the login form needs. Each field includes:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Field name (e.g., `email`, `password`, `otp`) |
+| `type` | string | Input type: `text`, `email`, `password`, `tel`, `number`, `url`, `code`, `totp` |
+| `label` | string | Human-readable label (e.g., "Email address") |
+| `placeholder` | string | Placeholder text, if any |
+| `required` | boolean | Whether the field is required (default: `true`) |
 
 ```typescript
 // Example discovered_fields for login
-[{ name: 'username', type: 'text' }, { name: 'password', type: 'password' }]
+[
+  { name: 'username', type: 'text', label: 'Username', required: true },
+  { name: 'password', type: 'password', label: 'Password', required: true }
+]
 
 // Example discovered_fields for 2FA
-[{ name: 'otp', type: 'code' }]
+[{ name: 'otp', type: 'code', label: 'Verification code', required: true }]
 ```
 
 ## Complete Example
@@ -264,11 +275,11 @@ When the site offers multiple MFA methods, they appear in `mfa_options`:
 <CodeGroup>
 ```typescript TypeScript
 if (state.mfa_options?.length) {
-  // Available types: sms, email, totp, push, call, security_key
+  // Available types: sms, call, email, totp, push, password
   for (const opt of state.mfa_options) {
-    console.log(`${opt.type}: ${opt.label}`);
+    console.log(`${opt.type}: ${opt.label} ${opt.target ?? ''}`);
   }
-  
+
   // Submit the selected MFA method
   await kernel.auth.connections.submit(auth.id, {
     mfa_option_id: 'sms'
@@ -278,10 +289,10 @@ if (state.mfa_options?.length) {
 
 ```python Python
 if state.mfa_options:
-    # Available types: sms, email, totp, push, call, security_key
+    # Available types: sms, call, email, totp, push, password
     for opt in state.mfa_options:
-        print(f"{opt['type']}: {opt['label']}")
-    
+        print(f"{opt['type']}: {opt['label']} {opt.get('target', '')}")
+
     # Submit the selected MFA method
     await kernel.auth.connections.submit(
         auth.id,
@@ -290,7 +301,9 @@ if state.mfa_options:
 ```
 </CodeGroup>
 
-After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
+Each MFA option includes a `type`, `label`, and optionally a `target` (masked phone/email, e.g., `***-***-5678`) and `description` (additional instructions from the site).
+
+After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push notifications.
 
 ### External Actions (Push, Security Key)
 
@@ -317,6 +330,43 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
 ```
 </CodeGroup>
 
+### Website Errors
+
+When the target website displays an error (e.g., "Incorrect password"), the CUA captures it in `website_error`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log('Website error:', state.website_error);
+  // e.g., "The email or password you entered is incorrect"
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website error: {state.website_error}")
+    # e.g., "The email or password you entered is incorrect"
+```
+</CodeGroup>
+
+This is distinct from `error_message`, which indicates a terminal flow failure (e.g., max attempts reached, browser error). Check `error_code` for machine-readable failure reasons.
+
+### Live view
+
+The login response includes a `live_view_url` for watching the CUA navigate the login flow in real-time:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Live view:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Live view: {login.live_view_url}")
+```
+</CodeGroup>
+
 ## Step Reference
 
 The `flow_step` field indicates what the flow is waiting for:
@@ -340,6 +390,13 @@ The `flow_status` field indicates the current flow state:
 | `FAILED` | Login failed (check `error_message`) |
 | `EXPIRED` | Flow timed out (10 minutes for user input, 20 minutes overall) |
 | `CANCELED` | Flow was canceled |
+
+The `flow_type` field indicates the type of the current flow:
+
+| Type | Description |
+|------|-------------|
+| `LOGIN` | User-initiated login |
+| `REAUTH` | Automatic re-authentication triggered by a health check |
 
 The `status` field indicates the overall connection state:
 

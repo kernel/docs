@@ -48,16 +48,22 @@ login = await kernel.auth.connections.login(auth.id)
 
 ### 3. Collect Credentials
 
-Send the user to the hosted login page:
+Send the user to the hosted login page. The login response also includes a `live_view_url` for watching the CUA navigate the login flow in real-time:
 
 <CodeGroup>
 ```typescript TypeScript
 window.location.href = login.hosted_url;
+
+// Optional: watch the login flow in real-time
+console.log('Live view:', login.live_view_url);
 ```
 
 ```python Python
 # Return the URL to your frontend
 print(f"Redirect to: {login.hosted_url}")
+
+# Optional: watch the login flow in real-time
+print(f"Live view: {login.live_view_url}")
 ```
 </CodeGroup>
 
@@ -208,11 +214,45 @@ if state.status == "AUTHENTICATED":
 
 The basic flow above gets you started. Add these features as needed:
 
-### Credentials and Auto-Reauth
+### Credentials and auto-reauth
 
 Credentials are saved after every successful login, enabling automatic re-authentication when the session expires. One-time codes (TOTP, SMS, etc.) are not saved.
 
 To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/profiles/credentials) for more on automated authentication.
+
+You can also reference credentials from an external provider like 1Password:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  credential: { provider: 'my-1p', path: 'Personal/Example' },
+});
+
+// Or auto-lookup by domain
+const auth2 = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  credential: { provider: 'my-1p', auto: true },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    credential={"provider": "my-1p", "path": "Personal/Example"},
+)
+
+# Or auto-lookup by domain
+auth2 = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    credential={"provider": "my-1p", "auto": True},
+)
+```
+</CodeGroup>
 
 ### Custom Login URL
 
@@ -240,14 +280,14 @@ auth = await kernel.auth.connections.create(
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO provider domains are auto-allowed (Google, Microsoft, Okta, Auth0, GitHub, Apple, Facebook, LinkedIn, Amazon Cognito, OneLogin, Ping Identity). For other providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  allowed_domains: ['accounts.google.com', 'google.com'],
+  allowed_domains: ['login.custom-idp.com'],
 });
 ```
 
@@ -255,7 +295,68 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    allowed_domains=["accounts.google.com", "google.com"],
+    allowed_domains=["login.custom-idp.com"],
+)
+```
+</CodeGroup>
+
+### Proxy
+
+Route the auth flow through a proxy for geo-restricted or bot-protected sites:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { name: 'my-proxy' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"name": "my-proxy"},
+)
+```
+</CodeGroup>
+
+You can also override the proxy for a specific login session:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { name: 'different-proxy' },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    proxy={"name": "different-proxy"},
+)
+```
+</CodeGroup>
+
+### Health check interval
+
+Configure how often Kernel checks if the session is still authenticated. The interval is in seconds, with plan-dependent minimums (Enterprise: 300s, Start-Up: 1200s, Hobbyist: 3600s):
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,
 )
 ```
 </CodeGroup>
