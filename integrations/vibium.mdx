@@ -60,7 +60,7 @@ print("WebDriver URL: ", kernel_browser.webdriver_ws_url)
 
 <CodeGroup>
 ```bash CLI
-export VIBIUM_CONNECT_URL="$webdriver_ws_url"
+vibium start "$webdriver_ws_url"
 ```
 
 ```typescript TypeScript
@@ -104,6 +104,7 @@ When you're done, close Vibium and delete the Kernel browser session:
 
 <CodeGroup>
 ```bash CLI
+vibium stop
 kernel browsers delete "$session_id"
 ```
 
@@ -120,17 +121,20 @@ kernel.browsers.delete_by_id(kernel_browser.session_id)
 
 ## Using Vibium CLI with Kernel
 
-The CLI uses the same `VIBIUM_CONNECT_URL` environment variable:
+The CLI can connect directly to the Kernel browser's WebDriver BiDi endpoint:
 
 ```bash
 browser_json="$(kernel browsers create -o json)"
 session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
-export VIBIUM_CONNECT_URL="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
+webdriver_ws_url="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
+
+vibium start "$webdriver_ws_url"
 
 vibium go https://example.com
 vibium title        # "Example Domain"
 vibium text h1      # "Example Domain"
 
+vibium stop
 kernel browsers delete "$session_id"
 ```
 
