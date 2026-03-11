@@ -3,17 +3,15 @@ title: "Overview"
 description: "Create authenticated browser sessions for your automations"
 ---
 
-<Note>
-  Managed Auth is currently in public beta. Features are subject to change.
-</Note>
-
 Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
 
-## How It Works
+Managed Auth uses a Computer Use Agent (CUA) under the hood — an AI that visually navigates login pages using screenshots, just like a human would. This means it handles complex login flows automatically: multi-step logins, popups, CAPTCHAs, and account selection screens.
+
+## How it works
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** links a profile to a website domain. Create one for each domain + profile combination you want to keep authenticated.
+    A **Managed Auth Connection** associates a profile to a website domain. Create one for each domain + profile combination you want to keep authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -33,7 +31,7 @@ auth = await kernel.auth.connections.create(
   </Step>
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a Kernel-hosted page or your own UI.
-   
+
     Specify a [Credential](/profiles/credentials) to enable re-authentication without user input.
 
 <CodeGroup>
@@ -101,7 +99,7 @@ await page.goto("https://netflix.com")
   </Step>
 </Steps>
 
-## Choose Your Integration
+## Choose your integration
 
 <CardGroup cols={2}>
   <Card title="Hosted UI" icon="browser" href="/profiles/managed-auth/hosted-ui">
@@ -112,7 +110,7 @@ await page.goto("https://netflix.com")
   <Card title="Programmatic" icon="code" href="/profiles/managed-auth/programmatic">
     **Full control** - Custom UI or headless
 
-    Build your own credential collection. Handle login fields, SSO buttons, MFA selection, and external actions (push notifications, security keys).
+    Build your own credential collection. Handle login fields, SSO buttons, MFA selection, sign-in options, and external actions (push notifications, security keys).
   </Card>
 </CardGroup>
 
@@ -121,12 +119,39 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
-- **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
-- **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
-- **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+- **Works on any website** — The CUA visually navigates login pages, handling complex flows including multi-step logins, popups, and account selection screens
+- **SSO/OAuth support** — "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **2FA/OTP handling** — TOTP codes automated, SMS/email/push OTP supported
+- **Post-login URL** — Get the URL where login landed (`post_login_url`) so you can start automations from the right page
+- **Session monitoring** — Automatic re-authentication when sessions expire with stored credentials
+- **Health checks** — Periodic verification that login sessions are still valid, with configurable intervals
+- **Secure by default** — Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+- **Learns from experience** — The CUA generates reusable skills from successful logins, making subsequent logins faster and more reliable
+
+## Updating a connection
+
+After creating a connection, you can update its configuration without recreating it:
+
+<CodeGroup>
+```typescript TypeScript
+const updated = await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://netflix.com/login',
+  health_check_interval: 900, // 15 minutes
+  allowed_domains: ['netflix.com', 'accounts.google.com'],
+});
+```
+
+```python Python
+updated = await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://netflix.com/login",
+    health_check_interval=900,  # 15 minutes
+    allowed_domains=["netflix.com", "accounts.google.com"],
+)
+```
+</CodeGroup>
+
+All fields are optional — only provided fields are changed. The `health_check_interval` update takes effect immediately without restarting the connection.
 
 ## Security
 

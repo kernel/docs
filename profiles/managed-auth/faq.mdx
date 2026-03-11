@@ -10,26 +10,60 @@ When you link credentials to a connection, Kernel monitors the login session and
 Automatic re-authentication only works when the stored credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
 </Warning>
 
+## How do I trigger re-authentication manually?
+
+Call `.login()` on an existing connection to trigger re-authentication without waiting for the next health check:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+```
+</CodeGroup>
+
+If the connection is already authenticated, this returns quickly. If the login flow requires human input (e.g., MFA), handle it via the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
+Health checks run on regular cadences based on your plan:
 - Hobbyist (1 hr)
 - Start-Up (15 min)
 - Enterprise (configurable)
 
-## How do I know if a Kernel can automatically re-authenticate a connection?
+You can configure the health check interval when creating or updating a connection:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  health_check_interval: 600, // 10 minutes (300–86400 seconds)
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    health_check_interval=600,  # 10 minutes (300–86400 seconds)
+)
+```
+</CodeGroup>
+
+The interval must be between 300 seconds (5 minutes) and 86400 seconds (24 hours). Changes take effect immediately.
+
+## How do I know if Kernel can automatically re-authenticate a connection?
 
 Check the `can_reauth` field on a connection. This boolean checks the following conditions:
 
 1. **Credential linked** — A credential must be attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
-2. **No external action required** — The learned login flow doesn't require human intervention
+2. **No external action required** — The login flow doesn't require human intervention
 
 Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
 
 ### External actions that prevent auto-reauth
 
-After a successful login, Kernel saves the login flow. If the flow includes steps that require human action—like SMS/email OTP, push notifications, or manual MFA selection—Kernel marks the connection as unable to auto-reauth because those steps can't be automated without user input.
+After a successful login, Kernel records what the login flow required. If the flow includes steps that require human action — like SMS/email OTP, push notifications, or manual MFA selection — Kernel marks the connection as unable to auto-reauth because those steps can't be automated without user input.
 
 If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
@@ -37,23 +71,57 @@ If your login flow requires one of these, you can still automate around it:
 
 ## Which authentication methods are supported?
 
-Managed Auth supports username/password authentication and most SSO providers. 
+Managed Auth supports username/password authentication and most SSO providers. The CUA-based login agent handles complex login flows including multi-step logins, popups, CAPTCHAs, and account selection screens.
+
+Tested sites include: LinkedIn, Google, Instacart, X/Twitter, Airbnb, PayPal, Netflix, Amazon, Walmart, and many more.
 
 <Warning>
-Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail.
+Passkey-based authentication (e.g., hardware security keys, device-bound passkeys) is not currently supported. If a login flow requires a passkey, it will fail with the `unsupported_auth_method` error code.
 </Warning>
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/profiles/managed-auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, the connection status changes to `NEEDS_AUTH` and the flow includes an error code and message. Common error codes include:
 
-- Invalid credentials
-- Bot detection blocking the login page
-- CAPTCHAs that couldn't be solved
+| Error code | Description |
+|------------|-------------|
+| `domain_not_allowed` | Login redirected to a domain not in `allowed_domains` |
+| `network_error` | DNS or connection failure, possibly a proxy issue |
+| `unsupported_auth_method` | Login requires a passkey or security key |
+| `awaiting_input_timeout` | User didn't provide input in time |
+| `external_action_timeout` | Push notification or app approval wasn't completed in time |
+| `max_steps_exceeded` | Login flow exceeded the maximum step count |
+
+Timeouts (`awaiting_input_timeout`, `external_action_timeout`) are recoverable — start a new login session to retry.
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+Managed Auth works with most websites. The CUA-based agent visually navigates login pages, which makes it more resilient to different page layouts and complex flows than traditional DOM-based approaches. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+
+## Can I update a connection after creating it?
+
+Yes. Use the update endpoint to change configuration without recreating the connection:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/signin',
+  health_check_interval: 900,
+  allowed_domains: ['example.com', 'accounts.google.com'],
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/signin",
+    health_check_interval=900,
+    allowed_domains=["example.com", "accounts.google.com"],
+)
+```
+</CodeGroup>
+
+All fields are optional — only provided fields are changed.
 
 ## How is Managed Auth billed?
 

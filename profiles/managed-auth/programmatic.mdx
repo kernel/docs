@@ -10,7 +10,7 @@ Use the Programmatic flow when:
 - You're building headless/automated authentication
 - You have credentials stored and want to authenticate without user interaction
 
-## How It Works
+## How it works
 
 <Steps>
   <Step title="Create Connection and Start Session">
@@ -58,7 +58,7 @@ login = await kernel.auth.connections.login(auth.id)
 
 Credentials are saved automatically on successful login, enabling automatic re-authentication when the session expires.
 
-### 3. Poll and Submit Credentials
+### 3. Poll and submit credentials
 
 A single loop handles everything—initial login, 2FA, and completion:
 
@@ -72,7 +72,7 @@ while (state.flow_status === 'IN_PROGRESS') {
     const fieldValues = getCredentialsForFields(state.discovered_fields);
     await kernel.auth.connections.submit(auth.id, { fields: fieldValues });
   }
-  
+
   await new Promise(r => setTimeout(r, 2000));
   state = await kernel.auth.connections.retrieve(auth.id);
 }
@@ -90,7 +90,7 @@ while state.flow_status == "IN_PROGRESS":
     if state.flow_step == "AWAITING_INPUT" and state.discovered_fields:
         field_values = get_credentials_for_fields(state.discovered_fields)
         await kernel.auth.connections.submit(auth.id, fields=field_values)
-    
+
     await asyncio.sleep(2)
     state = await kernel.auth.connections.retrieve(auth.id)
 
@@ -109,7 +109,7 @@ The `discovered_fields` array tells you what the login form needs:
 [{ name: 'otp', type: 'code' }]
 ```
 
-## Complete Example
+## Complete example
 
 <CodeGroup>
 ```typescript TypeScript
@@ -132,7 +132,7 @@ while (state.flow_status === 'IN_PROGRESS') {
   if (state.flow_step === 'AWAITING_INPUT' && state.discovered_fields?.length) {
     // Check what fields are needed
     const fieldNames = state.discovered_fields.map(f => f.name);
-    
+
     if (fieldNames.includes('username')) {
       // Initial login
       await kernel.auth.connections.submit(auth.id, {
@@ -153,12 +153,12 @@ while (state.flow_status === 'IN_PROGRESS') {
 
 if (state.status === 'AUTHENTICATED') {
   console.log('Authentication successful!');
-  
+
   const browser = await kernel.browsers.create({
     profile: { name: 'github-profile' },
     stealth: true,
   });
-  
+
   // Navigate to the site—you're already logged in
   await page.goto('https://github.com');
 }
@@ -185,7 +185,7 @@ while state.flow_status == "IN_PROGRESS":
     if state.flow_step == "AWAITING_INPUT" and state.discovered_fields:
         # Check what fields are needed
         field_names = [f["name"] for f in state.discovered_fields]
-        
+
         if "username" in field_names:
             # Initial login
             await kernel.auth.connections.submit(
@@ -205,22 +205,22 @@ while state.flow_status == "IN_PROGRESS":
 
 if state.status == "AUTHENTICATED":
     print("Authentication successful!")
-    
+
     browser = await kernel.browsers.create(
         profile={"name": "github-profile"},
         stealth=True,
     )
-    
+
     # Navigate to the site—you're already logged in
     await page.goto("https://github.com")
 ```
 </CodeGroup>
 
-## Handling Different Input Types
+## Handling different input types
 
-The basic polling loop handles `discovered_fields`, but login pages can require other input types too.
+The basic polling loop handles `discovered_fields`, but login pages can require other input types too. When polling, check for each input type and submit the appropriate response.
 
-### SSO Buttons
+### SSO buttons
 
 When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`:
 
@@ -231,10 +231,10 @@ if (state.pending_sso_buttons?.length) {
   for (const btn of state.pending_sso_buttons) {
     console.log(`${btn.provider}: ${btn.label}`);
   }
-  
-  // Submit the selected SSO button
+
+  // Submit by provider name
   await kernel.auth.connections.submit(auth.id, {
-    sso_button_selector: state.pending_sso_buttons[0].selector
+    sso_provider: state.pending_sso_buttons[0].provider
   });
 }
 ```
@@ -244,20 +244,22 @@ if state.pending_sso_buttons:
     # Show the user available SSO options
     for btn in state.pending_sso_buttons:
         print(f"{btn['provider']}: {btn['label']}")
-    
-    # Submit the selected SSO button
+
+    # Submit by provider name
     await kernel.auth.connections.submit(
         auth.id,
-        sso_button_selector=state.pending_sso_buttons[0]["selector"],
+        sso_provider=state.pending_sso_buttons[0]["provider"],
     )
 ```
 </CodeGroup>
+
+You can submit SSO selections using either `sso_provider` (provider name like `"google"`, `"github"`) or `sso_button_selector` (XPath selector from the button object). The `sso_provider` field is the recommended approach.
 
 <Info>
 Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
 </Info>
 
-### MFA Selection
+### MFA selection
 
 When the site offers multiple MFA methods, they appear in `mfa_options`:
 
@@ -268,7 +270,7 @@ if (state.mfa_options?.length) {
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
   }
-  
+
   // Submit the selected MFA method
   await kernel.auth.connections.submit(auth.id, {
     mfa_option_id: 'sms'
@@ -281,7 +283,7 @@ if state.mfa_options:
     # Available types: sms, email, totp, push, call, security_key
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
-    
+
     # Submit the selected MFA method
     await kernel.auth.connections.submit(
         auth.id,
@@ -292,7 +294,43 @@ if state.mfa_options:
 
 After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
 
-### External Actions (Push, Security Key)
+### Sign-in options
+
+Some login pages present account selection or organization pickers (e.g., "Which account do you want to use?"). These appear in `sign_in_options`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sign_in_options?.length) {
+  // Show available sign-in choices
+  for (const opt of state.sign_in_options) {
+    console.log(`${opt.id}: ${opt.label}`);
+    if (opt.description) console.log(`  ${opt.description}`);
+  }
+
+  // Submit the selected option by ID
+  await kernel.auth.connections.submit(auth.id, {
+    sign_in_option_id: state.sign_in_options[0].id
+  });
+}
+```
+
+```python Python
+if state.sign_in_options:
+    # Show available sign-in choices
+    for opt in state.sign_in_options:
+        print(f"{opt['id']}: {opt['label']}")
+        if opt.get("description"):
+            print(f"  {opt['description']}")
+
+    # Submit the selected option by ID
+    await kernel.auth.connections.submit(
+        auth.id,
+        sign_in_option_id=state.sign_in_options[0]["id"],
+    )
+```
+</CodeGroup>
+
+### External actions (push, security key)
 
 When the site requires an action outside the browser (push notification, security key tap), the step becomes `AWAITING_EXTERNAL_ACTION`:
 
@@ -302,7 +340,7 @@ if (state.flow_step === 'AWAITING_EXTERNAL_ACTION') {
   // Show the message to the user
   console.log(state.external_action_message);
   // e.g., "Check your phone for a push notification"
-  
+
   // Keep polling—the flow resumes automatically when the user completes the action
 }
 ```
@@ -312,24 +350,40 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
     # Show the message to the user
     print(state.external_action_message)
     # e.g., "Check your phone for a push notification"
-    
+
     # Keep polling—the flow resumes automatically when the user completes the action
 ```
 </CodeGroup>
 
-## Step Reference
+## Submit field reference
+
+When `flow_step` is `AWAITING_INPUT`, submit exactly one of these input types:
+
+| Field | Description |
+|-------|-------------|
+| `fields` | Key-value map of credential fields (username, password, OTP code, etc.) |
+| `sso_provider` | SSO provider name (e.g., `"google"`, `"github"`) from `pending_sso_buttons` |
+| `sso_button_selector` | XPath selector of the SSO button to click (from `pending_sso_buttons`) |
+| `mfa_option_id` | ID of the MFA method to select (from `mfa_options`) |
+| `sign_in_option_id` | ID of the sign-in option to select (from `sign_in_options`) |
+
+<Note>
+`mfa_option_id` can be combined with `fields` when the MFA option has associated input fields. All other submit types are mutually exclusive.
+</Note>
+
+## Step reference
 
 The `flow_step` field indicates what the flow is waiting for:
 
 | Step | Description |
 |------|-------------|
 | `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, or MFA selection |
+| `AWAITING_INPUT` | Waiting for field values, SSO selection, MFA selection, or sign-in option |
 | `SUBMITTING` | Processing submitted values |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
 | `COMPLETED` | Flow has finished |
 
-## Status Reference
+## Status reference
 
 The `flow_status` field indicates the current flow state:
 
@@ -348,7 +402,24 @@ The `status` field indicates the overall connection state:
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
 
-## Real-Time Updates with SSE
+## Error codes
+
+When a login flow fails, the `error_code` field provides a machine-readable reason:
+
+| Error code | Description |
+|------------|-------------|
+| `domain_not_allowed` | Login redirected to a domain not in `allowed_domains` |
+| `network_error` | DNS or connection failure, possibly a proxy issue |
+| `unsupported_auth_method` | Login requires a passkey or security key (not yet supported) |
+| `awaiting_input_timeout` | User didn't provide input in time |
+| `external_action_timeout` | Push notification or app approval wasn't completed in time |
+| `max_steps_exceeded` | Login flow was too complex and exceeded the maximum step count |
+
+<Info>
+`awaiting_input_timeout` and `external_action_timeout` are recoverable — you can start a new login session to retry.
+</Info>
+
+## Real-time updates with SSE
 
 For real-time UIs, you can stream login flow events via Server-Sent Events instead of polling:
 

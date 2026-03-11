@@ -131,7 +131,7 @@ Managed Auth Connections are generated using Kernel's [stealth](/browsers/bot-de
 </Info>
 
 
-## Complete Example
+## Complete example
 
 <CodeGroup>
 ```typescript TypeScript
@@ -204,17 +204,17 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
-## Adding Features
+## Adding features
 
 The basic flow above gets you started. Add these features as needed:
 
-### Credentials and Auto-Reauth
+### Credentials and auto-reauth
 
 Credentials are saved after every successful login, enabling automatic re-authentication when the session expires. One-time codes (TOTP, SMS, etc.) are not saved.
 
 To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/profiles/credentials) for more on automated authentication.
 
-### Custom Login URL
+### Custom login URL
 
 If the site's login page isn't at the default location, specify it when creating the connection:
 
@@ -236,7 +236,7 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### SSO/OAuth Support
+### SSO/OAuth support
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
@@ -260,9 +260,48 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### Post-Login URL
+### Health check interval
 
-After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
+Configure how often Kernel checks that the login session is still valid:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 900, // 15 minutes (300–86400 seconds)
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=900,  # 15 minutes (300–86400 seconds)
+)
+```
+</CodeGroup>
+
+You can also update the health check interval on an existing connection:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  health_check_interval: 600, // 10 minutes
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    health_check_interval=600,  # 10 minutes
+)
+```
+</CodeGroup>
+
+### Post-login URL
+
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
 
 <CodeGroup>
 ```typescript TypeScript
