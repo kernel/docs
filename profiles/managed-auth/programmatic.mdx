@@ -222,7 +222,9 @@ The basic polling loop handles `discovered_fields`, but login pages can require 
 
 ### SSO Buttons
 
-When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`:
+When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`. Each button includes a `provider` name (e.g., `google`, `github`, `microsoft`) and a `label` with the visible button text.
+
+Submit the selected SSO button using `sso_provider`:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -231,10 +233,10 @@ if (state.pending_sso_buttons?.length) {
   for (const btn of state.pending_sso_buttons) {
     console.log(`${btn.provider}: ${btn.label}`);
   }
-  
-  // Submit the selected SSO button
+
+  // Submit the selected SSO provider by name
   await kernel.auth.connections.submit(auth.id, {
-    sso_button_selector: state.pending_sso_buttons[0].selector
+    sso_provider: state.pending_sso_buttons[0].provider
   });
 }
 ```
@@ -244,11 +246,11 @@ if state.pending_sso_buttons:
     # Show the user available SSO options
     for btn in state.pending_sso_buttons:
         print(f"{btn['provider']}: {btn['label']}")
-    
-    # Submit the selected SSO button
+
+    # Submit the selected SSO provider by name
     await kernel.auth.connections.submit(
         auth.id,
-        sso_button_selector=state.pending_sso_buttons[0]["selector"],
+        sso_provider=state.pending_sso_buttons[0]["provider"],
     )
 ```
 </CodeGroup>
@@ -256,6 +258,42 @@ if state.pending_sso_buttons:
 <Info>
 Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
 </Info>
+
+### Sign-In Options
+
+Some login flows present non-MFA choices like account selection or organization pickers. These appear in `sign_in_options`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sign_in_options?.length) {
+  // Show available sign-in options
+  for (const opt of state.sign_in_options) {
+    console.log(`${opt.id}: ${opt.label}`);
+    if (opt.description) console.log(`  ${opt.description}`);
+  }
+
+  // Submit the selected option
+  await kernel.auth.connections.submit(auth.id, {
+    sign_in_option_id: state.sign_in_options[0].id
+  });
+}
+```
+
+```python Python
+if state.sign_in_options:
+    # Show available sign-in options
+    for opt in state.sign_in_options:
+        print(f"{opt['id']}: {opt['label']}")
+        if opt.get("description"):
+            print(f"  {opt['description']}")
+
+    # Submit the selected option
+    await kernel.auth.connections.submit(
+        auth.id,
+        sign_in_option_id=state.sign_in_options[0]["id"],
+    )
+```
+</CodeGroup>
 
 ### MFA Selection
 
@@ -317,6 +355,52 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
 ```
 </CodeGroup>
 
+### Website Errors
+
+When the website displays a visible error during login (e.g., "Incorrect password"), it appears in `website_error`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log(`Website error: ${state.website_error}`);
+  // Show the error to the user so they can correct their input
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website error: {state.website_error}")
+    # Show the error to the user so they can correct their input
+```
+</CodeGroup>
+
+The flow remains `IN_PROGRESS` after a website error so the user can retry with corrected credentials.
+
+## Update a connection
+
+Update an existing connection's configuration without deleting and recreating it. Only the fields you provide are updated:
+
+<CodeGroup>
+```typescript TypeScript
+const updated = await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/auth/signin',
+  health_check_interval: 1800,
+  allowed_domains: ['login.example.com'],
+});
+```
+
+```python Python
+updated = await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/auth/signin",
+    health_check_interval=1800,
+    allowed_domains=["login.example.com"],
+)
+```
+</CodeGroup>
+
+You can update `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, and `proxy`. Changes to `health_check_interval` take effect on the next health check cycle.
+
 ## Step Reference
 
 The `flow_step` field indicates what the flow is waiting for:
@@ -324,7 +408,7 @@ The `flow_step` field indicates what the flow is waiting for:
 | Step | Description |
 |------|-------------|
 | `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, or MFA selection |
+| `AWAITING_INPUT` | Waiting for field values, SSO selection, MFA selection, or sign-in option |
 | `SUBMITTING` | Processing submitted values |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
 | `COMPLETED` | Flow has finished |

@@ -35,6 +35,18 @@ If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
 
+## What happens when the website shows a login error?
+
+When the website displays a visible error during login (e.g., "Incorrect password" or "Account locked"), Kernel detects it and surfaces it in the `website_error` field on the connection state. The flow stays `IN_PROGRESS` so the user can correct their input and retry. In the Hosted UI, the error is shown automatically. In the Programmatic flow, check `state.website_error` to display it in your UI.
+
+## Can I update a connection's configuration?
+
+Yes. Use the update endpoint to change `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, or `proxy` on an existing connection. Only the fields you provide are updated. Changes to `health_check_interval` take effect on the next health check cycle.
+
+## What are sign-in options?
+
+Some login flows present non-MFA choices like account selection ("Work Account" vs "Personal Account") or organization pickers. These appear in `sign_in_options` during the `AWAITING_INPUT` step. Submit the selected option using `sign_in_option_id`. See [Programmatic Flow](/profiles/managed-auth/programmatic#sign-in-options) for details.
+
 ## Which authentication methods are supported?
 
 Managed Auth supports username/password authentication and most SSO providers. 

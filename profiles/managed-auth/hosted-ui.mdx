@@ -260,6 +260,29 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
+### Update a Connection
+
+Update an existing connection's configuration without recreating it:
+
+<CodeGroup>
+```typescript TypeScript
+const updated = await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/auth/signin',
+  health_check_interval: 1800,
+});
+```
+
+```python Python
+updated = await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/auth/signin",
+    health_check_interval=1800,
+)
+```
+</CodeGroup>
+
+You can update `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, and `proxy`. Only the fields you provide are changed.
+
 ### Post-Login URL
 
 After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
