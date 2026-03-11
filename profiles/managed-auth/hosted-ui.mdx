@@ -100,6 +100,20 @@ if state.status == "AUTHENTICATED":
 Poll every 2 seconds. The session expires after 20 minutes if not completed, and the flow times out after 10 minutes of waiting for user input.
 </Info>
 
+You can also use `live_view_url` from the login response to watch the login flow in real-time for debugging:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Live view:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Live view: {login.live_view_url}")
+```
+</CodeGroup>
+
 ### 5. Use the Profile
 
 Create browsers with the profile and navigate to the site. The browser session will already be authenticated:
@@ -236,18 +250,18 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### SSO/OAuth Support
+### SSO/OAuth support
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are [allowed by default](/profiles/managed-auth/overview#default-sso-domains). For other providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  allowed_domains: ['accounts.google.com', 'google.com'],
+  allowed_domains: ['sso.custom-provider.com'],
 });
 ```
 
@@ -255,14 +269,14 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    allowed_domains=["accounts.google.com", "google.com"],
+    allowed_domains=["sso.custom-provider.com"],
 )
 ```
 </CodeGroup>
 
 ### Post-Login URL
 
-After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -282,3 +296,91 @@ if managed_auth.post_login_url:
     # Start automation from the dashboard/home page
 ```
 </CodeGroup>
+
+### Proxy support
+
+Route the authentication flow through a proxy for geo-targeting or IP management:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { proxy_id: 'proxy_abc123' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"proxy_id": "proxy_abc123"},
+)
+```
+</CodeGroup>
+
+You can also override the proxy for a specific login session:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { proxy_id: 'proxy_xyz789' },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    proxy={"proxy_id": "proxy_xyz789"},
+)
+```
+</CodeGroup>
+
+### Health check interval
+
+Configure how often Kernel checks if the session is still authenticated. The default is 1 hour:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_check_interval=1800,  # 30 minutes
+)
+```
+</CodeGroup>
+
+Minimum intervals depend on your plan: Enterprise (5 minutes), Startup (20 minutes), Hobbyist (1 hour). Maximum is 24 hours.
+
+### Error handling
+
+When a login flow fails, check `error_code` and `error_message` for details:
+
+<CodeGroup>
+```typescript TypeScript
+const state = await kernel.auth.connections.retrieve(auth.id);
+
+if (state.flow_status === 'FAILED') {
+  console.log(`Error: ${state.error_code} - ${state.error_message}`);
+  // e.g., "credentials_invalid - The credentials were rejected by the website"
+}
+```
+
+```python Python
+state = await kernel.auth.connections.retrieve(auth.id)
+
+if state.flow_status == "FAILED":
+    print(f"Error: {state.error_code} - {state.error_message}")
+    # e.g., "credentials_invalid - The credentials were rejected by the website"
+```
+</CodeGroup>
+
+See [Error Codes](/profiles/managed-auth/overview#error-codes) for the full list of error codes.

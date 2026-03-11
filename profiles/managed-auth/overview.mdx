@@ -3,10 +3,6 @@ title: "Overview"
 description: "Create authenticated browser sessions for your automations"
 ---
 
-<Note>
-  Managed Auth is currently in public beta. Features are subject to change.
-</Note>
-
 Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
 
 ## How It Works
@@ -122,11 +118,53 @@ await page.goto("https://netflix.com")
 The most valuable workflows live behind logins. Managed Auth provides:
 
 - **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box. Common SSO domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are [allowed by default](#default-sso-domains)
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
+- **Live view** - Watch the login flow in real-time via `live_view_url` for debugging
 - **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Proxy support** - Route authentication through proxies for geo-targeting or IP management
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+
+## Default SSO domains
+
+Common SSO/OAuth provider domains are automatically allowed during login flows. You do not need to add these to `allowed_domains`:
+
+| Provider | Domains |
+|----------|---------|
+| Google | `accounts.google.com` |
+| Microsoft / Azure AD | `login.microsoftonline.com`, `login.live.com` |
+| Okta | `*.okta.com`, `*.oktapreview.com` |
+| Auth0 | `*.auth0.com`, `*.us.auth0.com`, `*.eu.auth0.com`, `*.au.auth0.com` |
+| Apple | `appleid.apple.com` |
+| GitHub | `github.com` |
+| Facebook / Meta | `www.facebook.com` |
+| LinkedIn | `www.linkedin.com` |
+| Amazon Cognito | `*.amazoncognito.com` |
+| OneLogin | `*.onelogin.com` |
+| Ping Identity | `*.pingone.com`, `*.pingidentity.com` |
+
+For other SSO providers, add their domains to `allowed_domains` when creating the connection.
+
+## Error codes
+
+When a login flow fails, `error_code` contains a machine-readable code for programmatic handling:
+
+| Code | Description | Recoverable |
+|------|-------------|-------------|
+| `credentials_invalid` | The credentials were rejected by the website | Yes |
+| `login_form_not_found` | No login form was found on the page | Yes |
+| `bot_detected` | The website detected automated access | Yes |
+| `captcha_blocked` | A CAPTCHA blocked the login attempt | Yes |
+| `mfa_required` | MFA is required but couldn't be completed | Yes |
+| `website_error` | The website displayed an error during login | Yes |
+| `session_expired` | The login session timed out | Yes |
+| `element_not_found` | A required page element wasn't found | Yes |
+| `navigation_confused` | The login flow navigated to an unexpected page | Yes |
+| `stuck_in_loop` | The login flow got stuck repeating the same action | Yes |
+| `max_attempts_reached` | Maximum retry attempts were exhausted | No |
+| `browser_error` | The browser encountered an error | No |
+| `internal_error` | An internal error occurred | No |
 
 ## Security
 

@@ -99,14 +99,27 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
-The `discovered_fields` array tells you what the login form needs:
+The `discovered_fields` array tells you what the login form needs. Each field includes:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Field name (e.g., `email`, `password`, `otp`) |
+| `type` | string | Field type: `text`, `email`, `password`, `tel`, `number`, `url`, `code`, `totp` |
+| `label` | string | Human-readable label (e.g., "Email address") |
+| `placeholder` | string | Placeholder text from the form |
+| `required` | boolean | Whether the field is required |
+| `selector` | string | CSS selector for the field element |
+| `linked_mfa_type` | string \| null | If this field is linked to an MFA option (e.g., `sms`, `totp`, `push`) |
 
 ```typescript
 // Example discovered_fields for login
-[{ name: 'username', type: 'text' }, { name: 'password', type: 'password' }]
+[
+  { name: 'email', type: 'email', label: 'Email address', required: true, selector: 'input#email' },
+  { name: 'password', type: 'password', label: 'Password', required: true, selector: 'input#password' }
+]
 
 // Example discovered_fields for 2FA
-[{ name: 'otp', type: 'code' }]
+[{ name: 'otp', type: 'code', label: 'Verification code', required: true, selector: 'input#otp' }]
 ```
 
 ## Complete Example
@@ -254,7 +267,7 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO providers (Google, Microsoft, Okta, Auth0, GitHub, and more) are [allowed by default](/profiles/managed-auth/overview#default-sso-domains). For other providers, set `allowed_domains` on the connection to include the provider's domain.
 </Info>
 
 ### MFA Selection
@@ -302,7 +315,7 @@ if (state.flow_step === 'AWAITING_EXTERNAL_ACTION') {
   // Show the message to the user
   console.log(state.external_action_message);
   // e.g., "Check your phone for a push notification"
-  
+
   // Keep polling—the flow resumes automatically when the user completes the action
 }
 ```
@@ -312,8 +325,64 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
     # Show the message to the user
     print(state.external_action_message)
     # e.g., "Check your phone for a push notification"
-    
+
     # Keep polling—the flow resumes automatically when the user completes the action
+```
+</CodeGroup>
+
+### Website errors
+
+During login, `website_error` surfaces errors displayed by the website itself (e.g., "Incorrect password", "Account locked"):
+
+<CodeGroup>
+```typescript TypeScript
+if (state.website_error) {
+  console.log(`Website error: ${state.website_error}`);
+  // The flow may continue or fail depending on the error
+}
+```
+
+```python Python
+if state.website_error:
+    print(f"Website error: {state.website_error}")
+    # The flow may continue or fail depending on the error
+```
+</CodeGroup>
+
+### Error handling
+
+When a flow fails, `error_code` and `error_message` provide details:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.flow_status === 'FAILED') {
+  console.log(`Error [${state.error_code}]: ${state.error_message}`);
+  // e.g., "Error [credentials_invalid]: The credentials were rejected by the website"
+}
+```
+
+```python Python
+if state.flow_status == "FAILED":
+    print(f"Error [{state.error_code}]: {state.error_message}")
+    # e.g., "Error [credentials_invalid]: The credentials were rejected by the website"
+```
+</CodeGroup>
+
+See [Error Codes](/profiles/managed-auth/overview#error-codes) for the full list.
+
+### Live view
+
+Use `live_view_url` from the login response to watch the login flow in real-time:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Watch the login flow:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Watch the login flow: {login.live_view_url}")
 ```
 </CodeGroup>
 
@@ -348,15 +417,75 @@ The `status` field indicates the overall connection state:
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
 
-## Real-Time Updates with SSE
+## Real-time updates with SSE
 
-For real-time UIs, you can stream login flow events via Server-Sent Events instead of polling:
+For real-time UIs, stream login flow events via Server-Sent Events instead of polling:
 
+<CodeGroup>
+```typescript TypeScript
+const response = await fetch(
+  `https://api.onkernel.com/auth/connections/${auth.id}/events`,
+  {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  }
+);
+
+const reader = response.body!.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split('\n');
+  buffer = lines.pop()!;
+
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const event = JSON.parse(line.slice(6));
+
+      if (event.event === 'managed_auth_state') {
+        console.log(`Step: ${event.flow_step}, Status: ${event.flow_status}`);
+
+        if (event.flow_step === 'AWAITING_INPUT' && event.discovered_fields?.length) {
+          // Submit credentials via the submit endpoint
+        }
+      }
+    }
+  }
+}
 ```
-GET /auth/connections/{id}/events
-```
 
-The stream delivers `managed_auth_state` events with the same fields as polling (`flow_status`, `flow_step`, `discovered_fields`, etc.) and terminates automatically when the flow reaches a terminal state.
+```python Python
+import httpx
+
+async with httpx.AsyncClient() as client:
+    async with client.stream(
+        "GET",
+        f"https://api.onkernel.com/auth/connections/{auth.id}/events",
+        headers={"Authorization": f"Bearer {api_key}"},
+    ) as response:
+        async for line in response.aiter_lines():
+            if line.startswith("data: "):
+                event = json.loads(line[6:])
+
+                if event["event"] == "managed_auth_state":
+                    print(f"Step: {event['flow_step']}, Status: {event['flow_status']}")
+
+                    if event["flow_step"] == "AWAITING_INPUT" and event.get("discovered_fields"):
+                        # Submit credentials via the submit endpoint
+                        pass
+```
+</CodeGroup>
+
+The stream delivers three event types:
+- `managed_auth_state` — Flow state changed (includes `flow_status`, `flow_step`, `discovered_fields`, `mfa_options`, `pending_sso_buttons`, `external_action_message`, `website_error`, `error_message`, `error_code`)
+- `error` — An error occurred on the stream
+- `sse_heartbeat` — Keep-alive ping
+
+The stream terminates automatically when the flow reaches a terminal state (`SUCCESS`, `FAILED`, `EXPIRED`, `CANCELED`).
 
 <Note>
 Polling is recommended for most integrations. SSE is useful when building real-time UIs that need instant updates without polling delays.
