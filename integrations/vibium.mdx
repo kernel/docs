@@ -124,6 +124,8 @@ kernel.browsers.delete_by_id(kernel_browser.session_id)
 The CLI can connect directly to the Kernel browser's WebDriver BiDi endpoint:
 
 ```bash
+export KERNEL_API_KEY=<your kernel api key>
+
 browser_json="$(kernel browsers create -o json)"
 session_id="$(printf '%s' "$browser_json" | jq -r '.session_id')"
 webdriver_ws_url="$(printf '%s' "$browser_json" | jq -r '.webdriver_ws_url')"
