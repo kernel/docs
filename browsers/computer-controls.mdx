@@ -3,7 +3,7 @@ title: "Computer Controls"
 description: "Control the computer's mouse, keyboard, and screen"
 ---
 
-Use OS-level controls to move and click the mouse, type and press keys, scroll, drag, and capture screenshots from a running browser session.
+Use OS-level controls to move and click the mouse, type and press keys, scroll, drag, and capture screenshots from a running browser session. Both `moveMouse` and `dragMouse` use human-like [Bézier curves](https://en.wikipedia.org/wiki/B%C3%A9zier_curve) by default.
 
 ## Click the mouse
 
@@ -69,7 +69,15 @@ kernel browsers computer click-mouse <session id> --x 100 --y 200 --num-clicks 2
 
 ## Move the mouse
 
-Move the cursor to specific screen coordinates. Optionally hold modifier keys during the move.
+Move the cursor to specific screen coordinates. By default, the cursor follows a human-like Bezier curve path instead of teleporting instantly. You can control this with `smooth` and `duration_ms`.
+
+| Parameter     | Type    | Default | Description |
+| ------------- | ------- | ------- | ----------- |
+| `x`           | integer | —       | X coordinate to move the cursor to |
+| `y`           | integer | —       | Y coordinate to move the cursor to |
+| `smooth`      | boolean | `true`  | Use human-like Bezier curve path instead of instant teleport |
+| `duration_ms` | integer | auto    | Target duration in milliseconds for smooth movement (50–5000). Omit for automatic timing based on distance |
+| `hold_keys`   | array   | —       | Modifier keys to hold during the move |
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -78,10 +86,25 @@ import Kernel from '@onkernel/sdk';
 const kernel = new Kernel();
 const kernelBrowser = await kernel.browsers.create();
 
+// Human-like smooth movement (default)
 await kernel.browsers.computer.moveMouse(kernelBrowser.session_id, {
   x: 500,
   y: 300,
-  hold_keys: ['Alt'],
+});
+
+// Smooth movement with custom duration
+await kernel.browsers.computer.moveMouse(kernelBrowser.session_id, {
+  x: 800,
+  y: 600,
+  smooth: true,
+  duration_ms: 1500,
+});
+
+// Instant teleport (disable smooth)
+await kernel.browsers.computer.moveMouse(kernelBrowser.session_id, {
+  x: 100,
+  y: 200,
+  smooth: false,
 });
 ```
 
@@ -91,19 +114,67 @@ from kernel import Kernel
 kernel = Kernel()
 kernel_browser = kernel.browsers.create()
 
+# Human-like smooth movement (default)
 kernel.browsers.computer.move_mouse(
     id=kernel_browser.session_id,
     x=500,
     y=300,
-    hold_keys=["Alt"],
+)
+
+# Smooth movement with custom duration
+kernel.browsers.computer.move_mouse(
+    id=kernel_browser.session_id,
+    x=800,
+    y=600,
+    smooth=True,
+    duration_ms=1500,
+)
+
+# Instant teleport (disable smooth)
+kernel.browsers.computer.move_mouse(
+    id=kernel_browser.session_id,
+    x=100,
+    y=200,
+    smooth=False,
 )
 ```
 
 ```bash CLI
-# Move the mouse to coordinates (500, 300)
+# Smooth movement (default)
 kernel browsers computer move-mouse <session id> --x 500 --y 300
+
+# Instant teleport
+kernel browsers computer move-mouse <session id> --x 500 --y 300 --smooth=false
 ```
 </CodeGroup>
+
+### Smooth vs instant movement
+
+<Frame caption="Blue = smooth Bezier path, Red = instant teleport">
+  <img src="/images/smooth-mouse-demo.gif" />
+</Frame>
+
+Try it yourself — open [live view](/browsers/live-view) and paste this (requires CLI v0.15.4+ — run `kernel upgrade` to update):
+
+```bash
+ID=$(kernel browsers create -o json | jq -r '.session_id')
+echo "Open live view: https://dashboard.onkernel.com/browsers/$ID"
+HTML=$(curl -sL "https://gist.githubusercontent.com/ulziibay-kernel/f6d8063ba223a81293cfe1fde06d8624/raw/cursor-trail-demo.html")
+kernel browsers playwright execute $ID "await page.setContent($(echo "$HTML" | jq -Rs .))"
+sleep 3
+
+kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'instant'})))"
+for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
+  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --smooth=false
+  sleep 0.5
+done
+
+kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'smooth'})))"
+for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
+  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --duration-ms 1200
+  sleep 0.3
+done
+```
 
 ## Take screenshots
 
@@ -310,7 +381,18 @@ kernel browsers computer scroll <session id> --x 300 --y 400 --delta-y 120
 
 ## Drag the mouse
 
-Drag by pressing a button, moving along a path of points, then releasing. You can control delay before starting, the granularity and speed of the drag via `steps_per_segment` and `step_delay_ms`, and optionally hold modifier keys.
+Drag by pressing a button, moving along a path of points, then releasing. By default, drag movement uses human-like Bezier curves between waypoints. Set `smooth: false` to use linear interpolation with `steps_per_segment` and `step_delay_ms` instead.
+
+| Parameter           | Type    | Default | Description |
+| ------------------- | ------- | ------- | ----------- |
+| `path`              | array   | —       | Ordered list of `[x, y]` coordinate pairs to move through (minimum 2 points) |
+| `button`            | string  | `left`  | Mouse button: `left`, `middle`, or `right` |
+| `smooth`            | boolean | `true`  | Use human-like Bezier curves between waypoints. When `true`, `steps_per_segment` and `step_delay_ms` are ignored |
+| `duration_ms`       | integer | auto    | Target duration in milliseconds for the entire drag when `smooth=true` (50–10000). Omit for automatic timing based on total path length |
+| `delay`             | integer | `0`     | Delay in milliseconds between button down and starting to move |
+| `steps_per_segment` | integer | `10`    | Number of interpolation steps per path segment (only when `smooth=false`) |
+| `step_delay_ms`     | integer | `50`    | Delay in milliseconds between steps (only when `smooth=false`) |
+| `hold_keys`         | array   | —       | Modifier keys to hold during the drag |
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -319,17 +401,36 @@ import Kernel from '@onkernel/sdk';
 const kernel = new Kernel();
 const kernelBrowser = await kernel.browsers.create();
 
+// Human-like smooth drag (default)
 await kernel.browsers.computer.dragMouse(kernelBrowser.session_id, {
   path: [
     [100, 200],
-    [150, 220],
-    [200, 260],
+    [400, 350],
+    [700, 200],
   ],
-  button: 'left',
-  delay: 0,
+});
+
+// Smooth drag with custom duration
+await kernel.browsers.computer.dragMouse(kernelBrowser.session_id, {
+  path: [
+    [100, 200],
+    [400, 350],
+    [700, 200],
+  ],
+  smooth: true,
+  duration_ms: 2000,
+});
+
+// Linear interpolation drag (legacy behavior)
+await kernel.browsers.computer.dragMouse(kernelBrowser.session_id, {
+  path: [
+    [100, 200],
+    [400, 350],
+    [700, 200],
+  ],
+  smooth: false,
   steps_per_segment: 10,
   step_delay_ms: 50,
-  hold_keys: ['Shift'],
 });
 ```
 
@@ -339,24 +440,50 @@ from kernel import Kernel
 kernel = Kernel()
 kernel_browser = kernel.browsers.create()
 
+# Human-like smooth drag (default)
 kernel.browsers.computer.drag_mouse(
     id=kernel_browser.session_id,
-    path=[[100, 200], [150, 220], [200, 260]],
-    button="left",
-    delay=0,
+    path=[[100, 200], [400, 350], [700, 200]],
+)
+
+# Smooth drag with custom duration
+kernel.browsers.computer.drag_mouse(
+    id=kernel_browser.session_id,
+    path=[[100, 200], [400, 350], [700, 200]],
+    smooth=True,
+    duration_ms=2000,
+)
+
+# Linear interpolation drag (legacy behavior)
+kernel.browsers.computer.drag_mouse(
+    id=kernel_browser.session_id,
+    path=[[100, 200], [400, 350], [700, 200]],
+    smooth=False,
     steps_per_segment=10,
     step_delay_ms=50,
-    hold_keys=["Shift"],
 )
 ```
 
 ```bash CLI
-# Drag the mouse along a path
+# Smooth drag (default)
 kernel browsers computer drag-mouse <session id> \
   --point 100,200 \
-  --point 150,220 \
-  --point 200,260 \
-  --button left \
-  --delay 0
+  --point 400,350 \
+  --point 700,200
+
+# Linear interpolation drag
+kernel browsers computer drag-mouse <session id> \
+  --point 100,200 \
+  --point 400,350 \
+  --point 700,200 \
+  --smooth=false \
+  --steps-per-segment 10 \
+  --step-delay-ms 50
 ```
 </CodeGroup>
+
+### Smooth vs linear drag
+
+<Frame caption="Blue = smooth Bezier curves, Red = linear interpolation">
+  <img src="/images/smooth-drag-demo.gif" />
+</Frame>
