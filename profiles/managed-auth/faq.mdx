@@ -13,10 +13,26 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
+Health checks run on regular cadences based on your plan:
 - Hobbyist (1 hr)
 - Start-Up (15 min)
 - Enterprise (configurable)
+
+## How do I trigger re-authentication before a health check runs?
+
+Call `login` with the connection id. If the connection is already authenticated, `login` returns immediately. If it needs re-authentication and has a linked [credential](/profiles/credentials) with `can_reauth` set to `true`, Kernel re-authenticates automatically.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+await kernel.auth.connections.login(auth.id)
+```
+</CodeGroup>
+
+If the login flow requires human input, handle it via the [Hosted UI](/profiles/managed-auth/hosted-ui) or [Programmatic](/profiles/managed-auth/programmatic) flow.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
