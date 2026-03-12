@@ -3,13 +3,13 @@ title: "Overview"
 description: "Maintain authenticated browser sessions for agents"
 ---
 
-Managed Auth creates and maintains browser authentication for your AI agents. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
+Managed Auth creates and maintains browser authentications for your AI agents. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch Kernel browsers with Managed Auth connections, your agent starts already logged in and ready to go.
 
 ## How It Works
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** associates a [profile](/auth/profiles) to a domain you want to keep authenticated so you can use the auth connection future browsers. Create one for each domain + profile combination you want to keep authenticated.
+    A **Managed Auth Connection** creates a browser [profile](/auth/profiles) for a domain you want to keep authenticated so you can automatically be logged in when you launch future browsers. Create one for each domain + user combination you want to keep authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -70,7 +70,7 @@ if state.status == "AUTHENTICATED":
 
   </Step>
   <Step title="Use the Profile">
-    Once the auth connection completes, the connection is saved to a [profile](/auth/profiles). Create browsers with the profile and navigate to the site. The browser session will already be authenticated.
+    Once the auth connection completes, the connection is saved to the browser [profile](/auth/profiles) you created in step 1. Create browsers with the profile and navigate to the site. The browser session will already be authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
