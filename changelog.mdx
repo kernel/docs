@@ -9,6 +9,23 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="March 13" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added WebDriver BiDi support for cloud browsers through a new [partnership with Vibium](https://www.kernel.sh/docs/integrations/computer-use/vibium). AI agents can now use Vibium to connect to Kernel and navigate pages, fill forms, click buttons, and take screenshots across thousands of cloud browsers running in parallel.
+- Launched [Kernel Eval Protocol](https://github.com/kernel/kernel-eval-protocol-quickstart), an open-source repo that pairs Kernel Browser Pools with Fireworks RFT and [Eval Protocol](https://github.com/fw-ai/eval-protocol) to evaluate and fine-tune VLM browser agents using reinforcement learning.
+- Added a `usage` field to the [browser session details](/api-reference/browsers/get-browser-session-details#response-usage) API response, which returns session metrics like `uptime_ms`. Use this to track session duration and build billing or analytics workflows around your browser usage.
+- Added support for [runtime proxy configuration swapping](/browsers/bot-detection/stealth), enabling you to change a browser's proxy settings mid-session without restarting.
+- Extended smooth Bezier curve mouse movements to click and drag operations, and added `--smooth` and `--duration-ms` flags to the `move-mouse` command in the [CLI](https://github.com/kernel/cli) for more natural-looking browser interactions.
+- Improved headless viewport resize performance by using a CDP fast path, reducing resize time from ~5 seconds to ~10 milliseconds.
+
+## Documentation updates
+
+- Added a new [Vibium](https://www.kernel.sh/docs/integrations/computer-use/vibium) integration guide with CLI examples and setup instructions.
+- Added [smooth mouse movement and drag](/browsers/computer-controls) documentation with CLI one-liner examples.
+- Improved [Web Bot Auth](/browsers/bot-detection/web-bot-auth) page readability with clearer formatting.
+</Update>
+
 <Update label="March 6" tags={["Product", "Docs"]}>
 ## Product updates
 
