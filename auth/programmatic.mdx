@@ -14,7 +14,7 @@ Use the Programmatic flow when:
 
 <Steps>
   <Step title="Create Connection and Start Session">
-    Same as [Hosted UI](/profiles/managed-auth/hosted-ui)
+    Same as [Hosted UI](/auth/hosted-ui)
   </Step>
   <Step title="Poll and Submit">
     Poll until `flow_step` becomes `AWAITING_INPUT`, then submit credentials
@@ -28,18 +28,20 @@ Use the Programmatic flow when:
 
 ### 1. Create a Connection
 
+A **Managed Auth Connection** associates a [profile](/auth/profiles) to a domain you want to keep authenticated so you can use the auth connection future browsers. Create one for each domain + profile combination you want to keep authenticated.
+
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'github.com',
-  profile_name: 'github-profile',
+  profile_name: 'github-profile', // Name of the profile to associate with the connection
 });
 ```
 
 ```python Python
 auth = await kernel.auth.connections.create(
     domain="github.com",
-    profile_name="github-profile",
+    profile_name="github-profile", # Name of the profile to associate with the connection
 )
 ```
 </CodeGroup>

@@ -1,19 +1,15 @@
 ---
 title: "Overview"
-description: "Create authenticated browser sessions for your automations"
+description: "Maintain authenticated browser sessions for agents"
 ---
 
-<Note>
-  Managed Auth is currently in public beta. Features are subject to change.
-</Note>
-
-Managed Auth creates and maintains authenticated browser profiles for your AI agents and web automations. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch a browser with the managed profile, you're already logged in and ready to go.
+Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch Kernel browsers with Managed Auth connections, your agent starts already logged in and ready to go.
 
 ## How It Works
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** links a profile to a website domain. Create one for each domain + profile combination you want to keep authenticated.
+    A **Managed Auth Connection** creates a browser [profile](/auth/profiles) for a domain you want to keep authenticated so you can automatically be logged in when you launch future browsers. Create one for each domain + user combination you want to keep authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -34,7 +30,7 @@ auth = await kernel.auth.connections.create(
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a Kernel-hosted page or your own UI.
    
-    Specify a [Credential](/profiles/credentials) to enable re-authentication without user input.
+    Specify a [Credential](/auth/credentials) to enable re-authentication without user input.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -74,7 +70,7 @@ if state.status == "AUTHENTICATED":
 
   </Step>
   <Step title="Use the Profile">
-    Once the auth connection completes, create browsers with the profile and navigate to the site. The browser session will already be authenticated.
+    Once the auth connection completes, the connection is saved to the browser [profile](/auth/profiles) you created in step 1. Create browsers with the profile and navigate to the site. The browser session will already be authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -104,12 +100,12 @@ await page.goto("https://netflix.com")
 ## Choose Your Integration
 
 <CardGroup cols={2}>
-  <Card title="Hosted UI" icon="browser" href="/profiles/managed-auth/hosted-ui">
+  <Card title="Hosted UI" icon="browser" href="/auth/hosted-ui">
     **Start here** - Simplest integration
 
     Redirect users to Kernel's hosted page. Add features incrementally: save credentials for auto-reauth, custom login URLs, SSO support.
   </Card>
-  <Card title="Programmatic" icon="code" href="/profiles/managed-auth/programmatic">
+  <Card title="Programmatic" icon="code" href="/auth/programmatic">
     **Full control** - Custom UI or headless
 
     Build your own credential collection. Handle login fields, SSO buttons, MFA selection, and external actions (push notifications, security keys).
