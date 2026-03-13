@@ -194,12 +194,12 @@ const browser = await kernel.browsers.create({
 });
 
 // Hot-swap to a different proxy
-await kernel.browsers.update(browser.id, {
+await kernel.browsers.update(browser.session_id, {
   proxy_id: proxyB.id,
 });
 
 // Remove the proxy entirely (route directly to the internet)
-await kernel.browsers.update(browser.id, {
+await kernel.browsers.update(browser.session_id, {
   proxy_id: '',
 });
 ```
@@ -229,13 +229,13 @@ browser = kernel.browsers.create(
 
 # Hot-swap to a different proxy
 kernel.browsers.update(
-    browser.id,
+    browser.session_id,
     proxy_id=proxy_b.id,
 )
 
 # Remove the proxy entirely (route directly to the internet)
 kernel.browsers.update(
-    browser.id,
+    browser.session_id,
     proxy_id="",
 )
 ```
