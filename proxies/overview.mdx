@@ -165,7 +165,89 @@ proxy = kernel.proxies.create(
 Bypass hosts is available on Start-Up and Enterprise plans.
 </Info>
 
-## 5. Delete a proxy
+## 5. Update a browser's proxy
+
+You can hot-swap the proxy on a running browser session without restarting it. This updates the proxy configuration immediately — all subsequent network requests from the browser will use the new proxy.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Create two proxy configurations
+const proxyA = await kernel.proxies.create({
+  type: 'isp',
+  name: 'proxy-a',
+  config: { country: 'US' },
+});
+
+const proxyB = await kernel.proxies.create({
+  type: 'residential',
+  name: 'proxy-b',
+  config: { country: 'DE' },
+});
+
+// Launch a browser with the first proxy
+const browser = await kernel.browsers.create({
+  proxy_id: proxyA.id,
+});
+
+// Hot-swap to a different proxy
+await kernel.browsers.update(browser.id, {
+  proxy_id: proxyB.id,
+});
+
+// Remove the proxy entirely (route directly to the internet)
+await kernel.browsers.update(browser.id, {
+  proxy_id: '',
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+# Create two proxy configurations
+proxy_a = kernel.proxies.create(
+    type="isp",
+    name="proxy-a",
+    config={"country": "US"},
+)
+
+proxy_b = kernel.proxies.create(
+    type="residential",
+    name="proxy-b",
+    config={"country": "DE"},
+)
+
+# Launch a browser with the first proxy
+browser = kernel.browsers.create(
+    proxy_id=proxy_a.id,
+)
+
+# Hot-swap to a different proxy
+kernel.browsers.update(
+    browser.id,
+    proxy_id=proxy_b.id,
+)
+
+# Remove the proxy entirely (route directly to the internet)
+kernel.browsers.update(
+    browser.id,
+    proxy_id="",
+)
+```
+</CodeGroup>
+
+The update is synchronous — when the call returns, the proxy swap is fully applied and all new browser traffic routes through the updated proxy. The swap typically completes in 2–3 seconds.
+
+<Info>
+You can also pass `proxy_id` alongside other updatable fields like `viewport` and `profile` in a single `browsers.update` call.
+</Info>
+
+## 6. Delete a proxy
 
 When no longer needed, delete the proxy configuration:
 
