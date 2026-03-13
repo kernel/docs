@@ -169,6 +169,10 @@ Bypass hosts is available on Start-Up and Enterprise plans.
 
 You can hot-swap the proxy on a running browser session without restarting it. This updates the proxy configuration immediately — all subsequent network requests from the browser will use the new proxy.
 
+<Warning>
+The browser's egress network is momentarily disconnected during a proxy hot swap. Any in-flight requests may fail and need to be retried.
+</Warning>
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 import Kernel from '@onkernel/sdk';
