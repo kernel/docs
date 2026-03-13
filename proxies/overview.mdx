@@ -170,7 +170,7 @@ Bypass hosts is available on Start-Up and Enterprise plans.
 You can hot-swap the proxy on a running browser session without restarting it. This updates the proxy configuration immediately — all subsequent network requests from the browser will use the new proxy.
 
 <Warning>
-The browser's egress network is momentarily disconnected during a proxy hot swap. Any in-flight requests may fail and need to be retried.
+The browser's network is momentarily disconnected during a proxy hot swap. Any in-flight requests may fail.
 </Warning>
 
 <CodeGroup>
@@ -248,12 +248,8 @@ kernel.browsers.update(
 The update is synchronous — when the call returns, the proxy swap is fully applied and all new browser traffic routes through the updated proxy. The swap typically completes in 2–3 seconds.
 
 <Info>
-You can also pass `proxy_id` alongside other updatable fields like `viewport` and `profile` in a single `browsers.update` call.
+If you swap the proxy on a browser acquired from a pool, the browser will be reset back to the pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the pool default.
 </Info>
-
-<Note>
-If you swap the proxy on a browser acquired from a pool, the browser will be baselined back to the pool's default proxy configuration when it is released back to the pool. This means releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the pool default.
-</Note>
 
 ## 6. Delete a proxy
 
