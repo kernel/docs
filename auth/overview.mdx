@@ -118,11 +118,79 @@ await page.goto("https://netflix.com")
 The most valuable workflows live behind logins. Managed Auth provides:
 
 - **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box. Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are automatically allowed
 - **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials, with [configurable health check intervals](#health-checks)
+- **Proxy support** - Route login flows through [proxies](/proxies/overview) to avoid bot detection on specific sites
+- **Live view** - Watch login flows in real time via `live_view_url` for debugging
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+
+## Managing connections
+
+List and delete connections to manage your authenticated sessions:
+
+<CodeGroup>
+```typescript TypeScript
+// List all connections
+const connections = await kernel.auth.connections.list();
+
+// Filter by domain
+const githubConns = await kernel.auth.connections.list({
+  domain: 'github.com',
+});
+
+// Delete a connection
+await kernel.auth.connections.delete(auth.id);
+```
+
+```python Python
+# List all connections
+connections = await kernel.auth.connections.list()
+
+# Filter by domain
+github_conns = await kernel.auth.connections.list(domain="github.com")
+
+# Delete a connection
+await kernel.auth.connections.delete(auth.id)
+```
+</CodeGroup>
+
+List supports filtering by `domain` and `profile_name`, and pagination via `limit` and `offset`.
+
+## Health checks
+
+Kernel monitors authenticated connections and re-authenticates automatically when sessions expire. The health check interval depends on your plan:
+
+| Plan | Minimum interval | Default |
+|------|-----------------|---------|
+| Hobbyist | 1 hour | 1 hour |
+| Start-Up | 20 minutes | 1 hour |
+| Enterprise | 5 minutes | 1 hour |
+
+You can configure a custom interval (in seconds) when creating a connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'netflix.com',
+  profile_name: 'netflix-user-123',
+  health_check_interval: 1200, // 20 minutes
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="netflix.com",
+    profile_name="netflix-user-123",
+    health_check_interval=1200,  # 20 minutes
+)
+```
+</CodeGroup>
+
+<Info>
+The minimum `health_check_interval` is plan-gated. The maximum is 86400 seconds (24 hours). If omitted, the default is 1 hour.
+</Info>
 
 ## Security
 

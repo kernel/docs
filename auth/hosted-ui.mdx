@@ -236,11 +236,11 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### SSO/OAuth Support
+### SSO/OAuth support
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are automatically allowed. For custom or uncommon OAuth providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -260,9 +260,59 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-### Post-Login URL
+### Proxy support
 
-After successful authentication, `post_login_url` will be set to the page where the login landed. Use this start your automation from the right place:
+Route login flows through a [proxy](/proxies/overview) to avoid bot detection on specific sites. Set the proxy when creating a connection or override it per-login:
+
+<CodeGroup>
+```typescript TypeScript
+// Set proxy on the connection
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { name: 'my-residential-proxy' },
+});
+
+// Or override proxy for a specific login
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { name: 'different-proxy' },
+});
+```
+
+```python Python
+# Set proxy on the connection
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"name": "my-residential-proxy"},
+)
+
+# Or override proxy for a specific login
+login = await kernel.auth.connections.login(auth.id,
+    proxy={"name": "different-proxy"},
+)
+```
+</CodeGroup>
+
+### Live view
+
+The login response includes a `live_view_url` you can use to watch the login flow in real time. This is useful for debugging failed logins:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Watch login:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Watch login: {login.live_view_url}")
+```
+</CodeGroup>
+
+### Post-login URL
+
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
 
 <CodeGroup>
 ```typescript TypeScript

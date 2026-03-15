@@ -13,10 +13,15 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health checks run on a regular cadence based on your plan. You can configure a custom `health_check_interval` (in seconds) when creating a connection, subject to the minimum for your plan:
+
+| Plan | Minimum interval | Default |
+|------|-----------------|---------|
+| Hobbyist | 1 hour (3600s) | 1 hour |
+| Start-Up | 20 minutes (1200s) | 1 hour |
+| Enterprise | 5 minutes (300s) | 1 hour |
+
+The maximum interval is 24 hours (86400s).
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -53,7 +58,59 @@ If a login attempt fails, Kernel will retry with exponential backoff. After mult
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, [proxies](/proxies/overview)). You can attach a proxy directly to a connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { name: 'my-residential-proxy' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"name": "my-residential-proxy"},
+)
+```
+</CodeGroup>
+
+Passkeys and hardware security keys are not currently supported.
+
+## Do I need to specify `allowed_domains` for SSO providers?
+
+Common SSO provider domains are automatically allowed and don't need to be listed in `allowed_domains`. These include:
+
+- Google (`accounts.google.com`)
+- Microsoft / Azure AD (`login.microsoftonline.com`, `login.live.com`)
+- Okta (`*.okta.com`, `*.oktapreview.com`)
+- Auth0 (`*.auth0.com`)
+- GitHub (`github.com`)
+- Apple (`appleid.apple.com`)
+- Facebook (`www.facebook.com`)
+- LinkedIn (`www.linkedin.com`)
+- Amazon Cognito (`*.amazoncognito.com`)
+- OneLogin (`*.onelogin.com`)
+- Ping Identity (`*.pingone.com`, `*.pingidentity.com`)
+
+Use `allowed_domains` only for custom or uncommon OAuth providers.
+
+## How can I debug a failed login flow?
+
+Use the `live_view_url` returned by `auth.connections.login()` to watch the login flow in real time. The connection state also includes diagnostic fields when a flow fails:
+
+- `error_code` — Machine-readable error code (e.g., `credentials_invalid`, `bot_detected`)
+- `error_message` — Human-readable description
+- `website_error` — Error displayed by the website itself (e.g., "Incorrect password")
+
+See the [Programmatic flow error handling section](/auth/programmatic#handling-errors) for the full list of error codes.
+
+## Can I list and delete connections?
+
+Yes. Use `auth.connections.list()` to list connections with optional `domain` and `profile_name` filters, and `auth.connections.delete()` to remove a connection. Deleting a connection cancels any in-progress login flows and terminates the background workflow.
 
 ## How is Managed Auth billed?
 

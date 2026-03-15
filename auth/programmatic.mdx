@@ -105,11 +105,25 @@ The `discovered_fields` array tells you what the login form needs:
 
 ```typescript
 // Example discovered_fields for login
-[{ name: 'username', type: 'text' }, { name: 'password', type: 'password' }]
+[
+  { name: 'username', type: 'text', label: 'Username', selector: '...', required: true },
+  { name: 'password', type: 'password', label: 'Password', selector: '...', required: true }
+]
 
 // Example discovered_fields for 2FA
-[{ name: 'otp', type: 'code' }]
+[{ name: 'otp', type: 'code', label: 'Enter code', selector: '...', required: true }]
 ```
+
+Each field includes:
+
+| Property | Description |
+|----------|-------------|
+| `name` | Field identifier (e.g., `email`, `password`, `otp`) |
+| `type` | Input type: `text`, `email`, `password`, `tel`, `number`, `url`, `code`, `totp` |
+| `label` | User-facing label (e.g., "Email address") |
+| `selector` | CSS selector for the field element |
+| `required` | Whether the field is required (default: `true`) |
+| `linked_mfa_type` | If this field is linked to an MFA option, the MFA type (e.g., `sms`, `totp`) |
 
 ## Complete Example
 
@@ -256,7 +270,7 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, and more) are automatically allowed. For custom or uncommon OAuth providers, set `allowed_domains` on the connection.
 </Info>
 
 ### MFA Selection
@@ -266,11 +280,13 @@ When the site offers multiple MFA methods, they appear in `mfa_options`:
 <CodeGroup>
 ```typescript TypeScript
 if (state.mfa_options?.length) {
-  // Available types: sms, email, totp, push, call, security_key
+  // Available types: sms, email, totp, push, call, password
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
+    // opt.target contains masked destination (e.g., "***-***-5678")
+    // opt.description contains additional instructions from the site
   }
-  
+
   // Submit the selected MFA method
   await kernel.auth.connections.submit(auth.id, {
     mfa_option_id: 'sms'
@@ -280,10 +296,12 @@ if (state.mfa_options?.length) {
 
 ```python Python
 if state.mfa_options:
-    # Available types: sms, email, totp, push, call, security_key
+    # Available types: sms, email, totp, push, call, password
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
-    
+        # opt["target"] contains masked destination (e.g., "***-***-5678")
+        # opt["description"] contains additional instructions from the site
+
     # Submit the selected MFA method
     await kernel.auth.connections.submit(
         auth.id,
@@ -363,3 +381,69 @@ The stream delivers `managed_auth_state` events with the same fields as polling 
 <Note>
 Polling is recommended for most integrations. SSE is useful when building real-time UIs that need instant updates without polling delays.
 </Note>
+
+## Handling errors
+
+When a login flow fails, the connection state includes `error_code` and `error_message` for programmatic error handling:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.flow_status === 'FAILED') {
+  console.log(`Error: ${state.error_code} - ${state.error_message}`);
+
+  // Check if the site displayed an error (e.g., "Incorrect password")
+  if (state.website_error) {
+    console.log(`Website said: ${state.website_error}`);
+  }
+}
+```
+
+```python Python
+if state.flow_status == "FAILED":
+    print(f"Error: {state.error_code} - {state.error_message}")
+
+    # Check if the site displayed an error (e.g., "Incorrect password")
+    if state.website_error:
+        print(f"Website said: {state.website_error}")
+```
+</CodeGroup>
+
+### Error codes
+
+| Code | Description | Recoverable |
+|------|-------------|-------------|
+| `credentials_invalid` | Credentials were rejected by the website | Yes — fix credentials |
+| `bot_detected` | Site detected automation and blocked login | Yes — try with proxy or stealth |
+| `captcha_blocked` | CAPTCHA couldn't be solved | Yes — retry or use proxy |
+| `mfa_required` | MFA is required but couldn't be completed | Yes — provide MFA input |
+| `login_form_not_found` | Login page couldn't be identified | Yes — provide `login_url` |
+| `session_expired` | Flow timed out before completing | Yes — start a new session |
+| `element_not_found` | Expected page element wasn't found | Yes — retry |
+| `domain_not_allowed` | Redirect to a domain not in `allowed_domains` | Yes — add domain |
+| `website_error` | The website returned an error | Depends on error |
+| `navigation_confused` | Unexpected page state during login | Retry |
+| `stuck_in_loop` | Login flow detected a loop | Retry |
+| `max_attempts_reached` | Too many failed attempts | Retry later |
+| `browser_error` | Browser session failed | Retry |
+| `flow_failed` | General flow failure | Retry |
+| `internal_error` | Internal error | Retry |
+
+The `website_error` field surfaces errors visible on the page itself (e.g., "Incorrect password", "Account locked"). This helps distinguish between Kernel-side failures and website-side rejections.
+
+## Live view
+
+The login response includes a `live_view_url` you can open in a browser to watch the login flow in real time. This is useful for debugging:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+console.log('Watch login:', login.live_view_url);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+print(f"Watch login: {login.live_view_url}")
+```
+</CodeGroup>
+
+The `live_view_url` is also available on the connection state during an active flow.
