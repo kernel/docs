@@ -1,117 +1,214 @@
 ---
-title: "Security Addendum"
+title: "Security Practices"
+description: "How Kernel protects your data with enterprise-grade security controls"
 ---
 
-Last Modified: July 4, 2025
+Last Modified: March 16, 2026
 
-This Information Security Addendum (the “Addendum”) sets forth the technical and organizational measures for the protection of Content processed by Kernel (if applicable) or data (if any) provided by Customer to Kernel in connection with the delivery of Support Services (if applicable) (collectively “Customer Information”).
+## Overview
 
-Kernel shall maintain an information security program that is designed to protect the security, confidentiality, and integrity of Customer Information (the "Kernel Information Security Program"). The Kernel Information Security Program will be implemented on an organization-wide basis. The Kernel Information Security Program will be designed to ensure Kernel's compliance with data protection laws and regulations applicable to Kernel's performance under the applicable Agreement (including any Data Processing Addendum), and shall include the safeguards set below, which substantially conform to the ISO/IEC 27002 control framework (the “Kernel Information Security Controls”).
+Kernel's mission of providing reliable, high-performance browser infrastructure depends on the security of our systems. We want our customers to know that Kernel is a trustworthy guardian of their data.
+
+Kernel maintains an information security program designed to protect the security, confidentiality, and integrity of Customer Information. The program is implemented organization-wide and substantially conforms to the ISO/IEC 27002 control framework. Kernel holds active compliance certifications across SOC 2 Type II, HIPAA, ISO 27001, and GDPR.
+
+Our program has four focus areas: product security, infrastructure security, organizational security, and incident response. The sections below describe each focus area and the security activities we practice within each.
+
+For questions about our security program, contact [ciso@onkernel.com](mailto:ciso@onkernel.com).
 
 ## 1. Audits and Certifications
 
-1.1 Audits and Certifications. Engage independent third-party auditors to assess the Kernel Information Security Program as described in the following audits and certifications on at least an annual basis:
+Kernel engages independent third-party auditors to assess our information security program on at least an annual basis. Our current certifications and framework compliance include:
 
-[SOC 2 Type II](https://trust.delve.co/kernel)
+- **SOC 2 Type II** — 73/76 controls passing (96%). Our SOC 2 report is available upon request through our [Trust Center](https://trust.onkernel.com).
+- **HIPAA** — 71/74 controls passing (96%). Kernel supports HIPAA compliance for workflows handling Protected Health Information.
+- **ISO 27001** — 84/87 controls passing (97%). Kernel maintains an Information Security Management System aligned with ISO 27001.
+- **GDPR** — 75/81 controls passing (93%). Kernel processes data in accordance with EU data protection requirements.
+
+Kernel maintains 45 signed and reviewed security policies across these frameworks, all managed and auditable through our compliance platform.
 
 ## 2. Shared Responsibility
 
-2.1 Shared Responsibility Model. Kernel adheres to a shared responsibility model for its hosted offerings. Kernel maintains specific security responsibilities, while customers are responsible for managing their data and access. 
+Kernel adheres to a shared responsibility model for its hosted offerings. Kernel maintains specific security responsibilities for the infrastructure, platform, and application layers, while customers are responsible for managing their data, access credentials, and the automation scripts they run within Kernel browser environments.
 
-## 3. Customer Data Storage Location
+## 3. Product Security
 
-3.1 Kernel. Create services for customers to create browser automation scripts and run them in browser environments managed by Kernel Technologies, Inc.
+### 3.1 Secure Software Development Lifecycle
 
-## 4. Organizational Controls
+Kernel maintains and follows a secure development lifecycle. Changes to production infrastructure, systems, and applications are documented, tested, and approved before deployment. Our change management process includes:
 
-4.1 Governance. Kernel assigns to an individual or a group of individuals appropriate roles for developing, coordinating, implementing, and managing Kernel's administrative, physical, and technical safeguards designed to protect the security, confidentiality, and integrity of Customer Information.
+- Source code control with all changes logged, time-stamped, and attributed to their author
+- Peer code review with repository branch rules requiring independent approval for all merges to production
+- Separation of development, testing, and production environments
+- Secure coding training for engineers covering OWASP Top Ten issues
+- Automated tools in the build pipeline to analyze code for potential vulnerabilities
 
-4.2 Security Personnel. Kernel uses data security personnel that are sufficiently trained, qualified, and experienced to be able to fulfill their information security-related functions.
+Developers do not make changes to application code in the production environment without additional approval. Access to source code repositories is restricted to authorized users using multi-factor authentication.
 
-4.3 Risk Assessments. Kernel conducts periodic risk assessments designed to analyze existing information security risks, identify potential new risks, and evaluate the effectiveness of existing security controls.
+### 3.2 Vulnerability Management
 
-4.4 Risk Prioritization. Kernel maintains risk assessment processes designed to evaluate likelihood of risk occurrence and material potential impacts if risks occur.
+Kernel uses a proactive vulnerability and patch management process that prioritizes and implements patches based on classification and severity. Our vulnerability management program includes:
 
-4.5 Information Security Policies. Kernel creates information security policies, approved by management, published and acknowledged by all employees.
+- Automated vulnerability scanning of infrastructure and applications on a monthly basis
+- Annual network and application penetration testing by independent assessors
+- Systematic identification, assessment, and remediation of security vulnerabilities prioritized by risk level and potential impact
+- Remediation plans for critical and high vulnerabilities following the incident response plan
+- Regular patching of operating systems, container images, language runtimes, and libraries, with critical vendor-supplied security patches applied within a defined timeframe after release
 
-4.6 Information Security Policy Review. Kernel reviews and updates policies at planned intervals to maintain their continuing suitability, adequacy, and effectiveness.
+The IT and Engineering department reviews vulnerabilities and takes action on those identified as high and critical.
 
-4.7 Data Classification. Kernel maintains a data classification standard based on data criticality and sensitivity.
+### 3.3 Security Features
 
-4.8 Data Retention and Destruction. Kernel maintains policies establishing data retention and secure destruction requirements.
+Kernel's platform includes built-in security features:
 
-4.9 Asset Ownership. Kernel implements procedures to clearly identify assets and assign ownership of those assets.
+- **Unikernel Isolation** — Kernel runs Chromium browsers on lightweight unikernels, providing OS-level isolation with built-in browser separation between customer sessions
+- **Encryption** — All data is encrypted in transit (TLS 1.2+ minimum) and at rest (AES-256) using cloud provider key management services with keys rotated at least annually
+- **Multi-Factor Authentication** — MFA is enforced for administrative access to the production platform, company email, version control, and cloud infrastructure
+- **Logical Separation** — Customer environments are logically separated, with production systems isolated from non-production environments
+- **Data Loss Prevention** — DLP software prevents sensitive information from being transmitted over email
 
-4.10 Compliance. Kernel establishes procedures designed to ensure all applicable statutory, regulatory, and contractual requirements are adhered to across the organization.
+## 4. Infrastructure Security
 
-## 5. People Controls
+### 4.1 Cloud Provider
 
-5.1 Information Security Policy Acknowledgement. Kernel creates information security policies, approved by management, published and acknowledged by all employees.
+All of Kernel's infrastructure runs in the cloud. Our cloud provider maintains certifications including SOC 2, ISO 27001, and additional industry standards. The SOC 2 report of our cloud provider is reviewed on an annual basis to evaluate the effectiveness of their controls. Physical security and environmental controls at the hosting facilities are the responsibility of the cloud provider.
 
-5.2 Information Security Awareness Training. Kernel requires all employees to undergo security awareness training on an annual basis.
+### 4.2 Network Security
 
-5.3 Personnel Agreements. Kernel requires personnel to sign confidentiality agreements and acknowledge Kernel's information security policy, which includes acknowledging responsibilities for reporting security incidents involving Customer Information.
+Kernel protects its network and public endpoints against breaches and failures that could compromise the confidentiality, availability, or integrity of information. Our network security program includes:
+
+- Firewalls and intrusion detection systems to prevent unauthorized access and detect external threats
+- Explicit blocking of all traffic and protocols except those required for business operations
+- Annual review of firewall rules by IT management
+- Network segmentation separating development, production, and corporate resources
+- VPN connections over public networks for encrypting sensitive information, with access restricted to authorized individuals
+- Network device configurations backed up regularly to secure, central locations
+- Annual network diagram reviews and vulnerability audits
+
+### 4.3 Data Encryption
+
+Kernel uses its cloud provider's key management service to encrypt data at rest and to store and manage encryption keys. Access to production environment access keys is restricted to authorized individuals. Encryption technologies protect communication and transmission of data over public networks.
+
+- **In Transit** — Minimum of TLS 1.2 with strong ciphers (SHA-256 or higher)
+- **At Rest** — AES-256 with strong ciphers
+- **Key Rotation** — Cloud provider managed keys rotated at least annually
+
+### 4.4 Logging and Monitoring
+
+Kernel collects and monitors audit logs and alerts on key events from production systems, applications, databases, servers, and critical services, as well as IAM user and admin activities. Our monitoring includes:
+
+- Centralized log collection for administrative activities, logon attempts, data deletions, security configuration changes, and permission modifications
+- Logs securely stored and archived for a minimum of one year to assist with forensic efforts
+- Access controls to prevent unauthorized access, deletion, or tampering of log data
+- Continuous monitoring of system capacity and performance to detect anomalies
+- Predefined threshold alerts correlated across all sources to identify root causes and formally declare incidents
+- Real-time monitoring for suspicious activity in our infrastructure
+
+### 4.5 Business Continuity and Disaster Recovery
+
+Kernel maintains business continuity and disaster recovery plans to ensure rapid recovery from disruptions while continuing to support customers. Our program includes:
+
+- **Business Impact Analysis** — Formal assessment of the criticality of business processes, including maximum tolerable downtime, recovery time objectives, and recovery point objectives
+- **Backups** — Automated backups performed at least weekly, replicated to different availability zones, with annual restoration testing
+- **Disaster Recovery Plans** — Sequential processes for recovering and restoring business operations, including damage assessment, recovery cost estimation, and progress monitoring
+- **Testing** — Periodic tabletop exercises and disaster simulations conducted by authorized personnel, with assessment reports and corrective actions tracked
+- **Third-Party Continuity** — Contracts with critical service providers include contingency and recovery strategies
+
+## 5. Organizational Security
+
+### 5.1 Governance and Policies
+
+Kernel maintains 45 security policies across administrative, data governance, privacy, risk and security, and technical categories. All policies are:
+
+- Approved by management (CTO, COO, or Board of Directors)
+- Published and acknowledged by all employees
+- Reviewed and updated at least annually or during significant changes
+- Accessible to employees with read-only permissions, with modification requiring management approval
+
+Kernel's governance framework includes a data classification standard, asset register with ownership tracking, and compliance procedures for statutory, regulatory, and contractual requirements.
+
+### 5.2 Risk Management
+
+Kernel conducts risk assessments at least annually to analyze existing information security risks, identify potential new risks, and evaluate the effectiveness of existing security controls. Risks are classified and action plans are developed to mitigate discovered risks. Risk prioritization evaluates likelihood of occurrence and material potential impact.
+
+### 5.3 People Controls
+
+All Kernel personnel undergo security measures before and during their employment:
+
+- **Background Checks** — Required for all new employees and contractors prior to joining, reviewed by authorized personnel in accordance with local laws
+- **Confidentiality Agreements** — Personnel sign industry-standard confidentiality agreements before accessing sensitive information
+- **Security Training** — Annual security awareness training encompassing general security awareness, role-specific requirements, and emerging threats, with effectiveness regularly assessed
+- **Secure Coding Training** — Engineers receive secure coding guidelines specific to our technology stack
+- **Policy Acknowledgement** — All personnel read, accept, and follow company security policies upon starting and at least annually
+
+### 5.4 Access Controls
+
+Kernel adheres to the principle of least privilege. Users are granted access based on role and business need, provisioned via a deny-all methodology where access requires formal independent approval.
+
+- **Unique Accounts** — All users receive unique credentials traceable to the individual. Shared accounts are only permitted where there is a clear business benefit
+- **Password Security** — Minimum eight characters, complex, unique per system, stored only in company-approved password managers. Credentials are never hard-coded or embedded in static code
+- **Multi-Factor Authentication** — Enforced for administrative access to production, email, version control, and cloud infrastructure
+- **Quarterly Access Reviews** — Team managers audit user accounts and privileges of high-risk and critical systems at least quarterly
+- **Onboarding** — Documented process including device inventory, access provisioning checklists, and appropriate permissions by role
+- **Offboarding** — Access revoked within one business day of termination, including system access, digital certificates, tokens, physical access, and device return
+
+### 5.5 Device and Workstation Security
+
+Kernel centrally manages endpoint devices through mobile device management (MDM) and endpoint security solutions:
+
+- Full disk encryption required on all devices accessing sensitive data
+- Automatic screen lock after a period of inactivity
+- Anti-virus and malware protection installed and configured on all production servers with daily definition updates
+- Automatic patch updates with daily compliance scanning
+- Only IT-managed or IT-approved devices may connect to the internal corporate network
+- Remote wipe capabilities for lost or compromised devices
+- Prohibition on connecting to public wireless networks without WPA-2 or equivalent encryption
+
+### 5.6 Vendor Management
+
+Kernel requires a vendor security assessment before third-party products or services are used. The review may include gathering applicable compliance audits (SOC 1, SOC 2, PCI DSS, HITRUST, ISO 27001) or other security compliance evidence. Agreements are updated when business, legal, or regulatory requirements change.
 
 ## 6. Physical Security
 
-6.1 Cloud Service Providers. Kernel uses Hosting Service Providers that have:
+Kernel uses cloud hosting providers that maintain:
 
-6.1.1. Physical Security. Implemented controls designed to restrict unauthorized physical access to areas containing equipment used to provide Kernel.
+- **Physical Security** — Controls restricting unauthorized physical access to areas containing equipment used to provide Kernel's services
+- **Environmental Security** — Equipment housed in locations protected from natural disasters, theft, unauthorized access, ventilation/heating/cooling problems, and power failures
+- Clear desk and clear screen policies for all personnel, extending to remote work environments
 
-6.1.2 Environmental Security. Maintain equipment used to host Kernel in physical locations that are designed to be protected from natural disasters, theft, unlawful and unauthorized physical access, problems with ventilation, heating or cooling, and power failures or outages.
+## 7. Incident Response
 
-## 7. Technical Controls
+### 7.1 Incident Response Procedures
 
-7.1 Logical Access Control. Kernel maintains technical, logical, and administrative controls designed to limit access to Customer Information. Unique usernames and passwords are required for authentication.
+Kernel maintains a security incident response plan that defines responsibilities, detection, and corrective actions. The plan is tested, reviewed, and updated at least annually. All users are trained on procedures for reporting information security incidents.
 
-7.2 Privileged Access Restriction. Kernel restricts privileged access to the Customer Data to authorized users with a business need.
+Incidents are classified by severity:
 
-7.3 Access Review. Kernel reviews personnel access rights on a regular and periodic basis. Access to production environments is reviewed at least quarterly.
+- **Critical** — Potentially catastrophic to the organization, disrupting day-to-day operations, or involving a likely violation of legal, regulatory, or contractual requirements
+- **High** — Will cause harm to one or more business units, cause delays, or constitute a clear violation of security policy
 
-7.4 Access Revocation. Kernel maintains policies requiring termination of access to Customer Information within 24 hours of employee termination.
+### 7.2 Incident Reporting
 
-7.5 Multi-Factor Authentication. Kernel implements access controls designed to authenticate users and limit access to Customer Information, including multi-factor authentication.
+Users must report any system vulnerability, incident, or event pointing to a possible incident immediately upon discovery. Reports include description of the incident, date/time/location, the discoverer, how it was discovered, known evidence, and affected systems.
 
-7.6 Cryptographic Key Management. Kernel implements encryption key management procedures.
+### 7.3 Incident Investigation and Response
 
-7.7 Encryption in Transit. Kernel encrypts Customer Information in transit using a minimum of SSL with SHA 256 or TLS 1.2 with strong ciphers.
+Within 48 hours of an incident being reported, a preliminary investigation and risk assessment is conducted to review and confirm details. If confirmed:
 
-7.8 Encryption at Rest. Kernel encrypts Customer Information at rest using a minimum of AES-256 with strong ciphers.
+- Impact is assessed and a severity level assigned
+- Appropriate containment and resolution activities are determined
+- All forensic evidence (logs, files, images) is preserved for further investigation
+- All technical steps are documented in the incident log including root cause, evidence, mitigations, status, and disclosures
 
-7.8.1 Encryption Key Rotation. Kernel utilizes Hosting Service Provider managed keys that are rotated at least annually.
+### 7.4 Customer Notification
 
-7.9 Separation of Environments. Kernel requires internal segmentation to isolate production systems hosting its cloud services from non-production environments.
+If Kernel becomes aware of a breach of security leading to accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to Customer Information, Kernel shall notify the Customer without undue delay, and in any case, where feasible, within 48 hours after becoming aware, in accordance with the Data Processing Addendum.
 
-7.10 Vulnerability Testing. Kernel performs periodic network, infrastructure, and application vulnerability testing.
+Communications with affected customers include: the nature of how information was accessed, the actual information affected, mitigations applied, and corrective actions to prevent future breaches.
 
-7.11 Penetration Testing. Kernel performs network and application penetration testing at least annually.
+### 7.5 Post-Incident Review
 
-7.12 Technical Vulnerability Management. Kernel implements procedures to document and address vulnerabilities discovered during vulnerability and penetration tests.
+After each incident is resolved, a post-mortem analysis is conducted including root cause analysis and documentation of lessons learned. Results are shared with senior management to evaluate remediation steps and prevent similar incidents in the future.
 
-7.13 Network Security Reviews. Kernel requires periodic reviews and testing of network controls.
+### 7.6 Incident Response Testing
 
-7.14 Workstation Security. Kernel centrally manages workstations via endpoint security solutions for deployment and management of end-point protections.
-
-7.15 Local Separation of Customer Environments. Customer environments are logically separated.
-
-7.16 Change Management. Kernel assigns responsibility for security, changes and maintenance for all information systems processing Customer Information.
-
-7.17 Change Authorization. Kernel tests, evaluates and authorizes major information system components prior to implementation for its cloud services.
-
-7.18 Secure Development. Kernel maintains and follows a secure development lifecycle for the development of the software that is hosted and made available.
-
-7.19 System Monitoring. Kernel monitors the access, availability, capacity and performance of its cloud services, and related system logs and network traffic using various monitoring software and services.
-
-7.20 Security Incident Response Procedures. Kernel maintains incident response procedures for identifying, reporting, and acting on Security Breaches.
-
-7.21 Security Incident Reporting. If Kernel becomes aware of a breach of security leading to accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to Customer Information, Kernel shall notify Customer without undue delay, and in any case, where feasible, notify Customer within 48 hours after becoming aware and in accordance with Section 7 of the Data Processing Addendum.
-
-7.22 Security Incident Response Tabletop. Kernel exercises the incident response process on a periodic basis.
-
-7.23 Security Incident Response Improvement. Kernel implements plans to address gaps discovered during incident response exercises.
-
-7.24 Incident Response Team Kernel establishes a cross-disciplinary security incident response team.
-
-7.25 Business Continuity Plans. Kernel establishes, documents, implements and maintains processes, procedures and controls to ensure the required level of continuity for information security during an adverse situation.
-
-7.26 Business Continuity Tests. Kernel conducts scenario-based testing annually.
+The incident response process is tested at least annually through tabletop exercises and scenario-based testing. Assessment reports are created after each test, and plans are updated based on the results to address any identified gaps.
