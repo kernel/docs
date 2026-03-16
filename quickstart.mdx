@@ -1,30 +1,44 @@
 ---
 title: "Quickstart"
+description: "Get up and running with Kernel in one command."
 ---
 
 import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 
-<Info>
-If you are already familiar with browser vendors and are looking to quickly switch to Kernel browsers, follow the instructions **[here](/browsers/create-a-browser)**.
-</Info>
+## The fastest way to start
 
-## Getting started
+Paste this into your AI coding agent (Claude Code, Cursor, Windsurf, Goose, etc.) and let it handle the rest:
 
-This quickstart guide will help you deploy and invoke your first browser automation on Kernel. You'll create a simple automation using Playwright, Computer Use, or a web agent framework like Browser Use.
+```
+Install the Kernel CLI (brew install onkernel/tap/kernel), run kernel login, then kernel create to scaffold an app, and kernel deploy to deploy it. Use the Kernel docs at https://docs.kernel.sh for reference.
+```
+
+That's it. Your agent will install the CLI, authenticate you, scaffold a project from a template, and deploy it — all in one flow.
+
+<Tip>
+For an even deeper integration, install the [Kernel MCP server](/reference/mcp-server) to give your agent direct access to Kernel's browser tools: `kernel mcp install --target cursor` (or `claude-code`, `windsurf`, `vscode`, `goose`, `zed`).
+</Tip>
 
 <YouTubeVideo videoId="trMR8HM0Zgs" title="Kernel Quickstart Video" />
 
-## Prerequisites
+---
 
-- `brew` for the Kernel CLI
-- A [Kernel account](https://dashboard.onkernel.com/sign-up)
+## Manual setup
 
-> **Note:** You can also deploy and invoke apps using the [Kernel MCP server](/reference/mcp-server) from AI assistants (Cursor, Goose, Claude, etc.).
+If you prefer to set things up yourself, follow these steps.
 
-## 1. Install the Kernel CLI
+<Info>
+Already familiar with browser vendors? Skip to [creating a browser directly](/browsers/create-a-browser).
+</Info>
+
+### Prerequisites
+
+- [Kernel account](https://dashboard.onkernel.com/sign-up)
+
+### 1. Install the Kernel CLI
 
 ```bash
-# Using brew
+# Using brew (recommended)
 brew install onkernel/tap/kernel
 
 # Using pnpm
@@ -34,50 +48,59 @@ pnpm install -g @onkernel/cli
 npm install -g @onkernel/cli
 ```
 
-Verify the installation exists:
+Verify the installation:
 
 ```bash
 which kernel
 ```
 
-## 2. Create a new Kernel app
-
-```bash
-kernel create
-```
-
-## 3. Authenticate with Kernel
-
-The easiest way to authenticate is using OAuth:
+### 2. Authenticate
 
 ```bash
 kernel login
 ```
 
-This will open your browser to complete the authentication flow. Your credentials will be securely stored and automatically refreshed.
+This opens your browser to complete the OAuth flow. Credentials are stored and refreshed automatically.
 
-## 4. Deploy the sample app on Kernel
+### 3. Create an app
+
+```bash
+kernel create
+```
+
+The CLI walks you through picking a language (TypeScript or Python) and a template. To skip the prompts:
+
+```bash
+kernel create --name my-app --language ts --template sample-app
+```
+
+### 4. Deploy
 
 <CodeGroup>
 ```bash Typescript / Javascript
-cd sample-app
-kernel deploy index.ts # --env-file .env if environment variables are needed
+cd my-app
+kernel deploy index.ts
 ```
 
 ```bash Python
-cd sample-app
-kernel deploy main.py # --env-file .env if environment variables are needed
+cd my-app
+kernel deploy main.py
 ```
-
 </CodeGroup>
 
-## 5. Invoke the app
+Pass environment variables with `--env-file .env` if your template needs API keys.
+
+### 5. Invoke
+
+```bash
+kernel invoke my-app get-page-title --payload '{"url": "https://www.google.com"}'
+```
+
+<AccordionGroup>
+<Accordion title="More invoke examples by template">
 
 <CodeGroup>
 ```bash Typescript / Javascript
-# Sample app
-kernel invoke ts-basic get-page-title --payload '{"url": "https://www.google.com"}'
-
 # CAPTCHA Solver
 kernel invoke ts-captcha-solver test-captcha-solver
 
@@ -98,9 +121,6 @@ kernel invoke ts-gemini-cua gemini-cua-task --payload '{"startingUrl": "https://
 ```
 
 ```bash Python
-# Sample app
-kernel invoke python-basic get-page-title --payload '{"url": "https://www.google.com"}'
-
 # CAPTCHA Solver
 kernel invoke python-captcha-solver test-captcha-solver
 
@@ -116,30 +136,30 @@ kernel invoke python-openai-cua cua-task --payload '{"task": "Go to https://news
 # OpenAGI Computer Use
 kernel invoke python-openagi-cua openagi-default-task --payload '{"instruction": "Navigate to https://agiopen.org and click the What is Computer Use? button", "record_replay": "True"}'
 ```
-
 </CodeGroup>
+
+</Accordion>
+</AccordionGroup>
 
 ## Next steps
 
-Nice work! With Kernel, you:
-
-1. Developed an app that uses Playwright, Computer Use, or a web agent framework like Browser Use
-2. Deployed and invoked it in the cloud
-
-You can now update your browser automation with your own logic and deploy it again. Install our [MCP server](/reference/mcp-server) to give your coding agent our `search_docs` tool.
+- Install the [MCP server](/reference/mcp-server) to give AI agents direct access to Kernel browsers
+- Learn about [browser creation](/browsers/create-a-browser) for SDK-level control
+- Explore [integrations](/integrations/overview) with Browser Use, Stagehand, Anthropic CUA, and more
+- Browse available [sample apps](#sample-apps-reference) below
 
 ## Sample apps reference
 
-These are the sample apps currently available when you run `kernel create`:
+These are the templates available when you run `kernel create`:
 
-| Template                      | Description                                               | Framework                  |
-|-------------------------------|-----------------------------------------------------------|----------------------------|
-| **sample-app**                | Implements a basic Kernel app                             | Playwright                 |
-| **captcha-solver**            | Demo of Kernel's auto-CAPTCHA solving capability          | Playwright                 |
-| **browser-use**               | Implements Browser Use SDK                                | Browser Use                |
-| **stagehand**                 | Implements the Stagehand v3 SDK                           | Stagehand                  |
-| **anthropic-computer-use**    | Implements an Anthropic computer use agent                | Anthropic Computer Use API |
-| **openai-computer-use**       | Implements an OpenAI computer use agent                   | OpenAI Computer Use API    |
-| **gemini-computer-use**       | Implements a Gemini computer use agent                    | Gemini Computer Use API    |
-| **openagi-computer-use**      | Implements an OpenAGI computer use agent                  | OpenAGI Computer Use API   |
-| **magnitude**                 | Implements the Magnitude.run SDK                          | Magnitude.run              |
+| Template                   | Description                                      | Framework                  |
+|----------------------------|--------------------------------------------------|----------------------------|
+| **sample-app**             | Basic Kernel app with Playwright                 | Playwright                 |
+| **captcha-solver**         | Demo of Kernel's auto-CAPTCHA solving            | Playwright                 |
+| **browser-use**            | AI-powered web automation with Browser Use       | Browser Use                |
+| **stagehand**              | Stagehand v3 SDK integration                     | Stagehand                  |
+| **anthropic-computer-use** | Anthropic computer use agent                     | Anthropic Computer Use API |
+| **openai-computer-use**    | OpenAI computer use agent                        | OpenAI Computer Use API    |
+| **gemini-computer-use**    | Gemini computer use agent                        | Gemini Computer Use API    |
+| **openagi-computer-use**   | OpenAGI computer use agent                       | OpenAGI Computer Use API   |
+| **magnitude**              | Magnitude.run SDK integration                    | Magnitude.run              |
