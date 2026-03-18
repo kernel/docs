@@ -25,7 +25,7 @@ Playwright performs downloads via the browser itself, so there are a few steps:
   With `behavior: 'default'`, user-initiated downloads (e.g., clicking a download link) are saved to the browser's default download directory. The CDP `downloadProgress` event includes a `filePath` field when the download completes, which tells you exactly where the file was saved. Use this path with Kernel's File I/O APIs to retrieve the file.
 </Info>
 
-<Warning>
+<Info>
   If your download is **programmatically initiated** (e.g., triggered via JavaScript rather than a user click), you must set `behavior` to `"allow"` and specify a `downloadPath`. Downloads triggered programmatically are blocked by default in Chromium, so `"default"` won't work.
 
   ```javascript
@@ -34,7 +34,7 @@ Playwright performs downloads via the browser itself, so there are a few steps:
     downloadPath: "/tmp/downloads",
   });
   ```
-</Warning>
+</Info>
 
 <CodeGroup>
 ```typescript Typescript/Javascript
