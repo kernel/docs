@@ -117,12 +117,28 @@ await page.goto("https://netflix.com")
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`
-- **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported
+- **Works on any website** - Login pages are discovered and handled automatically, with advanced bot detection avoidance for sites with aggressive anti-automation
+- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box via `allowed_domains`, including SSO provider selection and organization/account pickers
+- **2FA/OTP handling** - TOTP codes automated, SMS/email/push OTP are supported, with automatic MFA option selection
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
 - **Session monitoring** - Automatic re-authentication when sessions expire with stored credentials
+- **Update connections** - Change `login_url`, `credential`, `allowed_domains`, `health_check_interval`, and more on existing connections without recreating them
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+
+## Error Codes
+
+When a login flow fails, the `error_code` field indicates the reason:
+
+| Error Code | Description |
+|------------|-------------|
+| `invalid_credentials` | The provided credentials were rejected by the site |
+| `bot_detected` | The site's bot detection blocked the login attempt |
+| `captcha_unsolved` | A CAPTCHA appeared that couldn't be solved |
+| `network_error` | Network connectivity issues during login |
+| `unsupported_auth_method` | Login requires an unsupported auth method (passkey, security key) |
+| `awaiting_input_timeout` | Timed out waiting for user input |
+| `external_action_timeout` | Timed out waiting for an external action (email/SMS verification, push notification) |
+| `max_steps_exceeded` | Login flow exceeded the maximum step limit |
 
 ## Security
 

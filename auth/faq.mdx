@@ -23,7 +23,8 @@ Health checks on regular cadences based on your plan:
 Check the `can_reauth` field on a connection. This boolean checks the following conditions:
 
 1. **Credential linked** — A credential must be attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
-2. **No external action required** — The learned login flow doesn't require human intervention
+2. **Sufficient credentials** — The stored credential must contain all fields required by the login flow (e.g., if the login requires both email and password, both must be stored)
+3. **No external action required** — The learned login flow doesn't require human intervention
 
 Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
 
@@ -35,25 +36,40 @@ If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
+## Can I update an existing connection's settings?
+
+Yes. Use the [update endpoint](/auth/programmatic#updating-connections) to change `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, or `proxy` on an existing connection without recreating it. Changes take effect on the next login or health check.
+
 ## Which authentication methods are supported?
 
-Managed Auth supports username/password authentication and most SSO providers. 
+Managed Auth supports username/password authentication, most SSO providers, and TOTP-based 2FA. Kernel automatically handles multi-step login flows including SSO provider selection, organization/account pickers, and CAPTCHA challenges.
 
 <Warning>
-Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail.
+Passkey-based authentication (e.g., Google accounts with passkeys enabled) and hardware security keys are not currently supported. If a login requires one of these methods, the flow will fail with the `unsupported_auth_method` error code.
 </Warning>
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with an `error_code`. Common failure reasons include:
 
-- Invalid credentials
-- Bot detection blocking the login page
-- CAPTCHAs that couldn't be solved
+- `invalid_credentials` — The credentials were rejected by the site
+- `bot_detected` — Bot detection blocked the login attempt
+- `captcha_unsolved` — A CAPTCHA appeared that couldn't be solved
+- `network_error` — Network connectivity issues during login
+- `unsupported_auth_method` — Login requires passkeys or hardware security keys
+- `awaiting_input_timeout` — Timed out waiting for user input
+- `external_action_timeout` — Timed out waiting for email/SMS verification or push notification
+- `max_steps_exceeded` — Login flow exceeded the maximum step limit
+
+See the full [error codes reference](/auth/overview#error-codes) for details.
 
 ## Can I use Managed Auth with any website?
 
 Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+
+## What are sign-in options?
+
+Sign-in options are non-MFA choices that appear during login, such as account pickers ("Which account do you want to use?") or organization selectors. They're different from MFA options, which appear after credentials are accepted. When `sign_in_options` appears in the session state, present the options to the user and submit their choice using `sign_in_option_id`. See [Programmatic Flow](/auth/programmatic#sign-in-options) for details.
 
 ## How is Managed Auth billed?
 

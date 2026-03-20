@@ -259,6 +259,78 @@ if state.pending_sso_buttons:
 Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
 </Info>
 
+### SSO Provider Selection
+
+When login requires selecting an SSO provider (e.g., choosing between Google, Microsoft, or GitHub), the `sso_providers` field lists available options. Submit the selected provider using `sso_provider`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sso_providers?.length) {
+  // Show available SSO providers
+  for (const provider of state.sso_providers) {
+    console.log(provider);
+  }
+
+  // Submit the selected SSO provider
+  await kernel.auth.connections.submit(auth.id, {
+    sso_provider: 'google'
+  });
+}
+```
+
+```python Python
+if state.sso_providers:
+    # Show available SSO providers
+    for provider in state.sso_providers:
+        print(provider)
+
+    # Submit the selected SSO provider
+    await kernel.auth.connections.submit(
+        auth.id,
+        sso_provider="google",
+    )
+```
+</CodeGroup>
+
+<Info>
+This is different from SSO buttons. SSO provider selection is used when the login flow presents a choice of identity providers, while SSO buttons are clickable elements on the login page itself.
+</Info>
+
+### Sign-In Options
+
+Some login pages present non-MFA sign-in choices, such as account pickers or organization selectors. These appear in `sign_in_options`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sign_in_options?.length) {
+  // Show available sign-in options
+  for (const option of state.sign_in_options) {
+    console.log(`${option.id}: ${option.label} - ${option.description}`);
+  }
+
+  // Submit the selected option
+  await kernel.auth.connections.submit(auth.id, {
+    sign_in_option_id: state.sign_in_options[0].id
+  });
+}
+```
+
+```python Python
+if state.sign_in_options:
+    # Show available sign-in options
+    for option in state.sign_in_options:
+        print(f"{option['id']}: {option['label']} - {option['description']}")
+
+    # Submit the selected option
+    await kernel.auth.connections.submit(
+        auth.id,
+        sign_in_option_id=state.sign_in_options[0]["id"],
+    )
+```
+</CodeGroup>
+
+Each sign-in option has an `id`, `label`, and optional `description`. These are distinct from MFA options—sign-in options appear during the login phase (e.g., "Which account?" or "Select your organization"), while MFA options appear after credentials are accepted.
+
 ### MFA Selection
 
 When the site offers multiple MFA methods, they appear in `mfa_options`:
@@ -363,3 +435,39 @@ The stream delivers `managed_auth_state` events with the same fields as polling 
 <Note>
 Polling is recommended for most integrations. SSE is useful when building real-time UIs that need instant updates without polling delays.
 </Note>
+
+## Updating Connections
+
+Update an existing connection's configuration without recreating it using `PATCH /auth/connections/{id}`:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/new-login',
+  allowed_domains: ['accounts.google.com', 'google.com'],
+  health_check_interval: 900, // 15 minutes, in seconds
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/new-login",
+    allowed_domains=["accounts.google.com", "google.com"],
+    health_check_interval=900,  # 15 minutes, in seconds
+)
+```
+</CodeGroup>
+
+Supported fields:
+
+| Field | Description |
+|-------|-------------|
+| `login_url` | Override the login page URL |
+| `credential` | Link a different credential |
+| `allowed_domains` | Update SSO/OAuth allowed domains |
+| `health_check_interval` | Health check frequency in seconds (300–86400) |
+| `save_credentials` | Enable or disable credential saving |
+| `proxy` | Update the proxy configuration |
+
+Changes take effect on the next login or health check. If a login session is currently in progress, runtime configuration changes (like `allowed_domains`) are applied immediately.
