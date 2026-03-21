@@ -6,8 +6,6 @@ First off, thank you for considering contributing to Kernel! It's people like yo
 
 By participating in this project, you are expected to uphold our [Code of Conduct](./CODE_OF_CONDUCT.md). Please report unacceptable behavior to [oss@onkernel.com](mailto:oss@onkernel.com).
 
-## Getting Started
-
 ## Development Workflow
 
 1. **Fork the repository**
