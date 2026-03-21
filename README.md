@@ -1,7 +1,7 @@
 # Kernel Documentation
 
 <p align="left">
-  <img alt="GitHub License" src="https://img.shields.io/github/license/onkernel/docs" />
+  <img alt="GitHub License" src="https://img.shields.io/github/license/kernel/docs" />
   <a href="https://discord.gg/FBrveQRcud"><img src="https://img.shields.io/discord/1342243238748225556?logo=discord&logoColor=white&color=7289DA" alt="Discord" /></a>
   <a href="https://x.com/juecd__"><img src="https://img.shields.io/twitter/follow/juecd__" alt="Follow @juecd__" /></a>
   <a href="https://x.com/rfgarcia"><img src="https://img.shields.io/twitter/follow/rfgarcia" alt="Follow @rfgarcia" /></a>
@@ -51,4 +51,4 @@ We welcome contributions to the documentation. Please feel free to submit a pull
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
