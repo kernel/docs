@@ -218,6 +218,14 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
+<Tip>
+This example covers username/password login with 2FA — the most common flow. If the site uses SSO, MFA selection, account pickers, or external actions (push notifications), see [Handling Different Input Types](#handling-different-input-types) below for how to handle each case.
+</Tip>
+
+<Tip>
+Every programmatic login session also has a `hosted_url`. If your flow encounters an unexpected state, you can redirect the user to this URL to complete login via the [Hosted UI](/auth/hosted-ui) instead.
+</Tip>
+
 ## Handling Different Input Types
 
 The basic polling loop handles `discovered_fields`, but login pages can require other input types too.

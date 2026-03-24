@@ -44,7 +44,7 @@ Sign-in options are non-MFA choices that some sites present during login, such a
 Managed Auth supports username/password authentication and most SSO providers. 
 
 <Warning>
-Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail.
+Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail with the `unsupported_auth_method` error code.
 </Warning>
 
 ## What happens if login fails?
@@ -64,6 +64,35 @@ Managed Auth works with most websites. Sites with aggressive bot detection may r
 ## Is Managed Auth available during a trial?
 
 Yes. Managed Auth and browser profiles are available during your trial period with the same capabilities as the plan you're trialing.
+
+## How do I re-authenticate a connection before the next health check?
+
+Call `.login()` on any connection at any time to trigger authentication immediately. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
+
+This is useful when your workflow needs to ensure a connection is authenticated right now, without waiting for the next scheduled health check.
+
+<CodeGroup>
+```typescript TypeScript
+const state = await kernel.auth.connections.retrieve(auth.id);
+
+if (state.status === 'NEEDS_AUTH') {
+  const login = await kernel.auth.connections.login(auth.id);
+  // Handle login flow as usual
+}
+```
+
+```python Python
+state = await kernel.auth.connections.retrieve(auth.id)
+
+if state.status == "NEEDS_AUTH":
+    login = await kernel.auth.connections.login(auth.id)
+    # Handle login flow as usual
+```
+</CodeGroup>
+
+## What types of flows does Managed Auth support?
+
+Managed Auth is designed for login and authentication flows — entering credentials, handling SSO redirects, completing MFA challenges, and maintaining sessions. For other browser interactions like form filling, sign-ups, or multi-step workflows, use [Kernel's browser automation](/browsers/overview) directly.
 
 ## How is Managed Auth billed?
 
