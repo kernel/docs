@@ -45,6 +45,12 @@ The live view URL can be embedded in an iframe to integrate the browser view int
 <iframe src={browser.browser_live_view_url}></iframe>
 ```
 
+<Tip>
+    Interacting with an embedded third-party iframe like live view requires browser focus. On Safari, focus requires a user-initiated event — calling `.focus()` on the iframe element within a user-initiated event handler is recommended.
+
+    To enable clipboard sharing, add `allow="autoplay; clipboard-read; clipboard-write"` to the iframe element.
+</Tip>
+
 ## Kiosk mode
 
 Kiosk mode provides a fullscreen live view experience without browser UI elements like the address bar and tabs. You can enable kiosk mode when creating a browser by setting the `kiosk_mode` parameter to `true`.
