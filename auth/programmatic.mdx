@@ -256,8 +256,32 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are automatically allowed. For custom OAuth providers, add their domains to `allowed_domains` on the connection.
 </Info>
+
+### SSO Provider (CUA)
+
+As an alternative to `sso_button_selector`, you can submit the SSO provider name directly using `sso_provider`. This is the preferred approach when using CUA (Computer Use Agent) mode:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.pending_sso_buttons?.length) {
+  // Submit by provider name instead of selector
+  await kernel.auth.connections.submit(auth.id, {
+    sso_provider: state.pending_sso_buttons[0].provider  // e.g., "google"
+  });
+}
+```
+
+```python Python
+if state.pending_sso_buttons:
+    # Submit by provider name instead of selector
+    await kernel.auth.connections.submit(
+        auth.id,
+        sso_provider=state.pending_sso_buttons[0]["provider"],  # e.g., "google"
+    )
+```
+</CodeGroup>
 
 ### MFA Selection
 
@@ -270,7 +294,7 @@ if (state.mfa_options?.length) {
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
   }
-  
+
   // Submit the selected MFA method
   await kernel.auth.connections.submit(auth.id, {
     mfa_option_id: 'sms'
@@ -283,7 +307,7 @@ if state.mfa_options:
     # Available types: sms, email, totp, push, call, security_key
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
-    
+
     # Submit the selected MFA method
     await kernel.auth.connections.submit(
         auth.id,
@@ -293,6 +317,42 @@ if state.mfa_options:
 </CodeGroup>
 
 After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
+
+### Sign-In Options (Account/Org Pickers)
+
+Some sites present non-MFA choices during login, such as account selection or organization pickers. These appear in `sign_in_options`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sign_in_options?.length) {
+  // Show available options to the user
+  for (const opt of state.sign_in_options) {
+    console.log(`${opt.id}: ${opt.label}`);
+    if (opt.description) console.log(`  ${opt.description}`);
+  }
+
+  // Submit the selected option
+  await kernel.auth.connections.submit(auth.id, {
+    sign_in_option_id: state.sign_in_options[0].id
+  });
+}
+```
+
+```python Python
+if state.sign_in_options:
+    # Show available options to the user
+    for opt in state.sign_in_options:
+        print(f"{opt['id']}: {opt['label']}")
+        if opt.get("description"):
+            print(f"  {opt['description']}")
+
+    # Submit the selected option
+    await kernel.auth.connections.submit(
+        auth.id,
+        sign_in_option_id=state.sign_in_options[0]["id"],
+    )
+```
+</CodeGroup>
 
 ### External Actions (Push, Security Key)
 
@@ -326,7 +386,7 @@ The `flow_step` field indicates what the flow is waiting for:
 | Step | Description |
 |------|-------------|
 | `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, or MFA selection |
+| `AWAITING_INPUT` | Waiting for field values, SSO button click, SSO provider selection, MFA selection, or sign-in option selection |
 | `SUBMITTING` | Processing submitted values |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
 | `COMPLETED` | Flow has finished |
