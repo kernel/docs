@@ -240,14 +240,16 @@ auth = await kernel.auth.connections.create(
 
 Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
 
-Make sure to add all of the OAuth provider's domains to `allowed_domains`:
+Common SSO provider domains are automatically allowed by default, including Google, Microsoft/Azure AD, Okta, Auth0, Apple, GitHub, Facebook, LinkedIn, Amazon Cognito, OneLogin, and Ping Identity. You don't need to add these to `allowed_domains`.
+
+For custom or less common OAuth providers, add their domains to `allowed_domains`:
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  allowed_domains: ['accounts.google.com', 'google.com'],
+  allowed_domains: ['sso.custom-provider.com'],
 });
 ```
 
@@ -255,10 +257,35 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    allowed_domains=["accounts.google.com", "google.com"],
+    allowed_domains=["sso.custom-provider.com"],
 )
 ```
 </CodeGroup>
+
+### Updating a Connection
+
+After creating a connection, you can update its configuration using `auth.connections.update`:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/new-login',
+  health_check_interval: 1800,
+  save_credentials: true,
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/new-login",
+    health_check_interval=1800,
+    save_credentials=True,
+)
+```
+</CodeGroup>
+
+You can update `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, and `proxy`. Only the fields you provide will be changed. Changes to `health_check_interval` and `proxy` take effect immediately on the running connection workflow.
 
 ### Post-Login URL
 
