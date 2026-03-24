@@ -13,10 +13,10 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks run on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (20 min)
-- Enterprise (configurable, down to 5 min)
+Health checks run on regular cadences. The default intervals are the minimum for each plan — you can always set a longer (less frequent) interval if you'd like:
+- Hobbyist: every 1 hour minimum
+- Start-Up: every 20 minutes minimum
+- Enterprise: every 5 minutes minimum
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -35,6 +35,10 @@ If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
+## What are sign-in options?
+
+Sign-in options are non-MFA choices that some sites present during login, such as account pickers ("Which account do you want to use?") or organization selectors. Unlike MFA options which are security challenges, sign-in options are informational choices that route the login flow. They appear in the session state as `sign_in_options` and are submitted via `sign_in_option_id`. See the [Programmatic flow guide](/auth/programmatic#sign-in-options-accountorg-pickers) for details and SDK examples.
+
 ## Which authentication methods are supported?
 
 Managed Auth supports username/password authentication and most SSO providers. 
@@ -45,7 +49,9 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with a specific error code. Common codes include `credentials_invalid`, `bot_detected`, and `captcha_blocked`. See the [API reference](/api-reference) for the full list of error codes.
+
+Common failure reasons include:
 
 - Invalid credentials
 - Bot detection blocking the login page

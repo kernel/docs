@@ -259,9 +259,9 @@ if state.pending_sso_buttons:
 Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are automatically allowed. For custom OAuth providers, add their domains to `allowed_domains` on the connection.
 </Info>
 
-### SSO Provider (CUA)
+### SSO Provider Selection
 
-As an alternative to `sso_button_selector`, you can submit the SSO provider name directly using `sso_provider`. This is the preferred approach when using CUA (Computer Use Agent) mode:
+As an alternative to clicking an SSO button by selector, you can submit the SSO provider name directly. When SSO buttons are detected, the session state includes a `sso_provider` field (a string) identifying the provider that Kernel recommends. You can also specify a provider explicitly using the `sso_provider` submit parameter:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -282,6 +282,10 @@ if state.pending_sso_buttons:
     )
 ```
 </CodeGroup>
+
+<Info>
+`sso_provider` is a singular string value, not an array. Use `sso_button_selector` when you need to click a specific button by its CSS selector, and `sso_provider` when you want to identify the provider by name (e.g., `"google"`, `"microsoft"`, `"okta"`).
+</Info>
 
 ### MFA Selection
 
@@ -320,7 +324,7 @@ After selecting an MFA method, the flow continues. Poll for `discovered_fields` 
 
 ### Sign-In Options (Account/Org Pickers)
 
-Some sites present non-MFA choices during login, such as account selection or organization pickers. These appear in `sign_in_options`:
+Some sites present non-MFA choices during login, such as account selection or organization pickers. These appear in `sign_in_options` as an array of objects with `id`, `label`, and optional `description`:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -353,6 +357,10 @@ if state.sign_in_options:
     )
 ```
 </CodeGroup>
+
+<Info>
+Sign-in options are distinct from MFA options. MFA options (`mfa_options`) represent second-factor authentication methods like SMS or TOTP. Sign-in options represent non-security choices like "Which account do you want to use?" or "Select your organization."
+</Info>
 
 ### External Actions (Push, Security Key)
 
@@ -409,6 +417,40 @@ The `status` field indicates the overall connection state:
 |--------|-------------|
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
+
+## Updating Connections
+
+After creating a connection, you can update its configuration with `PATCH /auth/connections/{id}`:
+
+| Field | Description |
+|-------|-------------|
+| `login_url` | Override the login page URL |
+| `credential` | Update the linked credential |
+| `allowed_domains` | Update allowed redirect domains |
+| `health_check_interval` | Seconds between health checks (minimum varies by plan) |
+| `save_credentials` | Whether to save credentials on successful login |
+| `proxy` | Proxy configuration for login sessions |
+
+Only the fields you include are updated—everything else stays the same.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/login',
+  health_check_interval: 1800,
+  save_credentials: true,
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/login",
+    health_check_interval=1800,
+    save_credentials=True,
+)
+```
+</CodeGroup>
 
 ## Real-Time Updates with SSE
 
