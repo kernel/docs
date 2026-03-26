@@ -14,7 +14,7 @@ Use the Programmatic flow when:
 
 <Steps>
   <Step title="Create Connection and Start Session">
-    Same as [Hosted UI](/profiles/managed-auth/hosted-ui)
+    Same as [Hosted UI](/auth/hosted-ui)
   </Step>
   <Step title="Poll and Submit">
     Poll until `flow_step` becomes `AWAITING_INPUT`, then submit credentials
@@ -28,18 +28,20 @@ Use the Programmatic flow when:
 
 ### 1. Create a Connection
 
+A **Managed Auth Connection** associates a [profile](/auth/profiles) to a domain you want to keep authenticated so you can use the auth connection future browsers. Create one for each domain + profile combination you want to keep authenticated.
+
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'github.com',
-  profile_name: 'github-profile',
+  profile_name: 'github-profile', // Name of the profile to associate with the connection
 });
 ```
 
 ```python Python
 auth = await kernel.auth.connections.create(
     domain="github.com",
-    profile_name="github-profile",
+    profile_name="github-profile", # Name of the profile to associate with the connection
 )
 ```
 </CodeGroup>
@@ -216,6 +218,14 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
+<Tip>
+This example covers username/password login with 2FA — the most common flow. If the site uses SSO, MFA selection, account pickers, or external actions (push notifications), see [Handling Different Input Types](#handling-different-input-types) below for how to handle each case.
+</Tip>
+
+<Tip>
+Every programmatic login session also has a `hosted_url`. If your flow encounters an unexpected state, you can redirect the user to this URL to complete login via the [Hosted UI](/auth/hosted-ui) instead.
+</Tip>
+
 ## Handling Different Input Types
 
 The basic polling loop handles `discovered_fields`, but login pages can require other input types too.
@@ -254,7 +264,35 @@ if state.pending_sso_buttons:
 </CodeGroup>
 
 <Info>
-Remember to set `allowed_domains` on the connection to include the OAuth provider's domain (e.g., `accounts.google.com`).
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are automatically allowed. For custom OAuth providers, add their domains to `allowed_domains` on the connection.
+</Info>
+
+### SSO Provider Selection
+
+As an alternative to clicking an SSO button by selector, you can submit the SSO provider name directly. When SSO buttons are detected, the session state includes a `sso_provider` field (a string) identifying the provider that Kernel recommends. You can also specify a provider explicitly using the `sso_provider` submit parameter:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.pending_sso_buttons?.length) {
+  // Submit by provider name instead of selector
+  await kernel.auth.connections.submit(auth.id, {
+    sso_provider: state.pending_sso_buttons[0].provider  // e.g., "google"
+  });
+}
+```
+
+```python Python
+if state.pending_sso_buttons:
+    # Submit by provider name instead of selector
+    await kernel.auth.connections.submit(
+        auth.id,
+        sso_provider=state.pending_sso_buttons[0]["provider"],  # e.g., "google"
+    )
+```
+</CodeGroup>
+
+<Info>
+`sso_provider` is a singular string value, not an array. Use `sso_button_selector` when you need to click a specific button by its CSS selector, and `sso_provider` when you want to identify the provider by name (e.g., `"google"`, `"microsoft"`, `"okta"`).
 </Info>
 
 ### MFA Selection
@@ -268,7 +306,7 @@ if (state.mfa_options?.length) {
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
   }
-  
+
   // Submit the selected MFA method
   await kernel.auth.connections.submit(auth.id, {
     mfa_option_id: 'sms'
@@ -281,7 +319,7 @@ if state.mfa_options:
     # Available types: sms, email, totp, push, call, security_key
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
-    
+
     # Submit the selected MFA method
     await kernel.auth.connections.submit(
         auth.id,
@@ -291,6 +329,46 @@ if state.mfa_options:
 </CodeGroup>
 
 After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
+
+### Sign-In Options (Account/Org Pickers)
+
+Some sites present non-MFA choices during login, such as account selection or organization pickers. These appear in `sign_in_options` as an array of objects with `id`, `label`, and optional `description`:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.sign_in_options?.length) {
+  // Show available options to the user
+  for (const opt of state.sign_in_options) {
+    console.log(`${opt.id}: ${opt.label}`);
+    if (opt.description) console.log(`  ${opt.description}`);
+  }
+
+  // Submit the selected option
+  await kernel.auth.connections.submit(auth.id, {
+    sign_in_option_id: state.sign_in_options[0].id
+  });
+}
+```
+
+```python Python
+if state.sign_in_options:
+    # Show available options to the user
+    for opt in state.sign_in_options:
+        print(f"{opt['id']}: {opt['label']}")
+        if opt.get("description"):
+            print(f"  {opt['description']}")
+
+    # Submit the selected option
+    await kernel.auth.connections.submit(
+        auth.id,
+        sign_in_option_id=state.sign_in_options[0]["id"],
+    )
+```
+</CodeGroup>
+
+<Info>
+Sign-in options are distinct from MFA options. MFA options (`mfa_options`) represent second-factor authentication methods like SMS or TOTP. Sign-in options represent non-security choices like "Which account do you want to use?" or "Select your organization."
+</Info>
 
 ### External Actions (Push, Security Key)
 
@@ -324,7 +402,7 @@ The `flow_step` field indicates what the flow is waiting for:
 | Step | Description |
 |------|-------------|
 | `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, or MFA selection |
+| `AWAITING_INPUT` | Waiting for field values, SSO button click, SSO provider selection, MFA selection, or sign-in option selection |
 | `SUBMITTING` | Processing submitted values |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
 | `COMPLETED` | Flow has finished |
@@ -347,6 +425,40 @@ The `status` field indicates the overall connection state:
 |--------|-------------|
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
+
+## Updating Connections
+
+After creating a connection, you can update its configuration with `PATCH /auth/connections/{id}`:
+
+| Field | Description |
+|-------|-------------|
+| `login_url` | Override the login page URL |
+| `credential` | Update the linked credential |
+| `allowed_domains` | Update allowed redirect domains |
+| `health_check_interval` | Seconds between health checks (minimum varies by plan) |
+| `save_credentials` | Whether to save credentials on successful login |
+| `proxy` | Proxy configuration for login sessions |
+
+Only the fields you include are updated—everything else stays the same.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/login',
+  health_check_interval: 1800,
+  save_credentials: true,
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/login",
+    health_check_interval=1800,
+    save_credentials=True,
+)
+```
+</CodeGroup>
 
 ## Real-Time Updates with SSE
 

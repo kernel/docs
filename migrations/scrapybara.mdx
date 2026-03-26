@@ -14,7 +14,7 @@ title: "Scrapybara"
 | **Live View** | `instance.get_stream_url().stream_url` | Returns `browser_live_view_url` in create response |
 | **Stealth Mode** | ❌ Not available | Create browser with `stealth: true` |
 | **Replays** | ❌ Not available | `kernel.browsers.replays.start()` and `kernel.browsers.replays.stop()` |
-| **Save Auth** | `instance.browser.save_auth(name="default")` | Create [Profile](/browsers/profiles). Then create browser with `kernel.browsers.create(profile={"name": "profile1", "save_changes": true})` |
+| **Save Auth** | `instance.browser.save_auth(name="default")` | Create [Profile](/auth/profiles). Then create browser with `kernel.browsers.create(profile={"name": "profile1", "save_changes": true})` |
 | **Click** | `instance.computer(action="click_mouse", button="left")` | `kernel.browsers.computer.click_mouse(id=session_id, x=100, y=200)` |
 | **Drag** | `instance.computer(action="drag_mouse", path=[[100, 200], [300, 400]])` | `kernel.browsers.computer.drag_mouse(id=session_id, path=[[100, 200], [150, 220], [200, 260]])` |
 | **Screenshot** | `instance.computer(action="take_screenshot").base64_image` | `kernel.browsers.computer.capture_screenshot(id=session_id)` |
@@ -209,7 +209,7 @@ For a complete reference of all available Computer Controls methods in Kernel, s
 | **Get Live View** | `instance.get_stream_url().stream_url` | Returns `browser_live_view_url` in create response |
 | **Delete Browser** | `instance.stop()` | `kernel.browsers.delete_by_id(session_id)` |
 | **List Browsers** | `kernel.get_instances()` | `kernel.browsers.list()` |
-| **Save Auth State** | `instance.browser.save_auth(name="default")` | Create [Profile](/browsers/profiles). Then create browser with `kernel.browsers.create(profile={"name": "profile1", "save_changes": True})` |
+| **Save Auth State** | `instance.browser.save_auth(name="default")` | Create [Profile](/auth/profiles). Then create browser with `kernel.browsers.create(profile={"name": "profile1", "save_changes": True})` |
 | **Load Auth State** | `instance.browser.authenticate(auth_state_id="xyz")` | `kernel.browsers.create(profile={"name": "profile1"})` |
 | **Pause/Resume** | `instance.pause()` / `instance.resume()` | Automatic standby mode |
 | **Screenshot** | `instance.screenshot()` | Use Playwright or Puppeteer |

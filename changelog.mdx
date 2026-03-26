@@ -9,6 +9,64 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="March 20" tags={["Product", "Docs"]}>
+## Product updates
+
+- Launched [GPU acceleration](/browsers/gpu-acceleration) for cloud browsers. GPU acceleration attaches a virtual GPU to your cloud browser, dramatically speeding up agents on sites that use canvases, are heavy on visualizations, or rely on WebGL. In our internal benchmarks, GPU-accelerated browsers hit 60 fps —6x faster than regular browsers— making browsing feel faster pretty much everywhere on the internet. GPU acceleration is available as a research preview on Startup and Enterprise plans.
+- Increased Chromium's default maximum connections per proxy to 16, improving throughput for proxy-based browser sessions.
+- Updated the live view logo and favicon to reflect the latest Kernel branding.
+- Updated OpenAI CUA [templates](https://github.com/kernel/cli/tree/main/pkg/templates) to use Kernel's native Computer Controls API instead of Playwright for improved reliability and performance.
+- Fixed an issue where deleted browser sessions couldn't be listed or downloaded in session replays via the [CLI](https://github.com/kernel/cli).
+
+## Documentation updates
+
+- Added new docs for [GPU acceleration](/browsers/gpu-acceleration).
+- Added [ZIP code targeting](/proxies/residential) documentation for residential proxies.
+- Clarified [download behavior](/browsers/file-io) for programmatic file downloads.
+- Reorganized documentation to make [Managed Auth](/auth/overview) and [Browser Pools](/browsers/pools) more prominent and accessible.
+</Update>
+
+<Update label="March 13" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added WebDriver BiDi support for cloud browsers through a new [partnership with Vibium](https://www.kernel.sh/docs/integrations/computer-use/vibium). AI agents can now use Vibium to connect to Kernel and navigate pages, fill forms, click buttons, and take screenshots across thousands of cloud browsers running in parallel.
+- Launched [Kernel Eval Protocol](https://github.com/kernel/kernel-eval-protocol-quickstart), an open-source repo that pairs Kernel Browser Pools with Fireworks RFT and [Eval Protocol](https://github.com/fw-ai/eval-protocol) to evaluate and fine-tune VLM browser agents using reinforcement learning.
+- Added a `usage` field to the [browser session details](/api-reference/browsers/get-browser-session-details#response-usage) API response, which returns session metrics like `uptime_ms`. Use this to track session duration and build billing or analytics workflows around your browser usage.
+- Extended smooth Bezier curve mouse movements to click and drag operations, and added `--smooth` and `--duration-ms` flags to the `move-mouse` command in the [CLI](https://github.com/kernel/cli) for more natural-looking browser interactions.
+- Improved headless viewport resize performance by using a CDP fast path, reducing resize time from ~5 seconds to ~10 milliseconds.
+- Added support for [runtime proxy configuration swapping](https://www.kernel.sh/docs/proxies/overview#5-update-a-browser%E2%80%99s-proxy), enabling you to change a browser's proxy settings mid-session without restarting.
+
+## Documentation updates
+
+- Added a new [Vibium](https://www.kernel.sh/docs/integrations/computer-use/vibium) integration guide with CLI examples and setup instructions.
+- Added [smooth mouse movement and drag](/browsers/computer-controls) documentation with CLI one-liner examples.
+- Improved [Web Bot Auth](/browsers/bot-detection/web-bot-auth) page readability with clearer formatting.
+</Update>
+
+<Update label="March 6" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added support for [mobile and tablet viewports](/browsers/viewport), enabling browser automation at phone and tablet screen sizes.
+- Added a `kernel status` command to the [CLI](https://github.com/kernel/cli) for checking API and service health at a glance.
+- Added a `--force` flag to `kernel browsers update` for [resizing the viewport](/browsers/viewport) during an active recording, which gracefully stops and restarts the recording.
+- Improved [Managed Auth](/profiles/managed-auth/overview) MFA handling by resolving MFA options by label, type, or display string for more reliable multi-factor authentication flows.
+- Enhanced auth connection output in the [CLI](https://github.com/kernel/cli) with richer details from `kernel auth connections get` and `kernel auth connections list`.
+- Added a Pool column and `--query` flag to `kernel browsers list` in the [CLI](https://github.com/kernel/cli) for easier filtering and identification of pooled browsers.
+- Updated the Anthropic computer use [template](https://github.com/kernel/cli/tree/main/pkg/templates) to default to use claude-sonnet-4-6 for improved agent performance.
+- Fixed start session replay error.
+- Updated localStorage to persist across profile sessions.
+- Fixed scroll notch count handling in computer use templates.
+- Fixed an anti-echo guard issue that could cause video sync problems in live view.
+
+## Documentation updates
+
+- Renamed "Scaling in Production" to [Reserved Browsers](/browsers/scaling/overview) and added a new [On-Demand Browsers](/browsers/scaling/on-demand) section for clearer guidance on browser provisioning strategies.
+- Added [mobile and tablet viewport configurations](/browsers/viewport) with supported screen sizes and usage guidance.
+- Added [proxy-bypass-hosts](https://www.kernel.sh/docs/proxies/overview#4-bypass-hosts) documentation for configuring proxy bypass lists on browser pools.
+- Documented the `--force` flag for [viewport resizing](/browsers/viewport) during active recordings.
+- Added viewport configuration examples to [browser pool](/browsers/pools) documentation.
+</Update>
+
 <Update label="February 27" tags={["Product", "Docs"]}>
 ## Product updates
 - We launched our new look! Our visual identity has been updated across our website, product, and docs.
@@ -33,7 +91,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 - Added mouse position tracking to the [CLI](https://github.com/kernel/cli), enabling retrieval of current mouse coordinates.
 - Updated Yutori computer use [templates](https://github.com/kernel/cli/tree/main/pkg/templates) to support the n1-latest model for improved agent performance.
-- Updated [Managed Auth](/profiles/managed-auth/overview) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
+- Updated [Managed Auth](/auth/overview) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
 - Improved browser display by auto-toggling Chromium app mode on small viewports for a cleaner, more immersive experience.
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
@@ -45,7 +103,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 <YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
 - Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
-- Released [Managed Auth](/profiles/managed-auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
+- Released [Managed Auth](/auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
 - Added a `POST /computer/batch` [endpoint](/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
 - Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
 - Improved input reliability with context-aware timing in key press and mouse drag operations.
@@ -53,7 +111,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 - Clarified [pricing](/info/pricing) for headful browser sessions.
-- Added comprehensive [Managed Auth](/profiles/managed-auth/overview) documentation, including billing guidance.
+- Added comprehensive [Managed Auth](/auth/overview) documentation, including billing guidance.
 </Update>
 
 <Update label="February 6" tags={["Product", "Docs"]}>
@@ -78,14 +136,14 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - We released [skills](https://skills.sh/?q=kernel/skills) for Kernel, so you can easily build browser agents directly from Claude Code.
 
 ## Documentation updates
-- We published a [Scaling in Production guide](/browsers/scaling/overview) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
+- We published a [Scaling in Production guide](/browsers/pools/scaling) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
 - Added a new [integration guide](https://www.kernel.sh/docs/integrations/agent-browser) for [Agent Browser](https://github.com/vercel-labs/agent-browser), Vercel's headless browser automation CLI, which has built-in support for Kernel browsers.
 </Update>
 
 <Update label="January 23" tags={["Product"]}>
 ## Product updates
 <YouTubeVideo videoId="JICMuiC7H4M" title="Introducing Browser Pools" />
-- [Browser pools](/browsers/pools) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
+- [Browser pools](/browsers/pools/overview) are now generally available for our Startup and Enterprise plans! Make your startup times even faster with a fleet of instant browsers that come pre-loaded with the logins, cookies, and extensions your agents depend on.
 - We improved the Browsers page user experience. Enjoy instant clickability of browser cards, shift+click range selection, preserved view state when switching between grid and list views, a live toggle for auto-refresh, keyboard shortcut support (Cmd+B / Ctrl+B to toggle sidebar), and more.
 - We added support for viewing [replays](/browsers/replays) of deleted browser sessions. Deleted browsers now navigate to their detail page, which shows the replay player with multiple replays displayed as tabs. The API now supports fetching deleted browser details using new query parameters.
 - Overhauled our [Anthropic Computer Use template](https://github.com/onkernel/cli/tree/main/pkg/templates/typescript/anthropic-computer-use) to use Kernel's [Computer Controls](/browsers/computer-controls) API instead of Playwright, improving reliability and performance.
@@ -126,7 +184,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="December 12" tags={["Product", "Docs"]}>
 ## Product updates
 - Refreshed our [Vercel template](https://kernel-nextjs-template.vercel.app/) with an enhanced UI and AI agent example
-- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/browsers/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
+- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/auth/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
 - Unified browser creation tools by porting [Create Kernel App](/reference/cli/create) functionality into the Kernel CLI
 - Improved replay videos to include full video length metadata, enabling timestamp navigation and deep linking
 

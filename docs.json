@@ -6,12 +6,11 @@
     { "source": "/careers/backend-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/engineer-new-grad", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/customer-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
-    { "source": "/auth/agent/overview", "destination": "/profiles/managed-auth/overview" },
-    { "source": "/auth/agent/hosted-ui", "destination": "/profiles/managed-auth/hosted-ui" },
-    { "source": "/auth/agent/programmatic", "destination": "/profiles/managed-auth/programmatic" },
-    { "source": "/auth/agent/faq", "destination": "/profiles/managed-auth/faq" },
-    { "source": "/browsers/profiles", "destination": "/profiles/overview" },
-    { "source": "/auth/credentials", "destination": "/profiles/credentials" }
+    { "source": "/auth/agent/overview", "destination": "/auth/overview" },
+    { "source": "/auth/agent/hosted-ui", "destination": "/auth/hosted-ui" },
+    { "source": "/auth/agent/programmatic", "destination": "/auth/programmatic" },
+    { "source": "/auth/agent/faq", "destination": "/auth/faq" },
+    { "source": "/browsers/hardware-acceleration", "destination": "/browsers/gpu-acceleration" }
   ],
   "theme": "palm",
   "appearance": {
@@ -60,7 +59,6 @@
     "tabs": [
       {
         "tab": "Guides",
-        "icon": "book-open",
         "groups": [
           {
             "group": "Getting started",
@@ -89,21 +87,21 @@
                 "pages": [
                   "browsers/replays",
                   "browsers/viewport",
-                  "browsers/hardware-acceleration",
+                  "browsers/gpu-acceleration",
                   {
-                    "group": "Profiles",
+                    "group": "Auth",
                     "pages": [
-                      "profiles/overview",
+                      "auth/overview",
                       {
-                        "group": "Managed Auth",
+                        "group": "Integration Types",
                         "pages": [
-                          "profiles/managed-auth/overview",
-                          "profiles/managed-auth/hosted-ui",
-                          "profiles/managed-auth/programmatic",
-                          "profiles/credentials",
-                          "profiles/managed-auth/faq"
+                          "auth/hosted-ui",
+                          "auth/programmatic"
                         ]
-                      }
+                      },
+                      "auth/credentials",
+                      "auth/profiles",
+                      "auth/faq"
                     ]
                   },
                   "browsers/file-io",
@@ -138,9 +136,9 @@
                   {
                     "group": "Reserved Browsers",
                     "pages": [
-                      "browsers/scaling/overview",
-                      "browsers/scaling/pools",
-                      "browsers/scaling/faq"
+                      "browsers/pools/overview",
+                      "browsers/pools/scaling",
+                      "browsers/pools/faq"
                     ]
                   }
                 ]
@@ -179,6 +177,7 @@
               "integrations/laminar",
               "integrations/magnitude",
               "integrations/notte",
+              "integrations/vibium",
               "integrations/stagehand",
               "integrations/valtown",
               {
@@ -218,19 +217,16 @@
       },
       {
         "tab": "API Reference",
-        "icon": "code",
         "openapi": "https://app.stainless.com/api/spec/documented/kernel/openapi.documented.yml"
       },
       {
         "tab": "MCP",
-        "icon": "code-fork",
         "pages": [
           "reference/mcp-server"
         ]
       },
       {
         "tab": "CLI",
-        "icon": "terminal",
         "pages": [
           "reference/cli",
           "reference/cli/create",
@@ -243,10 +239,7 @@
       },
       {
         "tab": "Changelog",
-        "icon": "clock-rotate-left",
-        "pages": [
-          "changelog"
-        ]
+        "href": "https://www.kernel.sh/changelog"
       }
     ]
   },

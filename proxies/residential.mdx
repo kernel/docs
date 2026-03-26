@@ -49,7 +49,7 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 - **`country`** - ISO 3166 country code. Must be provided when providing other targeting options.
 - **`state`** - Two-letter state code. Only supported for US.
 - **`city`** - City name (lowercase, no spaces, e.g., `sanfrancisco`, `newyork`).
-- **`zip`** - US ZIP code (5 digits). Conflicts with city and state.
+- **`zip`** - US ZIP code (5 digits). Can only be used with `country` set to `US`. Cannot be combined with `city` or `state`.
 - **`asn`** - Autonomous System Number. Conflicts with city and state.
 - **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
@@ -160,6 +160,44 @@ proxy = kernel.proxies.create(
 <Note>
 If the ASN is not matched, the API will return the most-available 10 examples.
 </Note>
+
+### Target by ZIP code
+
+Route traffic through a specific US ZIP code area:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'nyc-residential',
+  config: {
+    country: 'US',
+    zip: '10001'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='nyc-residential',
+    config={
+        'country': 'US',
+        'zip': '10001'
+    }
+)
+```
+
+</CodeGroup>
+
+<Note>
+ZIP code targeting is US-only and cannot be combined with `state` or `city`. The exit IP will be in the geographic area of the requested ZIP code, but the IP's exact ZIP may differ slightly (e.g., requesting `90210` may route through `90401` in the same metro area).
+</Note>
+
+<Warning>
+Not all ZIP codes have available residential IPs. If a ZIP code is unavailable, proxy creation will fail with a message suggesting alternatives: a nearby ZIP, city/state targeting, or country-only targeting.
+</Warning>
 
 ## Bypass hosts
 
