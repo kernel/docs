@@ -45,6 +45,15 @@ The live view URL can be embedded in an iframe to integrate the browser view int
 <iframe src={browser.browser_live_view_url}></iframe>
 ```
 
+<Tip>
+If your application uses a **Content Security Policy (CSP)**, you'll need to add the following directives to allow the live view iframe and its WebSocket connection:
+
+```
+frame-src https://*.onkernel.com:8443;
+connect-src https://*.onkernel.com:8443 wss://*.onkernel.com:8443;
+```
+</Tip>
+
 ## Kiosk mode
 
 Kiosk mode provides a fullscreen live view experience without browser UI elements like the address bar and tabs. You can enable kiosk mode when creating a browser by setting the `kiosk_mode` parameter to `true`.
