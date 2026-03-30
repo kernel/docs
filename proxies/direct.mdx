@@ -1,0 +1,105 @@
+---
+title: "Direct (No Proxy)"
+---
+
+The direct proxy type disables the default residential proxy on [stealth browsers](/browsers/bot-detection/stealth), routing traffic directly from the browser VM instead. This is useful when you want stealth mode's other benefits (fingerprint reduction, reCAPTCHA solver) without proxy routing.
+
+You can also use a direct proxy to [hot-swap](/proxies/overview#update-a-browsers-proxy) a running stealth browser from its current proxy to direct mode.
+
+## Create a stealth browser without a proxy
+
+Set `disable_default_proxy` to `true` when creating a stealth browser to skip the default proxy assignment:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  stealth: true,
+  disable_default_proxy: true,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    stealth=True,
+    disable_default_proxy=True,
+)
+```
+</CodeGroup>
+
+<Info>
+`disable_default_proxy` can only be used with stealth browsers and cannot be combined with `proxy_id`.
+</Info>
+
+## Swap a running stealth browser to direct mode
+
+Create a `direct` proxy, then use it to hot-swap a running stealth browser from its current proxy to direct mode:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Create a direct proxy (idempotent — returns the existing one if already created)
+const directProxy = await kernel.proxies.create({
+  type: 'direct',
+  name: 'direct',
+});
+
+// Launch a stealth browser (uses default residential proxy)
+const browser = await kernel.browsers.create({
+  stealth: true,
+});
+
+// Hot-swap to direct mode — removes the proxy
+await kernel.browsers.update(browser.session_id, {
+  proxy_id: directProxy.id,
+});
+
+// Swap back to the default stealth proxy
+await kernel.browsers.update(browser.session_id, {
+  disable_default_proxy: false,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+# Create a direct proxy (idempotent — returns the existing one if already created)
+direct_proxy = kernel.proxies.create(
+    type="direct",
+    name="direct",
+)
+
+# Launch a stealth browser (uses default residential proxy)
+browser = kernel.browsers.create(
+    stealth=True,
+)
+
+# Hot-swap to direct mode — removes the proxy
+kernel.browsers.update(
+    browser.session_id,
+    proxy_id=direct_proxy.id,
+)
+
+# Swap back to the default stealth proxy
+kernel.browsers.update(
+    browser.session_id,
+    disable_default_proxy=False,
+)
+```
+</CodeGroup>
+
+<Warning>
+The browser's network is momentarily disconnected during a proxy hot swap. Any in-flight requests may fail. The swap typically completes in 2-3 seconds.
+</Warning>

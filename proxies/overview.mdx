@@ -6,12 +6,13 @@ Kernel proxies enable you to route browser traffic through different types of pr
 
 ## Proxy Types
 
-Kernel supports four types of proxies:
+Kernel supports five types of proxies:
 
 1. [**Datacenter**](/proxies/datacenter) - Traffic routed through commercial data centers
 2. [**ISP**](/proxies/isp) - Traffic routed through data centers, using residential IP addresses leased from from internet service providers
 3. [**Residential**](/proxies/residential) - Traffic routed through real residential IP addresses
 4. [**Custom**](/proxies/custom) - Your own proxy servers
+5. [**Direct**](/proxies/direct) - No proxy; routes traffic directly from the browser VM
 
 Datacenter has the fastest speed, while residential is least detectable. ISP is a balance between the two options, with less-flexible geotargeting. Kernel recommends to use the first option in the list that works for your use case.
 
@@ -104,38 +105,6 @@ proxy = kernel.proxies.create(
 browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
 </CodeGroup>
-
-## Disable default proxy on stealth browsers
-
-[Stealth browsers](/browsers/bot-detection/stealth) are automatically assigned a residential proxy. To disable this default proxy and route traffic directly, set `disable_default_proxy` to `true` when creating the browser:
-
-<CodeGroup>
-```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
-
-const kernel = new Kernel();
-
-const browser = await kernel.browsers.create({
-  stealth: true,
-  disable_default_proxy: true,
-});
-```
-
-```python Python
-from kernel import Kernel
-
-kernel = Kernel()
-
-browser = kernel.browsers.create(
-    stealth=True,
-    disable_default_proxy=True,
-)
-```
-</CodeGroup>
-
-<Info>
-`disable_default_proxy` can only be used with stealth browsers and cannot be combined with `proxy_id`.
-</Info>
 
 ## Bypass hosts
 
