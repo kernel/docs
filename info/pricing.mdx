@@ -77,3 +77,19 @@ Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session he
 > Note: Browsers in [Standby Mode](/browsers/standby) count against on-demand concurrency limits.
 
 > Note: Limits are org-wide by default unless stated otherwise. `Managed auth profiles` refer to the number of active auth connections that Kernel maintains using your stored [Credentials](/auth/credentials) or [1Password connection](/integrations/1password).
+
+## Rate limiting
+
+Kernel enforces per-organization rate limits on API requests. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
+
+Rate-limited endpoints include these headers on every response:
+
+| Header | Description |
+| --- | --- |
+| `X-RateLimit-Limit` | Maximum requests allowed per minute |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+| `Retry-After` | Seconds to wait before retrying (only on `429` responses) |
+
+All Kernel SDKs automatically retry `429` responses up to 2 times, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
+
+If you need higher rate limits, [contact us](mailto:support@kernel.sh).
