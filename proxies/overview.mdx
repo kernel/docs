@@ -257,28 +257,15 @@ If you swap the proxy on a browser acquired from a pool, the browser will be res
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-// Disable the default stealth proxy
 await kernel.browsers.update(browser.session_id, {
   disable_default_proxy: true,
-});
-
-// Re-enable the default stealth proxy
-await kernel.browsers.update(browser.session_id, {
-  disable_default_proxy: false,
 });
 ```
 
 ```python Python
-# Disable the default stealth proxy
 kernel.browsers.update(
     browser.session_id,
     disable_default_proxy=True,
-)
-
-# Re-enable the default stealth proxy
-kernel.browsers.update(
-    browser.session_id,
-    disable_default_proxy=False,
 )
 ```
 </CodeGroup>
