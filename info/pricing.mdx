@@ -90,4 +90,6 @@ Rate-limited endpoints include these headers on every response:
 | `X-RateLimit-Remaining` | Requests remaining in the current window |
 | `Retry-After` | Seconds to wait before retrying (only on `429` responses) |
 
+All Kernel SDKs automatically retry `429` responses up to 2 times, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
+
 If you need higher rate limits, [contact us](mailto:support@kernel.sh).
