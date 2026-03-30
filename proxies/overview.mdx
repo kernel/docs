@@ -15,7 +15,7 @@ Kernel supports four types of proxies:
 
 Datacenter has the fastest speed, while residential is least detectable. ISP is a balance between the two options, with less-flexible geotargeting. Kernel recommends to use the first option in the list that works for your use case.
 
-## 1. Create a proxy
+## Create a proxy
 
 Create a proxy configuration from the types above that can be reused across browser sessions:
 
@@ -40,7 +40,7 @@ print(proxy.id)
 </CodeGroup>
 
 
-## 2. List your proxies
+## List your proxies
 
 View all proxy configurations in your organization:
 
@@ -65,7 +65,7 @@ print(proxies)
 </CodeGroup>
 
 
-## 3. Use with browsers
+## Use with browsers
 
 Once created, you can attach a proxy to any browser session using the `proxy_id` parameter:
 
@@ -105,7 +105,7 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
 </CodeGroup>
 
-## 4. Bypass hosts
+## Bypass hosts
 
 Configure specific hostnames to bypass the proxy and connect directly. This is useful for accessing internal services, metadata endpoints, or reducing latency for trusted domains.
 
@@ -165,7 +165,7 @@ proxy = kernel.proxies.create(
 Bypass hosts is available on Start-Up and Enterprise plans.
 </Info>
 
-## 5. Update a browser's proxy
+## Update a browser's proxy
 
 You can hot-swap the proxy on a running browser session without restarting it. This updates the proxy configuration immediately — all subsequent network requests from the browser will use the new proxy.
 
@@ -251,7 +251,30 @@ The update is synchronous — when the call returns, the proxy swap is fully app
 If you swap the proxy on a browser acquired from a pool, the browser will be reset back to the pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the pool default.
 </Info>
 
-## 6. Delete a proxy
+### Disable default proxy on stealth browsers
+
+[Stealth browsers](/browsers/bot-detection/stealth) are automatically assigned a proxy. To disable this on a running stealth browser and route traffic directly, set `disable_default_proxy` to `true`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(browser.session_id, {
+  disable_default_proxy: true,
+});
+```
+
+```python Python
+kernel.browsers.update(
+    browser.session_id,
+    disable_default_proxy=True,
+)
+```
+</CodeGroup>
+
+<Info>
+`disable_default_proxy` can only be used with stealth browsers and cannot be combined with `proxy_id`.
+</Info>
+
+## Delete a proxy
 
 When no longer needed, delete the proxy configuration:
 
