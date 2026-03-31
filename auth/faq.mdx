@@ -13,10 +13,12 @@ Automatic re-authentication only works when the stored credentials are complete 
 
 ## How often are health checks performed?
 
-Health checks on regular cadences based on your plan:
-- Hobbyist (1 hr)
-- Start-Up (15 min)
-- Enterprise (configurable)
+Health checks run on configurable cadences. Your plan sets the minimum interval:
+- **Hobbyist** — minimum every 1 hour
+- **Start-Up** — minimum every 15 minutes
+- **Enterprise** — fully configurable
+
+You can increase the interval above your plan's minimum, but not below it.
 
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
@@ -35,17 +37,23 @@ If your login flow requires one of these, you can still automate around it:
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
+## What are sign-in options?
+
+Sign-in options are non-MFA choices that some sites present during login, such as account pickers ("Which account do you want to use?") or organization selectors. Unlike MFA options which are security challenges, sign-in options are informational choices that route the login flow. They appear in the session state as `sign_in_options` and are submitted via `sign_in_option_id`. See the [Programmatic flow guide](/auth/programmatic#sign-in-options-accountorg-pickers) for details and SDK examples.
+
 ## Which authentication methods are supported?
 
 Managed Auth supports username/password authentication and most SSO providers. 
 
 <Warning>
-Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail.
+Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail with the `unsupported_auth_method` error code.
 </Warning>
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error. Common failure reasons include:
+If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with a specific error code. Common codes include `credentials_invalid`, `bot_detected`, and `captcha_blocked`. See the [API reference](/api-reference) for the full list of error codes.
+
+Common failure reasons include:
 
 - Invalid credentials
 - Bot detection blocking the login page
@@ -54,6 +62,43 @@ If a login attempt fails, Kernel will retry with exponential backoff. After mult
 ## Can I use Managed Auth with any website?
 
 Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+
+## Is Managed Auth available during a trial?
+
+Yes. Managed Auth and browser profiles are available during your trial period with the same capabilities as the plan you're trialing.
+
+## How do I re-authenticate a connection before the next health check?
+
+Call `.login()` on any connection at any time to trigger authentication immediately. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
+
+This is useful when your workflow needs to ensure a connection is authenticated right now, without waiting for the next scheduled health check.
+
+<CodeGroup>
+```typescript TypeScript
+const state = await kernel.auth.connections.retrieve(auth.id);
+
+if (state.status === 'NEEDS_AUTH') {
+  const login = await kernel.auth.connections.login(auth.id);
+  // Handle login flow as usual
+}
+```
+
+```python Python
+state = await kernel.auth.connections.retrieve(auth.id)
+
+if state.status == "NEEDS_AUTH":
+    login = await kernel.auth.connections.login(auth.id)
+    # Handle login flow as usual
+```
+</CodeGroup>
+
+## What types of flows does Managed Auth support?
+
+Managed Auth is designed for login and authentication flows — entering credentials, handling SSO redirects, completing MFA challenges, and maintaining sessions. For other browser interactions like form filling, sign-ups, or multi-step workflows, use [Kernel's browser automation](/browsers/overview) directly.
+
+## How do I debug a managed auth session?
+
+Go to the **Browser Sessions** tab in the Kernel dashboard to watch what the managed auth session is doing in real time. Each auth login runs in a browser session with a live view, so you can see exactly where the flow is getting stuck. This is useful for diagnosing login flow problems or understanding why a session isn't staying authenticated.
 
 ## How is Managed Auth billed?
 

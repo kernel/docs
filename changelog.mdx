@@ -9,6 +9,39 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="March 27" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added support for custom Chrome [`policy.json`](/browsers/pools) on browser pools, enabling users to configure Chrome settings like popups, PDF behavior, and homepage without manual workarounds.
+- Updated the [CLI](https://github.com/kernel/cli) to prioritize API key authentication over OAuth, and added new commands and flags.
+- Improved browser pool acquisition speed.
+- Improved CDP proxy reconnect behavior after Chromium restart, preventing broken browser sessions.
+- Corrected Safari clipboard sync in the dashboard live view, resolving copy/paste issues for users viewing browser sessions from Safari.
+- Improved mouse movement in live view.
+
+## Documentation updates
+
+- Added an FAQ entry for [debugging managed auth sessions](/auth/faq#how-do-i-debug-a-managed-auth-session).
+- Updated [Managed Auth](/auth/overview) documentation to cover CUA support, the PATCH endpoint, and auto-allowed SSO domains.
+</Update>
+
+<Update label="March 20" tags={["Product", "Docs"]}>
+## Product updates
+
+- Launched [GPU acceleration](/browsers/gpu-acceleration) for cloud browsers. GPU acceleration attaches a virtual GPU to your cloud browser, dramatically speeding up agents on sites that use canvases, are heavy on visualizations, or rely on WebGL. In our internal benchmarks, GPU-accelerated browsers hit 60 fps —6x faster than regular browsers— making browsing feel faster pretty much everywhere on the internet. GPU acceleration is available as a research preview on Startup and Enterprise plans.
+- Increased Chromium's default maximum connections per proxy to 16, improving throughput for proxy-based browser sessions.
+- Updated the live view logo and favicon to reflect the latest Kernel branding.
+- Updated OpenAI CUA [templates](https://github.com/kernel/cli/tree/main/pkg/templates) to use Kernel's native Computer Controls API instead of Playwright for improved reliability and performance.
+- Fixed an issue where deleted browser sessions couldn't be listed or downloaded in session replays via the [CLI](https://github.com/kernel/cli).
+
+## Documentation updates
+
+- Added new docs for [GPU acceleration](/browsers/gpu-acceleration).
+- Added [ZIP code targeting](/proxies/residential) documentation for residential proxies.
+- Clarified [download behavior](/browsers/file-io) for programmatic file downloads.
+- Reorganized documentation to make [Managed Auth](/auth/overview) and [Browser Pools](/browsers/pools) more prominent and accessible.
+</Update>
+
 <Update label="March 13" tags={["Product", "Docs"]}>
 ## Product updates
 
@@ -17,7 +50,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added a `usage` field to the [browser session details](/api-reference/browsers/get-browser-session-details#response-usage) API response, which returns session metrics like `uptime_ms`. Use this to track session duration and build billing or analytics workflows around your browser usage.
 - Extended smooth Bezier curve mouse movements to click and drag operations, and added `--smooth` and `--duration-ms` flags to the `move-mouse` command in the [CLI](https://github.com/kernel/cli) for more natural-looking browser interactions.
 - Improved headless viewport resize performance by using a CDP fast path, reducing resize time from ~5 seconds to ~10 milliseconds.
-- Added support for [runtime proxy configuration swapping](https://www.kernel.sh/docs/proxies/overview#5-update-a-browser%E2%80%99s-proxy), enabling you to change a browser's proxy settings mid-session without restarting.
+- Added support for [runtime proxy configuration swapping](https://www.kernel.sh/docs/proxies/overview#update-a-browsers-proxy), enabling you to change a browser's proxy settings mid-session without restarting.
 
 ## Documentation updates
 
@@ -45,7 +78,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 - Renamed "Scaling in Production" to [Reserved Browsers](/browsers/scaling/overview) and added a new [On-Demand Browsers](/browsers/scaling/on-demand) section for clearer guidance on browser provisioning strategies.
 - Added [mobile and tablet viewport configurations](/browsers/viewport) with supported screen sizes and usage guidance.
-- Added [proxy-bypass-hosts](https://www.kernel.sh/docs/proxies/overview#4-bypass-hosts) documentation for configuring proxy bypass lists on browser pools.
+- Added [proxy-bypass-hosts](https://www.kernel.sh/docs/proxies/overview#bypass-hosts) documentation for configuring proxy bypass lists on browser pools.
 - Documented the `--force` flag for [viewport resizing](/browsers/viewport) during active recordings.
 - Added viewport configuration examples to [browser pool](/browsers/pools) documentation.
 </Update>
