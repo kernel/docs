@@ -45,7 +45,12 @@ The live view URL can be embedded in an iframe to integrate the browser view int
 <iframe src={browser.browser_live_view_url}></iframe>
 ```
 
+
 <Info>
+    Embedded third-party iframes like live view must have focus to receive keyboard events. On Safari, focus requires a user-initiated event — calling `.focus()` on the iframe element within a user-initiated event handler is recommended.
+
+    To enable clipboard sharing, add `allow="autoplay; clipboard-read; clipboard-write"` to the iframe element.
+
 If your application uses a **Content Security Policy (CSP)**, you'll need to add the following directives to allow the live view iframe and its WebSocket connection:
 
 ```
