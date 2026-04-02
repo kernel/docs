@@ -2,12 +2,13 @@ const { useState, useEffect, useRef } = React;
 const { Card, Columns } = MintlifyComponents;
 
 export const PricingCalculator = () => {
-    const defaults = { plan: 'free', headless: true, avgSessionLength: 30, numSessions: 100 };
+    const defaults = { plan: 'free', browserType: 'headless', avgSessionLength: 30, numSessions: 100 };
     const planPrices = { free: 0, hobbyist: 30, startup: 200 };
     const usagePrices = 0.0000166667;
+    const browserMultipliers = { headless: 1, headful: 8, gpu: 48 };
 
     const [plan, setPlan] = useState(defaults.plan);
-    const [headless, setHeadless] = useState(defaults.headless);
+    const [browserType, setBrowserType] = useState(defaults.browserType);
     const [avgSessionLength, setAvgSessionLength] = useState(defaults.avgSessionLength);
     const [numSessions, setNumSessions] = useState(defaults.numSessions);
     const [flash, setFlash] = useState(false);
@@ -18,20 +19,32 @@ export const PricingCalculator = () => {
         if (!hasInteracted.current) return;
         var url = new URL(window.location);
         url.searchParams.set('plan', plan);
-        url.searchParams.set('headless', headless);
+        url.searchParams.set('browserType', browserType);
         url.searchParams.set('duration', avgSessionLength);
         url.searchParams.set('sessions', numSessions);
         url.hash = 'pricing-calculator';
         window.history.replaceState(null, '', url);
-    }, [plan, headless, avgSessionLength, numSessions]);
+    }, [plan, browserType, avgSessionLength, numSessions]);
+
+    const handleBrowserTypeChange = (type) => {
+        hasInteracted.current = true;
+        setBrowserType(type);
+        if (type === 'gpu' && plan !== 'startup') {
+            setPlan('startup');
+        }
+    };
+
+    const handlePlanChange = (newPlan) => {
+        hasInteracted.current = true;
+        if (browserType === 'gpu' && newPlan !== 'startup') {
+            return;
+        }
+        setPlan(newPlan);
+    };
 
     var price = planPrices[plan];
-    var usageCost = 0;
-    if (headless) {
-        usageCost += usagePrices * 1 * numSessions * avgSessionLength;
-    } else {
-        usageCost += usagePrices * 8 * numSessions * avgSessionLength;
-    }
+    var multiplier = browserMultipliers[browserType];
+    var usageCost = usagePrices * multiplier * numSessions * avgSessionLength;
 
     var includedUsageCredits = 5;
     if (plan === 'hobbyist') {
@@ -66,12 +79,19 @@ export const PricingCalculator = () => {
         backgroundSize: '0.75rem',
         paddingRight: '1.5rem',
     };
+    const btnStyle = (active) => ({
+        padding: '0.25rem 0.5rem',
+        borderRadius: '0.375rem',
+        border: `1px solid ${active ? '#81b300' : 'var(--btn-border)'}`,
+        fontSize: '0.875rem',
+        background: active ? 'var(--btn-selected-bg)' : undefined,
+    });
     return (
         <Columns cols={2}>
             <Card title="Controls" icon="calculator">
                 <div style={rowStyle}>
                     <label style={labelStyle}>Plan</label>
-                    <select style={selectStyle} value={plan} onChange={(e) => { hasInteracted.current = true; setPlan(e.target.value); }}>
+                    <select style={selectStyle} value={plan} onChange={(e) => handlePlanChange(e.target.value)}>
                         <option value="free">Free</option>
                         <option value="hobbyist">Hobbyist</option>
                         <option value="startup">Startup</option>
@@ -86,10 +106,16 @@ export const PricingCalculator = () => {
                     <input type="number" style={{...inputStyle, ...numberInputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${!headless ? '#81b300' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: !headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(false); }}>Headful</button>
-                    <button class="btn btn-primary dark:text-white" style={{ padding: '0.25rem 0.5rem', borderRadius: '0.375rem', border: `1px solid ${headless ? '#81b300' : 'var(--btn-border)'}`, fontSize: '0.875rem', background: headless ? 'var(--btn-selected-bg)' : undefined }} onClick={() => { hasInteracted.current = true; setHeadless(true); }}>Headless</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
-                <div style={rowStyle}><span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>${headless ? usagePrices.toFixed(8) : (usagePrices * 8).toFixed(8)}/second</span></div>
+                <div style={rowStyle}>
+                    <span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                        ${(usagePrices * multiplier).toFixed(8)}/second
+                        {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem', color: '#81b300' }}>(Startup tier required)</span>}
+                    </span>
+                </div>
             </Card>
             <Card title="Price" icon="circle-dollar">
                 <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
