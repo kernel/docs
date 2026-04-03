@@ -34,7 +34,7 @@ Only if all of the above conditions are met will `can_reauth` be `true`. When tr
 After a successful login, Kernel saves the login flow. If the flow includes steps that require human action—like SMS/email OTP, push notifications, or manual MFA selection—Kernel marks the connection as unable to auto-reauth because those steps can't be automated without user input.
 
 If your login flow requires one of these, you can still automate around it:
-- **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action.
+- **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action. If a TOTP code expires or times out before the site accepts it, Kernel automatically retries with a fresh code.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
 ## What are sign-in options?
