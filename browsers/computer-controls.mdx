@@ -239,7 +239,14 @@ kernel browsers computer screenshot <session id> --to region.png --x 0 --y 0 --w
 
 ## Type text
 
-Type literal text, optionally with a delay in milliseconds between keystrokes.
+Type literal text with optional human-like timing. When `smooth` is enabled, text is typed in word-sized chunks with variable inter-key delays and natural pauses at word and sentence boundaries. You can also inject realistic typos that are automatically corrected with backspace.
+
+| Parameter     | Type    | Default | Description |
+| ------------- | ------- | ------- | ----------- |
+| `text`        | string  | —       | Text to type |
+| `delay`       | integer | `0`     | Fixed delay in milliseconds between keystrokes. Ignored when `smooth` is `true` |
+| `smooth`      | boolean | `false` | Use human-like variable keystroke timing with word-boundary pauses |
+| `typo_chance` | number  | `0`     | Probability (0.0–0.10) of a typo per character, corrected with backspace. Requires `smooth: true`. Typical human range is 0.02–0.05 |
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -248,13 +255,28 @@ import Kernel from '@onkernel/sdk';
 const kernel = new Kernel();
 const kernelBrowser = await kernel.browsers.create();
 
+// Instant typing (default)
 await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
   text: 'Hello, World!',
 });
 
+// Fixed delay between keystrokes
 await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
   text: 'Slow typing...',
   delay: 100,
+});
+
+// Human-like smooth typing
+await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
+  text: 'The quick brown fox jumps over the lazy dog.',
+  smooth: true,
+});
+
+// Human-like with occasional typos (3% chance per character)
+await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
+  text: 'The quick brown fox jumps over the lazy dog.',
+  smooth: true,
+  typo_chance: 0.03,
 });
 ```
 
@@ -264,15 +286,32 @@ from kernel import Kernel
 kernel = Kernel()
 kernel_browser = kernel.browsers.create()
 
+# Instant typing (default)
 kernel.browsers.computer.type_text(
     id=kernel_browser.session_id,
     text="Hello, World!",
 )
 
+# Fixed delay between keystrokes
 kernel.browsers.computer.type_text(
     id=kernel_browser.session_id,
     text="Slow typing...",
     delay=100,
+)
+
+# Human-like smooth typing
+kernel.browsers.computer.type_text(
+    id=kernel_browser.session_id,
+    text="The quick brown fox jumps over the lazy dog.",
+    smooth=True,
+)
+
+# Human-like with occasional typos (3% chance per character)
+kernel.browsers.computer.type_text(
+    id=kernel_browser.session_id,
+    text="The quick brown fox jumps over the lazy dog.",
+    smooth=True,
+    typo_chance=0.03,
 )
 ```
 
@@ -282,8 +321,20 @@ kernel browsers computer type <session id> --text "Hello, World!"
 
 # Type text with a 100ms delay between keystrokes
 kernel browsers computer type <session id> --text "Slow typing..." --delay 100
+
+# Human-like smooth typing
+kernel browsers computer type <session id> --text "The quick brown fox" --smooth
+
+# Human-like with occasional typos
+kernel browsers computer type <session id> --text "The quick brown fox" --smooth --typo-chance 0.03
 ```
 </CodeGroup>
+
+### Smooth vs instant typing
+
+<Frame caption="Instant typing (all at once) vs smooth human-like typing with variable delays and typo correction">
+  <img src="/images/smooth-typing-demo.gif" />
+</Frame>
 
 ## Press keys
 
