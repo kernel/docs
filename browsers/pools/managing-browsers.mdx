@@ -1,13 +1,13 @@
 ---
 title: "Managing Browsers"
-description: "Configure Chrome browser policies for reserved browsers"
+description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
 ---
 
-You can configure Chrome browser policies on reserved browsers to control startup behavior, homepage settings, and new tab page URLs. This is useful for setting up browsers that automatically open specific pages when acquired from a pool.
+Browser pools accept an optional `chrome_policy` object that lets you apply [Chrome enterprise policy settings](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, new tab pages, and other browser-level preferences.
 
-## Chrome browser policies
+## Setting Chrome policies
 
-Pass a `chrome_policies` object when creating or updating a browser pool to apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool.
+Pass a `chrome_policy` object when creating a pool. The keys are Chrome policy names and the values are the corresponding policy settings.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -18,7 +18,7 @@ const kernel = new Kernel();
 const pool = await kernel.browserPools.create({
   name: "my-configured-pool",
   size: 5,
-  chrome_policies: {
+  chrome_policy: {
     HomepageIsNewTabPage: false,
     HomepageLocation: "https://kernel.sh",
     NewTabPageLocation: "https://kernel.com/docs",
@@ -38,7 +38,7 @@ kernel = Kernel()
 pool = kernel.browser_pools.create(
     name="my-configured-pool",
     size=5,
-    chrome_policies={
+    chrome_policy={
         "HomepageIsNewTabPage": False,
         "HomepageLocation": "https://kernel.sh",
         "NewTabPageLocation": "https://kernel.com/docs",
@@ -51,19 +51,11 @@ pool = kernel.browser_pools.create(
 ```
 </CodeGroup>
 
-## Policy reference
+You can also set `chrome_policy` when [updating a pool](/browsers/pools/overview#update-a-pool). By default, idle browsers are discarded and rebuilt with the new configuration.
 
-| Policy | Type | Description |
-| --- | --- | --- |
-| `HomepageIsNewTabPage` | `boolean` | Whether the homepage is used as the new tab page. Set to `false` to use a custom homepage URL instead. |
-| `HomepageLocation` | `string` | The URL that loads when the user clicks the home button. |
-| `NewTabPageLocation` | `string` | The URL that loads when a new tab is opened. |
-| `RestoreOnStartup` | `integer` | Controls what happens when the browser starts. Set to `4` to open a specific list of URLs on startup. |
-| `RestoreOnStartupURLs` | `string[]` | The list of URLs to open on startup. Only applies when `RestoreOnStartup` is set to `4`. |
+## Example: setting a default homepage
 
-## Example configuration
-
-The following configuration sets the browser to open `https://kernel.sh` on startup, use the Kernel docs as the new tab page, and set the homepage to `https://kernel.sh`:
+The following configuration opens `https://kernel.sh` on startup, sets the Kernel docs as the new tab page, and configures the home button to navigate to `https://kernel.sh`:
 
 ```json
 {
@@ -77,37 +69,14 @@ The following configuration sets the browser to open `https://kernel.sh` on star
 }
 ```
 
-## Updating policies on an existing pool
+| Policy | Type | Description |
+| --- | --- | --- |
+| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page. |
+| `HomepageLocation` | `string` | URL loaded when clicking the home button. |
+| `NewTabPageLocation` | `string` | URL shown when opening a new tab. |
+| `RestoreOnStartup` | `integer` | Set to `4` to open a specific list of URLs on browser startup. |
+| `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4`. |
 
-Use `kernel.browserPools.update()` to change Chrome policies on an existing pool. By default, idle browsers are discarded and rebuilt with the new configuration.
+## Available policies
 
-<CodeGroup>
-```typescript Typescript/Javascript
-const updatedPool = await kernel.browserPools.update("my-configured-pool", {
-  size: 5,
-  chrome_policies: {
-    HomepageIsNewTabPage: false,
-    HomepageLocation: "https://example.com",
-    RestoreOnStartup: 4,
-    RestoreOnStartupURLs: [
-      "https://example.com"
-    ]
-  }
-});
-```
-
-```python Python
-updated_pool = kernel.browser_pools.update(
-    "my-configured-pool",
-    size=5,
-    chrome_policies={
-        "HomepageIsNewTabPage": False,
-        "HomepageLocation": "https://example.com",
-        "RestoreOnStartup": 4,
-        "RestoreOnStartupURLs": [
-            "https://example.com"
-        ]
-    }
-)
-```
-</CodeGroup>
+Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be passed in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
