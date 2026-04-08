@@ -19,24 +19,24 @@ const pool = await kernel.browserPools.create({
   name: "my-configured-pool",
   size: 5,
   chrome_policy: {
-    HomepageLocation: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    HomepageLocation: "https://kernel.sh",
     HomepageIsNewTabPage: false,
     ShowHomeButton: true,
-    NewTabPageLocation: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    NewTabPageLocation: "https://kernel.sh/docs",
     RestoreOnStartup: 4,
-    RestoreOnStartupURLs: ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    RestoreOnStartupURLs: ["https://kernel.sh"],
     BookmarkBarEnabled: true,
     ManagedBookmarks: [
-      { toplevel_name: "Company-wide sites" },
-      { name: "Important Meeting Notes", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-      { name: "Q4 Revenue Report", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      { toplevel_name: "Company Resources" },
+      { name: "Dashboard", url: "https://example.com/dashboard" },
+      { name: "Documentation", url: "https://example.com/docs" },
       {
-        name: "Work Stuff",
+        name: "Tools",
         children: [
-          { name: "Jira Board", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-          { name: "Slack", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-          { name: "GitHub PRs", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-          { name: "Production Hotfix Guide", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }
+          { name: "Jira Board", url: "https://example.com/jira" },
+          { name: "Slack", url: "https://example.com/slack" },
+          { name: "GitHub PRs", url: "https://example.com/github" },
+          { name: "Runbooks", url: "https://example.com/runbooks" }
         ]
       }
     ]
@@ -53,24 +53,24 @@ pool = kernel.browser_pools.create(
     name="my-configured-pool",
     size=5,
     chrome_policy={
-        "HomepageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "HomepageLocation": "https://kernel.sh",
         "HomepageIsNewTabPage": False,
         "ShowHomeButton": True,
-        "NewTabPageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "NewTabPageLocation": "https://kernel.sh/docs",
         "RestoreOnStartup": 4,
-        "RestoreOnStartupURLs": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+        "RestoreOnStartupURLs": ["https://kernel.sh"],
         "BookmarkBarEnabled": True,
         "ManagedBookmarks": [
-            {"toplevel_name": "Company-wide sites"},
-            {"name": "Important Meeting Notes", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-            {"name": "Q4 Revenue Report", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+            {"toplevel_name": "Company Resources"},
+            {"name": "Dashboard", "url": "https://example.com/dashboard"},
+            {"name": "Documentation", "url": "https://example.com/docs"},
             {
-                "name": "Work Stuff",
+                "name": "Tools",
                 "children": [
-                    {"name": "Jira Board", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-                    {"name": "Slack", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-                    {"name": "GitHub PRs", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-                    {"name": "Production Hotfix Guide", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
+                    {"name": "Jira Board", "url": "https://example.com/jira"},
+                    {"name": "Slack", "url": "https://example.com/slack"},
+                    {"name": "GitHub PRs", "url": "https://example.com/github"},
+                    {"name": "Runbooks", "url": "https://example.com/runbooks"}
                 ]
             }
         ]
@@ -86,24 +86,24 @@ You can update `chrome_policy` on an existing pool. Pass `discard_all_idle: true
 ```json
 {
   "chrome_policy": {
-    "HomepageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "HomepageLocation": "https://kernel.sh",
     "HomepageIsNewTabPage": false,
     "ShowHomeButton": true,
-    "NewTabPageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "NewTabPageLocation": "https://kernel.sh/docs",
     "RestoreOnStartup": 4,
-    "RestoreOnStartupURLs": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    "RestoreOnStartupURLs": ["https://kernel.sh"],
     "BookmarkBarEnabled": true,
     "ManagedBookmarks": [
-      {"toplevel_name": "Company-wide sites"},
-      {"name": "Important Meeting Notes", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-      {"name": "Q4 Revenue Report", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+      {"toplevel_name": "Company Resources"},
+      {"name": "Dashboard", "url": "https://example.com/dashboard"},
+      {"name": "Documentation", "url": "https://example.com/docs"},
       {
-        "name": "Work Stuff",
+        "name": "Tools",
         "children": [
-          {"name": "Jira Board", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-          {"name": "Slack", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-          {"name": "GitHub PRs", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
-          {"name": "Production Hotfix Guide", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
+          {"name": "Jira Board", "url": "https://example.com/jira"},
+          {"name": "Slack", "url": "https://example.com/slack"},
+          {"name": "GitHub PRs", "url": "https://example.com/github"},
+          {"name": "Runbooks", "url": "https://example.com/runbooks"}
         ]
       }
     ]
