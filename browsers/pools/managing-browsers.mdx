@@ -3,14 +3,14 @@ title: "Managing Browsers"
 description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
 ---
 
-Browser pools accept an optional `chrome_policy` object that lets you apply [Chrome enterprise policy settings](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, new tab pages, and other browser-level preferences.
+Browser pools accept an optional `chrome_policy` object that lets you apply [Chrome enterprise policy settings](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, bookmarks, new tab pages, and other browser-level preferences.
 
 ## Setting Chrome policies
 
-Pass a `chrome_policy` object when creating a pool. The keys are Chrome policy names and the values are the corresponding policy settings.
+Pass a `chrome_policy` object when creating or updating a pool. The keys are Chrome policy names and the values are the corresponding policy settings.
 
 <CodeGroup>
-```typescript Typescript/Javascript
+```typescript TypeScript
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
@@ -19,12 +19,26 @@ const pool = await kernel.browserPools.create({
   name: "my-configured-pool",
   size: 5,
   chrome_policy: {
+    HomepageLocation: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     HomepageIsNewTabPage: false,
-    HomepageLocation: "https://kernel.sh",
-    NewTabPageLocation: "https://kernel.com/docs",
+    ShowHomeButton: true,
+    NewTabPageLocation: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     RestoreOnStartup: 4,
-    RestoreOnStartupURLs: [
-      "https://kernel.sh"
+    RestoreOnStartupURLs: ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    BookmarkBarEnabled: true,
+    ManagedBookmarks: [
+      { toplevel_name: "Company-wide sites" },
+      { name: "Important Meeting Notes", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      { name: "Q4 Revenue Report", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+      {
+        name: "Work Stuff",
+        children: [
+          { name: "Jira Board", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+          { name: "Slack", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+          { name: "GitHub PRs", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+          { name: "Production Hotfix Guide", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" }
+        ]
+      }
     ]
   }
 });
@@ -39,43 +53,75 @@ pool = kernel.browser_pools.create(
     name="my-configured-pool",
     size=5,
     chrome_policy={
+        "HomepageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         "HomepageIsNewTabPage": False,
-        "HomepageLocation": "https://kernel.sh",
-        "NewTabPageLocation": "https://kernel.com/docs",
+        "ShowHomeButton": True,
+        "NewTabPageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         "RestoreOnStartup": 4,
-        "RestoreOnStartupURLs": [
-            "https://kernel.sh"
+        "RestoreOnStartupURLs": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+        "BookmarkBarEnabled": True,
+        "ManagedBookmarks": [
+            {"toplevel_name": "Company-wide sites"},
+            {"name": "Important Meeting Notes", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+            {"name": "Q4 Revenue Report", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+            {
+                "name": "Work Stuff",
+                "children": [
+                    {"name": "Jira Board", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+                    {"name": "Slack", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+                    {"name": "GitHub PRs", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+                    {"name": "Production Hotfix Guide", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
+                ]
+            }
         ]
     }
 )
 ```
 </CodeGroup>
 
-You can also set `chrome_policy` when [updating a pool](/browsers/pools/overview#update-a-pool). By default, idle browsers are discarded and rebuilt with the new configuration.
-
-## Example: setting a default homepage
-
-The following configuration opens `https://kernel.sh` on startup, sets the Kernel docs as the new tab page, and configures the home button to navigate to `https://kernel.sh`:
+You can also set `chrome_policy` when [updating a pool](/browsers/pools/overview#update-a-pool). Pass `discard_all_idle: true` alongside `chrome_policy` to immediately replace all idle browsers with the new policy configuration.
 
 ```json
 {
-  "HomepageIsNewTabPage": false,
-  "HomepageLocation": "https://kernel.sh",
-  "NewTabPageLocation": "https://kernel.com/docs",
-  "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": [
-    "https://kernel.sh"
-  ]
+  "chrome_policy": {
+    "HomepageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "HomepageIsNewTabPage": false,
+    "ShowHomeButton": true,
+    "NewTabPageLocation": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "RestoreOnStartup": 4,
+    "RestoreOnStartupURLs": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    "BookmarkBarEnabled": true,
+    "ManagedBookmarks": [
+      {"toplevel_name": "Company-wide sites"},
+      {"name": "Important Meeting Notes", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+      {"name": "Q4 Revenue Report", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+      {
+        "name": "Work Stuff",
+        "children": [
+          {"name": "Jira Board", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+          {"name": "Slack", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+          {"name": "GitHub PRs", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+          {"name": "Production Hotfix Guide", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
+        ]
+      }
+    ]
+  },
+  "discard_all_idle": true
 }
 ```
 
+## Policy reference
+
 | Policy | Type | Description |
 | --- | --- | --- |
-| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page. |
 | `HomepageLocation` | `string` | URL loaded when clicking the home button. |
+| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page. |
+| `ShowHomeButton` | `boolean` | Shows the home button in the toolbar. |
 | `NewTabPageLocation` | `string` | URL shown when opening a new tab. |
 | `RestoreOnStartup` | `integer` | Set to `4` to open a specific list of URLs on browser startup. |
 | `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4`. |
+| `BookmarkBarEnabled` | `boolean` | Shows the bookmark bar. |
+| `ManagedBookmarks` | `array` | Pre-configured bookmarks. Supports folders via nested `children` arrays. |
 
 ## Available policies
 
