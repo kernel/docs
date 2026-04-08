@@ -1,0 +1,132 @@
+---
+title: "Managing Browsers"
+description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
+---
+
+Browser pools accept an optional [`chrome_policy`](/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) object that lets you apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, bookmarks, and other browser-level settings.
+
+## Setting chrome policies
+
+Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool. Keys are Chrome policy names and values are the corresponding settings.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const pool = await kernel.browserPools.create({
+  name: "my-configured-pool",
+  size: 5,
+  chrome_policy: {
+    HomepageLocation: "https://kernel.sh",
+    HomepageIsNewTabPage: false,
+    ShowHomeButton: true,
+    NewTabPageLocation: "https://kernel.sh/docs",
+    RestoreOnStartup: 4,
+    RestoreOnStartupURLs: ["https://kernel.sh"],
+    BookmarkBarEnabled: true,
+    ManagedBookmarks: [
+      { toplevel_name: "Company Resources" },
+      { name: "Dashboard", url: "https://example.com/dashboard" },
+      { name: "Documentation", url: "https://example.com/docs" },
+      {
+        name: "Tools",
+        children: [
+          { name: "Jira Board", url: "https://example.com/jira" },
+          { name: "Slack", url: "https://example.com/slack" },
+          { name: "GitHub PRs", url: "https://example.com/github" },
+          { name: "Runbooks", url: "https://example.com/runbooks" }
+        ]
+      }
+    ]
+  }
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+pool = kernel.browser_pools.create(
+    name="my-configured-pool",
+    size=5,
+    chrome_policy={
+        "HomepageLocation": "https://kernel.sh",
+        "HomepageIsNewTabPage": False,
+        "ShowHomeButton": True,
+        "NewTabPageLocation": "https://kernel.sh/docs",
+        "RestoreOnStartup": 4,
+        "RestoreOnStartupURLs": ["https://kernel.sh"],
+        "BookmarkBarEnabled": True,
+        "ManagedBookmarks": [
+            {"toplevel_name": "Company Resources"},
+            {"name": "Dashboard", "url": "https://example.com/dashboard"},
+            {"name": "Documentation", "url": "https://example.com/docs"},
+            {
+                "name": "Tools",
+                "children": [
+                    {"name": "Jira Board", "url": "https://example.com/jira"},
+                    {"name": "Slack", "url": "https://example.com/slack"},
+                    {"name": "GitHub PRs", "url": "https://example.com/github"},
+                    {"name": "Runbooks", "url": "https://example.com/runbooks"}
+                ]
+            }
+        ]
+    }
+)
+```
+</CodeGroup>
+
+## Updating policies on an existing pool
+
+You can update `chrome_policy` on an existing pool. Pass `discard_all_idle: true` to immediately replace all idle browsers with the new policy configuration.
+
+```json
+{
+  "chrome_policy": {
+    "HomepageLocation": "https://kernel.sh",
+    "HomepageIsNewTabPage": false,
+    "ShowHomeButton": true,
+    "NewTabPageLocation": "https://kernel.sh/docs",
+    "RestoreOnStartup": 4,
+    "RestoreOnStartupURLs": ["https://kernel.sh"],
+    "BookmarkBarEnabled": true,
+    "ManagedBookmarks": [
+      {"toplevel_name": "Company Resources"},
+      {"name": "Dashboard", "url": "https://example.com/dashboard"},
+      {"name": "Documentation", "url": "https://example.com/docs"},
+      {
+        "name": "Tools",
+        "children": [
+          {"name": "Jira Board", "url": "https://example.com/jira"},
+          {"name": "Slack", "url": "https://example.com/slack"},
+          {"name": "GitHub PRs", "url": "https://example.com/github"},
+          {"name": "Runbooks", "url": "https://example.com/runbooks"}
+        ]
+      }
+    ]
+  },
+  "discard_all_idle": true
+}
+```
+
+## Example policies
+
+The example above demonstrates setting a default homepage and managed bookmarks. Here's what each policy does:
+
+| Policy | Type | Description |
+| --- | --- | --- |
+| `HomepageLocation` | `string` | URL loaded when clicking the home button |
+| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page |
+| `ShowHomeButton` | `boolean` | Shows the home button in the toolbar |
+| `NewTabPageLocation` | `string` | URL shown when opening a new tab |
+| `RestoreOnStartup` | `integer` | Set to `4` to open a specific list of URLs on browser startup |
+| `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4` |
+| `BookmarkBarEnabled` | `boolean` | Shows the bookmark bar |
+| `ManagedBookmarks` | `array` | Pre-configured bookmarks. Supports folders via nested `children` arrays |
+
+## Available policies
+
+Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
