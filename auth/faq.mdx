@@ -100,6 +100,17 @@ Managed Auth is designed for login and authentication flows — entering credent
 
 Go to the **Browser Sessions** tab in the Kernel dashboard to watch what the managed auth session is doing in real time. Each auth login runs in a browser session with a live view, so you can see exactly where the flow is getting stuck. This is useful for diagnosing login flow problems or understanding why a session isn't staying authenticated.
 
+## Can I attach multiple auth connections to one profile?
+
+Yes. A profile can have any number of auth connections, each for a different domain. When you create a browser with that profile, it is already logged in to every connected domain.
+
+This is useful for two common patterns:
+
+- **Multi-site workflows** — Your agent visits multiple sites in a single run (e.g., reads email in Gmail, posts a summary in Slack, and updates a CRM). Attach one auth connection per site to a single profile, and the browser starts logged in to all of them.
+- **User-to-profile mapping** — Each end user on your platform gets one profile. All of that user's accounts (Gmail, LinkedIn, GitHub, etc.) are auth connections on their profile. When the user triggers a workflow, launch a browser with their profile.
+
+See [Profiles — Multiple auth connections per profile](/auth/profiles#multiple-auth-connections-per-profile) for code examples.
+
 ## How is Managed Auth billed?
 
 Managed Auth is included on all paid plans with no per-connection fees. It uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage like any other browser session.

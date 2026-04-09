@@ -9,7 +9,7 @@ Managed Auth creates and maintains authenticated browser sessions for your AI ag
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** creates a browser [profile](/auth/profiles) for a domain you want to keep authenticated so you can automatically be logged in when you launch future browsers. Create one for each domain + user combination you want to keep authenticated.
+    A **Managed Auth Connection** attaches an authenticated domain to a browser [profile](/auth/profiles) so you can automatically be logged in when you launch future browsers. A single profile can have multiple auth connections — one per domain you want to keep authenticated.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -70,7 +70,7 @@ if state.status == "AUTHENTICATED":
 
   </Step>
   <Step title="Use the Profile">
-    Once the auth connection completes, the connection is saved to the browser [profile](/auth/profiles) you created in step 1. Create browsers with the profile and navigate to the site. The browser session will already be authenticated.
+    Once the auth connection completes, the authenticated session is saved to the browser [profile](/auth/profiles) specified in step 1. You can attach additional auth connections to the same profile for other domains. When you create a browser with the profile, all of its auth connections are available — the browser session will already be logged in to every connected domain.
 
 <CodeGroup>
 ```typescript TypeScript

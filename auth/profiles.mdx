@@ -7,7 +7,7 @@ Profiles let you capture browser state created during a session (cookies and loc
 
 ## 1. Create a profile
 
-Managed Auth automatically creates browser profiles for each [connection](/auth/overview) you successfully authenticate.
+When you create a [Managed Auth connection](/auth/overview), it is attached to a profile. A single profile can hold multiple auth connections — one per domain — so a browser launched with that profile is logged in to all of them at once.
 
 You can also use profiles without Managed Auth. The first step in using profiles is to create one, optionally giving it a meaningful `name` that is unique within your organization.
 
@@ -143,6 +143,128 @@ You cannot load a profile into a browser that was already created with a profile
 ## Other ways to use profiles
 
 The API and SDKs support listing, deleting, and downloading profile data as JSON. See the [API reference](/api-reference/profiles/list-profiles) for more details.
+
+## Multiple auth connections per profile
+
+A profile can have any number of auth connections, each for a different domain. When you launch a browser with that profile, it is already logged in to every connected domain.
+
+### Multi-site workflows
+
+If your agent interacts with multiple sites as part of a single workflow, attach an auth connection for each site to one profile. The browser starts logged in to all of them:
+
+<CodeGroup>
+```typescript TypeScript
+// Create a single profile with auth connections for three sites
+const gmailAuth = await kernel.auth.connections.create({
+  domain: 'gmail.com',
+  profile_name: 'workflow-bot',
+});
+
+const slackAuth = await kernel.auth.connections.create({
+  domain: 'slack.com',
+  profile_name: 'workflow-bot',
+});
+
+const crmAuth = await kernel.auth.connections.create({
+  domain: 'crm.example.com',
+  profile_name: 'workflow-bot',
+});
+
+// Authenticate each connection (omitted for brevity)
+
+// Launch a single browser — logged in to Gmail, Slack, and the CRM
+const browser = await kernel.browsers.create({
+  profile: { name: 'workflow-bot' },
+  stealth: true,
+});
+```
+
+```python Python
+# Create a single profile with auth connections for three sites
+gmail_auth = await kernel.auth.connections.create(
+    domain="gmail.com",
+    profile_name="workflow-bot",
+)
+
+slack_auth = await kernel.auth.connections.create(
+    domain="slack.com",
+    profile_name="workflow-bot",
+)
+
+crm_auth = await kernel.auth.connections.create(
+    domain="crm.example.com",
+    profile_name="workflow-bot",
+)
+
+# Authenticate each connection (omitted for brevity)
+
+# Launch a single browser — logged in to Gmail, Slack, and the CRM
+browser = await kernel.browsers.create(
+    profile={"name": "workflow-bot"},
+    stealth=True,
+)
+```
+</CodeGroup>
+
+### User-to-profile mapping
+
+If your platform has end users who each need their own set of authenticated accounts, map each user to a single profile. Attach all of that user's accounts as auth connections on their profile:
+
+<CodeGroup>
+```typescript TypeScript
+// For each user on your platform, create one profile
+// and attach all their accounts as auth connections
+const userId = 'user-123';
+
+await kernel.auth.connections.create({
+  domain: 'gmail.com',
+  profile_name: userId,
+});
+
+await kernel.auth.connections.create({
+  domain: 'linkedin.com',
+  profile_name: userId,
+});
+
+await kernel.auth.connections.create({
+  domain: 'github.com',
+  profile_name: userId,
+});
+
+// When user-123 triggers a workflow, launch a browser with their profile
+const browser = await kernel.browsers.create({
+  profile: { name: userId },
+  stealth: true,
+});
+```
+
+```python Python
+# For each user on your platform, create one profile
+# and attach all their accounts as auth connections
+user_id = "user-123"
+
+await kernel.auth.connections.create(
+    domain="gmail.com",
+    profile_name=user_id,
+)
+
+await kernel.auth.connections.create(
+    domain="linkedin.com",
+    profile_name=user_id,
+)
+
+await kernel.auth.connections.create(
+    domain="github.com",
+    profile_name=user_id,
+)
+
+# When user-123 triggers a workflow, launch a browser with their profile
+browser = await kernel.browsers.create(
+    profile={"name": user_id},
+    stealth=True,
+)
+```
+</CodeGroup>
 
 ## Notes
 
