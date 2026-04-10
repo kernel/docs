@@ -72,7 +72,30 @@ Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session he
 
 ## Rate limiting
 
-Kernel enforces per-organization rate limits on API requests. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
+Kernel enforces per-organization rate limits on API requests to ensure platform stability. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
+
+### Rate limits by plan
+
+| Plan | Requests per minute (burst) | Sustained rate |
+| --- | --- | --- |
+| Enterprise | 250 | ~4 req/sec |
+| Start-Up | 100 | ~1.7 req/sec |
+| Hobbyist | 25 | ~0.4 req/sec |
+| Developer (free) | 10 | ~0.2 req/sec |
+
+Rate limits use a token bucket algorithm. The burst capacity allows short spikes above the sustained rate, while the sustained rate determines the long-term throughput ceiling.
+
+### Rate-limited endpoints
+
+| Endpoint | Description |
+| --- | --- |
+| `POST /browsers` | Create a browser session |
+| `POST /invocations` | Launch an app invocation |
+| `POST /browsers/{id}/process/exec` | Execute a command synchronously |
+| `POST /browsers/{id}/process/spawn` | Execute a command asynchronously |
+| `POST /browsers/{id}/playwright/execute` | Execute Playwright code |
+
+### Response headers
 
 Rate-limited endpoints include these headers on every response:
 
