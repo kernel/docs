@@ -16,6 +16,13 @@ kbd {
   text-transform: none !important;
 }
 
+/* remove all rounded corners site-wide */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
 /* pricing calculator button styling */
 :root {
   --btn-selected-bg: #CAB168;
@@ -48,7 +55,7 @@ table {
   width: 100% !important;
   border-collapse: separate !important;
   border-spacing: 0 !important;
-  border-radius: 1rem !important;
+  border-radius: 0 !important;
   overflow: hidden !important;
   border: 1px solid rgb(var(--gray-950) / 0.1) !important;
   background-color: rgb(249, 250, 251) !important;
@@ -114,7 +121,7 @@ article table code,
 table code {
   font-size: 0.8125rem !important;
   padding: 2px 6px !important;
-  border-radius: 0.375rem !important;
+  border-radius: 0 !important;
 }
 
 /* first column bold for reference tables */
@@ -122,4 +129,47 @@ table code {
 article table tbody td:first-child,
 table tbody td:first-child {
   font-weight: 500 !important;
+}
+
+/* tinker box responsive layout */
+.tinker-box {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.tinker-box-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.tinker-box-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tinker-box-content button {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+@media (max-width: 640px) {
+  .tinker-box {
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .tinker-box-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 24px;
+  }
 }

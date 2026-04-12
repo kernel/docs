@@ -36,33 +36,120 @@ print(kernel_browser.session_id)
 </CodeGroup>
 
 
-## 2. Connect over CDP
+## 2. Connect to the browser
 
-Then, you can connect to the browser with any Chrome DevTools Protocol framework, such as Playwright or Puppeteer. You can also use our [Computer Controls API](/browsers/computer-controls) to control the browser's mouse and keyboard without using a CDP connection. This is useful for vision-based LLM loops like [Claude Computer Use](/integrations/computer-use/anthropic).
+Kernel browsers support three connection methods: CDP for framework-level browser automation, WebDriver BiDi for W3C-standard control, and Computer Controls for OS-level mouse/keyboard input ideal for vision-based LLM loops.
 
-<CodeGroup>
-```typescript Typescript/Javascript
-import { chromium } from 'playwright';
+<Tabs>
+  <Tab title="CDP">
+    Connect with any Chrome DevTools Protocol framework like [Playwright](https://playwright.dev/) or [Puppeteer](https://pptr.dev/). Use `cdp_ws_url` from the created browser session.
 
-// Playwright
-const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import { chromium } from 'playwright';
 
-// Or with Puppeteer
-import puppeteer from 'puppeteer';
+    const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+    const context = browser.contexts()[0];
+    const page = context.pages()[0];
 
-const browser = await puppeteer.connect({
-  browserWSEndpoint: kernelBrowser.cdp_ws_url,
-  defaultViewport: null, // Optional: inherit viewport from the browser
-});
-```
+    await page.goto('https://example.com');
+    const title = await page.title();
+    console.log(title);
+    ```
 
-```python Python
-from playwright.async_api import async_playwright
+    ```python Python
+    from playwright.async_api import async_playwright
 
-async with async_playwright() as playwright:
-    browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
-```
-</CodeGroup>
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+        context = browser.contexts[0]
+        page = context.pages[0]
+
+        await page.goto('https://example.com')
+        title = await page.title()
+        print(title)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="WebDriver BiDi">
+    Connect with [Vibium](https://github.com/VibiumDev/vibium) or any WebDriver BiDi-compatible client. Use `webdriver_ws_url` from the created browser session.
+
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import { Browser } from 'vibium';
+
+    const browser = new Browser();
+    const bro = await browser.start(kernelBrowser.webdriver_ws_url);
+    const page = await bro.page();
+
+    await page.goto('https://example.com');
+    const title = await page.title();
+    console.log(title);
+    ```
+
+    ```python Python
+    from vibium import Browser
+
+    browser = Browser()
+    bro = browser.start(kernel_browser.webdriver_ws_url)
+    page = bro.page()
+
+    page.goto('https://example.com')
+    title = page.title()
+    print(title)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="Computer Controls">
+    Control the browser's mouse, keyboard, and screen directly through the Kernel SDK — no CDP or WebDriver connection needed. This is ideal for vision-based LLM loops like [Claude Computer Use](/integrations/computer-use/anthropic).
+
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import Kernel from '@onkernel/sdk';
+
+    const kernel = new Kernel();
+    const kernelBrowser = await kernel.browsers.create();
+
+    // Take a screenshot
+    const response = await kernel.browsers.computer.captureScreenshot(kernelBrowser.session_id);
+
+    // Click at coordinates
+    await kernel.browsers.computer.clickMouse(kernelBrowser.session_id, {
+      x: 100,
+      y: 200,
+    });
+
+    // Type text
+    await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
+      text: 'Hello, World!',
+    });
+    ```
+
+    ```python Python
+    from kernel import Kernel
+
+    kernel = Kernel()
+    kernel_browser = kernel.browsers.create()
+
+    # Take a screenshot
+    screenshot = kernel.browsers.computer.capture_screenshot(id=kernel_browser.session_id)
+
+    # Click at coordinates
+    kernel.browsers.computer.click_mouse(
+        id=kernel_browser.session_id,
+        x=100,
+        y=200,
+    )
+
+    # Type text
+    kernel.browsers.computer.type_text(
+        id=kernel_browser.session_id,
+        text="Hello, World!",
+    )
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
 
 ## 3. Tear it down
 

@@ -1,0 +1,59 @@
+---
+title: "batteries included"
+sidebarTitle: "Introduction"
+description: ""
+mode: "wide"
+---
+
+We build crazy fast, open source infra for AI agents to access the internet. Trusted by Cash App, Framer, and 3,000+ teams.
+
+<Columns className="responsive-columns" cols={4}>
+  <Card title="Sandboxed Chromium" img="/images/chromium.png" href="/browsers/create-a-browser">
+    We spin up cloud browsers in &lt;30ms with GPU acceleration when needed.
+  </Card>
+  <Card title="Auth" img="/images/auth.png" href="/auth/overview">
+    We manage auth for your agents so you don't have to.
+  </Card>
+  <Card title="Stealth Mode" img="/images/stealth.png" href="/browsers/bot-detection/overview">
+    We solve CAPTCHAs and manage residential proxies to help you see fewer of them.
+  </Card>
+  <Card title="o11y" img="/images/o11y.png" href="/browsers/replays">
+    You can view sessions live and record them as MP4s for debugging.
+  </Card>
+</Columns>
+
+import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
+
+<div className="tinker-box">
+  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>fast setup</h3>
+  <div className="tinker-box-row">
+    <div style={{ flexShrink: 0 }}>
+      <img src="/images/tinker-bot.svg" alt="" style={{ width: '146px', height: 'auto' }} />
+    </div>
+    <div className="tinker-box-content">
+      <p style={{ margin: 0, fontSize: '0.9375rem', lineHeight: 1.6, opacity: 0.8 }}>
+        copy and paste this into your AI coding agent (Cursor, Claude, Windsurf, etc.). it installs the Kernel CLI and skills, authenticates you, and opens a live browser session.
+      </p>
+      <div>
+        <CopyPromptButton />
+      </div>
+    </div>
+  </div>
+</div>
+
+### prod setup
+
+Our [app platform](/apps/develop) is a serverless compute service for running agent loops triggered on demand or by scheduled events without having to provision or manage sandboxes. Your agent runs co-located with its browser to minimize network latency.
+
+Scaffold a project from a template:
+
+```bash
+kernel create --template computer-use
+```
+
+Deploy and invoke it on demand:
+
+```bash
+kernel deploy agent.ts
+kernel invoke my-agent my-task --payload '{"url": "https://example.com"}'
+```
