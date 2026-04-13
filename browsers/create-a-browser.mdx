@@ -72,13 +72,12 @@ Kernel browsers support three connection methods: CDP for framework-level browse
     </CodeGroup>
   </Tab>
   <Tab title="WebDriver BiDi">
-    Connect with [Vibium](https://github.com/VibiumDev/vibium) or any WebDriver BiDi-compatible client. Use `webdriver_ws_url` from the created browser session.
+    Connect with [Vibium](/integrations/vibium) or any WebDriver BiDi-compatible client. Use `webdriver_ws_url` from the created browser session.
 
     <CodeGroup>
     ```typescript Typescript/Javascript
-    import { Browser } from 'vibium';
+    import { browser } from 'vibium';
 
-    const browser = new Browser();
     const bro = await browser.start(kernelBrowser.webdriver_ws_url);
     const page = await bro.page();
 
@@ -88,9 +87,8 @@ Kernel browsers support three connection methods: CDP for framework-level browse
     ```
 
     ```python Python
-    from vibium import Browser
+    from vibium.sync_api import browser
 
-    browser = Browser()
     bro = browser.start(kernel_browser.webdriver_ws_url)
     page = bro.page()
 
