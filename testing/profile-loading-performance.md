@@ -183,5 +183,5 @@ Support flexible domain matching:
 ## References
 
 - [Kernel Profiles Documentation](/auth/profiles)
-- [Profile API Reference](/api-reference/profiles/list-profiles)
-- [Browser Creation API](/api-reference/browsers/create-a-browser)
+- [Profile API Reference](https://kernel.sh/docs/api-reference/profiles/list-profiles)
+- [Browser Creation API](https://kernel.sh/docs/api-reference/browsers/create-a-browser-session)

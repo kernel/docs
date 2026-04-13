@@ -51,7 +51,7 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with a specific error code. Common codes include `credentials_invalid`, `bot_detected`, and `captcha_blocked`. See the [API reference](/api-reference) for the full list of error codes.
+If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with a specific error code. Common codes include `credentials_invalid`, `bot_detected`, and `captcha_blocked`. See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list of error codes.
 
 Common failure reasons include:
 
@@ -94,7 +94,7 @@ if state.status == "NEEDS_AUTH":
 
 ## What types of flows does Managed Auth support?
 
-Managed Auth is designed for login and authentication flows — entering credentials, handling SSO redirects, completing MFA challenges, and maintaining sessions. For other browser interactions like form filling, sign-ups, or multi-step workflows, use [Kernel's browser automation](/browsers/overview) directly.
+Managed Auth is designed for login and authentication flows — entering credentials, handling SSO redirects, completing MFA challenges, and maintaining sessions. For other browser interactions like form filling, sign-ups, or multi-step workflows, use [Kernel's browser automation](/browsers/create-a-browser) directly.
 
 ## How do I debug a managed auth session?
 

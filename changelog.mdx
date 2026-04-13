@@ -21,7 +21,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Documentation updates
 
 - Documented MFA token auto-retry behavior for [managed auth](/auth/overview) sessions.
-- Added a new [Managing Browsers](/browsers/scaling/reserved) page to the Reserved Browsers documentation.
+- Added a new [Managing Browsers](/browsers/pools/managing-browsers) page to the Reserved Browsers documentation.
 - Clarified that [profiles](/auth/profiles) can have multiple auth connections.
 - Added a Headful + GPU acceleration option to the [pricing calculator](/info/pricing#pricing-calculator).
 </Update>
@@ -81,7 +81,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 - Added WebDriver BiDi support for cloud browsers through a new [partnership with Vibium](https://www.kernel.sh/docs/integrations/computer-use/vibium). AI agents can now use Vibium to connect to Kernel and navigate pages, fill forms, click buttons, and take screenshots across thousands of cloud browsers running in parallel.
 - Launched [Kernel Eval Protocol](https://github.com/kernel/kernel-eval-protocol-quickstart), an open-source repo that pairs Kernel Browser Pools with Fireworks RFT and [Eval Protocol](https://github.com/fw-ai/eval-protocol) to evaluate and fine-tune VLM browser agents using reinforcement learning.
-- Added a `usage` field to the [browser session details](/api-reference/browsers/get-browser-session-details#response-usage) API response, which returns session metrics like `uptime_ms`. Use this to track session duration and build billing or analytics workflows around your browser usage.
+- Added a `usage` field to the [browser session details](https://kernel.sh/docs/api-reference/browsers/get-browser-session-details#response-usage) API response, which returns session metrics like `uptime_ms`. Use this to track session duration and build billing or analytics workflows around your browser usage.
 - Extended smooth Bezier curve mouse movements to click and drag operations, and added `--smooth` and `--duration-ms` flags to the `move-mouse` command in the [CLI](https://github.com/kernel/cli) for more natural-looking browser interactions.
 - Improved headless viewport resize performance by using a CDP fast path, reducing resize time from ~5 seconds to ~10 milliseconds.
 - Added support for [runtime proxy configuration swapping](https://www.kernel.sh/docs/proxies/overview#update-a-browsers-proxy), enabling you to change a browser's proxy settings mid-session without restarting.
@@ -99,7 +99,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added support for [mobile and tablet viewports](/browsers/viewport), enabling browser automation at phone and tablet screen sizes.
 - Added a `kernel status` command to the [CLI](https://github.com/kernel/cli) for checking API and service health at a glance.
 - Added a `--force` flag to `kernel browsers update` for [resizing the viewport](/browsers/viewport) during an active recording, which gracefully stops and restarts the recording.
-- Improved [Managed Auth](/profiles/managed-auth/overview) MFA handling by resolving MFA options by label, type, or display string for more reliable multi-factor authentication flows.
+- Improved [Managed Auth](/auth/overview) MFA handling by resolving MFA options by label, type, or display string for more reliable multi-factor authentication flows.
 - Enhanced auth connection output in the [CLI](https://github.com/kernel/cli) with richer details from `kernel auth connections get` and `kernel auth connections list`.
 - Added a Pool column and `--query` flag to `kernel browsers list` in the [CLI](https://github.com/kernel/cli) for easier filtering and identification of pooled browsers.
 - Updated the Anthropic computer use [template](https://github.com/kernel/cli/tree/main/pkg/templates) to default to use claude-sonnet-4-6 for improved agent performance.
@@ -110,7 +110,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Renamed "Scaling in Production" to [Reserved Browsers](/browsers/scaling/overview) and added a new [On-Demand Browsers](/browsers/scaling/on-demand) section for clearer guidance on browser provisioning strategies.
+- Renamed "Scaling in Production" to [Reserved Browsers](/browsers/pools/overview) and added a new [On-Demand Browsers](/browsers/create-a-browser) section for clearer guidance on browser provisioning strategies.
 - Added [mobile and tablet viewport configurations](/browsers/viewport) with supported screen sizes and usage guidance.
 - Added [proxy-bypass-hosts](https://www.kernel.sh/docs/proxies/overview#bypass-hosts) documentation for configuring proxy bypass lists on browser pools.
 - Documented the `--force` flag for [viewport resizing](/browsers/viewport) during active recordings.
@@ -154,7 +154,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
 - Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
 - Released [Managed Auth](/auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
-- Added a `POST /computer/batch` [endpoint](/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
+- Added a `POST /computer/batch` [endpoint](https://kernel.sh/docs/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
 - Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
 - Improved input reliability with context-aware timing in key press and mouse drag operations.
 - Fixed an issue where stealth mode browsers couldn't access plain HTTP websites due to forced HTTPS redirects.
@@ -167,8 +167,8 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="February 6" tags={["Product", "Docs"]}>
 ## Product updates
 - Added a `/json` endpoint to the CDP proxy, enabling native Playwright `connectOverCDP()` connections.
-- Launched an [API](/api-reference/browsers/get-the-current-mouse-cursor-position-on-the-browser-instance) to get the current cursor position, which is useful for debugging and building adaptive automation logic.
-- Released an [API](/api-reference/invocations/list-browsers-for-an-invocation) to retrieve browser session IDs associated with a specific invocation.
+- Launched an [API](https://kernel.sh/docs/api-reference/browsers/get-the-current-mouse-cursor-position-on-the-browser-instance) to get the current cursor position, which is useful for debugging and building adaptive automation logic.
+- Released an [API](https://kernel.sh/docs/api-reference/invocations/list-browsers-for-an-invocation) to retrieve browser session IDs associated with a specific invocation.
 - Added [SSH access](/browsers/ssh) to Kernel browsers for debugging, running commands, and tunneling your local development server to the browser.
 - Enabled support for the [1280x800 viewport](/browsers/viewport#supported-viewport-configurations) size, which improves click coordinate accuracy.
 - The Live View clipboard now syncs correctly between browser and local machine.
@@ -244,7 +244,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 <Update label="December 5" tags={["Product", "Docs"]}>
 ## Product updates
-- Added option to include ephemeral and deleted browsers when [listing sessions](/api-reference/browsers/list-browser-sessions) via API
+- Added option to include ephemeral and deleted browsers when [listing sessions](https://kernel.sh/docs/api-reference/browsers/list-browser-sessions) via API
 - Updated the [maximum timeout](/browsers/termination#automatic-deletion-via-timeout) available from 24 hours to 72 hours of no CDP activity
 - Updated the maximum async invocation [duration](/apps/invoke#asynchronous-invocations) from 15 minutes to 1 hour
 - Improved error messaging when invalid invocation IDs are provided
