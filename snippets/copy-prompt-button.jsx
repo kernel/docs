@@ -1,6 +1,9 @@
 const { useState, useCallback } = React;
 
-const PROMPT = `# Setup Kernel
+export const CopyPromptButton = () => {
+  const [copied, setCopied] = useState(false);
+
+  const prompt = `# Setup Kernel
 
 ## Prerequisites
 - Read the kernel-cli skill at https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-cli/SKILL.md for reference on commands and capabilities.
@@ -27,17 +30,14 @@ const PROMPT = `# Setup Kernel
    - Tell the user they can use the live view immediately.
    - If browser creation fails, stop and ask the user for help.`;
 
-export const CopyPromptButton = () => {
-  const [copied, setCopied] = useState(false);
-
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(PROMPT);
+      await navigator.clipboard.writeText(prompt);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = PROMPT;
+      textarea.value = prompt;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
