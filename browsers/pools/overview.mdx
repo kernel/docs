@@ -53,11 +53,11 @@ print(pool.id)
 
 ### Pool configuration options
 
-Pools can be pre-configured with options like custom extensions, supported viewports, residential proxies, profiles, and more. See the [API reference](/api-reference/browser-pools/create-a-browser-pool) for more details.
+Pools can be pre-configured with options like custom extensions, supported viewports, residential proxies, profiles, and more. See the [API reference](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool) for more details.
 
 ## Acquire a browser
 
-Acquire a browser from the pool. The request returns immediately if a browser is available, or waits until one becomes available. The `acquire_timeout_seconds` parameter controls how long to wait; it defaults to the calculated time it would take to fill the pool at the pool's configured [fill rate](/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
+Acquire a browser from the pool. The request returns immediately if a browser is available, or waits until one becomes available. The `acquire_timeout_seconds` parameter controls how long to wait; it defaults to the calculated time it would take to fill the pool at the pool's configured [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -84,7 +84,7 @@ The acquired browser includes all the same properties as a regular browser sessi
 
 ### Timeout behavior
 
-Browsers remain in the pool indefinitely until acquired. Once acquired, the pool's `timeout_seconds` applies just like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout)—if the browser is idle (no CDP or live view connection) for longer than the timeout, it is destroyed and **not** returned to the pool. The pool will automatically create a replacement browser at the pool's configured [fill rate](/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
+Browsers remain in the pool indefinitely until acquired. Once acquired, the pool's `timeout_seconds` applies just like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout)—if the browser is idle (no CDP or live view connection) for longer than the timeout, it is destroyed and **not** returned to the pool. The pool will automatically create a replacement browser at the pool's configured [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
 
 ## Release a browser
 
@@ -276,4 +276,4 @@ asyncio.run(main())
 
 ## API reference
 
-For more details on all available endpoints and parameters, see the [Browser Pools API reference](/api-reference/browser-pools/list-browser-pools).
+For more details on all available endpoints and parameters, see the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools).
