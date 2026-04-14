@@ -154,28 +154,6 @@ kernel browsers computer move-mouse <session id> --x 500 --y 300 --smooth=false
   <img src="/images/smooth-mouse-demo.gif" />
 </Frame>
 
-Try it yourself — open [live view](/browsers/live-view) and paste this (requires CLI v0.15.4+ — run `kernel upgrade` to update):
-
-```bash
-ID=$(kernel browsers create -o json | jq -r '.session_id')
-echo "Open live view: https://dashboard.onkernel.com/browsers/$ID"
-HTML=$(curl -sL "https://gist.githubusercontent.com/ulziibay-kernel/f6d8063ba223a81293cfe1fde06d8624/raw/cursor-trail-demo.html")
-kernel browsers playwright execute $ID "await page.setContent($(echo "$HTML" | jq -Rs .))"
-sleep 3
-
-kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'instant'})))"
-for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
-  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --smooth=false
-  sleep 0.5
-done
-
-kernel browsers playwright execute $ID "await page.evaluate(() => document.dispatchEvent(new CustomEvent('kernel-mode', {detail:'smooth'})))"
-for coords in "200 200" "900 150" "1700 250" "1700 700" "960 800" "200 750"; do
-  kernel browsers computer move-mouse $ID --x ${coords% *} --y ${coords#* } --duration-ms 1200
-  sleep 0.3
-done
-```
-
 ## Take screenshots
 
 Capture a full-screen PNG or a specific region.
@@ -341,7 +319,7 @@ kernel browsers computer press-key <session id> --key Ctrl+Shift+Tab --duration 
 
 ## Scroll
 
-Scroll the mouse wheel at a specific position. Positive `delta_y` scrolls down; negative scrolls up. Positive `delta_x` scrolls right; negative scrolls left.
+Scroll the mouse wheel at a specific position. Positive `delta_y` scrolls down; negative scrolls up. Positive `delta_x` scrolls right; negative scrolls left. Scroll amounts refer to "wheel units." 
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -393,6 +371,13 @@ Drag by pressing a button, moving along a path of points, then releasing. By def
 | `steps_per_segment` | integer | `10`    | Number of interpolation steps per path segment (only when `smooth=false`) |
 | `step_delay_ms`     | integer | `50`    | Delay in milliseconds between steps (only when `smooth=false`) |
 | `hold_keys`         | array   | —       | Modifier keys to hold during the drag |
+
+### Smooth vs linear drag
+
+<Frame caption="Blue = smooth Bezier curves, Red = linear interpolation">
+  <img src="/images/smooth-drag-demo.gif" />
+</Frame>
+
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -481,9 +466,3 @@ kernel browsers computer drag-mouse <session id> \
   --step-delay-ms 50
 ```
 </CodeGroup>
-
-### Smooth vs linear drag
-
-<Frame caption="Blue = smooth Bezier curves, Red = linear interpolation">
-  <img src="/images/smooth-drag-demo.gif" />
-</Frame>
