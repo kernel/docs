@@ -1,7 +1,12 @@
-const { useState, useCallback } = React;
+const { useState, useCallback, useLayoutEffect } = React;
 
 export const CopyPromptButton = () => {
   const [copied, setCopied] = useState(false);
+
+  useLayoutEffect(() => {
+    const placeholder = document.querySelector('.copy-prompt-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
+  }, []);
 
   const prompt = `# Setup Kernel
 
