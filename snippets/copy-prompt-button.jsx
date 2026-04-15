@@ -68,16 +68,15 @@ export const CopyPromptButton = () => {
         backgroundColor: '#111',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         cursor: 'pointer',
-        transition: 'background-color 0.15s ease, border-color 0.15s ease',
+        textDecoration: 'none',
+        transition: 'text-decoration 0.15s ease',
         fontFamily: 'inherit',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor = '#222';
-        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        e.currentTarget.style.textDecoration = 'underline';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = '#111';
-        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+        e.currentTarget.style.textDecoration = 'none';
       }}
     >
       {copied ? (
