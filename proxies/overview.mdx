@@ -251,6 +251,26 @@ The update is synchronous — when the call returns, the proxy swap is fully app
 If you swap the proxy on a browser acquired from a pool, the browser will be reset back to the pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the pool default.
 </Info>
 
+### Bring your own proxy
+
+Attach a custom `proxy_id` to any browser — stealth or non-stealth — and Kernel's anti-detection config still applies. For full anti-detection without the managed proxy or CAPTCHA solver, launch a non-stealth browser with your own `proxy_id`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  stealth: false,
+  proxy_id: myProxy.id,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    stealth=False,
+    proxy_id=my_proxy.id,
+)
+```
+</CodeGroup>
+
 ### Disable default proxy on stealth browsers
 
 [Stealth browsers](/browsers/bot-detection/stealth) are automatically assigned a proxy. To disable this on a running stealth browser and route traffic directly, set `disable_default_proxy` to `true`:
