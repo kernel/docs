@@ -6,7 +6,7 @@ All Kernel browsers ship with anti-detection optimizations by default — you do
 
 Enabling `stealth` mode adds two managed services on top:
 
-1. **Default residential proxy** — traffic routes through Kernel's residential proxy pool.
+1. **Default ISP proxy** — traffic routes through Kernel's [ISP proxy](/proxies/isp) pool.
 2. **Automatic CAPTCHA solver** — solves [reCAPTCHAs](https://www.google.com/recaptcha/api2/demo), Cloudflare challenges, and similar tests automatically.
 
 Both are opt-out so you can [bring your own](#bring-your-own-proxy-or-captcha-solver) where it makes sense.
@@ -39,7 +39,7 @@ kernel_browser = kernel.browsers.create(
 
 Anti-detection is the platform default, so you can freely mix in your own networking or CAPTCHA tooling. Common patterns:
 
-- **BYO proxy, keep CAPTCHA solver** — launch a stealth browser with your own [proxy](/proxies/overview) via `proxy_id`. Replaces the residential default; CAPTCHA solver stays loaded.
+- **BYO proxy, keep CAPTCHA solver** — launch a stealth browser with your own [proxy](/proxies/overview) via `proxy_id`. Replaces the ISP default; CAPTCHA solver stays loaded.
 - **BYO proxy, no CAPTCHA solver** — launch a non-stealth browser with your own `proxy_id`. Full anti-detection config, no managed proxy or CAPTCHA extension.
 - **Disable the default proxy at runtime** — on a running stealth browser, set [`disable_default_proxy`](/proxies/overview#disable-default-proxy-on-stealth-browsers) to route directly while keeping the CAPTCHA solver.
 
