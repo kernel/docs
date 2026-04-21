@@ -24,11 +24,11 @@ const auth = await kernel.auth.connections.create({
 ```
 
 ```python Python
-from kernel import AsyncKernel
+from kernel import Kernel
 
-kernel = AsyncKernel()
+kernel = Kernel()
 
-auth = await kernel.auth.connections.create(
+auth = kernel.auth.connections.create(
     domain="netflix.com",
     profile_name="netflix-user-123",
 )
@@ -60,16 +60,18 @@ if (state.status === 'AUTHENTICATED') {
 ```
 
 ```python Python
-login = await kernel.auth.connections.login(auth.id)
+import time
+
+login = kernel.auth.connections.login(auth.id)
 
 # Send user to login page
 print(f"Login URL: {login.hosted_url}")
 
 # Poll until complete
-state = await kernel.auth.connections.retrieve(auth.id)
+state = kernel.auth.connections.retrieve(auth.id)
 while state.flow_status == "IN_PROGRESS":
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
+    time.sleep(2)
+    state = kernel.auth.connections.retrieve(auth.id)
 
 if state.status == "AUTHENTICATED":
     print("Authenticated!")
@@ -100,7 +102,7 @@ await page.goto('https://netflix.com');
 ```python Python
 from playwright.async_api import async_playwright
 
-kernel_browser = await kernel.browsers.create(
+kernel_browser = kernel.browsers.create(
     profile={"name": "netflix-user-123"},
     stealth=True,
 )
