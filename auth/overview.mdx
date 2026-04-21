@@ -74,23 +74,36 @@ if state.status == "AUTHENTICATED":
 
 <CodeGroup>
 ```typescript TypeScript
-const browser = await kernel.browsers.create({
+import { chromium } from 'playwright';
+
+const kernelBrowser = await kernel.browsers.create({
   profile: { name: 'netflix-user-123' },
   stealth: true,
 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const context = browser.contexts()[0];
+const page = context.pages()[0];
 
 // Navigate to the site—you're already logged in
 await page.goto('https://netflix.com');
 ```
 
 ```python Python
-browser = await kernel.browsers.create(
+from playwright.async_api import async_playwright
+
+kernel_browser = await kernel.browsers.create(
     profile={"name": "netflix-user-123"},
     stealth=True,
 )
 
-# Navigate to the site—you're already logged in
-await page.goto("https://netflix.com")
+async with async_playwright() as playwright:
+    browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+    context = browser.contexts[0]
+    page = context.pages[0]
+
+    # Navigate to the site—you're already logged in
+    await page.goto("https://netflix.com")
 ```
 </CodeGroup>
 
