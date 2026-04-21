@@ -13,6 +13,10 @@ Managed Auth creates and maintains authenticated browser sessions for your AI ag
 
 <CodeGroup>
 ```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
 const auth = await kernel.auth.connections.create({
   domain: 'netflix.com',
   profile_name: 'netflix-user-123',
@@ -20,6 +24,10 @@ const auth = await kernel.auth.connections.create({
 ```
 
 ```python Python
+from kernel import AsyncKernel
+
+kernel = AsyncKernel()
+
 auth = await kernel.auth.connections.create(
     domain="netflix.com",
     profile_name="netflix-user-123",
