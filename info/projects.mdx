@@ -1,0 +1,167 @@
+---
+title: "Projects"
+description: "Organize resources and isolate access within your Kernel organization"
+---
+
+A **Project** is a named container for Kernel resources inside an organization. Use projects to separate environments (like `production` and `staging`), split resources between teams, or isolate customer workloads — each project has its own browsers, profiles, credentials, proxies, extensions, deployments, and pools.
+
+## Why Projects?
+
+- **Isolate environments** — keep `production` resources apart from `staging` or experiments.
+- **Scope access** — issue API keys that can only see resources in one project.
+- **Per-project limits** — cap concurrency on a per-project basis so one team or environment can't exhaust your org quota.
+
+## The Default Project
+
+Every organization has at least one project. Resources that existed before projects were introduced have been moved into a project named **Default**, so your existing browsers, apps, profiles, and other resources continue to work without any changes on your end.
+
+Your organization must always have **at least one active project**. The API returns `409 Conflict` if you try to delete the last remaining project:
+
+```json
+{ "code": "conflict", "message": "organization must have at least one project" }
+```
+
+A project must also be empty before it can be deleted — archive or remove its active resources first.
+
+## Scoping Requests to a Project
+
+Pass the `X-Kernel-Project-Id` header on any API request to scope it to a specific project. Without the header (and without a project-scoped API key), requests operate org-wide.
+
+```bash
+curl https://api.onkernel.com/browsers \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "X-Kernel-Project-Id: proj_abc123"
+```
+
+### SDK usage
+
+Set the header on the client so every request is scoped to the project. You can also override it per-request.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+// Scope the whole client to a project
+const kernel = new Kernel({
+  defaultHeaders: { 'X-Kernel-Project-Id': 'proj_abc123' },
+});
+
+const browser = await kernel.browsers.create();
+
+// Or override per-request
+const other = await kernel.browsers.create(
+  {},
+  { headers: { 'X-Kernel-Project-Id': 'proj_def456' } },
+);
+```
+
+```python Python
+from kernel import Kernel
+
+# Scope the whole client to a project
+kernel = Kernel(
+    default_headers={"X-Kernel-Project-Id": "proj_abc123"},
+)
+
+browser = kernel.browsers.create()
+
+# Or override per-request
+other = kernel.browsers.create(
+    extra_headers={"X-Kernel-Project-Id": "proj_def456"},
+)
+```
+</CodeGroup>
+
+## Authentication and Project Scope
+
+### API keys
+
+API keys can be **org-wide** or **project-scoped**.
+
+- **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
+- **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard and pick the target project when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
+
+### OAuth
+
+OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request.
+
+## Managing Projects
+
+Use the `/projects` REST endpoints (or the SDKs' `projects` resource) to manage projects.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/projects` | List projects in the organization |
+| `POST` | `/projects` | Create a project |
+| `GET` | `/projects/{id}` | Get a project by ID |
+| `PATCH` | `/projects/{id}` | Update a project's name or status (`active` / `archived`) |
+| `DELETE` | `/projects/{id}` | Delete a project (must be empty and not the last active project) |
+| `GET` | `/projects/{id}/limits` | Get per-project concurrency limit overrides |
+| `PATCH` | `/projects/{id}/limits` | Update per-project concurrency limit overrides |
+
+### Create a project
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const project = await kernel.projects.create({ name: 'staging' });
+console.log(project.id); // proj_abc123
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+project = kernel.projects.create(name="staging")
+print(project.id)  # proj_abc123
+```
+</CodeGroup>
+
+### List projects
+
+<CodeGroup>
+```typescript TypeScript
+for await (const project of kernel.projects.list()) {
+  console.log(project.id, project.name, project.status);
+}
+```
+
+```python Python
+for project in kernel.projects.list():
+    print(project.id, project.name, project.status)
+```
+</CodeGroup>
+
+### Update a project
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.projects.update('proj_abc123', { name: 'production' });
+```
+
+```python Python
+kernel.projects.update("proj_abc123", name="production")
+```
+</CodeGroup>
+
+### Delete a project
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.projects.delete('proj_abc123');
+```
+
+```python Python
+kernel.projects.delete("proj_abc123")
+```
+</CodeGroup>
+
+<Info>
+  You can't delete a project that still owns active resources, and you can't delete the last remaining active project in your org.
+</Info>
+
+See the [API reference](https://kernel.sh/docs/api-reference/projects/list-projects) for full request and response schemas, including `ProjectLimits` for per-project concurrency caps.
