@@ -9,6 +9,23 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="April 24" tags={["Product", "Docs"]}>
+## Product updates
+
+- Kernel is now a [Cloudflare Web Bot Auth partner](https://www.kernel.sh/blog/cloudflare). Kernel browsers can [cryptographically identify themselves](/browsers/bot-detection/web-bot-auth) to Cloudflare-protected sites, so Kernel traffic isn't blocked.
+- Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed residential proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
+- Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
+- [Managed auth connections](/auth/overview) now automatically re-authenticate expired sessions during health checks when credentials are available, reducing the need for manual reauth.
+- Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
+- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.
+- Kernel now supports WebSocket connections through its API, enabling `process attach` and other long-lived streaming workflows.
+- Exceeding invocation concurrency limits now returns a 429 response immediately, for faster and more actionable feedback.
+
+## Documentation updates
+
+- Rewrote the [stealth mode](/browsers/bot-detection/stealth) and [bot detection overview](/browsers/bot-detection/overview) pages to clarify the new anti-detection defaults, and added a "Bring your own proxy" section to the [proxies overview](/proxies/overview).
+</Update>
+
 <Update label="April 17" tags={["Product", "Docs"]}>
 ## Product updates
 
