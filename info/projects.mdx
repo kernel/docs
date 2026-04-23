@@ -83,7 +83,31 @@ API keys can be **org-wide** or **project-scoped**.
 
 ### OAuth
 
-OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request.
+OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
+
+## Using Projects from the CLI
+
+The Kernel [CLI](/reference/cli/projects) has first-class project support:
+
+- A global `--project <id-or-name>` flag scopes any command to a single project. Names are resolved case-insensitively, so `--project staging` works.
+- The `KERNEL_PROJECT` (and legacy `KERNEL_PROJECT_ID`) environment variable does the same, so you can set it once in your shell or CI.
+- A `kernel projects` command group lets you list, create, get, and delete projects, and manage per-project limit overrides.
+
+```bash
+# Scope a single command
+kernel browsers list --project staging
+
+# Scope every command in the shell
+export KERNEL_PROJECT=staging
+kernel apps list
+
+# Manage projects
+kernel projects list
+kernel projects create staging
+kernel projects limits set staging --max-concurrent-sessions 5
+```
+
+Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. It's the recommended way to target a specific project when you're logged in with OAuth (`kernel login`), since OAuth itself is always org-wide.
 
 ## Managing Projects
 

@@ -1,0 +1,83 @@
+---
+title: "Projects"
+---
+
+Manage [Projects](/info/projects) from the CLI and scope other commands to a specific project.
+
+## Scoping commands to a project
+
+Use the global `--project` flag (or the `KERNEL_PROJECT` / `KERNEL_PROJECT_ID` environment variable) to scope any `kernel` command to a project. The flag accepts either a **project ID** or a **project name** — names are resolved case-insensitively by listing your projects.
+
+```bash
+# Scope a single command by name
+kernel browsers list --project staging
+
+# Scope by ID
+kernel browsers list --project proj_abc123
+
+# Scope via environment variable
+export KERNEL_PROJECT=staging
+kernel apps list
+```
+
+Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenticated API request. OAuth-based logins (`kernel login`) remain org-wide by default, so this is the recommended way to target a single project when logged in with OAuth.
+
+<Info>
+  Project-scoped API keys are already bound to a project server-side, so you don't need `--project` when using them — but if you do pass it, it must match the key's project or the request is rejected.
+</Info>
+
+If the name is ambiguous (multiple projects share it) or no match is found, the CLI returns a clear error; pass the project ID instead.
+
+## Commands
+
+### `kernel projects list`
+
+List all projects in the authenticated organization.
+
+### `kernel projects create <name>`
+
+Create a new project with the given name.
+
+```bash
+kernel projects create staging
+```
+
+### `kernel projects get <id-or-name>`
+
+Show details for a project by ID or name.
+
+### `kernel projects delete <id-or-name>`
+
+Delete a project. The project must be empty, and it can't be the last active project in the org.
+
+## Project limits
+
+Each project can have its own concurrency limit overrides that cap resource use below the org-wide limits.
+
+### `kernel projects limits get <id-or-name>`
+
+Show the per-project limit overrides. Fields show `unlimited` when no project-level cap is set (the org limit applies).
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel projects limits set <id-or-name>`
+
+Update per-project limit overrides. Pass `0` to a limit to remove the cap for that field.
+
+| Flag | Description |
+|------|-------------|
+| `--max-concurrent-sessions <n>` | Maximum concurrent browser sessions (0 to remove cap). |
+| `--max-persistent-sessions <n>` | Maximum persistent browser sessions (0 to remove cap). |
+| `--max-concurrent-invocations <n>` | Maximum concurrent app invocations (0 to remove cap). |
+| `--max-pooled-sessions <n>` | Maximum pooled sessions capacity (0 to remove cap). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+# Cap staging to 5 concurrent browser sessions
+kernel projects limits set staging --max-concurrent-sessions 5
+
+# Remove the cap
+kernel projects limits set staging --max-concurrent-sessions 0
+```
