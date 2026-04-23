@@ -4,23 +4,39 @@ title: "Val Town"
 
 [Val Town](https://www.val.town/) is a serverless platform to run Typescript automations. You can think of it like Zapier for software developers.
 
-Because Val Town can't launch a local browser, Kernel lets you use tools like Puppeteer or Playwright on Val Town by connecting to a remote browser session hosted on Kernel's infrastructure.
+Because Val Town can't launch a local browser, Kernel lets you use tools like Puppeteer, Playwright, or Stagehand on Val Town by connecting to a remote browser session hosted on Kernel's infrastructure.
 
 ## Quick start with Puppeteer
+
 1. Create a free [Kernel account](https://dashboard.onkernel.com/sign-up) and generate an API key from Settings → API Keys
-2. Remix this [Kernel starter val](https://www.val.town/x/onkernel/kernel_starter)
-3. Add it to your Val Town val's Environment Variables (left sidebar) as `KERNEL_API_KEY`
-4. Click **Run** on `puppeteer.ts`
+2. Remix the [Kernel Puppeteer val](https://www.val.town/x/kernel/puppeteer)
+3. Add your `KERNEL_API_KEY` to the val's Environment Variables (left sidebar)
+4. Click **Run**
 5. View logs for output
 
 ## Quick start with Playwright
 
-Kernel also supports Playwright sessions.
-
-The steps are nearly identical:
-
-1. Remix this [Kernel starter val](https://www.val.town/x/onkernel/kernel_starter)
+1. Remix the [Kernel Playwright val](https://www.val.town/x/kernel/playwright)
 2. Add your `KERNEL_API_KEY` to Environment Variables
 3. Set `TMPDIR` to `/tmp` to avoid Playwright file-system warnings
-4. Click **Run** on `playwright.ts`
+4. Click **Run**
 5. Check the logs for output
+
+## Quick start with Stagehand + Gemini
+
+Run an autonomous browser agent powered by Gemini 2.5's computer use capabilities and [Stagehand](https://www.stagehand.dev/).
+
+1. Remix the [Kernel Stagehand + Gemini val](https://www.val.town/x/kernel/stagehand-gemini)
+2. Add the following to Environment Variables:
+   - `KERNEL_API_KEY` — from [Kernel's API keys page](https://dashboard.onkernel.com/settings/api-keys)
+   - `GOOGLE_API_KEY` — from [Google AI Studio](https://aistudio.google.com/apikey)
+3. Import `runAgent` into your val and call it with a task, starting URL, and timeout:
+
+   ```ts
+   const result = await runAgent(
+     "Find the top Hacker News story and summarize it",
+     "https://news.ycombinator.com",
+     120,
+   );
+   ```
+4. The agent returns an object with a `success` status and a `message` containing the results.
