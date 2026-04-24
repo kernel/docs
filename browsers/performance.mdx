@@ -1,0 +1,33 @@
+---
+title: "Performance"
+---
+
+Kernel browsers [benchmark](https://www.kernel.sh/benchmarks) as the fastest, most performant browsers in the market.
+
+### Kernel browser creation latency
+| Benchmark | Latency | Last reported |
+|-----------|---------|---------------|
+| P50 | 30ms | April 24, 2026 |
+| P99 | 105ms | April 24, 2026 |
+
+### Troubleshooting latency
+If you're experiencing slower-than-expected browser creation (or [browser pool acquisition](/browsers/pools/overview)), review your configuration for the following:
+
+1. App code ⇔ Kernel browser region
+
+Kernel browsers run in `us-east`. Use our [app platform](/apps/overview) to colocate your browser agent or automation.
+
+2. Create browser rate limit
+
+Kernel enforces [rate limits](/info/pricing#rate-limiting) on browser creation based on your plan. Our SDKs automatically retry, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
+
+3. Non-default browser configurations
+
+Certain browser configurations trigger Chromium to restart, which can take several seconds. Use [browser pools](/browsers/pools/overview) to access browsers with custom configurations faster. The following configurations cause browser restarts, as well as disrupt active CDP connections:
+- Custom viewport configurations
+- Chrome extensions
+- Setting the live view to `kiosk mode`
+
+4. Browser pool refill rate
+
+Browser pools fill at a [specified rate](https://www.kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute). Read about browser pool lifecycle best practices [here](/browsers/pools/overview#how-browser-pools-work).
