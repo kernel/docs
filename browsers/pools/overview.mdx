@@ -11,17 +11,27 @@ Browser pools are a way to pre-configure a fixed set of browsers without being c
 
 <Steps>
   <Step title="Declare a pool">
-    First, declare a pool of browsers with your specified configuration. The pool takes time to fill (see [fill rate per minute](https://www.kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute)), so declare your pool outside your browser automation / agent runtime logic. Pool declarations should be decoupled from browser use logic for the best performance.
+    First, declare a pool of browsers with your specified configuration. The pool takes time to fill (see [fill rate per minute](https://www.kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute)), so declare your pool outside your browser automation / agent runtime logic.
+    
+    <Info>
+    Pool declarations should be decoupled from browser runtime logic for the best performance.
+    </Info>
   </Step>
   <Step title="Acquire a browser">
-    You can acquire a browser as soon as you've created a pool. The request returns immediately if a browser is available, or waits until one becomes available. The `acquire_timeout_seconds` parameter controls how long to wait for a browser; it defaults to the calculated time it would take to fill the pool at the pool's configured [fill rate](https://www.kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
+    You can acquire a browser as soon as you've created a pool. The request returns immediately if a browser is available, or waits until one becomes available.
 
-    The total number of usable browsers is fixed to the `size` specified upon browser pool creation.
+    The total number of browsers is fixed to the `size` specified upon browser pool creation. When you acquire a browser, the pool's available count is decremented by one. When you release a browser, the pool's available count is incremented by one.
     
-    When you acquire a browser, the pool's available count is decremented by one. When you release a browser, the pool's available count is incremented by one. put differently, the pool does not top up when you acquire a browser: browsers are "borrowed" from the pool and must be returned when you're done with them, either by [releasing them](#release-a-browser) or allowing them to [timeout](#timeout-behavior).
+    <Info>
+    Put differently, the pool does not top up when you acquire a browser: browsers are "borrowed" from the pool and must be returned when you're done with them, either by [releasing them](#release-a-browser) or allowing them to [timeout](#timeout-behavior).
+    </Info>
   </Step>
   <Step title="Release a browser">
-    When you're done with a browser, release it back to the pool. this step is important; otherwise, the browser will continue to be in an `acquired` state until it [times out](#timeout-behavior). Failing to release browsers may result in unexpected latency when acquiring future browsers if the pool is only refilling when browsers timeout.
+    When you're done with a browser, release it back to the pool. this step is important; otherwise, the browser will continue to be in an `acquired` state until it times out.
+    
+    <Info>
+    Failing to release browsers may result in unexpected latency when acquiring future browsers.
+    </Info>
   </Step>
 </Steps>
 
