@@ -6,10 +6,14 @@ All Kernel browsers ship with anti-detection optimizations by default — you do
 
 Enabling `stealth` mode adds two managed services on top:
 
-1. **Default residential proxy** — traffic routes through Kernel's residential proxy pool.
+1. **Default ISP proxy** — traffic routes through Kernel's ISP proxy pool, providing a stable exit IP for the session.
 2. **Automatic CAPTCHA solver** — solves [reCAPTCHAs](https://www.google.com/recaptcha/api2/demo), Cloudflare challenges, and similar tests automatically.
 
 Both are opt-out so you can [bring your own](#bring-your-own-proxy-or-captcha-solver) where it makes sense.
+
+### IP Rotation Behavior
+
+The default stealth proxy provides a **static exit IP** — all connections within the session exit through the same IP address. If you override the default with a [residential proxy](/proxies/residential), exit IPs will rotate per connection. See [Residential IP Rotation Behavior](/proxies/residential#ip-rotation-behavior) for details.
 
 To turn on stealth mode, set its flag when instantiating Kernel browsers:
 
