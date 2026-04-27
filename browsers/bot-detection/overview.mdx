@@ -77,12 +77,24 @@ Once you have a stable baseline, replicate those conditions in your automations.
 
 ## Choosing a Proxy Type
 
-IP address is one of the strongest signals bot detection systems use. Kernel offers several [proxy types](/proxies/overview), each with different trade-offs for detection avoidance:
+IP address is one of the strongest signals bot detection systems use. Kernel offers several [proxy types](/proxies/overview), each with different trade-offs for detection avoidance.
 
-- **[ISP proxies](/proxies/isp)** use IP addresses assigned by real internet service providers. They provide a stable exit IP for the lifetime of the proxy, making them a good default for most automation workflows — especially login flows, session-based tasks, and sites that track IP consistency. The stealth mode default proxy is an ISP proxy.
+### ISP proxies
 
-- **[Residential proxies](/proxies/residential)** route traffic through real consumer devices. They tend to look more like organic traffic to detection systems, but the exit IP [rotates per connection](/proxies/residential#ip-rotation-behavior) — different tabs or requests to different sites may show different IPs. This can be an advantage for scraping workloads where IP diversity matters, but a disadvantage for session-based workflows where a changing IP may trigger re-authentication or blocks.
+[ISP proxies](/proxies/isp) route traffic through data centers using IP addresses assigned by real internet service providers. They offer datacenter-level speed with better legitimacy than pure datacenter proxies, and every connection in a session exits through the same static IP — making them ideal for login flows and session-based workflows.
 
-- **[Datacenter proxies](/proxies/datacenter)** are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+Kernel's [stealth mode](/browsers/bot-detection/stealth) uses static ISP proxies that are hosted in data centers but announced on residential ISP networks, so they tend to appear residential by ASN to most of the internet. This matters for IP-reputation-based detection systems: a static IP on a residential ASN looks like a normal ISP customer, which generally achieves better pass rates than rotating residential IPs.
 
-There is no universally "best" proxy type — it depends on the target site's detection approach. We recommend starting with the stealth default (ISP) and switching to residential or datacenter only if your specific use case requires it.
+### Residential proxies
+
+[Residential proxies](/proxies/residential) route traffic through real consumer devices, making them the least detectable proxy type by ASN classification. However, exit IPs [rotate per connection](/proxies/residential#ip-rotation-behavior) since the underlying devices come online and offline dynamically — different tabs hitting different domains will likely show different public IPs.
+
+Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotating pool traffic patterns and penalize them, regardless of how clean the individual exit IPs are. On the other hand, residential proxies tend to be a stronger choice against fingerprint-heavy vendors where detection focuses on the browser and behavioral layer rather than the network layer. Residential proxies also offer richer geo-targeting (country, state, city, ZIP, ASN) compared to ISP.
+
+### Datacenter proxies
+
+[Datacenter proxies](/proxies/datacenter) are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+
+### Which to use
+
+Start with ISP — it's the stealth default for good reason. Consider residential if you need fine-grained geo-targeting or your specific target site doesn't rely on IP reputation as its primary detection signal. Use datacenter when speed and cost matter more than detection avoidance.
