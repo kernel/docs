@@ -47,6 +47,9 @@ Kernel automatically applies Patchright to remove automation fingerprints, inclu
 Controls the browser without using the Chrome DevTools Protocol (CDP), which can reduce bot detection signals.
 Emulates native keyboard and mouse input directly at the OS level and includes human-like [bezier curves](/browsers/computer-controls#move-the-mouse) by default.
 
+### [GPU Acceleration](/browsers/gpu-acceleration)
+Many detection systems fingerprint canvas and WebGL rendering output and cross-check it against the claimed GPU. Software-rendered browsers produce pixel hashes that don't match any real consumer GPU, which is a strong bot signal on sites with rendering-based fingerprinting. GPU-enabled Kernel browsers render through real hardware, producing output consistent with a normal user's device.
+
 ## Getting Started
 
 Before you start automating your workflow, we recommend that you manually test your website to understand how it behaves with Kernel's browsers. Here's how to do that:
