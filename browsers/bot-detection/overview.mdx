@@ -28,7 +28,7 @@ These systems are heuristic and probabilistic — small mismatches can still tri
 Every Kernel browser launches with anti-detection chrome configuration applied. No setup required.
 
 ### [Stealth Mode](/browsers/bot-detection/stealth)
-On top of the defaults, stealth mode adds a default residential proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
+On top of the defaults, stealth mode adds a default ISP proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
 
 ### [Configurable Proxies](/proxies/overview)
 Bring your own proxy network or use Kernel's managed pool (selectable down to ZIP-code level). If needed, use the same IP to reduce detection and allow for regional testing or QA.
@@ -72,5 +72,17 @@ Once you have a stable baseline, replicate those conditions in your automations.
 | **Session Persistence** | Use **Profiles** to retain cookies and local storage between sessions. |
 | **Typing & Scrolling** | Add natural variation to interaction timing. |
 | **Rate Limits** | Many sites monitor request frequency; rapid / concurrent actions can trigger blocking. |
-| **Network Identity** | Use stable IP addresses, especially if logging in. |
+| **Network Identity** | Use stable IP addresses, especially if logging in. See [Choosing a proxy type](#choosing-a-proxy-type) below. |
 | **Extensions** | Use the [Extensions API](/browsers/extensions) carefully — each adds its own fingerprint, which can be detected. |
+
+## Choosing a Proxy Type
+
+IP address is one of the strongest signals bot detection systems use. Kernel offers several [proxy types](/proxies/overview), each with different trade-offs for detection avoidance:
+
+- **[ISP proxies](/proxies/isp)** use IP addresses assigned by real internet service providers. They provide a stable exit IP for the lifetime of the proxy, making them a good default for most automation workflows — especially login flows, session-based tasks, and sites that track IP consistency. The stealth mode default proxy is an ISP proxy.
+
+- **[Residential proxies](/proxies/residential)** route traffic through real consumer devices. They tend to look more like organic traffic to detection systems, but the exit IP [rotates per connection](/proxies/residential#ip-rotation-behavior) — different tabs or requests to different sites may show different IPs. This can be an advantage for scraping workloads where IP diversity matters, but a disadvantage for session-based workflows where a changing IP may trigger re-authentication or blocks.
+
+- **[Datacenter proxies](/proxies/datacenter)** are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+
+There is no universally "best" proxy type — it depends on the target site's detection approach. We recommend starting with the stealth default (ISP) and switching to residential or datacenter only if your specific use case requires it.
