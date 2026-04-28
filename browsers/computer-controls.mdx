@@ -158,6 +158,10 @@ kernel browsers computer move-mouse <session id> --x 500 --y 300 --smooth=false
 
 Capture a full-screen PNG or a specific region.
 
+<Tip>
+For WebGL and other animation-heavy pages, `captureScreenshot` is noticeably faster than CDP's `Page.captureScreenshot`. If you're driving a computer-use loop off screenshots, prefer computer controls. [GPU acceleration](/browsers/gpu-acceleration) gives an additional small speedup for computer controls screenshots, but does not speed up CDP screenshots.
+</Tip>
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 import fs from 'fs';
