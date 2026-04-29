@@ -1,6 +1,6 @@
 ---
 title: "Curl"
-description: "Send HTTP requests through a browser session's Chromium network stack so cookies, proxies, and TLS match real browsers"
+description: "Send HTTP requests through Kernel browsers"
 ---
 
 Browser curl lets you run HTTP requests through Kernel browsers, automatically attaching the browser's cookie jar, transport fingerprint, [stealth and proxy settings](/bot-detection/overview), and other defaults that browsers send. This allows you to efficiently fetch resources from websites while getting the benefits of real browsers, including bot anti-detection and session cookie state.
@@ -28,11 +28,13 @@ You can stream or read the body incrementally, which avoids buffering the full p
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
+
 const browser = await kernel.browsers.create({});
 
 const response: Response = await kernel.browsers.fetch(browser.session_id, 'https://example.com', {
-  method: 'GET',
+method: 'GET',
 });
+console.log('body', await response.text());
 ```
 
 ```python Python
@@ -40,11 +42,12 @@ import httpx
 
 from kernel import Kernel
 
-const response: httpx.Response = client.browsers.request(
-  browser.session_id,
-  "GET",
-  "https://example.com",
-);
+client = Kernel()
+
+browser = client.browsers.create()
+
+response: httpx.Response = client.browsers.request(browser.session_id, "GET", "https://example.com")
+print("status", response.status_code)
 ```
 </CodeGroup>
 
@@ -67,6 +70,7 @@ const buffered = await kernel.browsers.curl(browser.session_id, {
   url: 'https://example.com',
   method: 'GET',
 });
+console.log('body', buffered.body);
 ```
 
 ```python Python
@@ -76,6 +80,7 @@ client = Kernel()
 browser = client.browsers.create()
 
 buffered = client.browsers.curl(browser.session_id, url="https://example.com", method="GET")
+print("body", buffered.body)
 ```
 </CodeGroup>
 
