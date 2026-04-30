@@ -73,6 +73,66 @@ Your code has access to these Playwright objects:
 - `context` - The browser context
 - `browser` - The browser instance
 
+## Code constraints
+
+The `code` you pass to `playwright.execute` runs as the body of an async function with `page`, `context`, and `browser` already in scope. Code that tries to set up its own Playwright environment will fail.
+
+<Warning>
+  Code passed to `playwright.execute` must follow these rules:
+
+  - **Don't import Playwright.** No `require('playwright')`, `import { chromium } from 'playwright'`, or `await chromium.launch()`. The browser is already running.
+  - **Don't redeclare `page`, `context`, or `browser`.** They're injected into scope. Lines like `const page = await browser.newPage()` shadow the injection and break the call.
+  - **Don't wrap the code in a function.** Write the body directly. Top-level `await` is supported.
+  - **End with `return`.** Anything you want back in `response.result` must come from a `return` statement.
+</Warning>
+
+When you generate `code` with an LLM (for example, in an agent), include these rules in your prompt. Models default to producing standalone Playwright scripts that won't run as-is.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Won't work — the code string imports and re-creates the browser
+const wontWork = `
+  import { chromium } from 'playwright';
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto('https://www.onkernel.com');
+  return await page.title();
+`;
+
+// Works — uses the injected variables directly
+const works = `
+  await page.goto('https://www.onkernel.com');
+  return await page.title();
+`;
+
+const response = await kernel.browsers.playwright.execute(sessionId, {
+  code: works,
+});
+```
+
+```python Python
+# Won't work — the code string imports and re-creates the browser
+wont_work = """
+    import { chromium } from 'playwright';
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto('https://www.onkernel.com');
+    return await page.title();
+"""
+
+# Works — uses the injected variables directly
+works = """
+    await page.goto('https://www.onkernel.com');
+    return await page.title();
+"""
+
+response = kernel.browsers.playwright.execute(
+    id=session_id,
+    code=works,
+)
+```
+</CodeGroup>
+
 ## Returning values
 
 Use a `return` statement to send data back from your code:
@@ -175,6 +235,87 @@ if not response.success:
     print('Stderr:', response.stderr)
 ```
 </CodeGroup>
+
+## Recovering from empty results
+
+`response.success` is `true` even when your code returns `null`, `undefined`, or an empty array — the execute itself didn't throw, but the selector you targeted might not have matched anything. For agentic flows, treat empty results as a recoverable signal alongside thrown errors.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+function isEmptyResult(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0 || value.every(isEmptyResult);
+  if (typeof value === 'object') {
+    const values = Object.values(value as Record<string, unknown>);
+    return values.length === 0 || values.every(isEmptyResult);
+  }
+  return false;
+}
+
+const first = await kernel.browsers.playwright.execute(sessionId, {
+  code: `
+    await page.goto('https://news.ycombinator.com');
+    return await page.$$eval('.titleline > a', links =>
+      links.map(l => l.textContent)
+    );
+  `,
+});
+
+if (first.success && isEmptyResult(first.result)) {
+  // Retry with an explicit wait — the page might not have hydrated yet.
+  const retry = await kernel.browsers.playwright.execute(sessionId, {
+    code: `
+      await page.goto('https://news.ycombinator.com');
+      await page.waitForSelector('.titleline > a', { timeout: 15000 });
+      return await page.$$eval('.titleline > a', links =>
+        links.map(l => l.textContent)
+      );
+    `,
+  });
+  console.log(retry.result);
+}
+```
+
+```python Python
+def is_empty_result(value):
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, list):
+        return len(value) == 0 or all(is_empty_result(v) for v in value)
+    if isinstance(value, dict):
+        return len(value) == 0 or all(is_empty_result(v) for v in value.values())
+    return False
+
+first = kernel.browsers.playwright.execute(
+    id=session_id,
+    code="""
+        await page.goto('https://news.ycombinator.com');
+        return await page.$$eval('.titleline > a', links =>
+            links.map(l => l.textContent)
+        );
+    """,
+)
+
+if first.success and is_empty_result(first.result):
+    # Retry with an explicit wait — the page might not have hydrated yet.
+    retry = kernel.browsers.playwright.execute(
+        id=session_id,
+        code="""
+            await page.goto('https://news.ycombinator.com');
+            await page.waitForSelector('.titleline > a', { timeout: 15000 });
+            return await page.$$eval('.titleline > a', links =>
+                links.map(l => l.textContent)
+            );
+        """,
+    )
+    print(retry.result)
+```
+</CodeGroup>
+
+When you generate selectors with an LLM, feed the previous (empty) result back into the prompt so the model can refine its approach.
 
 ## Use cases
 
