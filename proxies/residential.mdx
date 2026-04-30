@@ -4,6 +4,20 @@ title: "Residential Proxies"
 
 Residential proxies route traffic through real residential IP addresses. They support advanced targeting options including city, state, and operating system.
 
+<Info>
+Residential proxies use **rotating exit IPs** — each new connection may route through a different residential IP address within your targeted region. This is because residential traffic is routed through real consumer devices that may go offline at any time, so the network assigns a new available exit node per connection. This means different browser tabs or requests to different websites within the same session can show different public IPs. If you need a consistent IP address across all connections, use an [ISP proxy](/proxies/isp) instead.
+</Info>
+
+## IP Rotation Behavior
+
+Residential proxies assign a new exit IP for each new TCP connection. In practice:
+
+- **Same website across tabs**: Tabs connecting to the same domain typically share a TCP connection (via HTTP connection pooling), so they usually see the same IP.
+- **Different websites across tabs**: Tabs connecting to different domains open separate connections, so they will likely exit through different residential IPs.
+- **Reconnections**: If a connection is closed and re-established (e.g., after a timeout or page idle), the new connection may get a different exit IP.
+
+This behavior is inherent to residential proxy networks, where traffic is routed through real consumer devices that come online and offline dynamically.
+
 ## Configuration
 
 Create a residential proxy with a target country:

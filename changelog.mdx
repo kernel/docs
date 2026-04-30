@@ -12,10 +12,10 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="April 24" tags={["Product", "Docs"]}>
 ## Product updates
 
+- Launched [Projects](/info/projects) so you can keep `production` and `staging` separate, split resources between teams, scope API keys to a single environment, and cap concurrency per project so one workload can't exhaust your org quota. Existing resources have been moved into a **Default** project, so nothing changes for current workloads.
 - Kernel is now a [Cloudflare Web Bot Auth partner](https://www.kernel.sh/blog/cloudflare). Kernel browsers can [cryptographically identify themselves](/browsers/bot-detection/web-bot-auth) to Cloudflare-protected sites, so Kernel traffic isn't blocked.
 - Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed residential proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
 - Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
-- [Managed auth connections](/auth/overview) now automatically re-authenticate expired sessions during health checks when credentials are available, reducing the need for manual reauth.
 - Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
 - The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.
 - Kernel now supports WebSocket connections through its API, enabling `process attach` and other long-lived streaming workflows.
@@ -56,7 +56,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Documentation updates
 
 - Documented MFA token auto-retry behavior for [managed auth](/auth/overview) sessions.
-- Added a new [Managing Browsers](/browsers/pools/managing-browsers) page to the Reserved Browsers documentation.
+- Added a new [policy.json](/browsers/pools/policy-json) page to the Reserved Browsers documentation.
 - Clarified that [profiles](/auth/profiles) can have multiple auth connections.
 - Added a Headful + GPU acceleration option to the [pricing calculator](/info/pricing#pricing-calculator).
 </Update>

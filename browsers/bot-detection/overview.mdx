@@ -28,7 +28,7 @@ These systems are heuristic and probabilistic — small mismatches can still tri
 Every Kernel browser launches with anti-detection chrome configuration applied. No setup required.
 
 ### [Stealth Mode](/browsers/bot-detection/stealth)
-On top of the defaults, stealth mode adds a default residential proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
+On top of the defaults, stealth mode adds a default ISP proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
 
 ### [Configurable Proxies](/proxies/overview)
 Bring your own proxy network or use Kernel's managed pool (selectable down to ZIP-code level). If needed, use the same IP to reduce detection and allow for regional testing or QA.
@@ -46,6 +46,9 @@ Kernel automatically applies Patchright to remove automation fingerprints, inclu
 ### [Computer Controls API](/browsers/computer-controls)
 Controls the browser without using the Chrome DevTools Protocol (CDP), which can reduce bot detection signals.
 Emulates native keyboard and mouse input directly at the OS level and includes human-like [bezier curves](/browsers/computer-controls#move-the-mouse) by default.
+
+### [GPU Acceleration](/browsers/gpu-acceleration)
+Many detection systems fingerprint canvas and WebGL rendering output and cross-check it against the claimed GPU. Software-rendered browsers produce pixel hashes that don't match any real consumer GPU, which is a strong bot signal on sites with rendering-based fingerprinting. GPU-enabled Kernel browsers render through real hardware, producing output consistent with a normal user's device.
 
 ## Getting Started
 
@@ -72,5 +75,29 @@ Once you have a stable baseline, replicate those conditions in your automations.
 | **Session Persistence** | Use **Profiles** to retain cookies and local storage between sessions. |
 | **Typing & Scrolling** | Add natural variation to interaction timing. |
 | **Rate Limits** | Many sites monitor request frequency; rapid / concurrent actions can trigger blocking. |
-| **Network Identity** | Use stable IP addresses, especially if logging in. |
+| **Network Identity** | Use stable IP addresses, especially if logging in. See [Choosing a proxy type](#choosing-a-proxy-type) below. |
 | **Extensions** | Use the [Extensions API](/browsers/extensions) carefully — each adds its own fingerprint, which can be detected. |
+
+## Choosing a Proxy Type
+
+IP address is one of the strongest signals bot detection systems use. Kernel offers several [proxy types](/proxies/overview), each with different trade-offs for detection avoidance.
+
+### ISP proxies
+
+[ISP proxies](/proxies/isp) route traffic through data centers using IP addresses assigned by real internet service providers. They offer datacenter-level speed with better legitimacy than pure datacenter proxies, and every connection in a session exits through the same static IP — making them ideal for login flows and session-based workflows.
+
+Kernel's [stealth mode](/browsers/bot-detection/stealth) uses static ISP proxies that are hosted in data centers but announced on residential ISP networks, so they tend to appear residential by ASN to most of the internet. This matters for IP-reputation-based detection systems: a static IP on a residential ASN looks like a normal ISP customer, which generally achieves better pass rates than rotating residential IPs.
+
+### Residential proxies
+
+[Residential proxies](/proxies/residential) route traffic through real consumer devices, making them the least detectable proxy type by ASN classification. However, exit IPs [rotate per connection](/proxies/residential#ip-rotation-behavior) since the underlying devices come online and offline dynamically — different tabs hitting different domains will likely show different public IPs.
+
+Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotating pool traffic patterns and penalize them, regardless of how clean the individual exit IPs are. On the other hand, residential proxies tend to be a stronger choice against fingerprint-heavy vendors where detection focuses on the browser and behavioral layer rather than the network layer. Residential proxies also offer richer geo-targeting (country, state, city, ZIP, ASN) compared to ISP.
+
+### Datacenter proxies
+
+[Datacenter proxies](/proxies/datacenter) are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+
+### Which to use
+
+Start with ISP — it's the stealth default for good reason. Consider residential if you need fine-grained geo-targeting or your specific target site doesn't rely on IP reputation as its primary detection signal. Use datacenter when speed and cost matter more than detection avoidance.
