@@ -12,21 +12,21 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="May 1" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Added a `kernel browsers curl` command to the [CLI](https://github.com/kernel/cli) for making HTTP requests directly to a browser session. Chromium synthesizes `User-Agent`, `Sec-CH-UA*`, and other identity headers so requests use the browser's real identity instead of leaking SDK defaults like `Go-http-client/1.1`.
+- Added a [`kernel browsers curl`](https://www.kernel.sh/docs/browsers/curl) command to the [CLI](https://github.com/kernel/cli) for making HTTP requests directly from a cloud browser session, so calls go out with the browser's cookies, session state, and network identity instead of your local terminal's.
 - Extended [Projects](/info/projects) support to the [CLI](https://github.com/kernel/cli) and [MCP server](/reference/mcp-server) — use the `--project` flag to scope CLI commands to a specific project, and MCP tools now resolve projects by name.
 - Improved mouse movement timing in cloud browsers with Gaussian-distributed delays between movements for more natural-looking interactions.
-- Profile downloads now extract directly to a local directory, with improved handling of in-progress download responses. The dashboard now respects the active project on download and surfaces errors as toasts; the API returns `409 no_saved_data` when a profile exists but has no captured state, distinct from `404` for missing profiles.
+- Profile downloads now extract directly to a local directory, with improved handling of in-progress download responses. The dashboard now respects the active project on download and surfaces errors as toasts.
 - Improved managed auth UX: MFA prompts now display which channel (email or phone) the verification code was sent to, and `--credential-auto` now defaults to enabled when `--credential-provider` is set.
 - Added a dedicated `switch` MFA option type so generic method-switcher links ("Use another method", "Try another way") are distinguished from buttons that name a specific method, improving auto-click reliability on multi-step MFA pages.
-- Managed auth CUA flow now resolves external credentials (e.g. 1Password) via auto-lookup. Connections created with `{ provider, auto: true }` previously dead-ended in `awaiting_input` because the CUA path skipped the lookup step.
+- Managed auth CUA flow now resolves external credentials (e.g. 1Password) via auto-lookup.
 - Managed auth connections now expose `browser_session_id` so callers can inspect or terminate the underlying browser session via the `/browsers` API.
 - Added a `diff-profile-archives` skill to the [Kernel skills repo](https://github.com/kernel/skills) for comparing Chrome profile archives directly from Claude Code.
 
 ## Documentation updates
 
-- Added documentation for the new [`kernel browsers curl`](/reference/cli) command, along with the `kernel profiles download` and `kernel profiles delete` commands.
+- Added documentation for the new [`kernel browsers curl`](https://www.kernel.sh/docs/browsers/curl) command, along with the `kernel profiles download` and `kernel profiles delete` commands.
 - Documented [IP rotation behavior](/proxies/residential) for residential, ISP, and datacenter proxies.
-- Added guidance on [browser pool latency](/browsers/pools/overview) footguns and best practices.
+- Added a [How browser pools work](/browsers/pools/overview) walkthrough (declaration vs acquisition, fixed capacity, releasing browsers) and a new [browser creation performance](/browsers/performance) troubleshooting page.
 </Update>
 
 <Update label="April 24" tags={["Product", "Docs"]}>
