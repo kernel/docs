@@ -5,14 +5,14 @@ description: "Send HTTP requests through Kernel browsers"
 
 Browser curl lets you run HTTP requests through Kernel browsers, automatically attaching the browser's cookie jar, transport fingerprint, [stealth and proxy settings](/browsers/bot-detection/overview), and other defaults that browsers send. This allows you to efficiently fetch resources from websites while getting the benefits of real browsers, including bot anti-detection and session cookie state.
 
-## Why this beats server-side `fetch()`
+## Why use browser curl instead of `fetch()`
 
 When you call `fetch()` or `httpx`, you're on a different TLS stack, IP, cookie store, and header profile than the browsers your agents (or automations) are using. Browser curl runs requests directly through a Kernel browser's networking stack.
 
 ### What curl requests inherit from Kernel browsers
 
 - **Cookies and storage policy** — Same cookie jar as the profile, including Chromium inclusion rules, `Set-Cookie` persistence, session cookies, encryption, `SameSite`, partitioning, and content settings. Response `Set-Cookie` headers update that same profile.
-- **Transport fingerprint** — BoringSSL TLS, ALPN, HTTP/2, HTTP/3/QUIC where enabled, Alt-Svc, connection reuse, Happy Eyeballs, certificate verification, CT/HSTS policy.
+- **Transport fingerprint** — BoringSSL TLS, ALPN, HTTP/2, Alt-Svc, connection reuse, Happy Eyeballs, certificate verification, CT/HSTS policy.
 - **Network configuration** — Proxy and PAC settings, DNS and Secure DNS, SSL and cert policy, cache, HTTP server properties, network quality signals.
 - **Default client behavior** — Chromium user agent, `Accept-Language`, brotli/zstd support, and typical fetch metadata behavior.
 - **Chromium request lifecycle** — Browser-managed redirects, decompression, HTTP authentication and client certificate eligibility, and cache behavior.
@@ -92,6 +92,5 @@ Browser curl concurrency is constrained by Chromium's internal networking limits
 - **Proxied chains** — On the order of tens of sockets per proxy chain (Chromium clamps configured values into a bounded range).
 - **HTTP stream pool** — Similar per-group and per-pool behavior to HTTP/1.x direct connections.
 - **HTTP/2** — Roughly 100 concurrent streams per session initially, updated from the server's `SETTINGS_MAX_CONCURRENT_STREAMS`, with an upper cap in Chromium (on the order of 256).
-- **HTTP/3 / QUIC** — Stream creation can queue when peer or open-stream limits are hit.
 
 If you're issuing many parallel curls from one browser, you're sharing those pools with navigation, XHR, and other session traffic. Latency may vary, as Chromium may queue requests when it reaches its limits.
