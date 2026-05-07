@@ -1,0 +1,44 @@
+---
+title: "Docker Sandboxes"
+description: "Run agents inside Docker Sandboxes with access to Kernel"
+---
+
+The [Kernel kit](https://github.com/kernel/docker-sbx-kit) is a [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) [mixin](https://docs.docker.com/ai/sandboxes/customize/kits/) that gives any `sbx` agent:
+
+- **Kernel CLI** (`@onkernel/cli`) installed at sandbox creation
+- **Kernel agent skills** from [`kernel/skills`](https://github.com/kernel/skills), so Claude Code (and any agent that reads `~/.agents/skills`) can drive Kernel without prompting
+- **Proxy-managed `KERNEL_API_KEY`** — your real key stays on the host. The `sbx` proxy injects it as `Authorization: Bearer …` on requests to `api.onkernel.com`. The agent inside the sandbox never sees the secret.
+
+The last point is what makes this integration worth using over `npm install -g @onkernel/cli` inside a custom kit.
+
+## Quickstart
+
+```bash
+export KERNEL_API_KEY=sk-kernel-...
+export ANTHROPIC_API_KEY=sk-ant-...
+
+sbx run --name kernel-demo \
+  --kit "git+https://github.com/kernel/docker-sbx-kit.git" \
+  claude -- \
+  "Using the Kernel CLI, create a browser and navigate to news.ycombinator.com. Tell me the top five articles."
+```
+
+Claude calls `kernel` inside the sandbox → CLI hits `api.onkernel.com` → the `sbx` proxy attaches your `KERNEL_API_KEY` → the request authenticates as you.
+
+The kit's full `spec.yaml`, install commands, and allowed domains live in the [repo README](https://github.com/kernel/docker-sbx-kit#readme).
+
+## Prerequisites
+
+- `sbx` installed and signed in — see [Docker's getting started guide](https://docs.docker.com/ai/sandboxes/get-started/)
+- A Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys)
+- An Anthropic API key from the [Anthropic Console](https://console.anthropic.com/) if you're using the built-in `claude` agent
+
+## Customizing or extending
+
+For everything not specific to Kernel — loading kits from local paths or OCI registries, stacking multiple mixins, building your own agent kit, debugging the proxy, `sbx kit add` for running sandboxes — see [Docker's kit reference](https://docs.docker.com/ai/sandboxes/customize/kits/). The Kernel kit is a standard mixin and composes with anything else you put on top.
+
+## Next steps
+
+- Browse [`kernel/skills`](https://github.com/kernel/skills) to see what Claude can do out of the box
+- Read the [Kernel CLI reference](/info/cli) for commands available inside the sandbox
+- Learn about [browser creation](/browsers/create-a-browser), [stealth mode](/browsers/bot-detection/stealth), and [Profiles](/auth/profiles) for harder automation targets
