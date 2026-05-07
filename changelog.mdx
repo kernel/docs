@@ -9,6 +9,23 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="May 8" tags={["Product", "Docs"]}>
+## Product updates
+
+- Released [`@onkernel/managed-auth-react`](https://github.com/kernel/managed-auth-react), a drop-in React component library for embedding [managed auth](/auth/overview) flows directly into your app. Ship a Kernel-powered login experience without rebuilding the credential entry, MFA, and SSO dialogs yourself.
+- Added a [Docker Sandboxes mixin kit](https://github.com/kernel/docker-sbx-kit) for running Kernel inside Docker's AI sandboxes (`sbx`). The kit ships the [Kernel CLI](https://github.com/kernel/cli), Claude Code [skills](https://github.com/kernel/skills), and a proxy-managed auth header pre-configured, so agents inside the sandbox can call the Kernel API while your real `KERNEL_API_KEY` stays on the host.
+- Hardened [Projects](/info/projects) for orgs running many environments: profile, browser pool, extension, and credential names are now scoped per-project (so a `production` profile in one project no longer collides with the same name in another), and the `GET /projects` API and dashboard project selector now support server-side search and pagination for orgs with hundreds of projects.
+- Made the [1Password](/integrations/1password) credential dropdown searchable in [managed auth](/auth/overview) dialogs, and stopped page analysis from clicking on out-of-viewport elements — both improve managed auth reliability for users with large 1Password vaults or long sign-in pages.
+- Fixed a class of managed auth autofill misfires where TOTP entry, "use another method" switcher detection, and MFA auto-click could write into the wrong visible input field on multi-step pages.
+- Managed auth connections will no longer attempt auto-reauth until the connection has had at least one prior successful login, preventing repeated reauth attempts on connections that were never functional in the first place.
+- Added `-o json` output to `kernel browsers playwright execute` in the [CLI](https://github.com/kernel/cli), matching the other `browsers` subcommands, so script runs can be piped into other tooling.
+
+## Documentation updates
+
+- Documented in the [computer controls](/browsers/computer-controls) docs that computer controls screenshots are faster than CDP screenshots on WebGL-heavy pages, since computer controls bypasses the CDP screenshot path that triggers a full WebGL render.
+- Updated `kernel-cli` skill examples in the [Kernel skills repo](https://github.com/kernel/skills) and documented the return value of `playwright execute` so agents can use the result in follow-on steps.
+</Update>
+
 <Update label="May 1" tags={["Product", "Docs"]}>
 ## Product updates
 
