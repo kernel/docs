@@ -21,9 +21,7 @@ If you're experiencing slower-than-expected browser creation times, review your 
 
 ## Site difficulty index
 
-Block rates for unauthenticated homepage visits from a stealth Kernel browser through a US residential proxy. Sites are sorted by observed difficulty. See [methodology](#methodology) for the test protocol and important caveats — in particular, these numbers reflect a single landing-page request, not login flows or at-scale scraping.
-
-This list is incomplete and will grow as we run more tests. Last measured 2026-05-11.
+A rough grouping of sites by how much friction we see when running stealth Kernel browsers against the public landing page. This list is incomplete and will grow over time.
 
 ### Hard — significant friction observed
 
@@ -72,20 +70,6 @@ All sessions returned a usable page. These sites still deploy bot detection — 
 - Yahoo Finance
 - YouTube
 
-### Methodology
-
-For each site, we open 5 concurrent stealth Kernel browser sessions through a US residential proxy and navigate to the public landing URL (e.g. `https://www.linkedin.com`). Each session uses a different exit IP. We then classify the response:
-
-- **Success** — the expected page rendered, no detection signals tripped.
-- **Challenged** — a visible CAPTCHA or "checking your browser" interstitial that requires action to proceed (e.g. Cloudflare Turnstile, hCaptcha, DataDome captcha).
-- **Blocked** — a hard block page, 403/429 status, or vendor-branded "Access Denied" response.
-
-Block rate combines blocked + challenged. Vendor labels reflect the bot-detection product whose signatures we matched.
-
 <Info>
-  These results are a floor, not a ceiling. They tell you what the *easiest* automation case — one anonymous homepage visit — looks like. A site that scores 0% here can still be very hard once you add login, repeated requests from the same IP, deep navigation, or large concurrency. We plan to publish login-flow and at-scale benchmarks separately.
-</Info>
-
-<Info>
-  Hitting friction on a site that scored clean here? Check your [proxy type](/browsers/bot-detection/overview#choosing-a-proxy-type) and confirm you're not running headless — those are the two most common causes of unexpected detection.
+  Hitting friction on a site that's listed under Clear? Check your [proxy type](/browsers/bot-detection/overview#choosing-a-proxy-type) and confirm you're not running headless — those are the two most common causes of unexpected detection.
 </Info>
