@@ -21,67 +21,46 @@ If you're experiencing slower-than-expected browser creation times, review your 
 
 ## Site difficulty index
 
-Not all websites are equally hard to automate. The tiers below reflect how much friction we typically see when running Kernel browsers against each site — from "works out of the box" to "expect blocks even with stealth mode and a clean residential IP."
+Block rates for unauthenticated homepage visits from a stealth Kernel browser through a US residential proxy. Sites are sorted by observed difficulty. See [methodology](#methodology) for the test protocol and important caveats — in particular, these numbers reflect a single landing-page request, not login flows or at-scale scraping.
 
-This list is incomplete and will grow as we test more targets. Difficulty also shifts over time as sites change their defenses, so treat these as a starting point — always [run a manual baseline](/browsers/bot-detection/overview#getting-started) before automating.
+This list is incomplete and will grow as we run more tests. Last measured 2026-05-11.
 
-### Tier 5 — Very hard
+### Hard — significant friction observed
 
-Aggressive anti-automation. Login and at-scale scraping are routinely blocked even with stealth mode, residential proxies, and warmed profiles. Expect hard blocks, account locks, or shadow bans.
+| Site | Block rate | Detection vendor |
+|------|-----------:|------------------|
+| Yelp | 100% (5/5 blocked) | DataDome |
+| Glassdoor | 100% (5/5 challenged) | Cloudflare |
+| Indeed | 40% (2/5 challenged) | Cloudflare + Imperva |
+| TripAdvisor | 40% (2/5 blocked) | DataDome |
 
-- LinkedIn
-- Facebook
-- Instagram
-- TikTok
-- Zillow
-- Facebook Marketplace
+### Light — partial friction observed
 
-### Tier 4 — Hard
+| Site | Block rate | Detection vendor |
+|------|-----------:|------------------|
+| Yellow Pages | 20% (1/5 blocked) | Cloudflare |
+| Zillow | 20% (1/5 challenged) | PerimeterX |
 
-Sophisticated fingerprinting and behavioral analysis. Reachable with stealth mode + careful pacing, but high CAPTCHA pressure and frequent challenges. Persistent [profiles](/auth/profiles) and stable IPs materially improve pass rates.
+### Clear — no blocks observed at this layer
 
-- X (Twitter)
-- Google Search
-- Google Maps
-- Amazon (logged-in flows)
-- Booking.com
-- Airbnb
-- Glassdoor
-- Walmart
+All five sessions returned a usable page. These sites still deploy bot detection — login flows, deep navigation, and high-volume scraping behave very differently — but the public landing page renders cleanly.
 
-### Tier 3 — Medium
+Airbnb, Amazon, Booking.com, Cars.com, Crunchbase, eBay, Etsy, Facebook, Facebook Marketplace, GitHub, Google Maps, Google Search, IMDb, Instagram, LinkedIn, Medium, Pinterest, Reddit, Shopify storefronts (Gymshark), Target, TikTok, Walmart, Wikipedia, X (Twitter), Yahoo Finance, YouTube.
 
-Real detection in place, but workable with Kernel defaults. Watch request frequency and avoid headless mode.
+### Methodology
 
-- Reddit
-- YouTube
-- Indeed
-- Yelp
-- Pinterest
-- Target
-- TripAdvisor
-- Crunchbase
+For each site, we open 5 concurrent stealth Kernel browser sessions through a US residential proxy and navigate to the public landing URL (e.g. `https://www.linkedin.com`). Each session uses a different exit IP. We then classify the response:
 
-### Tier 2 — Easy
+- **Success** — the expected page rendered, no detection signals tripped.
+- **Challenged** — a visible CAPTCHA or "checking your browser" interstitial that requires action to proceed (e.g. Cloudflare Turnstile, hCaptcha, DataDome captcha).
+- **Blocked** — a hard block page, 403/429 status, or vendor-branded "Access Denied" response.
 
-Light protections. Most automations succeed with default Kernel settings; occasional rate limiting at scale.
-
-- eBay
-- Etsy
-- Medium
-- IMDb
-- Cars.com
-- Shopify storefronts
-
-### Tier 1 — Very easy
-
-Minimal or no anti-bot measures. Suitable for unrestricted automation under each site's terms.
-
-- Wikipedia
-- GitHub
-- Yahoo Finance
-- Yellow Pages
+Block rate combines blocked + challenged. Vendor labels reflect the bot-detection product whose signatures we matched.
 
 <Info>
-  Hitting friction on a site that should be easier than this list suggests? Check your [proxy type](/browsers/bot-detection/overview#choosing-a-proxy-type) and confirm you're not running headless — those are the two most common causes of unexpected detection.
+  These results are a floor, not a ceiling. They tell you what the *easiest* automation case — one anonymous homepage visit — looks like. A site that scores 0% here can still be very hard once you add login, repeated requests from the same IP, deep navigation, or large concurrency. We plan to publish login-flow and at-scale benchmarks separately.
+</Info>
+
+<Info>
+  Hitting friction on a site that scored clean here? Check your [proxy type](/browsers/bot-detection/overview#choosing-a-proxy-type) and confirm you're not running headless — those are the two most common causes of unexpected detection.
 </Info>
