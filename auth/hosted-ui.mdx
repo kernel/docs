@@ -285,7 +285,48 @@ await kernel.auth.connections.update(
 ```
 </CodeGroup>
 
-You can update `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, and `proxy`. Only the fields you provide will be changed. Changes to `health_check_interval` and `proxy` take effect immediately on the running connection workflow.
+You can update `login_url`, `credential`, `allowed_domains`, `health_check_interval`, `save_credentials`, `record_session`, and `proxy`. Only the fields you provide will be changed. Changes to `health_check_interval` and `proxy` take effect immediately on the running connection workflow.
+
+### Record Sessions for Debugging
+
+Set `record_session: true` to capture a [replay](/browsers/replays) of every login session for the connection. Recordings start automatically when the auth browser is created and stop when it's destroyed — no explicit stop call needed.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  record_session: true,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    record_session=True,
+)
+```
+</CodeGroup>
+
+You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging without flipping the connection-wide flag.
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  record_session: true,
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    record_session=True,
+)
+```
+</CodeGroup>
+
+Recordings count toward your replay storage like any other browser replay. The `replay_id` of the captured session is persisted on the managed auth session row.
 
 ### Post-Login URL
 
