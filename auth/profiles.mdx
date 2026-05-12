@@ -9,7 +9,7 @@ Profiles let you capture browser state created during a session (cookies and loc
 
 When you create a [Managed Auth connection](/auth/overview), it is attached to a profile. A single profile can hold multiple auth connections — one per domain — so a browser launched with that profile is logged in to all of them at once.
 
-You can also use profiles without Managed Auth. The first step in using profiles is to create one, optionally giving it a meaningful `name` that is unique within your organization.
+You can also use profiles without Managed Auth. The first step in using profiles is to create one, optionally giving it a meaningful `name` that is unique within your [project](/info/projects).
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -268,7 +268,7 @@ browser = await kernel.browsers.create(
 
 ## Notes
 
-- A profile's `name` must be unique within your organization.
+- A profile's `name` must be unique within your [project](/info/projects). The same name can be reused across different projects in the same org.
 - Profiles store cookies and local storage. Start the session with `save_changes: true` to write changes back when the browser is closed.
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
 - Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
