@@ -1,0 +1,247 @@
+---
+title: "React Component"
+description: "Embed the Kernel managed auth login flow in your own app with a drop-in React component"
+---
+
+[`@onkernel/managed-auth-react`](https://www.npmjs.com/package/@onkernel/managed-auth-react) is a React component library that renders the entire managed auth login flow inside your own app. It calls the same APIs as the [Hosted UI](/auth/hosted-ui), but renders on your origin so it inherits your styling, domain, and CSP.
+
+Use the React component when:
+- You want the [Hosted UI](/auth/hosted-ui) experience but rendered inside your own app
+- You want to fully restyle the login UI to match your brand without rebuilding the flow
+- You want same-origin auth traffic for cookies, CSP, or observability
+
+## Install
+
+```bash
+bun add @onkernel/managed-auth-react
+# or: npm install @onkernel/managed-auth-react
+```
+
+## Getting started
+
+### 1. Start a Login Session on your backend
+
+Same as the Hosted UI flow — create a connection and start a login. The login response returns the connection `id` and a one-time `handoff_code`; those are the two values you'll hand to the component on the frontend.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'netflix.com',
+  profile_name: 'user-123',
+});
+
+const { id, handoff_code } = await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="netflix.com",
+    profile_name="user-123",
+)
+
+login = await kernel.auth.connections.login(auth.id)
+# login.id, login.handoff_code
+```
+</CodeGroup>
+
+<Info>
+The login response also includes a `hosted_url`. That URL points at Kernel's own hosted login page and is only relevant if you're using the [Hosted UI](/auth/hosted-ui) flow. When you're embedding the React component in your own app, ignore `hosted_url` and just hand `id` + `handoff_code` to your frontend however your app normally routes — a redirect with them as path/query params, a popup, props on the same page, etc.
+</Info>
+
+### 2. Render `<KernelManagedAuth />` on the frontend
+
+Pass the `id` and `handoff_code` from your backend into the component. How you get them to the page is up to you — the example below shows a Next.js App Router route that surfaces `id` as a path param and `code` as a query param, but any plumbing works.
+
+```tsx app/login/[id]/page.tsx
+"use client";
+
+import { use } from "react";
+import { useSearchParams } from "next/navigation";
+import { KernelManagedAuth } from "@onkernel/managed-auth-react";
+import "@onkernel/managed-auth-react/styles.css";
+
+export default function LoginPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const code = useSearchParams().get("code") ?? "";
+
+  return (
+    <KernelManagedAuth
+      sessionId={id}
+      handoffCode={code}
+      onSuccess={({ profileName, domain }) => {
+        window.location.href = `/connected?profile=${profileName}`;
+      }}
+      onError={({ code, message }) => {
+        console.error(code, message);
+      }}
+    />
+  );
+}
+```
+
+The component is client-only — `"use client"` is required in any RSC framework (Next.js App Router, Remix, etc.).
+
+## Backend connectivity
+
+By default the component talks directly to `https://api.onkernel.com`. That works out of the box; nothing else to configure.
+
+If you'd rather keep all auth traffic same-origin (cookies, CSP, observability), set `baseUrl=""` and proxy the three endpoints the package hits through your own framework:
+
+```ts next.config.ts
+export default {
+  async rewrites() {
+    return [
+      {
+        source: "/auth/connections/:id/exchange",
+        destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/exchange`,
+      },
+      {
+        source: "/auth/connections/:id",
+        destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id`,
+      },
+      {
+        source: "/auth/connections/:id/submit",
+        destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/submit`,
+      },
+    ];
+  },
+};
+```
+
+```tsx
+<KernelManagedAuth sessionId={id} handoffCode={code} baseUrl="" {...rest} />
+```
+
+## Styling
+
+Pass an `appearance` prop to restyle any part of the component. Four composable layers:
+
+### Design tokens
+
+```tsx
+<KernelManagedAuth
+  appearance={{
+    variables: {
+      colorPrimary: "#0f172a",
+      borderRadius: 12,
+      fontFamily: "'Inter', sans-serif",
+    },
+  }}
+  {...rest}
+/>
+```
+
+Every variable becomes a `--kma-*` CSS custom property on the component root, so you can also wire them up from your own stylesheet.
+
+### Per-element overrides
+
+Every rendered element has a stable key. Target it with a class, a style object, or both:
+
+```tsx
+<KernelManagedAuth
+  appearance={{
+    elements: {
+      card: "my-card-class",
+      buttonPrimary: {
+        className: "my-button",
+        style: { letterSpacing: "0.02em" },
+      },
+      title: { style: { fontSize: 28 } },
+    },
+  }}
+  {...rest}
+/>
+```
+
+Style objects support nested pseudo-state selectors (`:hover`, `:focus`, `:focus-visible`, `:active`, `:disabled`, `::placeholder`) which compile to scoped CSS at runtime.
+
+Every rendered element also carries a `data-kma-element="<key>"` attribute, so you can target them from global CSS:
+
+```css
+[data-kma-element="buttonPrimary"] {
+  text-transform: uppercase;
+}
+```
+
+### Layout toggles
+
+```tsx
+<KernelManagedAuth
+  appearance={{
+    layout: {
+      poweredByKernel: false,
+      kernelLogoColor: "white", // 'auto' | 'green' | 'black' | 'white'
+      showLegalText: false,
+      showSecurityCard: false,
+      socialButtonsPlacement: "top",
+      skipPrimeStep: true,
+    },
+  }}
+  {...rest}
+/>
+```
+
+### Theme
+
+```tsx
+<KernelManagedAuth appearance={{ theme: "dark" }} {...rest} />
+// "light" | "dark" | "auto" (default: auto, respects prefers-color-scheme)
+```
+
+## Localization
+
+Pass a partial map of string overrides; every key not provided falls back to English.
+
+```tsx
+<KernelManagedAuth
+  localization={{
+    primeTitle: (site) => `Connectez-vous à ${site}`,
+    primeContinueButton: "Continuer",
+    submitButton: "Se connecter",
+    mfaTypeLabels: { sms: "SMS", email: "E-mail", switch: "Autre méthode" },
+  }}
+  {...rest}
+/>
+```
+
+## Props
+
+| Prop           | Type                              | Required | Default                      | Description                                                                              |
+| -------------- | --------------------------------- | -------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
+| `sessionId`    | `string`                          | yes      | —                            | Managed auth connection `id` from the `.login()` response.                               |
+| `handoffCode`  | `string`                          | yes      | —                            | Single-use `handoff_code` from the `.login()` response, exchanged for a JWT.             |
+| `appearance`   | `Appearance`                      | no       | —                            | Styling — variables, elements, layout, theme.                                            |
+| `localization` | `Localization`                    | no       | English                      | Partial string overrides.                                                                |
+| `onSuccess`    | `(p: AuthSuccessPayload) => void` | no       | —                            | Fires on `SUCCESS`. Payload: `{ profileName: string; domain: string }`.                  |
+| `onError`     | `(p: AuthErrorPayload) => void`   | no       | —                            | Fires on `FAILED`, `CANCELED`, `EXPIRED`. Payload: `{ code?: string; message: string }`. |
+| `baseUrl`      | `string`                          | no       | `"https://api.onkernel.com"` | Override the Kernel API origin. Use `""` for same-origin proxying via your own rewrites. |
+| `fetch`        | `typeof fetch`                    | no       | `globalThis.fetch`           | Inject a custom fetch (for SSR or instrumentation).                                      |
+
+## Headless step components
+
+For most integrations `<KernelManagedAuth />` is all you need. If you want to drive the UI yourself — custom controllers, test harnesses, or a non-standard flow — the underlying step components are exported individually:
+
+```tsx
+import {
+  Shell,
+  StepPrime,
+  StepSuccess,
+  StepError,
+  StepExpired,
+  LoadingState,
+  ExternalActionWaiting,
+  UnifiedAuthForm,
+  AppearanceProvider,
+  LocalizationProvider,
+} from "@onkernel/managed-auth-react";
+```
+
+Wrap them in `<AppearanceProvider>` and `<LocalizationProvider>` to inherit the same styling/localization plumbing as the all-in-one component.
+
+## Reference integration
+
+A full reference integration — Next.js shell, rewrites, end-to-end flow — lives at [`kernel/managed-auth-hosted-ui`](https://github.com/kernel/managed-auth-hosted-ui). It powers Kernel's own hosted login page and is a copy-pasteable starting point for embedding the component in your own app.

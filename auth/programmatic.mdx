@@ -302,7 +302,7 @@ When the site offers multiple MFA methods, they appear in `mfa_options`:
 <CodeGroup>
 ```typescript TypeScript
 if (state.mfa_options?.length) {
-  // Available types: sms, email, totp, push, call, security_key
+  // Available types: sms, email, totp, push, call, password, switch
   for (const opt of state.mfa_options) {
     console.log(`${opt.type}: ${opt.label}`);
   }
@@ -316,7 +316,7 @@ if (state.mfa_options?.length) {
 
 ```python Python
 if state.mfa_options:
-    # Available types: sms, email, totp, push, call, security_key
+    # Available types: sms, email, totp, push, call, password, switch
     for opt in state.mfa_options:
         print(f"{opt['type']}: {opt['label']}")
 
@@ -329,6 +329,10 @@ if state.mfa_options:
 </CodeGroup>
 
 After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
+
+<Info>
+The `switch` type represents generic method-switcher links like "Use another method" or "Try another way" that don't name a specific factor. Submit it the same way as any other MFA option to reveal the underlying alternatives on the next page.
+</Info>
 
 ### Sign-In Options (Account/Org Pickers)
 
@@ -380,8 +384,16 @@ if (state.flow_step === 'AWAITING_EXTERNAL_ACTION') {
   // Show the message to the user
   console.log(state.external_action_message);
   // e.g., "Check your phone for a push notification"
-  
-  // Keep polling—the flow resumes automatically when the user completes the action
+
+  // Some sites offer fallback methods alongside the external action
+  // (e.g. "Try another way"). Submit one to switch verification methods.
+  if (state.mfa_options?.length) {
+    await kernel.auth.connections.submit(auth.id, {
+      mfa_option_id: state.mfa_options[0].type,
+    });
+  }
+
+  // Otherwise keep polling—the flow resumes automatically when the user completes the action
 }
 ```
 
@@ -390,10 +402,22 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
     # Show the message to the user
     print(state.external_action_message)
     # e.g., "Check your phone for a push notification"
-    
-    # Keep polling—the flow resumes automatically when the user completes the action
+
+    # Some sites offer fallback methods alongside the external action
+    # (e.g. "Try another way"). Submit one to switch verification methods.
+    if state.mfa_options:
+        await kernel.auth.connections.submit(
+            auth.id,
+            mfa_option_id=state.mfa_options[0]["type"],
+        )
+
+    # Otherwise keep polling—the flow resumes automatically when the user completes the action
 ```
 </CodeGroup>
+
+<Info>
+`mfa_options`, `pending_sso_buttons`, and `sign_in_options` may be populated during `AWAITING_EXTERNAL_ACTION` when the site exposes fallback methods alongside the external action (for example, "Try another way" on a push prompt). Submit one of them to switch verification methods, or keep polling to let the user complete the external action.
+</Info>
 
 ## Step Reference
 
@@ -437,6 +461,7 @@ After creating a connection, you can update its configuration with `PATCH /auth/
 | `allowed_domains` | Update allowed redirect domains |
 | `health_check_interval` | Seconds between health checks (minimum varies by plan) |
 | `save_credentials` | Whether to save credentials on successful login |
+| `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `proxy` | Proxy configuration for login sessions |
 
 Only the fields you include are updated—everything else stays the same.
