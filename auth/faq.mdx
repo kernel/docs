@@ -100,7 +100,7 @@ Managed Auth is designed for login and authentication flows — entering credent
 
 Go to the **Browser Sessions** tab in the Kernel dashboard to watch what the managed auth session is doing in real time. Each auth login runs in a browser session with a live view, so you can see exactly where the flow is getting stuck. This is useful for diagnosing login flow problems or understanding why a session isn't staying authenticated.
 
-For flakes that only show up intermittently or are hard to reproduce live, set `record_session: true` on the connection (or per-login on `.login()`) to capture a [replay](/browsers/replays) of every login attempt. Recording starts automatically when the auth browser is created and stops when it's destroyed. The `replay_id` is persisted on the session, and recordings count toward your normal replay storage. See the [Hosted UI guide](/auth/hosted-ui#record-sessions-for-debugging) for examples.
+For flakes that only show up intermittently or are hard to reproduce live, set `record_session: true` on the connection to capture a [replay](/browsers/replays) of every auth browser session — logins, periodic health checks, and automatic reauths. To record only a single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()` instead. Recordings start automatically when each auth browser is created and stop when it's destroyed, the `replay_id` is persisted on each session, and recordings count toward your normal replay storage. See the [Hosted UI guide](/auth/hosted-ui#record-sessions-for-debugging) for examples.
 
 ## Can I attach multiple auth connections to one profile?
 

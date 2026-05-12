@@ -289,7 +289,7 @@ You can update `login_url`, `credential`, `allowed_domains`, `health_check_inter
 
 ### Record Sessions for Debugging
 
-Set `record_session: true` to capture a [replay](/browsers/replays) of every login session for the connection. Recordings start automatically when the auth browser is created and stop when it's destroyed — no explicit stop call needed.
+Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. Recordings start automatically when each auth browser is created and stop when it's destroyed — no explicit stop call needed.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -309,7 +309,7 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
-You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging without flipping the connection-wide flag.
+You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging on a specific login attempt without flipping the connection-wide flag (which would also record subsequent health checks and reauths).
 
 <CodeGroup>
 ```typescript TypeScript
@@ -326,7 +326,7 @@ login = await kernel.auth.connections.login(
 ```
 </CodeGroup>
 
-Recordings count toward your replay storage like any other browser replay. The `replay_id` of the captured session is persisted on the managed auth session row.
+Recordings count toward your replay storage like any other browser replay. Each managed auth session row stores its own `replay_id` for the recording captured during that session.
 
 ### Post-Login URL
 
