@@ -21,7 +21,7 @@ bun add @onkernel/managed-auth-react
 
 ### 1. Start a Login Session on your backend
 
-Same as the Hosted UI flow — create a connection and start a login. The login response includes a `hosted_url` that points at the route you'll mount the component on.
+Same as the Hosted UI flow — create a connection and start a login. The login response returns the connection `id` and a one-time `handoff_code`; those are the two values you'll hand to the component on the frontend.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -30,8 +30,7 @@ const auth = await kernel.auth.connections.create({
   profile_name: 'user-123',
 });
 
-const { hosted_url } = await kernel.auth.connections.login(auth.id);
-// hosted_url is shaped like https://<your-domain>/<your-route>/{id}?code=<handoff>
+const { id, handoff_code } = await kernel.auth.connections.login(auth.id);
 ```
 
 ```python Python
@@ -41,15 +40,17 @@ auth = await kernel.auth.connections.create(
 )
 
 login = await kernel.auth.connections.login(auth.id)
-# login.hosted_url is shaped like https://<your-domain>/<your-route>/{id}?code=<handoff>
+# login.id, login.handoff_code
 ```
 </CodeGroup>
 
-Redirect (or open in a popup) the end user to `hosted_url`.
+<Info>
+The login response also includes a `hosted_url`. That URL points at Kernel's own hosted login page and is only relevant if you're using the [Hosted UI](/auth/hosted-ui) flow. When you're embedding the React component in your own app, ignore `hosted_url` and just hand `id` + `handoff_code` to your frontend however your app normally routes — a redirect with them as path/query params, a popup, props on the same page, etc.
+</Info>
 
-### 2. Render `<KernelManagedAuth />` on the login route
+### 2. Render `<KernelManagedAuth />` on the frontend
 
-The route just needs to surface the connection `id` (path param) and the `code` (query param) and hand them to the component. In Next.js App Router:
+Pass the `id` and `handoff_code` from your backend into the component. How you get them to the page is up to you — the example below shows a Next.js App Router route that surfaces `id` as a path param and `code` as a query param, but any plumbing works.
 
 ```tsx app/login/[id]/page.tsx
 "use client";
@@ -211,8 +212,8 @@ Pass a partial map of string overrides; every key not provided falls back to Eng
 
 | Prop           | Type                              | Required | Default                      | Description                                                                              |
 | -------------- | --------------------------------- | -------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
-| `sessionId`    | `string`                          | yes      | —                            | Managed auth connection ID from your backend.                                            |
-| `handoffCode`  | `string`                          | yes      | —                            | Single-use handoff code from the login response, exchanged for a JWT.                    |
+| `sessionId`    | `string`                          | yes      | —                            | Managed auth connection `id` from the `.login()` response.                               |
+| `handoffCode`  | `string`                          | yes      | —                            | Single-use `handoff_code` from the `.login()` response, exchanged for a JWT.             |
 | `appearance`   | `Appearance`                      | no       | —                            | Styling — variables, elements, layout, theme.                                            |
 | `localization` | `Localization`                    | no       | English                      | Partial string overrides.                                                                |
 | `onSuccess`    | `(p: AuthSuccessPayload) => void` | no       | —                            | Fires on `SUCCESS`. Payload: `{ profileName: string; domain: string }`.                  |
