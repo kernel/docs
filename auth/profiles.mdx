@@ -112,6 +112,28 @@ print("Live view:", kernel_browser2.browser_live_view_url)
 ```
 </CodeGroup>
 
+## Override opening existing tabs in a new session
+
+Profiles can restore tabs saved in the profile. Pass `start_url` with the profile to clear those restored tabs and open a specific page when the new browser starts.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  profile: { name: 'profiles-demo' },
+  start_url: 'https://example.com/dashboard',
+});
+```
+
+```python Python
+browser = await kernel.browsers.create(
+    profile={"name": "profiles-demo"},
+    start_url="https://example.com/dashboard",
+)
+```
+</CodeGroup>
+
+The same behavior applies to browser pools configured with both a profile and start url.
+
 ## Loading a profile into an existing browser
 
 You can load a profile into a browser after it has been created using the [update browser endpoint](https://kernel.sh/docs/api-reference/browsers/update-browser-session).
