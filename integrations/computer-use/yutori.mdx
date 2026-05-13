@@ -2,13 +2,13 @@
 title: "Yutori"
 ---
 
-[n1](https://yutori.com/blog/introducing-n1) is Yutori's pixels-to-actions LLM that predicts browser actions from screenshots. This computer use model enables AI agents to interact with web interfaces by analyzing visual content and generating appropriate mouse and keyboard actions.
+[Navigator n1.5](https://yutori.com/blog/introducing-n1-5) is Yutori's pixels-to-actions LLM that predicts browser actions from screenshots. This computer use model enables AI agents to interact with web interfaces by analyzing visual content and generating appropriate mouse and keyboard actions.
 
-By integrating Yutori n1 with Kernel, you can run these AI-powered browser automations on cloud-hosted infrastructure, eliminating the need for local browser management and enabling scalable, reliable AI agents.
+By integrating Yutori n1.5 with Kernel, you can run these AI-powered browser automations on cloud-hosted infrastructure, eliminating the need for local browser management and enabling scalable, reliable AI agents.
 
 ## Quick setup with our Yutori example app
 
-Get started quickly with our Kernel app template that includes a pre-configured Yutori n1 integration:
+Get started quickly with our Kernel app template that includes a pre-configured Yutori n1.5 integration:
 
 ```bash
 kernel create --name my-yutori-app --template yutori
@@ -16,11 +16,15 @@ kernel create --name my-yutori-app --template yutori
 
 Choose `TypeScript` or `Python` as the programming language.
 
+The template runs n1.5 in **computer-use-only mode**, using the `browser_tools_core-20260403` tool set for coordinate-based browser actions. The DOM/Playwright "expanded" tools (`extract_elements`, `find`, `set_element_value`, `execute_js`) are disabled because the template doesn't expose a Playwright page to the model.
+
+Yutori n1.5 recommends a **1280×800 (WXGA, 16:10)** viewport for best grounding accuracy. See [viewports](/browsers/viewport) for supported configurations.
+
 Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to deploy and run your Yutori automation on Kernel's infrastructure.
 
-## Benefits of using Kernel with Yutori n1
+## Benefits of using Kernel with Yutori n1.5
 
-- **No local browser management**: Run n1 automations without installing or maintaining browsers locally
+- **No local browser management**: Run n1.5 automations without installing or maintaining browsers locally
 - **Scalability**: Launch multiple browser sessions in parallel for concurrent AI agents
 - **Stealth mode**: Built-in anti-detection features for reliable web interactions
 - **Session state**: Maintain browser state across runs via [Profiles](/auth/profiles)
@@ -33,4 +37,4 @@ Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to depl
 - Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
 - Learn how to properly [terminate browser sessions](/browsers/termination)
 - Learn how to [deploy](/apps/deploy) your Yutori app to Kernel
-- Read the [Yutori n1 API documentation](https://docs.yutori.com/reference/n1) for model details
+- Read the [Yutori n1.5 API documentation](https://docs.yutori.com/reference/n1-5) for model details
