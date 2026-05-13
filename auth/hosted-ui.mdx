@@ -262,6 +262,72 @@ auth = await kernel.auth.connections.create(
 ```
 </CodeGroup>
 
+### Custom Proxy
+
+Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through the same IP. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
+
+Create a proxy first, then attach it to the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const proxy = await kernel.proxies.create({ type: 'isp' });
+
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { id: proxy.id },
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(type="isp")
+
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"id": proxy.id},
+)
+```
+</CodeGroup>
+
+You can also reference a proxy by `name` instead of `id`. The proxy must belong to the same org and project as the connection.
+
+Once attached, every browser the connection spins up — the initial login, every background health check, and every automatic re-auth — runs through that proxy.
+
+You can swap the proxy on an existing connection with `auth.connections.update`; the change takes effect immediately on the running connection workflow.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  proxy: { id: newProxy.id },
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    proxy={"id": new_proxy.id},
+)
+```
+</CodeGroup>
+
+You can also override the connection's proxy for a single login by passing `proxy` on `.login()` — useful when you want to try a one-off egress without changing the connection-wide default (which would also affect subsequent health checks and reauths).
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { id: oneOffProxy.id },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    proxy={"id": one_off_proxy.id},
+)
+```
+</CodeGroup>
+
 ### Updating a Connection
 
 After creating a connection, you can update its configuration using `auth.connections.update`:
