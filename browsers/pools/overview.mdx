@@ -52,7 +52,6 @@ const pool = await kernel.browserPools.create({
   stealth: true,
   headless: false,
   timeout_seconds: 600,
-  start_url: "https://example.com",
   viewport: {
     width: 1280,
     height: 800
@@ -73,7 +72,6 @@ pool = kernel.browser_pools.create(
     stealth=True,
     headless=False,
     timeout_seconds=600,
-    start_url="https://example.com",
     viewport={
         "width": 1280,
         "height": 800
@@ -83,16 +81,6 @@ pool = kernel.browser_pools.create(
 print(pool.id)
 ```
 </CodeGroup>
-
-### Start URL
-
-Pass `start_url` to have Kernel navigate newly created browsers in the pool before they become available for acquisition. Navigation is best-effort: failures do not fail pool fill, and the response records the requested `start_url` for debugging.
-
-<Note>
-When using `start_url` with [`chrome_policy`](/browsers/pools/policy-json), `start_url` takes precedence over startup URLs configured via Chrome policies, such as `RestoreOnStartupURLs`.
-
-When releasing a browser with `reuse: true`, the reused browser may no longer be on the `start_url`. `start_url` applies when new browsers are created in the pool.
-</Note>
 
 ### Pool configuration options
 
@@ -159,7 +147,6 @@ Update the pool configuration. By default, all idle browsers are discarded and r
 const updatedPool = await kernel.browserPools.update("my-pool", {
   size: 20,
   stealth: true,
-  start_url: "https://example.com",
 });
 ```
 
@@ -168,7 +155,6 @@ updated_pool = kernel.browser_pools.update(
     "my-pool",
     size=20,
     stealth=True,
-    start_url="https://example.com",
 )
 ```
 </CodeGroup>
@@ -176,8 +162,6 @@ updated_pool = kernel.browser_pools.update(
 <Info>
 The `size` parameter is always required when updating a pool, even if you only want to change other settings.
 </Info>
-
-Set `start_url` to a new URL to change where newly created browsers in the pool start. Set `start_url` to an empty string to clear it.
 
 By default, updating a pool discards all idle browsers and rebuilds them with the new configuration. Set `discard_all_idle: false` to keep existing idle browsers and only apply the new configuration to newly created browsers.
 

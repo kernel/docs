@@ -35,32 +35,6 @@ print(kernel_browser.session_id)
 ```
 </CodeGroup>
 
-### Start on a specific URL
-
-Pass `start_url` to have Kernel navigate the browser to a URL when it starts. Navigation is best-effort which means failures do not fail browser creation.
-
-<CodeGroup>
-```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
-
-const kernel = new Kernel();
-
-const kernelBrowser = await kernel.browsers.create({
-  start_url: 'https://example.com',
-});
-```
-
-```python Python
-from kernel import Kernel
-
-kernel = Kernel()
-
-kernel_browser = kernel.browsers.create(
-    start_url="https://example.com",
-)
-```
-</CodeGroup>
-
 
 ## 2. Connect to the browser
 
