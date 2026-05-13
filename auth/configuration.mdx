@@ -61,7 +61,13 @@ auth = await kernel.auth.connections.create(
 
 ## Custom Proxy
 
-Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through the same IP. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
+Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through that proxy. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
+
+How stable the exit IP is depends on the proxy type:
+
+- **[ISP](/proxies/isp)** and **[datacenter](/proxies/datacenter)** proxies provide a static exit IP that stays consistent across all connections.
+- **[Residential](/proxies/residential)** proxies rotate IPs per connection — use them when you need legitimacy from a real ISP pool but can tolerate IP changes.
+- **[Custom (BYO)](/proxies/custom)** proxies route through whatever you point them at, so this is the right pick if you need a truly static IP under your own control (e.g. an allowlisted egress your security team owns).
 
 Create a proxy first, then attach it to the connection:
 
