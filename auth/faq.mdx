@@ -20,6 +20,12 @@ Health checks run on configurable cadences. Your plan sets the minimum interval:
 
 You can increase the interval above your plan's minimum, but not below it.
 
+## What if my site's session expires faster than the health check interval?
+
+Kernel keeps re-authenticating even when every health check finds the session expired. A successful login resets the auto-reauth state, so a site whose session TTL is shorter than your health check interval is re-authenticated on every cycle rather than being given up on.
+
+If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter detection windows, lower the connection's `health_check_interval` down to your plan's minimum. Enterprise plans can go as low as 5 minutes.
+
 ## How do I know if a Kernel can automatically re-authenticate a connection?
 
 Check the `can_reauth` field on a connection. This boolean checks the following conditions:
@@ -94,7 +100,7 @@ if state.status == "NEEDS_AUTH":
 
 ## What types of flows does Managed Auth support?
 
-Managed Auth is designed for login and authentication flows — entering credentials, handling SSO redirects, completing MFA challenges, and maintaining sessions. For other browser interactions like form filling, sign-ups, or multi-step workflows, use [Kernel's browser automation](/browsers/create-a-browser) directly.
+Managed Auth handles login and authentication flows end-to-end: entering credentials, multi-step login forms (e.g. email on one page, password on the next), SSO redirects, MFA challenges, and keeping sessions alive. For post-login browser work like form filling, sign-ups, or other workflows, use [Kernel's browser automation](/browsers/create-a-browser) directly.
 
 ## How do I debug a managed auth session?
 
