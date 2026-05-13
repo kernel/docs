@@ -97,7 +97,7 @@ You can also reference a proxy by `name` instead of `id`. The proxy must belong 
 
 Once attached, every browser the connection spins up — the initial login, every background health check, and every automatic re-auth — runs through that proxy.
 
-You can swap the proxy on an existing connection with `auth.connections.update`; the change takes effect immediately on the running connection workflow.
+You can swap the proxy on an existing connection with `auth.connections.update`; the change takes effect immediately, so the next health check or reauth uses the new proxy.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -207,9 +207,9 @@ After creating a connection, you can update its configuration with `auth.connect
 | `health_check_interval` | Seconds between health checks (minimum varies by plan) |
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
-| `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect immediately on the running workflow |
+| `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
-Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval` and `proxy` take effect immediately on the running connection workflow.
+Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval` and `proxy` take effect immediately, so the next health check or reauth uses the new value.
 
 <CodeGroup>
 ```typescript TypeScript
