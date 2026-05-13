@@ -1,0 +1,225 @@
+---
+title: "Connection Configuration"
+description: "Shared options for managed auth connections, regardless of integration flow"
+---
+
+Managed Auth Connections are configured the same way regardless of how you collect credentials — via [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). The options below live on the connection itself and apply to the initial login, every background health check, and every automatic re-authentication.
+
+## Credentials and Auto-Reauth
+
+Credentials are saved after every successful login, enabling automatic re-authentication when the session expires. One-time codes (TOTP, SMS, etc.) are not saved.
+
+To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for more on automated authentication.
+
+## Custom Login URL
+
+If the site's login page isn't at the default location, specify it when creating the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  login_url: 'https://example.com/auth/signin',
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    login_url="https://example.com/auth/signin",
+)
+```
+</CodeGroup>
+
+## SSO/OAuth Support
+
+Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
+
+Common SSO provider domains are automatically allowed by default, including Google, Microsoft/Azure AD, Okta, Auth0, Apple, GitHub, Facebook, LinkedIn, Amazon Cognito, OneLogin, and Ping Identity. You don't need to add these to `allowed_domains`.
+
+For custom or less common OAuth providers, add their domains to `allowed_domains`:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  allowed_domains: ['sso.custom-provider.com'],
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    allowed_domains=["sso.custom-provider.com"],
+)
+```
+</CodeGroup>
+
+## Custom Proxy
+
+Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through the same IP. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
+
+Create a proxy first, then attach it to the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const proxy = await kernel.proxies.create({ type: 'isp' });
+
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { id: proxy.id },
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(type="isp")
+
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"id": proxy.id},
+)
+```
+</CodeGroup>
+
+You can also reference a proxy by `name` instead of `id`. The proxy must belong to the same org and project as the connection.
+
+Once attached, every browser the connection spins up — the initial login, every background health check, and every automatic re-auth — runs through that proxy.
+
+You can swap the proxy on an existing connection with `auth.connections.update`; the change takes effect immediately on the running connection workflow.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  proxy: { id: newProxy.id },
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    proxy={"id": new_proxy.id},
+)
+```
+</CodeGroup>
+
+You can also override the connection's proxy for a single login by passing `proxy` on `.login()` — useful when you want to try a one-off egress without changing the connection-wide default (which would also affect subsequent health checks and reauths).
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { id: oneOffProxy.id },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    proxy={"id": one_off_proxy.id},
+)
+```
+</CodeGroup>
+
+## Record Sessions for Debugging
+
+Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. Recordings start automatically when each auth browser is created and stop when it's destroyed — no explicit stop call needed.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  record_session: true,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    record_session=True,
+)
+```
+</CodeGroup>
+
+You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging on a specific login attempt without flipping the connection-wide flag (which would also record subsequent health checks and reauths).
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  record_session: true,
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    record_session=True,
+)
+```
+</CodeGroup>
+
+Recordings count toward your replay storage like any other browser replay. Each managed auth session row stores its own `replay_id` for the recording captured during that session.
+
+## Post-Login URL
+
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
+
+<CodeGroup>
+```typescript TypeScript
+const managedAuth = await kernel.auth.connections.retrieve(auth.id);
+
+if (managedAuth.post_login_url) {
+  await page.goto(managedAuth.post_login_url);
+  // Start automation from the dashboard/home page
+}
+```
+
+```python Python
+managed_auth = await kernel.auth.connections.retrieve(auth.id)
+
+if managed_auth.post_login_url:
+    await page.goto(managed_auth.post_login_url)
+    # Start automation from the dashboard/home page
+```
+</CodeGroup>
+
+## Updating a Connection
+
+After creating a connection, you can update its configuration with `auth.connections.update`:
+
+| Field | Description |
+|-------|-------------|
+| `login_url` | Override the login page URL |
+| `credential` | Update the linked credential |
+| `allowed_domains` | Update allowed redirect domains |
+| `health_check_interval` | Seconds between health checks (minimum varies by plan) |
+| `save_credentials` | Whether to save credentials on successful login |
+| `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
+| `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect immediately on the running workflow |
+
+Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval` and `proxy` take effect immediately on the running connection workflow.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/new-login',
+  health_check_interval: 1800,
+  save_credentials: true,
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/new-login",
+    health_check_interval=1800,
+    save_credentials=True,
+)
+```
+</CodeGroup>
