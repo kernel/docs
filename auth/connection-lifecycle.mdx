@@ -1,9 +1,9 @@
 ---
-title: "Health Checks"
-description: "How Kernel keeps connections logged in, and what to do when one breaks"
+title: "Connection Lifecycle"
+description: "How connections stay authenticated, and what to do when one breaks"
 ---
 
-Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic **health checks** to confirm the session is still valid and automatically re-authenticates when it isn't. This page covers how that loop works, how to tune it, and how to debug a connection that won't stay logged in.
+Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks and automatic re-authentication to keep the session valid. This page covers the runtime lifecycle of a connection: how the check-and-reauth loop works, how to tune it, what blocks auto-reauth, and how to debug a connection that won't stay logged in.
 
 ## The lifecycle
 
@@ -28,7 +28,7 @@ Health checks run on a configurable interval. Your plan sets the minimum:
 | Plan | Minimum interval |
 |------|------------------|
 | Hobbyist | 1 hour |
-| Start-Up | 15 minutes |
+| Start-Up | 20 minutes |
 | Enterprise | Fully configurable (as low as 5 minutes) |
 
 You can raise the interval above your plan's minimum, but not below it. Update it with `health_check_interval` (in seconds) — changes take effect immediately, so the next check uses the new value:
@@ -124,29 +124,16 @@ Two tools handle most investigations:
 
 1. **Dashboard live view** — The **Browser Sessions** tab in the Kernel dashboard shows every auth browser session (logins, health checks, reauths) with a live view. Watch a session in real time to see exactly where it's getting stuck.
 
-2. **Session recordings** — For flakes that don't reproduce live, set `record_session: true` on the connection to capture a [replay](/browsers/replays) of every auth browser session. To record only the next single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()` instead:
+2. **Session recordings** — To record only the next single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()`:
 
 <CodeGroup>
 ```typescript TypeScript
-// Record every auth session for this connection
-await kernel.auth.connections.update(auth.id, {
-  record_session: true,
-});
-
-// Or just this one login
 const login = await kernel.auth.connections.login(auth.id, {
   record_session: true,
 });
 ```
 
 ```python Python
-# Record every auth session for this connection
-await kernel.auth.connections.update(
-    auth.id,
-    record_session=True,
-)
-
-# Or just this one login
 login = await kernel.auth.connections.login(
     auth.id,
     record_session=True,
@@ -154,7 +141,7 @@ login = await kernel.auth.connections.login(
 ```
 </CodeGroup>
 
-Each managed auth session row stores its own `replay_id`. Recordings count toward your normal replay storage and follow the same retention rules. See [Connection Configuration](/auth/configuration#record-sessions-for-debugging) for more.
+To record every auth session on the connection (logins, health checks, and reauths), set `record_session: true` connection-wide — see [Record Sessions for Debugging](/auth/configuration#record-sessions-for-debugging).
 
 ## See also
 

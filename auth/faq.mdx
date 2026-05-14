@@ -4,7 +4,7 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Health Checks](/auth/health-checks) for the full lifecycle, cadence options, and `can_reauth` rules.
+When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
 ## What are sign-in options?
 
@@ -20,7 +20,7 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-Kernel retries with exponential backoff, then surfaces an error code (`credentials_invalid`, `bot_detected`, `captcha_blocked`, etc.). See [Health Checks](/auth/health-checks#when-a-login-fails) for the full list and recovery steps.
+Kernel retries with exponential backoff, then surfaces an error code (`credentials_invalid`, `bot_detected`, `captcha_blocked`, etc.). See [Connection Lifecycle](/auth/connection-lifecycle#when-a-login-fails) for the full list and recovery steps.
 
 ## Can I use Managed Auth with any website?
 
@@ -32,7 +32,7 @@ Yes. Managed Auth and browser profiles are available during your trial period wi
 
 ## How do I re-authenticate a connection before the next health check?
 
-Call `.login()` on the connection to trigger auth immediately. See [Triggering re-auth manually](/auth/health-checks#triggering-re-auth-manually) for the pattern.
+Call `.login()` on the connection to trigger auth immediately. See [Triggering re-auth manually](/auth/connection-lifecycle#triggering-re-auth-manually) for the pattern.
 
 ## What types of flows does Managed Auth support?
 
@@ -40,7 +40,7 @@ Managed Auth handles login and authentication flows end-to-end: entering credent
 
 ## How do I debug a managed auth session?
 
-Use the **Browser Sessions** tab in the dashboard for live view, or set `record_session: true` to capture replays of every auth browser session. See [Debugging a flaky connection](/auth/health-checks#debugging-a-flaky-connection) for details.
+Use the **Browser Sessions** tab in the dashboard for live view, or set `record_session: true` to capture replays of every auth browser session. See [Debugging a flaky connection](/auth/connection-lifecycle#debugging-a-flaky-connection) for details.
 
 ## Can I attach multiple auth connections to one profile?
 

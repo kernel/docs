@@ -97,6 +97,8 @@ await page.goto("https://netflix.com")
   </Step>
 </Steps>
 
+The steps above are the integration loop — what you wire up once per connection. After the initial login, the connection enters its runtime loop of periodic health checks and automatic re-authentication; see [Connection Lifecycle](/auth/connection-lifecycle) for how that works and how to tune it.
+
 ## Choose Your Integration
 
 <CardGroup cols={3}>
@@ -128,7 +130,7 @@ The most valuable workflows live behind logins. Managed Auth provides:
 - **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box, with common SSO provider domains automatically allowed
 - **2FA/OTP handling** - TOTP codes automated with automatic retry on expiry, SMS/email/push OTP are supported
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - [Periodic health checks](/auth/health-checks) and automatic re-authentication when sessions expire with stored credentials
+- **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and automatic re-authentication when sessions expire with stored credentials
 - **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
 
 ## Security
