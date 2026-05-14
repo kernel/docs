@@ -4,44 +4,7 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel monitors the login session and re-authenticates automatically when it expires. Periodic health checks detect logged-out sessions and trigger re-auth in the background, so the profile stays logged in without additional action on your part.
-
-<Warning>
-Automatic re-authentication only works when the stored credentials are complete and don't require human input. If login needs SMS/email OTP, push notifications, or manual MFA selection, you'll need to trigger a new login session manually.
-</Warning>
-
-
-## How often are health checks performed?
-
-Health checks run on configurable cadences. Your plan sets the minimum interval:
-- **Hobbyist** — minimum every 1 hour
-- **Start-Up** — minimum every 15 minutes
-- **Enterprise** — fully configurable
-
-You can increase the interval above your plan's minimum, but not below it.
-
-## What if my site's session expires faster than the health check interval?
-
-Kernel keeps re-authenticating even when every health check finds the session expired. A successful login resets the auto-reauth state, so a site whose session TTL is shorter than your health check interval is re-authenticated on every cycle rather than being given up on.
-
-If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter detection windows, lower the connection's `health_check_interval` down to your plan's minimum. Enterprise plans can go as low as 5 minutes.
-
-## How do I know if a Kernel can automatically re-authenticate a connection?
-
-Check the `can_reauth` field on a connection. This boolean checks the following conditions:
-
-1. **Credential linked** — A credential must be attached to the connection (stored in Kernel or via an external provider like [1Password](/integrations/1password))
-2. **No external action required** — The learned login flow doesn't require human intervention
-
-Only if all of the above conditions are met will `can_reauth` be `true`. When true, Kernel will attempt to automatically re-authenticate the connection.
-
-### External actions that prevent auto-reauth
-
-After a successful login, Kernel saves the login flow. If the flow includes steps that require human action—like SMS/email OTP, push notifications, or manual MFA selection—Kernel marks the connection as unable to auto-reauth because those steps can't be automated without user input.
-
-If your login flow requires one of these, you can still automate around it:
-- **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. TOTP codes are generated automatically, so the login flow won't require external action. If a TOTP code expires or times out before the site accepts it, Kernel automatically retries with a fresh code.
-- **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
+When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
 ## What are sign-in options?
 
@@ -57,13 +20,7 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-If a login attempt fails, Kernel will retry with exponential backoff. After multiple failures, the [login flow](/auth/hosted-ui) will be marked as failed and you'll receive an error with a specific error code. Common codes include `credentials_invalid`, `bot_detected`, and `captcha_blocked`. See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list of error codes.
-
-Common failure reasons include:
-
-- Invalid credentials
-- Bot detection blocking the login page
-- CAPTCHAs that couldn't be solved
+Kernel retries with exponential backoff, then surfaces an error code (`credentials_invalid`, `bot_detected`, `captcha_blocked`, etc.). See [Connection Lifecycle](/auth/connection-lifecycle#when-a-login-fails) for the full list and recovery steps.
 
 ## Can I use Managed Auth with any website?
 
@@ -75,28 +32,7 @@ Yes. Managed Auth and browser profiles are available during your trial period wi
 
 ## How do I re-authenticate a connection before the next health check?
 
-Call `.login()` on any connection at any time to trigger authentication immediately. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
-
-This is useful when your workflow needs to ensure a connection is authenticated right now, without waiting for the next scheduled health check.
-
-<CodeGroup>
-```typescript TypeScript
-const state = await kernel.auth.connections.retrieve(auth.id);
-
-if (state.status === 'NEEDS_AUTH') {
-  const login = await kernel.auth.connections.login(auth.id);
-  // Handle login flow as usual
-}
-```
-
-```python Python
-state = await kernel.auth.connections.retrieve(auth.id)
-
-if state.status == "NEEDS_AUTH":
-    login = await kernel.auth.connections.login(auth.id)
-    # Handle login flow as usual
-```
-</CodeGroup>
+Call `.login()` on the connection to trigger auth immediately. See [Triggering re-auth manually](/auth/connection-lifecycle#triggering-re-auth-manually) for the pattern.
 
 ## What types of flows does Managed Auth support?
 
@@ -104,9 +40,7 @@ Managed Auth handles login and authentication flows end-to-end: entering credent
 
 ## How do I debug a managed auth session?
 
-Go to the **Browser Sessions** tab in the Kernel dashboard to watch what the managed auth session is doing in real time. Each auth login runs in a browser session with a live view, so you can see exactly where the flow is getting stuck. This is useful for diagnosing login flow problems or understanding why a session isn't staying authenticated.
-
-For flakes that only show up intermittently or are hard to reproduce live, set `record_session: true` on the connection to capture a [replay](/browsers/replays) of every auth browser session — logins, periodic health checks, and automatic reauths. To record only a single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()` instead. The entire browser session is recorded, the `replay_id` is persisted on each session, and recordings count toward your normal replay storage. See [Connection Configuration](/auth/configuration#record-sessions-for-debugging) for examples.
+Use the **Browser Sessions** tab in the dashboard for live view, or set `record_session: true` to capture replays of every auth browser session. See [Debugging a flaky connection](/auth/connection-lifecycle#debugging-a-flaky-connection) for details.
 
 ## Can I attach multiple auth connections to one profile?
 

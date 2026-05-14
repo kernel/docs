@@ -1,0 +1,150 @@
+---
+title: "Connection Lifecycle"
+description: "How connections stay authenticated, and what to do when one breaks"
+---
+
+Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks and automatic re-authentication to keep the session valid. This page covers the runtime lifecycle of a connection: how the check-and-reauth loop works, how to tune it, what blocks auto-reauth, and how to debug a connection that won't stay logged in.
+
+## The lifecycle
+
+After the initial login, every connection moves through this loop:
+
+<Steps>
+  <Step title="Health check">
+    On a configurable cadence, Kernel spins up a browser with the profile and verifies the session is still logged in. If it is, nothing else happens until the next check.
+  </Step>
+  <Step title="Auto-reauth (if eligible)">
+    If the check finds the session expired and the connection's `can_reauth` is `true`, Kernel runs the saved login flow with the stored credentials in the background. A successful login resets the loop.
+  </Step>
+  <Step title="NEEDS_AUTH (if not eligible, or auto-reauth fails)">
+    If auto-reauth isn't possible — credentials aren't linked, the saved flow requires human input, or the login keeps failing — the connection's `status` flips to `NEEDS_AUTH` and a new login session is required.
+  </Step>
+</Steps>
+
+## Cadence
+
+Health checks run on a configurable interval. Your plan sets the minimum:
+
+| Plan | Minimum interval |
+|------|------------------|
+| Hobbyist | 1 hour |
+| Start-Up | 20 minutes |
+| Enterprise | Fully configurable (as low as 5 minutes) |
+
+You can raise the interval above your plan's minimum, but not below it. Update it with `health_check_interval` (in seconds) — changes take effect immediately, so the next check uses the new value:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    health_check_interval=1800,  # 30 minutes
+)
+```
+</CodeGroup>
+
+### Sessions that expire faster than the interval
+
+Kernel keeps re-authenticating even when every health check finds the session expired. A successful login resets the auto-reauth state, so a site whose session TTL is shorter than your health check interval is re-authenticated on every cycle rather than being given up on.
+
+If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter detection windows, lower `health_check_interval` toward your plan's minimum.
+
+## Can this connection auto-reauth?
+
+Check the `can_reauth` boolean on a connection. It's `true` only when **both** of these hold:
+
+1. **A credential is linked** — stored in Kernel or sourced via [1Password](/integrations/1password).
+2. **No external action is required** — the saved login flow doesn't need a human (no SMS/email OTP, no push notification, no manual MFA selection).
+
+If either fails, the connection will move to `NEEDS_AUTH` on the next expired session and wait for a fresh login.
+
+### External actions that block auto-reauth
+
+After a successful login, Kernel saves the login flow. If that flow includes steps that require human action, the connection can't auto-reauth because those steps can't be replayed without user input.
+
+If your flow requires one of these, you can still automate around it:
+
+- **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. Codes are generated on demand, so the flow no longer needs external action. If a code expires before the site accepts it, Kernel retries with a fresh one.
+- **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
+
+## Triggering re-auth manually
+
+Call `.login()` on any connection to trigger authentication immediately, without waiting for the next scheduled health check. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
+
+This is useful when your workflow needs to ensure a connection is authenticated *right now*:
+
+<CodeGroup>
+```typescript TypeScript
+const state = await kernel.auth.connections.retrieve(auth.id);
+
+if (state.status === 'NEEDS_AUTH') {
+  const login = await kernel.auth.connections.login(auth.id);
+  // Handle login flow as usual
+}
+```
+
+```python Python
+state = await kernel.auth.connections.retrieve(auth.id)
+
+if state.status == "NEEDS_AUTH":
+    login = await kernel.auth.connections.login(auth.id)
+    # Handle login flow as usual
+```
+</CodeGroup>
+
+## When a login fails
+
+If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — Kernel retries with exponential backoff. After repeated failures the flow is marked failed and the connection surfaces an error code on `flow_status`.
+
+Common codes:
+
+| Code | Meaning |
+|------|---------|
+| `credentials_invalid` | The stored or submitted credentials were rejected by the site. |
+| `bot_detected` | The login page blocked the session as automated. |
+| `captcha_blocked` | A CAPTCHA was presented and couldn't be solved. |
+| `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). |
+
+See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list.
+
+### Recovering
+
+- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow.
+- **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).
+- **`unsupported_auth_method`** — Switch the account to a supported sign-in method (e.g. password + TOTP instead of a passkey) and re-link the credential.
+
+## Debugging a flaky connection
+
+Two tools handle most investigations:
+
+1. **Dashboard live view** — The **Browser Sessions** tab in the Kernel dashboard shows every auth browser session (logins, health checks, reauths) with a live view. Watch a session in real time to see exactly where it's getting stuck.
+
+2. **Session recordings** — To record only the next single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()`:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  record_session: true,
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    record_session=True,
+)
+```
+</CodeGroup>
+
+To record every auth session on the connection (logins, health checks, and reauths), set `record_session: true` connection-wide — see [Record Sessions for Debugging](/auth/configuration#record-sessions-for-debugging).
+
+## See also
+
+- [Connection Configuration](/auth/configuration) — `health_check_interval`, `proxy`, `record_session`, and other shared options
+- [Credentials](/auth/credentials) — what gets stored and how it powers auto-reauth
+- [FAQ](/auth/faq) — quick answers to common questions
