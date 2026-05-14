@@ -450,40 +450,9 @@ The `status` field indicates the overall connection state:
 | `AUTHENTICATED` | Profile is logged in and ready to use |
 | `NEEDS_AUTH` | Profile needs authentication |
 
-## Updating Connections
+## Connection Configuration
 
-After creating a connection, you can update its configuration with `PATCH /auth/connections/{id}`:
-
-| Field | Description |
-|-------|-------------|
-| `login_url` | Override the login page URL |
-| `credential` | Update the linked credential |
-| `allowed_domains` | Update allowed redirect domains |
-| `health_check_interval` | Seconds between health checks (minimum varies by plan) |
-| `save_credentials` | Whether to save credentials on successful login |
-| `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
-| `proxy` | Proxy configuration for login sessions |
-
-Only the fields you include are updated—everything else stays the same.
-
-<CodeGroup>
-```typescript TypeScript
-await kernel.auth.connections.update(auth.id, {
-  login_url: 'https://example.com/login',
-  health_check_interval: 1800,
-  save_credentials: true,
-});
-```
-
-```python Python
-await kernel.auth.connections.update(
-    auth.id,
-    login_url="https://example.com/login",
-    health_check_interval=1800,
-    save_credentials=True,
-)
-```
-</CodeGroup>
+Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — apply equally to all integration flows and are documented in [Connection Configuration](/auth/configuration).
 
 ## Real-Time Updates with SSE
 
