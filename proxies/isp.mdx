@@ -6,7 +6,9 @@ ISP (Internet Service Provider) proxies combine the speed of datacenter proxies 
 
 ## IP Rotation Behavior
 
-ISP proxies provide a **static exit IP** — the same IP address is used for all connections throughout the lifetime of the proxy. Every tab, request, and reconnection within a browser session exits through the same IP. This makes ISP proxies ideal for session-based workflows, login flows, and any use case where a consistent IP is important.
+ISP proxies provide a **stable exit IP within a single browser session** — every tab, request, and reconnection inside that session exits through the same IP, and it does not rotate mid-session (unlike residential).
+
+Across separate sessions, Kernel does not guarantee the same exit IP from a managed ISP proxy. If a destination site requires the exact same IP across every session — for example, an IP allowlist, or a [managed auth](/auth/overview) connection whose health checks and reauths must look like the same client — use a [custom (BYO) proxy](/proxies/custom) pointed at infrastructure you control.
 
 ## Configuration
 

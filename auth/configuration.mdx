@@ -66,9 +66,9 @@ Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health che
 
 How stable the exit IP is depends on the proxy type:
 
-- **[ISP](/proxies/isp)** and **[datacenter](/proxies/datacenter)** proxies provide a static exit IP that stays consistent across all connections.
+- **[ISP](/proxies/isp)** and **[datacenter](/proxies/datacenter)** proxies provide a stable exit IP within a single session, but Kernel does not guarantee the same IP across sessions. Sites with adaptive auth that trigger a step-up challenge (one-time code, device verification) when the client IP changes may flag the IP shift between the initial login and a subsequent health check or reauth.
 - **[Residential](/proxies/residential)** proxies rotate IPs per connection — use them when you need legitimacy from a real ISP pool but can tolerate IP changes.
-- **[Custom (BYO)](/proxies/custom)** proxies route through whatever you point them at, so this is the right pick if you need a truly static IP under your own control (e.g. an allowlisted egress your security team owns).
+- **[Custom (BYO)](/proxies/custom)** proxies route through whatever you point them at, so this is the right pick if you need a truly static IP that persists across the initial login and every subsequent health check and reauth (e.g. an allowlisted egress your security team owns).
 
 Create a proxy first, then attach it to the connection:
 
