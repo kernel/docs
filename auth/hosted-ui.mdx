@@ -204,6 +204,44 @@ if state.status == "AUTHENTICATED":
 ```
 </CodeGroup>
 
+## Success / error redirects
+
+To redirect the user back to your app once the flow finishes — for example, to auto-close the auth window inside a mobile in-app browser — append `success_url` and/or `error_url` query params to `hosted_url`. These mirror the `onSuccess` / `onError` callbacks exposed by the [React Component](/auth/react).
+
+- `success_url` — visited when the session reaches `SUCCESS`. The hosted page appends `profile_name` and `domain` as query params.
+- `error_url` — visited when the session reaches `FAILED`, `CANCELED`, or `EXPIRED`. The hosted page appends `code` (when present) and `message` as query params.
+
+Any scheme is accepted, so mobile integrators can pass a custom scheme (`myapp://auth/done`) to bounce back into the host app.
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+
+const url = new URL(login.hosted_url);
+url.searchParams.set("success_url", "https://example.com/connected");
+url.searchParams.set("error_url", "https://example.com/auth-failed");
+
+window.location.href = url.toString();
+```
+
+```python Python
+from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
+
+login = await kernel.auth.connections.login(auth.id)
+
+parsed = urlparse(login.hosted_url)
+query = dict(parse_qsl(parsed.query))
+query["success_url"] = "https://example.com/connected"
+query["error_url"] = "https://example.com/auth-failed"
+
+redirect_url = urlunparse(parsed._replace(query=urlencode(query)))
+```
+</CodeGroup>
+
+<Warning>
+The hosted page redirects to whatever URL you pass. Only set these from your own trusted backend — never let an end user supply them directly.
+</Warning>
+
 ## Connection Configuration
 
 Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — apply equally to all integration flows and are documented in [Connection Configuration](/auth/configuration).
