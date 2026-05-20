@@ -1,24 +1,112 @@
 ---
 title: "Control"
-description: "Drive the browser with computer controls, Playwright, or both"
+description: "Drive the browser with computer controls, CDP, or WebDriver BiDi"
 ---
 
-Kernel exposes two ways to drive a browser. They aren't competing — they're complementary, and the strongest agents use both.
+Kernel browsers expose three control primitives. For agents, we recommend [computer controls](/browsers/computer-controls) — they match how computer-use models actually drive a computer, and they sidestep the bot-detection surface that CDP introduces.
 
-- **[Computer Controls](/browsers/computer-controls)** — OS-level mouse, keyboard, and screen, built to match how computer-use models actually drive a computer.
-- **[Playwright Execution](/browsers/playwright-execution)** — arbitrary Playwright/TypeScript code run in the same VM as the browser, with full DOM access.
+<Tabs>
+  <Tab title="Computer Controls">
+    OS-level mouse, keyboard, and screen — the primitives a computer-use model already speaks (screenshot, click, type, key, scroll, drag). No CDP or WebDriver connection required, so there's no protocol fingerprint to leak. Ideal for [Claude](/integrations/computer-use/anthropic), [OpenAI](/integrations/computer-use/openai), or [Gemini](/integrations/computer-use/gemini) computer-use loops.
 
-## When to use which
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import Kernel from '@onkernel/sdk';
 
-| Use case | Reach for |
-| --- | --- |
-| Vision-based LLM agents (Anthropic, OpenAI, Gemini computer use) | Computer Controls |
-| Anti-bot-sensitive flows | Computer Controls |
-| Reading structured DOM data (tables, lists, attributes) | Playwright Execution |
-| Full-page screenshots | Playwright Execution |
-| Deterministic scripted automation | Playwright Execution (via [CDP](/browsers/create-a-browser)) |
+    const kernel = new Kernel();
+    const kernelBrowser = await kernel.browsers.create();
 
-The recommended pattern for agents is **computer controls for interaction, Playwright execution as a DOM-reading tool** when the agent needs structured data. You get the model-native interaction surface plus an escape hatch for the things screenshots don't give you.
+    const screenshot = await kernel.browsers.computer.captureScreenshot(kernelBrowser.session_id);
+
+    await kernel.browsers.computer.clickMouse(kernelBrowser.session_id, {
+      x: 420,
+      y: 280,
+    });
+
+    await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
+      text: 'kernel cloud browsers',
+    });
+    ```
+
+    ```python Python
+    from kernel import Kernel
+
+    kernel = Kernel()
+    kernel_browser = kernel.browsers.create()
+
+    screenshot = kernel.browsers.computer.capture_screenshot(id=kernel_browser.session_id)
+
+    kernel.browsers.computer.click_mouse(
+        id=kernel_browser.session_id,
+        x=420,
+        y=280,
+    )
+
+    kernel.browsers.computer.type_text(
+        id=kernel_browser.session_id,
+        text="kernel cloud browsers",
+    )
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="CDP">
+    Chrome DevTools Protocol — the wire format Playwright, Puppeteer, and most browser frameworks speak. Use `cdp_ws_url` from the created browser session for deterministic, scripted automation.
+
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import { chromium } from 'playwright';
+
+    const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+    const context = browser.contexts()[0];
+    const page = context.pages()[0];
+
+    await page.goto('https://example.com');
+    const title = await page.title();
+    console.log(title);
+    ```
+
+    ```python Python
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+        context = browser.contexts[0]
+        page = context.pages[0]
+
+        await page.goto('https://example.com')
+        title = await page.title()
+        print(title)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="WebDriver BiDi">
+    W3C-standard browser control. Use `webdriver_ws_url` with [Vibium](/integrations/vibium) or any other BiDi client.
+
+    <CodeGroup>
+    ```typescript Typescript/Javascript
+    import { browser } from 'vibium';
+
+    const bro = await browser.start(kernelBrowser.webdriver_ws_url);
+    const page = await bro.page();
+
+    await page.goto('https://example.com');
+    const title = await page.title();
+    console.log(title);
+    ```
+
+    ```python Python
+    from vibium.sync_api import browser
+
+    bro = browser.start(kernel_browser.webdriver_ws_url)
+    page = bro.page()
+
+    page.goto('https://example.com')
+    title = page.title()
+    print(title)
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
 
 ## Why computer controls for agents
 
@@ -30,53 +118,11 @@ Computer controls are built to match how computer-use models were trained — th
 - **Human-like input.** OS-level events with Bézier-curve mouse paths, variable typing speed, and configurable mistype rate.
 - **Not DOM-limited.** Screenshots capture the full VM, so the agent can see and interact with native dialogs, canvas elements, iframes, and PDFs — not just things you can address with a selector.
 
-<CodeGroup>
-```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
+## Computer controls + Playwright execution
 
-const kernel = new Kernel();
-const kernelBrowser = await kernel.browsers.create();
+The two things computer controls don't do natively: read the DOM, and take a full-page screenshot. The recommended pattern for agents is **computer controls for interaction, [Playwright execution](/browsers/playwright-execution) as a DOM-reading tool** when the agent needs structured data.
 
-const screenshot = await kernel.browsers.computer.captureScreenshot(kernelBrowser.session_id);
-
-await kernel.browsers.computer.clickMouse(kernelBrowser.session_id, {
-  x: 420,
-  y: 280,
-});
-
-await kernel.browsers.computer.typeText(kernelBrowser.session_id, {
-  text: 'kernel cloud browsers',
-});
-```
-
-```python Python
-from kernel import Kernel
-
-kernel = Kernel()
-kernel_browser = kernel.browsers.create()
-
-screenshot = kernel.browsers.computer.capture_screenshot(id=kernel_browser.session_id)
-
-kernel.browsers.computer.click_mouse(
-    id=kernel_browser.session_id,
-    x=420,
-    y=280,
-)
-
-kernel.browsers.computer.type_text(
-    id=kernel_browser.session_id,
-    text="kernel cloud browsers",
-)
-```
-</CodeGroup>
-
-The two things computer controls don't do natively: read the DOM, and take a full-page screenshot. That's where Playwright execution comes in.
-
-## Why Playwright execution for DOM work
-
-The Playwright execution API runs arbitrary Playwright code in a fresh context inside the browser's VM. Your agent can call it as a tool whenever it needs structured DOM data or a full-page capture, then go right back to driving with computer controls.
-
-It ships with [Patchright](/browsers/bot-detection/stealth) by default, so DOM-side calls are hardened against bot detection too.
+Playwright execution runs arbitrary Playwright code in a fresh context inside the browser's VM. Your agent can call it as a tool whenever it needs structured DOM data or a full-page capture, then go right back to driving with computer controls. It ships with [Patchright](/browsers/bot-detection/stealth) by default, so DOM-side calls are hardened against bot detection too.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -110,11 +156,8 @@ print(response.result)
 ```
 </CodeGroup>
 
-Full-page screenshots use the same API — see [Screenshots](/browsers/playwright-execution#screenshots).
-
 ## Going deeper
 
 - [Computer Controls reference](/browsers/computer-controls) — every mouse, keyboard, and screen primitive.
 - [Playwright Execution reference](/browsers/playwright-execution) — the full execution surface, return values, and timeouts.
-- [Connect over CDP or WebDriver](/browsers/create-a-browser) — for scripted, framework-driven automations that don't involve an LLM.
 - [Computer use integrations](/integrations/computer-use/anthropic) — drop-in examples for Anthropic, Gemini, OpenAI, and more.
