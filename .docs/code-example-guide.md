@@ -360,7 +360,7 @@ Before publishing a code example, verify:
 ## Reference
 
 See these files for examples:
-- `browsers/create-a-browser.mdx` - Standard browser creation pattern
+- `introduction/create.mdx` - Standard browser creation pattern
 - `apps/develop.mdx` - App development pattern
 - `browsers/file-io.mdx` - Complex automation example
 

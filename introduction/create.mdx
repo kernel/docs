@@ -25,6 +25,13 @@ kernel = Kernel()
 kernel_browser = kernel.browsers.create()
 print(kernel_browser.session_id)
 ```
+
+```bash CLI
+kernel browsers create
+
+# or with a starting URL and stealth
+kernel browsers create --stealth --start-url https://example.com
+```
 </CodeGroup>
 
 The response includes everything you need to drive the browser: `session_id`, `cdp_ws_url`, `webdriver_ws_url`, and `browser_live_view_url`.
@@ -62,10 +69,69 @@ await kernel.browsers.deleteByID(kernelBrowser.session_id);
 ```python Python
 kernel.browsers.delete_by_id(kernel_browser.session_id)
 ```
+
+```bash CLI
+kernel browsers delete <session-id>
+```
 </CodeGroup>
 
 See [Termination & timeouts](/browsers/termination) for the full set of teardown options.
 
+## Full example
+
+Putting it together — create, connect over CDP, do work, tear down:
+
+<Info>
+  Kernel browsers launch with a default context and page. Make sure to access the existing context and page (`contexts()[0]` and `pages()[0]`) rather than creating a new one.
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+
+try {
+  const context = browser.contexts()[0] || (await browser.newContext());
+  const page = context.pages()[0] || (await context.newPage());
+  await page.goto('https://www.onkernel.com');
+  const title = await page.title();
+} catch (error) {
+  console.error(error);
+} finally {
+  await browser.close();
+  await kernel.browsers.deleteByID(kernelBrowser.session_id);
+}
+```
+
+```python Python
+from kernel import Kernel
+from playwright.async_api import async_playwright
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+
+async with async_playwright() as playwright:
+    browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+
+    try:
+        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        page = context.pages[0] if context.pages else await context.new_page()
+        await page.goto('https://www.onkernel.com')
+        title = await page.title()
+    except Exception as e:
+        print(e)
+    finally:
+        await browser.close()
+        await kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
 ## What's next
 
-Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the two primitives Kernel exposes — computer controls for vision-based agents and playwright execution for DOM-level work — and when to reach for each.
+Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the three primitives Kernel exposes — computer controls, CDP, and WebDriver BiDi — and when to reach for each.

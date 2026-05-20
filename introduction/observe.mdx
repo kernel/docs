@@ -27,6 +27,10 @@ kernel = Kernel()
 kernel_browser = kernel.browsers.create()
 print(kernel_browser.browser_live_view_url)
 ```
+
+```bash CLI
+kernel browsers view <session-id>
+```
 </CodeGroup>
 
 Add `?readOnly=true` for a non-interactive view, or enable [kiosk mode](/browsers/live-view#kiosk-mode) at creation for a fullscreen, chromeless experience. Full reference: [Live View](/browsers/live-view).
@@ -56,6 +60,17 @@ kernel.browsers.replays.stop(
     id=kernel_browser.session_id,
 )
 ```
+
+```bash CLI
+# Start recording
+kernel browsers replays start <session-id>
+
+# ...run the agent...
+
+# Stop and download
+kernel browsers replays stop <session-id> <replay-id>
+kernel browsers replays download <session-id> <replay-id> -o replay.mp4
+```
 </CodeGroup>
 
 Full reference: [Replays](/browsers/replays).
@@ -75,6 +90,10 @@ const screenshot = await kernel.browsers.computer.captureScreenshot(
 screenshot = kernel.browsers.computer.capture_screenshot(
     id=kernel_browser.session_id,
 )
+```
+
+```bash CLI
+kernel browsers computer screenshot <session-id> --to screenshot.png
 ```
 </CodeGroup>
 
