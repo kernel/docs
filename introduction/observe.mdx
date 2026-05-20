@@ -1,0 +1,111 @@
+---
+title: "Observe"
+description: "Watch your agent work, debug what went wrong"
+---
+
+Browser agents fail in ways that don't show up in logs. Kernel gives you four ways to see what's actually happening — live, after the fact, frame by frame, and line by line.
+
+## Live view
+
+Every browser exposes a `browser_live_view_url` you can open in a browser tab or embed in an iframe. Use it to watch an agent run in real time, hand a session off to a human-in-the-loop, or surface the browser as part of your own UI.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+console.log(kernelBrowser.browser_live_view_url);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+print(kernel_browser.browser_live_view_url)
+```
+</CodeGroup>
+
+Add `?readOnly=true` for a non-interactive view, or enable [kiosk mode](/browsers/live-view#kiosk-mode) at creation for a fullscreen, chromeless experience. Full reference: [Live View](/browsers/live-view).
+
+## Replays
+
+Replays are MP4 recordings you start and stop on demand. They're the right tool for post-hoc debugging: a failed run produces a video you can scrub through, share, or attach to a bug report.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const replay = await kernel.browsers.replays.start(kernelBrowser.session_id);
+
+// ...run the agent...
+
+await kernel.browsers.replays.stop(replay.replay_id, {
+  id: kernelBrowser.session_id,
+});
+```
+
+```python Python
+replay = kernel.browsers.replays.start(kernel_browser.session_id)
+
+# ...run the agent...
+
+kernel.browsers.replays.stop(
+    replay.replay_id,
+    id=kernel_browser.session_id,
+)
+```
+</CodeGroup>
+
+Full reference: [Replays](/browsers/replays).
+
+## Screenshots
+
+Pull a frame at any moment with computer controls — useful for snapshotting state at decision points, attaching to traces, or feeding back into a vision model.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const screenshot = await kernel.browsers.computer.captureScreenshot(
+  kernelBrowser.session_id,
+);
+```
+
+```python Python
+screenshot = kernel.browsers.computer.capture_screenshot(
+    id=kernel_browser.session_id,
+)
+```
+</CodeGroup>
+
+For full-page captures, use [Playwright execution](/browsers/playwright-execution#screenshots) instead.
+
+## Invocation logs
+
+If you're running an agent on Kernel's [app platform](/apps/develop), every invocation produces a streaming log feed. Tail it live while the agent runs, or pull it after the fact for debugging.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const logs = await kernel.invocations.follow(invocationId);
+
+for await (const event of logs) {
+  console.log(event);
+}
+```
+
+```python Python
+logs = kernel.invocations.follow(invocation_id)
+
+for event in logs:
+    print(event)
+```
+</CodeGroup>
+
+Full reference: [Logs](/apps/logs).
+
+## Picking the right tool
+
+- **Building the agent?** Keep a [live view](/browsers/live-view) tab open while you iterate.
+- **Debugging a failure?** Capture a [replay](/browsers/replays) for the run, then watch the video.
+- **Instrumenting the agent itself?** Drop [screenshots](/browsers/computer-controls#take-screenshots) and [logs](/apps/logs) into your traces at the points that matter.
+- **Putting a human in the loop?** Embed the [live view](/browsers/live-view#embedding-in-an-iframe) in your own UI.
