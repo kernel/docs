@@ -3,7 +3,7 @@ title: "Create"
 description: "Spin up a cloud browser for your agent"
 ---
 
-Kernel browsers are sandboxed Chromium instances that boot in under 30ms. Your agent creates them on demand, drives them, and tears them down — no infra to provision, no warm pool to manage.
+Kernel browsers are sandboxed Chromium instances that boot in under 30ms. Your agent creates them on demand, drives them, and tears them down — no infra to provision, no servers to run.
 
 ## Your first browser
 
@@ -42,7 +42,7 @@ Most of what you'll tune at creation time falls into four buckets:
 
 <Columns cols={2}>
   <Card title="Headless vs headful" href="/browsers/headless">
-    Headful (the default) supports live view and replays. Headless is lighter (1 GB vs 8 GB) and faster — good for short-lived or highly concurrent jobs.
+    headful (default) supports live view, replays, and better stealth — ideal for agent workflows on bot-detected sites. headless is lighter (1 gb vs 8 gb), good for simple scraping.
   </Card>
   <Card title="Stealth and proxies" href="/browsers/bot-detection/overview">
     Turn on stealth mode and route through residential, ISP, or datacenter proxies when you're hitting sites with bot detection.
@@ -57,9 +57,9 @@ Most of what you'll tune at creation time falls into four buckets:
 
 ## Lifecycle
 
-A browser stays alive as long as something is driving it — a CDP or WebDriver client, a [Live View](/browsers/live-view) viewer, or an in-flight [computer controls](/browsers/computer-controls) request. After five seconds with none of those active, it enters [standby](/browsers/standby) — state is preserved, billing stops. After the configurable timeout (60s by default) it's deleted.
+A browser stays alive as long as something is driving it — a CDP or WebDriver client, a [Live View](/browsers/live-view) viewer, or an in-flight [computer controls](/browsers/computer-controls) request. After five seconds with none of those active, it enters [standby](/browsers/standby) — state is preserved, billing stops. Once in standby, after the configurable timeout (60s by default) elapses it's deleted.
 
-You can also delete a browser explicitly when you're done:
+We recommend you delete a browser explicitly when you're done with it:
 
 <CodeGroup>
 ```typescript Typescript/Javascript

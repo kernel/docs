@@ -112,7 +112,7 @@ Kernel browsers expose three control primitives. For agents, we recommend [compu
 
 Kernel's computer controls are built to match how computer-use models were trained — the same primitives the model emits (screenshot, click at coords, type, key, scroll, drag) map 1:1 onto the API. There's no harness translating model output into framework calls.
 
-- **Native fit.** Screenshot, click, type, key, scroll, drag — the primitives the model already speaks. Kernel uses these same controls in its own [managed auth](/auth/overview) agent.
+- **Native fit.** Screenshot, click, type, key, scroll, drag — the primitives the model already speaks.
 - **Faster screenshots.** Captures bypass CDP, which removes the largest source of latency in a vision loop.
 - **Better against bot detection.** No CDP connection means no CDP fingerprint to leak. Pairs naturally with [stealth mode](/browsers/bot-detection/stealth) and [residential proxies](/proxies/residential).
 - **Human-like input.** OS-level events with Bézier-curve mouse paths, variable typing speed, and configurable mistype rate.
@@ -120,9 +120,9 @@ Kernel's computer controls are built to match how computer-use models were train
 
 ## Computer use + Playwright execution
 
-The two things computer controls don't do natively: read the DOM, and take a full-page screenshot. The recommended pattern for agents is **computer controls for interaction, [Playwright execution](/browsers/playwright-execution) as a DOM-reading tool** when the agent needs structured data.
+The one thing computer controls don't do natively: read the DOM. The recommended pattern for agents is computer controls for interaction, [Playwright execution](/browsers/playwright-execution) as a DOM-reading tool when the agent needs structured data.
 
-Playwright execution runs arbitrary Playwright code in a fresh context inside the browser's VM. Your agent can call it as a tool whenever it needs structured DOM data or a full-page capture, then go right back to driving with computer controls. It ships with [Patchright](/browsers/bot-detection/stealth) by default, so DOM-side calls are hardened against bot detection too.
+Playwright execution runs arbitrary Playwright code in a fresh context inside the browser's VM. Your agent can call it as a tool whenever it needs structured DOM data, then go right back to driving with computer controls. It ships with [Patchright](/browsers/bot-detection/stealth) by default, so DOM-side calls are hardened against bot detection too.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
