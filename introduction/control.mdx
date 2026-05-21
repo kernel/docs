@@ -1,13 +1,13 @@
 ---
 title: "Control"
-description: "Drive the browser with computer controls, CDP, or WebDriver BiDi"
+description: "Drive the browser with computer use, CDP, or WebDriver BiDi"
 ---
 
-Kernel browsers expose three control primitives. For agents, we recommend [computer controls](/browsers/computer-controls) — they match how computer-use models actually drive a computer, and they sidestep the bot-detection surface that CDP introduces.
+Kernel browsers expose three control primitives. For agents, we recommend [computer use](/browsers/computer-controls) — the primitives match how computer-use models were trained to drive a computer, and they sidestep the bot-detection surface that CDP introduces.
 
 <Tabs>
-  <Tab title="Computer Controls">
-    OS-level mouse, keyboard, and screen — the primitives a computer-use model already speaks (screenshot, click, type, key, scroll, drag). No CDP or WebDriver connection required, so there's no protocol fingerprint to leak. Ideal for [Claude](/integrations/computer-use/anthropic), [OpenAI](/integrations/computer-use/openai), or [Gemini](/integrations/computer-use/gemini) computer-use loops.
+  <Tab title="Computer Use">
+    Kernel's [Computer Controls](/browsers/computer-controls) API exposes OS-level mouse, keyboard, and screen primitives — the surface a computer-use model already knows how to drive (screenshot, click, type, key, scroll, drag). No CDP or WebDriver connection required, so there's no protocol fingerprint to leak. Ideal for [Claude](/integrations/computer-use/anthropic), [OpenAI](/integrations/computer-use/openai), or [Gemini](/integrations/computer-use/gemini) computer-use loops.
 
     <CodeGroup>
     ```typescript Typescript/Javascript
@@ -108,9 +108,9 @@ Kernel browsers expose three control primitives. For agents, we recommend [compu
   </Tab>
 </Tabs>
 
-## Why computer controls for agents
+## Why computer use for agents
 
-Computer controls are built to match how computer-use models were trained — the same primitives the model emits (screenshot, click at coords, type, key, scroll, drag) map 1:1 onto Kernel's API. There's no harness translating model output into framework calls.
+Kernel's computer controls are built to match how computer-use models were trained — the same primitives the model emits (screenshot, click at coords, type, key, scroll, drag) map 1:1 onto the API. There's no harness translating model output into framework calls.
 
 - **Native fit.** Screenshot, click, type, key, scroll, drag — the primitives the model already speaks. Kernel uses these same controls in its own [managed auth](/auth/overview) agent.
 - **Faster screenshots.** Captures bypass CDP, which removes the largest source of latency in a vision loop.
@@ -118,7 +118,7 @@ Computer controls are built to match how computer-use models were trained — th
 - **Human-like input.** OS-level events with Bézier-curve mouse paths, variable typing speed, and configurable mistype rate.
 - **Not DOM-limited.** Screenshots capture the full VM, so the agent can see and interact with native dialogs, canvas elements, iframes, and PDFs — not just things you can address with a selector.
 
-## Computer controls + Playwright execution
+## Computer use + Playwright execution
 
 The two things computer controls don't do natively: read the DOM, and take a full-page screenshot. The recommended pattern for agents is **computer controls for interaction, [Playwright execution](/browsers/playwright-execution) as a DOM-reading tool** when the agent needs structured data.
 
