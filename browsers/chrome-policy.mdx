@@ -61,31 +61,12 @@ import Kernel from '@onkernel/sdk';
 const kernel = new Kernel();
 
 const pool = await kernel.browserPools.create({
-  name: "my-configured-pool",
+  name: "my-pool",
   size: 5,
   chrome_policy: {
-    HomepageLocation: "https://kernel.sh",
-    HomepageIsNewTabPage: false,
-    ShowHomeButton: true,
-    NewTabPageLocation: "https://kernel.sh/docs",
-    RestoreOnStartup: 4,
-    RestoreOnStartupURLs: ["https://kernel.sh"],
-    BookmarkBarEnabled: true,
-    ManagedBookmarks: [
-      { toplevel_name: "Company Resources" },
-      { name: "Dashboard", url: "https://example.com/dashboard" },
-      { name: "Documentation", url: "https://example.com/docs" },
-      {
-        name: "Tools",
-        children: [
-          { name: "Jira Board", url: "https://example.com/jira" },
-          { name: "Slack", url: "https://example.com/slack" },
-          { name: "GitHub PRs", url: "https://example.com/github" },
-          { name: "Runbooks", url: "https://example.com/runbooks" }
-        ]
-      }
-    ]
-  }
+    DownloadBubbleEnabled: false,
+    HomepageLocation: "https://example.com",
+  },
 });
 ```
 
@@ -95,31 +76,12 @@ from kernel import Kernel
 kernel = Kernel()
 
 pool = kernel.browser_pools.create(
-    name="my-configured-pool",
+    name="my-pool",
     size=5,
     chrome_policy={
-        "HomepageLocation": "https://kernel.sh",
-        "HomepageIsNewTabPage": False,
-        "ShowHomeButton": True,
-        "NewTabPageLocation": "https://kernel.sh/docs",
-        "RestoreOnStartup": 4,
-        "RestoreOnStartupURLs": ["https://kernel.sh"],
-        "BookmarkBarEnabled": True,
-        "ManagedBookmarks": [
-            {"toplevel_name": "Company Resources"},
-            {"name": "Dashboard", "url": "https://example.com/dashboard"},
-            {"name": "Documentation", "url": "https://example.com/docs"},
-            {
-                "name": "Tools",
-                "children": [
-                    {"name": "Jira Board", "url": "https://example.com/jira"},
-                    {"name": "Slack", "url": "https://example.com/slack"},
-                    {"name": "GitHub PRs", "url": "https://example.com/github"},
-                    {"name": "Runbooks", "url": "https://example.com/runbooks"}
-                ]
-            }
-        ]
-    }
+        "DownloadBubbleEnabled": False,
+        "HomepageLocation": "https://example.com",
+    },
 )
 ```
 </CodeGroup>
