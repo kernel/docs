@@ -9,6 +9,25 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="May 21" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added auto standby to browser pool instances — pools can now automatically suspend when idle and resume on the next incoming request, reducing costs without manual intervention.
+- Launched new browser configuration options on `browsers.create()` and browser pool definitions: [`chrome_policy`](/browsers/pools/policy-json) and `start_url` for opening directly to a specified URL on launch. The corresponding `--start-url` flag is available in the [CLI](https://github.com/kernel/cli).
+- Exposed full [Projects](/info/projects) CRUD in the public API, so projects can be created, updated, and deleted programmatically alongside the existing list endpoint.
+- Managed auth improvements: Added health check and automatic re-authentication controls to the [managed auth API](/auth/overview), letting you configure check intervals and reauth triggers per connection. Sessions are now automatically recorded — when a connection enters `NEEDS_AUTH` on the dashboard, a "View last login attempt" link routes directly to the session replay, and /auth rows now show a re-auth capability chip. Also, broader SSO and OAuth provider coverage, support for Google's two-step mobile prompt flow, per-connection post-login wait configuration (`post_login.wait_ms`), automatic SSO provider brand icons in auth dialogs, MFA alternatives displayed on the external action waiting screen, and a post-login browser refresh before the profile snapshot is captured for cleaner saved sessions.
+- Extended `proxy.check()` with an optional `url` parameter for testing reachability against a specific target domain before assigning the proxy. This is useful for catching proxies that pass generic health checks but are blocked on your target site.
+- End of life'd persistent browsers. If you were using persistence, we suggest [`timeout_seconds`](/browsers/termination) with [Profiles](/auth/profiles).
+
+## Documentation updates
+
+- Added a new [hCaptcha](/browsers/bot-detection/hcaptcha) page documenting beta support for hCaptcha solving.
+- Refreshed [managed auth](/auth/overview) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
+- Clarified that managed residential proxy IPs are stable within a session but are not guaranteed to persist across sessions.
+- Updated the [Yutori integration guide](/integrations/computer-use/yutori) to Navigator n1.5.
+- Clarified that profile updates do not propagate to idle browser pool instances — pools must be recycled for profile changes to take effect.
+</Update>
+
 <Update label="May 8" tags={["Product", "Docs"]}>
 ## Product updates
 
