@@ -163,11 +163,6 @@ If you're reaching for Playwright, prefer the execution API over `connectOverCDP
 
 Computer controls drive the browser the way a person would — they don't speak the programmatic API surface. Anything you'd reach for the DOM or Playwright client for (reading text and attributes, `page.goto`, file uploads, cookie or storage access, switching tabs) belongs on the [playwright execution](/browsers/playwright-execution) side. The recommended pattern for agents is computer controls for interaction, playwright execution as a tool the agent can call when it needs structured data or a programmatic action.
 
-A couple of patterns this enables:
-
-- **Checkpoint between steps.** After a step you can't verify from a screenshot — a login, a cart add, a multi-step form — use playwright execution to assert cookies or DOM state before letting the agent continue. Cheaper than another screenshot round-trip and harder to hallucinate around.
-- **Drop the agent once selectors are stable.** The agent's job was finding the right things to click and extract. Once you have stable selectors, the next million requests don't need a model — hit URLs directly via playwright execution.
-
 <CodeGroup>
 ```typescript Typescript/Javascript
 const response = await kernel.browsers.playwright.execute(
