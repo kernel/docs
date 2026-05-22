@@ -35,6 +35,31 @@ print(kernel_browser.session_id)
 ```
 </CodeGroup>
 
+### Customizing the browser
+
+`browsers.create()` accepts options to configure the session at launch — for example, [`chrome_policy`](/browsers/chrome-policy) to apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) and `start_url` to open a specific URL when the browser starts.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  start_url: "https://example.com",
+  chrome_policy: {
+    HomepageLocation: "https://kernel.sh",
+    DownloadBubbleEnabled: false,
+  },
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    start_url="https://example.com",
+    chrome_policy={
+        "HomepageLocation": "https://kernel.sh",
+        "DownloadBubbleEnabled": False,
+    },
+)
+```
+</CodeGroup>
 
 ## 2. Connect to the browser
 
