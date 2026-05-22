@@ -1,11 +1,11 @@
 ---
 title: "custom chrome policies"
-description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
+description: "Apply Chrome enterprise policies to every browser in a reserved pool"
 ---
 
-Browser pools accept an optional [`chrome_policy`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) object that lets you apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, bookmarks, and other browser-level settings.
+Browser pools accept an optional [`chrome_policy`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) object that applies [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool. The same field is also available on on-demand browsers — see [Chrome policies](/browsers/chrome-policy) for the general reference, supported keys, and on-demand usage.
 
-## Setting chrome policies
+## Setting chrome policies on a pool
 
 Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool. Keys are Chrome policy names and values are the corresponding settings.
 
@@ -112,21 +112,6 @@ You can update `chrome_policy` on an existing pool. Pass `discard_all_idle: true
 }
 ```
 
-## Example policies
-
-The example above demonstrates setting a default homepage and managed bookmarks. Here's what each policy does:
-
-| Policy | Type | Description |
-| --- | --- | --- |
-| `HomepageLocation` | `string` | URL loaded when clicking the home button |
-| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page |
-| `ShowHomeButton` | `boolean` | Shows the home button in the toolbar |
-| `NewTabPageLocation` | `string` | URL shown when opening a new tab |
-| `RestoreOnStartup` | `integer` | Set to `4` to open a specific list of URLs on browser startup |
-| `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4` |
-| `BookmarkBarEnabled` | `boolean` | Shows the bookmark bar |
-| `ManagedBookmarks` | `array` | Pre-configured bookmarks. Supports folders via nested `children` arrays |
-
 ## Available policies
 
-Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
+See [Chrome policies](/browsers/chrome-policy#example-policies) for a reference of commonly used policy keys. Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object.

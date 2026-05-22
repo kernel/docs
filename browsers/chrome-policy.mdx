@@ -1,0 +1,143 @@
+---
+title: "Chrome policies"
+description: "Customize Chrome behavior on Kernel browsers using Chrome enterprise policies"
+---
+
+Kernel browsers accept an optional `chrome_policy` object that lets you apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to the browser at launch. Use this to control startup behavior, default homepages, bookmarks, download UI, notifications, and other browser-level settings.
+
+`chrome_policy` is supported on:
+
+- [`browsers.create()`](https://kernel.sh/docs/api-reference/browsers/create-a-browser#body-chrome-policy) — on-demand browser sessions
+- [`browserPools.create()`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) and [`browserPools.update()`](https://kernel.sh/docs/api-reference/browser-pools/update-a-browser-pool#body-chrome-policy) — reserved browser pools
+
+Keys are Chrome policy names and values are the corresponding settings.
+
+## On-demand browsers
+
+Pass `chrome_policy` when creating an on-demand browser. The policy is applied at session creation time.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({
+  chrome_policy: {
+    HomepageLocation: "https://kernel.sh",
+    HomepageIsNewTabPage: false,
+    ShowHomeButton: true,
+    DownloadBubbleEnabled: false,
+  },
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(
+    chrome_policy={
+        "HomepageLocation": "https://kernel.sh",
+        "HomepageIsNewTabPage": False,
+        "ShowHomeButton": True,
+        "DownloadBubbleEnabled": False,
+    },
+)
+```
+</CodeGroup>
+
+The policy is echoed on `GET /browsers/{id}` and `GET /browsers` responses so you can verify what was applied.
+
+## Reserved browser pools
+
+Pass `chrome_policy` when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool. Every browser in the pool launches with the policy applied. See [Custom chrome policies on pools](/browsers/pools/policy-json) for the pool-specific update flow (including `discard_all_idle`).
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const pool = await kernel.browserPools.create({
+  name: "my-configured-pool",
+  size: 5,
+  chrome_policy: {
+    HomepageLocation: "https://kernel.sh",
+    HomepageIsNewTabPage: false,
+    ShowHomeButton: true,
+    NewTabPageLocation: "https://kernel.sh/docs",
+    RestoreOnStartup: 4,
+    RestoreOnStartupURLs: ["https://kernel.sh"],
+    BookmarkBarEnabled: true,
+    ManagedBookmarks: [
+      { toplevel_name: "Company Resources" },
+      { name: "Dashboard", url: "https://example.com/dashboard" },
+      { name: "Documentation", url: "https://example.com/docs" },
+      {
+        name: "Tools",
+        children: [
+          { name: "Jira Board", url: "https://example.com/jira" },
+          { name: "Slack", url: "https://example.com/slack" },
+          { name: "GitHub PRs", url: "https://example.com/github" },
+          { name: "Runbooks", url: "https://example.com/runbooks" }
+        ]
+      }
+    ]
+  }
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+pool = kernel.browser_pools.create(
+    name="my-configured-pool",
+    size=5,
+    chrome_policy={
+        "HomepageLocation": "https://kernel.sh",
+        "HomepageIsNewTabPage": False,
+        "ShowHomeButton": True,
+        "NewTabPageLocation": "https://kernel.sh/docs",
+        "RestoreOnStartup": 4,
+        "RestoreOnStartupURLs": ["https://kernel.sh"],
+        "BookmarkBarEnabled": True,
+        "ManagedBookmarks": [
+            {"toplevel_name": "Company Resources"},
+            {"name": "Dashboard", "url": "https://example.com/dashboard"},
+            {"name": "Documentation", "url": "https://example.com/docs"},
+            {
+                "name": "Tools",
+                "children": [
+                    {"name": "Jira Board", "url": "https://example.com/jira"},
+                    {"name": "Slack", "url": "https://example.com/slack"},
+                    {"name": "GitHub PRs", "url": "https://example.com/github"},
+                    {"name": "Runbooks", "url": "https://example.com/runbooks"}
+                ]
+            }
+        ]
+    }
+)
+```
+</CodeGroup>
+
+## Example policies
+
+| Policy | Type | Description |
+| --- | --- | --- |
+| `HomepageLocation` | `string` | URL loaded when clicking the home button |
+| `HomepageIsNewTabPage` | `boolean` | When `false`, the home button navigates to `HomepageLocation` instead of the new tab page |
+| `ShowHomeButton` | `boolean` | Shows the home button in the toolbar |
+| `NewTabPageLocation` | `string` | URL shown when opening a new tab |
+| `RestoreOnStartup` | `integer` | Set to `4` to open a specific list of URLs on browser startup |
+| `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4` |
+| `BookmarkBarEnabled` | `boolean` | Shows the bookmark bar |
+| `ManagedBookmarks` | `array` | Pre-configured bookmarks. Supports folders via nested `children` arrays |
+| `DownloadBubbleEnabled` | `boolean` | Controls the download bubble UI. Set to `false` to fall back to the classic download shelf |
+
+## Available policies
+
+Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
