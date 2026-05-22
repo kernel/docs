@@ -3,7 +3,7 @@ title: "Control"
 description: "Drive the browser with computer use, playwright execution, CDP, or WebDriver BiDi"
 ---
 
-Kernel browsers expose four control primitives. For agents, we recommend [computer use](/browsers/computer-controls) or [playwright execution](/browsers/playwright-execution) — both run co-located with the browser and avoid the bot-detection surface a direct CDP connection introduces.
+Kernel browsers expose four ways to drive a session. For agents, we recommend [computer use](/browsers/computer-controls) or [playwright execution](/browsers/playwright-execution) — both run co-located with the browser and avoid the bot-detection surface a direct CDP connection introduces.
 
 <Tabs>
   <Tab title="Computer Use">
@@ -50,7 +50,7 @@ Kernel browsers expose four control primitives. For agents, we recommend [comput
     </CodeGroup>
   </Tab>
   <Tab title="Playwright Execution">
-    Run arbitrary Playwright code in a fresh context inside the browser's VM. No local Playwright install, no CDP connection to manage — your code runs co-located with the browser and returns structured data back to your agent. Ships with [Patchright](/browsers/bot-detection/stealth) by default.
+    Run any Playwright code from anywhere — no local Playwright install, no Chromium download, no CDP connection to manage. Your code executes inside the browser's VM with the full Playwright API in scope and returns structured data back to your agent. Ships with [Patchright](/browsers/bot-detection/stealth) by default.
 
     <CodeGroup>
     ```typescript Typescript/Javascript
@@ -151,10 +151,10 @@ Kernel's computer controls are built to match how computer-use models were train
 
 ## Why playwright execution over a direct CDP connection
 
-If you're reaching for Playwright, prefer the execution API over `connectOverCDP`. Your code runs in the same VM as the browser, with the same Playwright API surface you already know.
+If you're reaching for Playwright, prefer the execution API over `connectOverCDP`. Same Playwright API you already know, none of the setup.
 
-- **Co-located.** No network hop between your code and the browser — faster, fewer flakes.
-- **No local install.** No `playwright` package to version-pin, no CDP connection to manage.
+- **Run from anywhere.** No `playwright` package to version-pin, no Chromium download, no CDP connection to manage. Send the code, get the result.
+- **Co-located with the browser.** Code runs in the same VM as the browser — no network hop between your script and the page, fewer flakes.
 - **Patchright by default.** Hardened against bot detection out of the box.
 - **Full Playwright API.** `page`, `context`, and `browser` are all in scope. Anything Playwright can do — DOM queries, file uploads, full-page screenshots — works here.
 - **Returns values.** `return` from your code and the result comes back in the response. Easy to use as an agent tool.
