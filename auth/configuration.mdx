@@ -12,6 +12,37 @@ Credentials are saved after every successful login, enabling automatic re-authen
 
 To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for more on automated authentication.
 
+Automatic re-authentication is gated by two boolean flags that both default to `true`:
+
+- `health_checks` — whether the connection runs periodic health checks at all. When `false`, the system never automatically verifies the session and never triggers reauth on its own.
+- `auto_reauth` — whether a failed scheduled health check is allowed to attempt re-authentication. When `false`, expired sessions are marked `NEEDS_AUTH` instead of being repaired automatically.
+
+`auto_reauth` only has an effect on the automatic flow when `health_checks` is also `true`, because reauth is triggered by a failing scheduled health check. Manually triggering a health check via the API still works regardless of `health_checks`.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_checks: false,
+  auto_reauth: false,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_checks=False,
+    auto_reauth=False,
+)
+```
+</CodeGroup>
+
+Both flags can be flipped on an existing connection with `auth.connections.update`; changes take effect immediately on the running connection.
+
+Setting `auto_reauth: true` is an opt-in only — it doesn't guarantee reauth is feasible. The system still needs what it requires to perform the login (e.g. saved credentials for the required fields). If those preconditions aren't met when a health check fails, the connection transitions to `NEEDS_AUTH` even with `auto_reauth: true`.
+
 ## Custom Login URL
 
 If the site's login page isn't at the default location, specify it when creating the connection:
@@ -206,11 +237,13 @@ After creating a connection, you can update its configuration with `auth.connect
 | `credential` | Update the linked credential |
 | `allowed_domains` | Update allowed redirect domains |
 | `health_check_interval` | Seconds between health checks (minimum varies by plan) |
+| `health_checks` | Whether periodic health checks run for this connection |
+| `auto_reauth` | Whether a failed scheduled health check is allowed to attempt automatic re-authentication |
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
-Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval` and `proxy` take effect immediately, so the next health check or reauth uses the new value.
+Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
 
 <CodeGroup>
 ```typescript TypeScript
