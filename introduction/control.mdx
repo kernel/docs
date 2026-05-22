@@ -161,7 +161,7 @@ If you're reaching for Playwright, prefer the execution API over `connectOverCDP
 
 ## Computer use + playwright execution
 
-The one thing computer controls don't do natively: read the DOM. The recommended pattern for agents is computer controls for interaction, [playwright execution](/browsers/playwright-execution) as a DOM-reading tool when the agent needs structured data.
+Computer controls drive the browser the way a person would — they don't speak the programmatic API surface. Anything you'd reach for the DOM or Playwright client for (reading text and attributes, `page.goto`, file uploads, cookie or storage access, switching tabs) belongs on the [playwright execution](/browsers/playwright-execution) side. The recommended pattern for agents is computer controls for interaction, playwright execution as a tool the agent can call when it needs structured data or a programmatic action.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
