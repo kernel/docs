@@ -1,0 +1,141 @@
+---
+title: "Create"
+description: "Spin up a cloud browser for your agent"
+---
+
+Kernel browsers are sandboxed Chromium instances that boot in under 30ms. Your agent creates them on demand, drives them, and tears them down — no infra to provision, no servers to run.
+
+## Your first browser
+
+<Info>
+  Install the Kernel SDK first:
+  - Typescript/Javascript: `npm install @onkernel/sdk`
+  - Python: `pip install kernel`
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+console.log(kernelBrowser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+print(kernel_browser.session_id)
+```
+
+```bash CLI
+kernel browsers create
+
+# or with a starting URL and stealth
+kernel browsers create --stealth --start-url https://example.com
+```
+</CodeGroup>
+
+The response includes everything you need to drive the browser: `session_id`, `cdp_ws_url`, `webdriver_ws_url`, and `browser_live_view_url`.
+
+## Pick the right shape
+
+Most of what you'll tune at creation time falls into four buckets:
+
+<Columns cols={2}>
+  <Card title="Headless vs headful" href="/browsers/headless">
+    headful (default) supports live view, replays, and better stealth — ideal for agent workflows on bot-detected sites. headless is lighter (1 gb vs 8 gb), good for simple scraping.
+  </Card>
+  <Card title="Stealth and proxies" href="/browsers/bot-detection/overview">
+    Turn on stealth mode and route through residential, ISP, or datacenter proxies when you're hitting sites with bot detection.
+  </Card>
+  <Card title="GPU acceleration" href="/browsers/gpu-acceleration">
+    Required for WebGL, video, and canvas-heavy workloads. Trades off standby support.
+  </Card>
+  <Card title="Profiles and auth" href="/auth/overview">
+    Persist cookies, storage, and logged-in sessions across runs with a [profile](/auth/profiles), or hand auth off to Kernel entirely with [managed auth](/auth/overview).
+  </Card>
+</Columns>
+
+## Lifecycle
+
+A browser stays alive as long as something is driving it — a CDP or WebDriver client, a [Live View](/browsers/live-view) viewer, or an in-flight [computer controls](/browsers/computer-controls) request. After five seconds with none of those active, it enters [standby](/browsers/standby) — state is preserved, billing stops. Once in standby, after the configurable timeout (60s by default) elapses it's deleted.
+
+We recommend you delete a browser explicitly when you're done with it:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```bash CLI
+kernel browsers delete <session-id>
+```
+</CodeGroup>
+
+See [Termination & timeouts](/browsers/termination#automatic-deletion-via-timeout) for the full set of teardown options.
+
+## Full example
+
+Putting it together — create a browser, run Playwright code inside it, tear down:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+
+try {
+  const response = await kernel.browsers.playwright.execute(
+    kernelBrowser.session_id,
+    {
+      code: `
+        await page.goto('https://www.onkernel.com');
+        return await page.title();
+      `,
+    },
+  );
+  console.log(response.result);
+} catch (error) {
+  console.error(error);
+} finally {
+  await kernel.browsers.deleteByID(kernelBrowser.session_id);
+}
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+
+try:
+    response = kernel.browsers.playwright.execute(
+        id=kernel_browser.session_id,
+        code="""
+          await page.goto('https://www.onkernel.com')
+          return await page.title()
+        """,
+    )
+    print(response.result)
+except Exception as e:
+    print(e)
+finally:
+    kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
+## What's next
+
+Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the four primitives Kernel exposes — computer use, playwright execution, CDP, and WebDriver BiDi — and when to reach for each.
