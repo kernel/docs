@@ -5,7 +5,7 @@ title: "Mobile Proxies"
 Mobile proxies route traffic through mobile carrier networks. Only recommended in advanced stealth use cases.
 
 <Info>
-Mobile carrier IPs often route through shared regional gateways. This means city and state geo-targeting may not match the provided location when searching the exit IP in a geolocation database.
+Mobile carrier IPs often route through shared regional gateways. Country targeting is the most reliable option; city and US state targeting are best-effort and may not match every third-party geolocation database.
 </Info>
 
 ## Configuration
@@ -51,7 +51,7 @@ browser = kernel.browsers.create(proxy_id=proxy.id)
 ## Configuration parameters
 
 - **`country`** - ISO 3166 country code. Must be provided when providing other targeting options.
-- **`state`** - Two-letter state code. Best-effort for mobile proxies.
+- **`state`** - US-only two-letter state code. Best-effort for mobile proxies.
 - **`city`** - Provider city alias, such as `brooklyn` or `chicago`. Best-effort for mobile proxies.
 - **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
@@ -95,7 +95,7 @@ If the city alias is not matched, the API returns examples from the target state
 
 ### Target by state
 
-Route traffic through a specific state:
+Route traffic through a US state:
 
 <CodeGroup>
 
