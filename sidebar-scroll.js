@@ -14,17 +14,14 @@
     return null;
   }
 
-  function findActiveLink(sb) {
-    return sb.querySelector(
-      "a[aria-current='page'], a[aria-current='true'], a[data-active='true']"
-    );
-  }
-
   function showActive() {
     var sb = findSidebar();
-    if (!sb) return false;
-    var link = findActiveLink(sb);
-    if (!link) return false;
+    if (!sb) return;
+    var link = sb.querySelector(
+      "a[aria-current='page'], a[aria-current='true'], a[data-active='true']"
+    );
+    // Guard against acting on the previous page's link before the DOM updates.
+    if (!link || link.pathname !== location.pathname) return;
 
     var sbRect = sb.getBoundingClientRect();
     var linkRect = link.getBoundingClientRect();
@@ -35,41 +32,19 @@
     } else if (linkRect.bottom > sbRect.bottom - margin) {
       sb.scrollTop += linkRect.bottom - (sbRect.bottom - margin);
     }
-    return true;
   }
 
-  // Sidebar may not be mounted yet after a route change; retry until it is,
-  // then re-apply once to survive a late re-render that resets scroll.
-  function pollShow() {
-    var attempts = 0;
-    var iv = setInterval(function () {
-      attempts++;
-      if (showActive()) {
-        clearInterval(iv);
-        setTimeout(showActive, 150);
-      } else if (attempts > 30) {
-        clearInterval(iv);
-      }
-    }, 50);
-  }
+  // Mintlify has no navigation event, but it rewrites data-current-path on
+  // <html> on every client-side route change. That mutation is our signal.
+  var html = document.documentElement;
+  var last = html.getAttribute("data-current-path");
+  new MutationObserver(function () {
+    var cur = html.getAttribute("data-current-path");
+    if (cur === last) return;
+    last = cur;
+    requestAnimationFrame(showActive);
+  }).observe(html, { attributes: true, attributeFilter: ["data-current-path"] });
 
-  var origPush = history.pushState;
-  history.pushState = function () {
-    var r = origPush.apply(this, arguments);
-    pollShow();
-    return r;
-  };
-  var origReplace = history.replaceState;
-  history.replaceState = function () {
-    var r = origReplace.apply(this, arguments);
-    pollShow();
-    return r;
-  };
-  window.addEventListener("popstate", pollShow);
-
-  if (document.readyState === "complete") {
-    pollShow();
-  } else {
-    window.addEventListener("load", pollShow);
-  }
+  if (document.readyState === "complete") showActive();
+  else window.addEventListener("load", showActive);
 })();
