@@ -12,9 +12,9 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="May 28" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Soft-launched [auth.md](https://kernel.sh/auth.md), a discovery file that lets agents sign up for a Kernel account or fetch an API key for an existing user account on their own. Point your agent at the URL and it can self-provision. Based on the new [auth.md protocol](https://workos.com/blog/auth-md) from WorkOS.
+- Soft-launched [auth.md](https://kernel.sh/auth.md), a discovery file that lets agents sign up for a Kernel account or fetch an API key for an existing user account on their own. Point your agent at the URL and it can self-provision. Based on the new auth.md protocol from WorkOS.
 - Added **browser telemetry** as a first-class request config. Pass `telemetry.enabled` (and per-category toggles) on `browsers.create()` or `browsers.update()` to capture telemetry for the session, and stream it live from `GET /browsers/{id}/telemetry/stream` (SSE).
-- Exposed [API key](/info/api-keys) management in the Node, Python, and Go SDKs. Create, list, retrieve, update, and delete keys on `/org/api_keys` programmatically.
+- Exposed API key management in the Node, Python, and Go SDKs. Create, list, retrieve, update, and delete keys on `/org/api_keys` programmatically.
 - Promoted `can_reauth_reason` on `ManagedAuth` to a typed enum (14 documented values like `requires_totp_without_secret`, `no_viable_plans`, `requires_external_action`) so SDK consumers can branch on it directly instead of string comparisons.
 - Added an **Auto Re-Auth** / **Needs Human** capability chip to each row on the dashboard `/auth` page, with a tooltip mapping each `can_reauth_reason` to a human-readable explanation.
 - Added TOTP secret key support to [managed auth](/auth/overview) credentials, so one-time passwords are generated automatically during login and re-authentication. No human intervention required.
