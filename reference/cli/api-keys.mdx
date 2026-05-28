@@ -1,0 +1,83 @@
+---
+title: "API Keys"
+---
+
+Manage [API keys](/info/api-keys) from the CLI.
+
+## `kernel api-keys create`
+
+Create an API key. By default, the new key is org-wide. Pass `--project-id` to create a key whose own access is scoped to that project.
+
+```bash
+kernel api-keys create \
+  --name staging-ci \
+  --days-to-expire 30 \
+  --project-id proj_staging_9f3k \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | API key name. Required. |
+| `--days-to-expire <days>` | Number of days until expiry, from `1` to `3650`. Omit for no expiry. |
+| `--project-id <project_id>` | Create a project-scoped API key for this project. Omit for org-wide. |
+| `--output json`, `-o json` | Output the raw JSON object, including the plaintext `key` on create. |
+
+<Info>
+  `--project-id` controls the access scope of the new API key. The global `--project` flag only scopes the CLI request you're making.
+</Info>
+
+## `kernel api-keys list`
+
+List API keys in the authenticated organization. API keys are masked.
+
+```bash
+kernel api-keys list --limit 20
+```
+
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Maximum number of results to return. |
+| `--offset <n>` | Number of results to skip. |
+| `--output json`, `-o json` | Output the raw JSON array. |
+
+## `kernel api-keys get <id>`
+
+Show one API key by ID. The response includes the masked key and metadata, not the plaintext key.
+
+```bash
+kernel api-keys get key_01jwv4tn5m8k3q2v7x9p0a1bc2
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw JSON object. |
+
+## `kernel api-keys update <id>`
+
+Rename an API key.
+
+```bash
+kernel api-keys update key_01jwv4tn5m8k3q2v7x9p0a1bc2 --name staging-ci-rotated
+```
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New API key name. Required. |
+| `--output json`, `-o json` | Output the raw JSON object. |
+
+## `kernel api-keys delete <id>`
+
+Delete an API key.
+
+```bash
+kernel api-keys delete key_01jwv4tn5m8k3q2v7x9p0a1bc2 --yes
+```
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip the confirmation prompt. |
+
+## Aliases
+
+You can also use `kernel api-key`, `kernel apikeys`, or `kernel apikey`.
