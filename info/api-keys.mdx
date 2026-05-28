@@ -37,9 +37,7 @@ kernel api-keys create \
 
 The command prints the plaintext `key` once. Store it in your secret manager before closing the terminal.
 
-<Info>
-  `--project-id` controls the access scope of the new API key. The global `--project` flag only scopes the CLI request you're making.
-</Info>
+The `--project-id` flag scopes the new API key itself. For every `kernel api-keys` command, flag, output option, alias, and the difference between `--project-id` and the global `--project` flag, see the [API keys CLI reference](/reference/cli/api-keys).
 
 ### SDKs
 
@@ -154,12 +152,7 @@ print(api_key.project_id, api_key.expires_at)
 ```
 </CodeGroup>
 
-You can do the same from the CLI:
-
-```bash
-kernel api-keys list
-kernel api-keys get key_01jwv4tn5m8k3q2v7x9p0a1bc2
-```
+You can also list and inspect keys from the CLI. See the [API keys CLI reference](/reference/cli/api-keys) for commands and flags.
 
 ## Rename or delete an API key
 
@@ -189,12 +182,7 @@ client.api_keys.delete("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
 ```
 </CodeGroup>
 
-Or use the CLI:
-
-```bash
-kernel api-keys update key_01jwv4tn5m8k3q2v7x9p0a1bc2 --name staging-ci-rotated
-kernel api-keys delete key_01jwv4tn5m8k3q2v7x9p0a1bc2 --yes
-```
+You can also rename and delete keys from the CLI. See the [API keys CLI reference](/reference/cli/api-keys) for commands and flags.
 
 ## Rotate a key
 
