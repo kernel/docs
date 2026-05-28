@@ -29,6 +29,10 @@ kernel_browser = kernel.browsers.create(
     telemetry={"enabled": True},
 )
 ```
+
+```bash CLI
+kernel browsers create --telemetry=all
+```
 </CodeGroup>
 
 To capture only specific categories, pass per-category flags under `telemetry.browser`:
@@ -61,9 +65,13 @@ kernel_browser = kernel.browsers.create(
     },
 )
 ```
+
+```bash CLI
+kernel browsers create --telemetry=console=on,network=on,page=off,interaction=off
+```
 </CodeGroup>
 
-Omitted categories default to enabled. Setting `enabled: false` at the top level disables all capture and can't be combined with category settings.
+Omitted categories default to enabled. Setting `enabled: false` at the top level (or `--telemetry=off` in the CLI) disables all capture and can't be combined with category settings.
 
 ## Consuming the stream
 
@@ -124,6 +132,29 @@ with httpx.stream(
 
 The stream stays open until the browser session terminates. A keepalive comment is sent every 15 seconds when no events arrive.
 
+### CLI streaming
+
+The CLI provides a dedicated `telemetry stream` command with built-in filtering:
+
+```bash
+# Stream all events (human-readable)
+kernel browsers telemetry stream <session-id>
+
+# Stream as NDJSON
+kernel browsers telemetry stream <session-id> -o json
+
+# Filter by category
+kernel browsers telemetry stream <session-id> --categories network,console
+
+# Filter by specific event types
+kernel browsers telemetry stream <session-id> --types network_request,network_response
+
+# Resume from a sequence number
+kernel browsers telemetry stream <session-id> --seq 42
+```
+
+The default output is tab-separated (`timestamp [category] type`). Use `-o json` for NDJSON when piping into other tools.
+
 ## Reconnecting
 
 Each SSE frame includes an `id:` field set to the event's sequence number. If your connection drops, pass the last received sequence number as `Last-Event-ID` to resume without gaps:
@@ -159,7 +190,7 @@ HTTP request and response metadata flowing through the browser.
 | `network_request` | Outgoing HTTP request (URL, method, headers, post data) |
 | `network_response` | HTTP response (status code, headers, body) |
 | `network_loading_failed` | Failed network request (error text, canceled flag) |
-| `network_idle` | Network has been idle (no in-flight requests) |
+| `network_idle` | No in-flight requests for 500 ms (matches Playwright's `networkidle` heuristic) |
 
 <Info>
 Network response bodies are truncated at 8 KB for structured types (JSON, XML, form data) and 4 KB for other text. Binary responses (images, fonts, media) are excluded.
@@ -177,18 +208,22 @@ Page lifecycle events from navigation through layout stability.
 | `page_tab_opened` | New tab or window opened |
 | `page_layout_shift` | Cumulative Layout Shift (CLS) detected |
 | `page_lcp` | Largest Contentful Paint recorded |
-| `page_layout_settled` | Layout has stabilized |
-| `page_navigation_settled` | Navigation fully settled |
+| `page_layout_settled` | No layout shifts for 1 s after `page_load` |
+| `page_navigation_settled` | Both `page_dom_content_loaded` and `page_layout_settled` have fired for the current navigation |
 
 ### Interaction
 
-User interaction events from clicks, typing, and scrolling.
+User interaction events from clicks, typing, and scrolling. Events are rate-limited to 20 per second per type to prevent flooding.
 
 | Type | Description |
 |---|---|
 | `interaction_click` | Mouse click (coordinates, target selector) |
 | `interaction_key` | Keyboard input |
-| `interaction_scroll_settled` | Scroll interaction settled |
+| `interaction_scroll_settled` | Scroll position stabilized after scrolling |
+
+<Info>
+Sensitive input fields (password fields, credit card numbers, SSNs) are automatically detected. Key events are suppressed entirely for these fields, and click events omit text content but still include position and selector.
+</Info>
 
 ### Monitor
 
@@ -196,13 +231,15 @@ Monitor events are always emitted regardless of category configuration. They rep
 
 | Type | Description |
 |---|---|
-| `monitor_screenshot` | Screenshot captured |
+| `monitor_screenshot` | Screenshot captured (triggered on page load and exceptions, rate-limited to one every 2 s) |
 | `monitor_disconnected` | CDP connection to Chrome lost — events may be dropped until reconnection |
-| `monitor_reconnected` | CDP connection re-established |
-| `monitor_reconnect_failed` | Reconnection failed after all retries — no further events will arrive |
+| `monitor_reconnected` | CDP connection re-established (auto-reconnect with exponential backoff up to 10 retries) |
+| `monitor_reconnect_failed` | All reconnection attempts exhausted — no further events will arrive |
 | `monitor_init_failed` | Telemetry initialization failed on the VM |
 
+<Warning>
 After a `monitor_disconnected` event, treat any in-progress computed state (like `network_idle` or `page_layout_settled`) as unreliable until `monitor_reconnected` arrives.
+</Warning>
 
 ## Updating telemetry on a running session
 
@@ -229,9 +266,13 @@ kernel.browsers.update(
     },
 )
 ```
+
+```bash CLI
+kernel browsers update <session-id> --telemetry=network=off
+```
 </CodeGroup>
 
-Omitted categories are left unchanged. To disable all telemetry on a running session, set `enabled: false`:
+Omitted categories are left unchanged — only the categories you specify are modified. To disable all telemetry on a running session, set `enabled: false`:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -245,6 +286,10 @@ kernel.browsers.update(
     kernel_browser.session_id,
     telemetry={"enabled": False},
 )
+```
+
+```bash CLI
+kernel browsers update <session-id> --telemetry=off
 ```
 </CodeGroup>
 
@@ -273,8 +318,22 @@ Every SSE frame carries a JSON object with this shape:
 }
 ```
 
-- `seq` — monotonic sequence number, also the SSE `id:` field
-- `event.ts` — event timestamp in Unix microseconds
-- `event.type` — discriminator for the event type
-- `event.source.kind` — where the event originated: `cdp`, `kernel_api`, `extension`, or `local_process`
-- `event.data` — event-specific payload, always includes the `BrowserEventContext` fields (`session_id`, `target_id`, `frame_id`, `url`, `nav_seq`) for CDP-sourced events
+| Field | Description |
+|---|---|
+| `seq` | Monotonic sequence number, also the SSE `id:` field. Use for reconnection via `Last-Event-ID`. |
+| `event.ts` | Event timestamp in Unix microseconds. |
+| `event.type` | Discriminator for the event type (e.g. `network_request`, `page_load`). |
+| `event.source.kind` | Where the event originated: `cdp` (Chrome DevTools), `kernel_api` (Kernel platform), `extension` (browser extension), or `local_process` (VM process). |
+| `event.data` | Event-specific payload. CDP-sourced events include context fields for correlation (see below). |
+
+### Event context fields
+
+CDP-sourced events include these fields in `event.data` for correlating events across tabs, navigations, and request chains:
+
+| Field | Description |
+|---|---|
+| `session_id` | Browser session ID. |
+| `target_id` | Chrome target (tab/worker) that produced the event. |
+| `frame_id` | Frame within the target. |
+| `url` | URL of the frame at the time of the event. |
+| `nav_seq` | Navigation sequence number within the frame. Increments on each navigation. |

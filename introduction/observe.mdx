@@ -153,6 +153,17 @@ kernel_browser = kernel.browsers.create(
 # Stream events via SSE
 # GET /v1/browsers/{session_id}/telemetry
 ```
+
+```bash CLI
+# Create with telemetry enabled
+kernel browsers create --telemetry=all
+
+# Stream events
+kernel browsers telemetry stream <session-id>
+
+# Stream as NDJSON, filtered to network events
+kernel browsers telemetry stream <session-id> -o json --categories network
+```
 </CodeGroup>
 
 Full reference: [Browser Telemetry](/browsers/telemetry).
