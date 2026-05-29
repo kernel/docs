@@ -16,7 +16,9 @@ Kernel supports four types of proxies:
 Datacenter has the fastest speed, while residential is least detectable. ISP is a balance between the two options, with less-flexible geotargeting. Kernel recommends to use the first option in the list that works for your use case.
 
 <Info>
-Datacenter and ISP proxies provide a **stable exit IP within a single browser session** — the IP does not rotate mid-session. Across separate sessions, however, Kernel does not guarantee the same exit IP. If you need a truly static IP that persists across every session (for example, an IP allowlist or a [managed auth](/auth/overview) connection whose health checks must egress from a single IP), use a [custom (BYO) proxy](/proxies/custom) pointed at infrastructure you control.
+ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP, and it only changes in rare ISP-initiated replacement events. This makes them suitable for IP allowlists or [managed auth](/auth/overview) health checks that must egress from a single IP.
+
+Datacenter proxies provide a **stable exit IP within a single browser session** — the IP does not rotate mid-session, but Kernel does not guarantee the same exit IP across separate sessions. For cross-session stability without using an ISP proxy, use a [custom (BYO) proxy](/proxies/custom) pointed at infrastructure you control.
 
 Residential proxies use **rotating exit IPs** that may change per connection — see [Residential Proxies](/proxies/residential#ip-rotation-behavior) for details.
 </Info>
