@@ -1,0 +1,84 @@
+---
+title: "Stripe Projects"
+description: "Provision Kernel cloud browsers and plans through the Stripe Projects CLI"
+---
+
+Kernel is a Stripe Projects provider. Use the Stripe CLI to link your Kernel account, choose a plan, and provision per-project API keys without using the dashboard for setup.
+
+This page is the provider-level LLM context for agents (`stripe projects llm-context`). Service-specific guidance for cloud browser API keys is in [Stripe Projects — browser API access](/integrations/stripe-projects-browser).
+
+## Service catalog
+
+Stripe service slugs are prefixed with `kernel/` (from the app manifest name).
+
+| Service ID | Kind | Scope | Summary |
+|------------|------|-------|---------|
+| `kernel/plan:developer` | plan | account | Free tier — $5/mo credits, 5 concurrent browsers |
+| `kernel/plan:hobbyist` | plan | account | $30/mo, $10/mo credits, 10 concurrent browsers (email KYC) |
+| `kernel/plan:startup` | plan | account | $200/mo, $50/mo credits, 150 concurrent browsers (email KYC) |
+| `kernel/browser:api-access` | deployable | project | API key for launching browsers in a Stripe Project |
+
+- Only **one plan** can be active per Kernel org at a time (`allowed_updates` defines upgrade/downgrade paths).
+- `browser:api-access` is **free** when any active plan is provisioned; otherwise it is usage-based ($0.01/min standard, $0.02/min stealth).
+
+## Common CLI flows
+
+```bash
+# Link Kernel to your Stripe Projects workspace
+stripe projects link kernel
+
+# Browse the catalog (confirm exact slugs before provisioning)
+stripe projects services list
+
+# Provision a paid plan (requires verified email / KYC)
+stripe projects add kernel/plan:hobbyist
+stripe projects add kernel/plan:startup
+
+# Provision a project-scoped API key (configuration: {"name": "production"})
+stripe projects add kernel/browser:api-access --config '{"name":"production"}'
+
+# Sync credentials into .env
+stripe projects env --pull
+
+# Rotate API key credentials
+stripe projects rotate kernel/browser:api-access
+
+# Open the Kernel dashboard
+stripe projects open kernel --purpose dashboard
+```
+
+Run `stripe projects services list` and copy the **exact** service slug from the output before `stripe projects add` — do not guess slugs.
+
+## Account and project mapping
+
+| Stripe | Kernel |
+|--------|--------|
+| Stripe account | Kernel organization (billing + linking) |
+| Stripe Project | Kernel project (API keys, sessions, pools, etc.) |
+| Plan resources | Org-wide subscription tier |
+| `browser:api-access` | Project-scoped API key |
+
+Each Stripe Project maps 1:1 to a Kernel project within the org. Resources provisioned for a new `project_id` create a Kernel project if needed.
+
+## Authentication
+
+New accounts use the **agentic credentials** flow: after `stripe projects link` / account request, Kernel returns bearer access and refresh tokens. Use `stripe projects env --pull` to load credentials locally.
+
+- **Dashboard (humans):** https://dashboard.onkernel.com
+- **Existing Kernel customers** with billing already on file may receive `payment_credentials: "provider"` when linking to avoid double-billing.
+
+## Billing and Shared Payment Tokens (SPT)
+
+Paid plans are charged through Stripe **Shared Payment Tokens** on the Metronome-managed Stripe customer.
+
+<Warning>
+The default SPT monthly spending limit is often **$50**. The Start-Up plan is **$200/mo**. Before upgrading to Start-Up, confirm the developer’s SPT limit covers the plan (`stripe projects billing show`) or ask them to raise the limit. Charges above the limit will fail.
+</Warning>
+
+## Full documentation
+
+- Doc index for agents: https://kernel.sh/docs/llms.txt
+- Create and connect browsers: https://kernel.sh/docs/introduction/create
+- API keys: https://kernel.sh/docs/info/api-keys
+- Pricing: https://kernel.sh/docs/info/pricing
+- Cursor / Claude skills: https://github.com/kernel/skills

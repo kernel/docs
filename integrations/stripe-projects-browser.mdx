@@ -1,0 +1,66 @@
+---
+title: "Stripe Projects — browser API access"
+description: "LLM context for the kernel/browser:api-access Stripe Projects service"
+---
+
+This page describes the **`kernel/browser:api-access`** deployable service provisioned through Stripe Projects.
+
+## What this resource is
+
+A **project-scoped Kernel API key** used to create and manage cloud browsers (CDP, Playwright, Computer Controls, etc.) for that Stripe Project’s Kernel project.
+
+## Provisioning
+
+```bash
+stripe projects add kernel/browser:api-access --config '{"name":"production"}'
+stripe projects env --pull
+```
+
+### Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | yes | Label for the API key (e.g. `production`, `staging`) |
+
+## After provisioning
+
+1. Run `stripe projects env --pull` to sync credentials into `.env` / `.projects/vault`.
+2. Use the Kernel API key from the environment (typically `KERNEL_API_KEY`) with the SDK or CLI.
+
+```typescript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel(); // uses KERNEL_API_KEY from env
+
+const browser = await kernel.browsers.create();
+```
+
+```bash
+kernel browsers create
+```
+
+## Pricing
+
+| Situation | Price |
+|-----------|--------|
+| No active Kernel plan on the org | Usage-based: **$0.01/min** (standard), **$0.02/min** (stealth) |
+| Active `plan:developer`, `plan:hobbyist`, or `plan:startup` | **Included** with plan (component pricing `free` under parent plan) |
+
+Provision a plan first when the developer needs predictable monthly credits and concurrency limits.
+
+## Operations
+
+```bash
+# Rotate credentials (invalidates old key)
+stripe projects rotate kernel/browser:api-access
+
+# Remove the resource
+stripe projects remove kernel/browser:api-access
+```
+
+## Further reading
+
+- [Stripe Projects (provider overview)](/integrations/stripe-projects)
+- [Create a browser](https://kernel.sh/docs/introduction/create)
+- [API keys](https://kernel.sh/docs/info/api-keys)
+- [Projects](https://kernel.sh/docs/info/projects)
