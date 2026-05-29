@@ -13,6 +13,10 @@ Managed Auth creates and maintains authenticated browser sessions for your AI ag
 
 <CodeGroup>
 ```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
 const auth = await kernel.auth.connections.create({
   domain: 'netflix.com',
   profile_name: 'netflix-user-123',
@@ -20,7 +24,11 @@ const auth = await kernel.auth.connections.create({
 ```
 
 ```python Python
-auth = await kernel.auth.connections.create(
+from kernel import Kernel
+
+kernel = Kernel()
+
+auth = kernel.auth.connections.create(
     domain="netflix.com",
     profile_name="netflix-user-123",
 )
@@ -52,16 +60,18 @@ if (state.status === 'AUTHENTICATED') {
 ```
 
 ```python Python
-login = await kernel.auth.connections.login(auth.id)
+import time
+
+login = kernel.auth.connections.login(auth.id)
 
 # Send user to login page
 print(f"Login URL: {login.hosted_url}")
 
 # Poll until complete
-state = await kernel.auth.connections.retrieve(auth.id)
+state = kernel.auth.connections.retrieve(auth.id)
 while state.flow_status == "IN_PROGRESS":
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
+    time.sleep(2)
+    state = kernel.auth.connections.retrieve(auth.id)
 
 if state.status == "AUTHENTICATED":
     print("Authenticated!")
@@ -74,23 +84,36 @@ if state.status == "AUTHENTICATED":
 
 <CodeGroup>
 ```typescript TypeScript
-const browser = await kernel.browsers.create({
+import { chromium } from 'playwright';
+
+const kernelBrowser = await kernel.browsers.create({
   profile: { name: 'netflix-user-123' },
   stealth: true,
 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const context = browser.contexts()[0];
+const page = context.pages()[0];
 
 // Navigate to the site—you're already logged in
 await page.goto('https://netflix.com');
 ```
 
 ```python Python
-browser = await kernel.browsers.create(
+from playwright.async_api import async_playwright
+
+kernel_browser = kernel.browsers.create(
     profile={"name": "netflix-user-123"},
     stealth=True,
 )
 
-# Navigate to the site—you're already logged in
-await page.goto("https://netflix.com")
+async with async_playwright() as playwright:
+    browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+    context = browser.contexts[0]
+    page = context.pages[0]
+
+    # Navigate to the site—you're already logged in
+    await page.goto("https://netflix.com")
 ```
 </CodeGroup>
 
