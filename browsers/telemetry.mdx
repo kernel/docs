@@ -159,12 +159,150 @@ The default output is tab-separated (`timestamp [category] type`). Use `-o json`
 
 Each SSE frame includes an `id:` field set to the event's sequence number. If your connection drops, pass the last received sequence number as `Last-Event-ID` to resume without gaps:
 
-```
-GET /v1/browsers/{id}/telemetry
-Last-Event-ID: 42
+<CodeGroup>
+```typescript Typescript/Javascript
+const lastSeq = 42; // last seq you successfully processed
+
+const response = await fetch(
+  `https://api.onkernel.com/v1/browsers/${kernelBrowser.session_id}/telemetry`,
+  {
+    headers: {
+      'Authorization': `Bearer ${process.env.KERNEL_API_KEY}`,
+      'Accept': 'text/event-stream',
+      'Last-Event-ID': String(lastSeq),
+    },
+  },
+);
 ```
 
+```python Python
+last_seq = 42  # last seq you successfully processed
+
+with httpx.stream(
+    "GET",
+    f"https://api.onkernel.com/v1/browsers/{kernel_browser.session_id}/telemetry",
+    headers={
+        "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
+        "Accept": "text/event-stream",
+        "Last-Event-ID": str(last_seq),
+    },
+) as response:
+    for line in response.iter_lines():
+        if not line.startswith("data: "):
+            continue
+        envelope = json.loads(line[6:])
+        print(envelope["event"]["type"], envelope["event"])
+```
+
+```bash CLI
+kernel browsers telemetry stream <session-id> --seq 42
+```
+</CodeGroup>
+
 Gaps in received `seq` values indicate dropped events.
+
+## Updating telemetry on a running session
+
+You can enable, disable, or reconfigure telemetry categories on an active session with a PATCH:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(kernelBrowser.session_id, {
+  telemetry: {
+    browser: {
+      network: { enabled: false },
+    },
+  },
+});
+```
+
+```python Python
+kernel.browsers.update(
+    kernel_browser.session_id,
+    telemetry={
+        "browser": {
+            "network": {"enabled": False},
+        },
+    },
+)
+```
+
+```bash CLI
+kernel browsers update <session-id> --telemetry=network=off
+```
+</CodeGroup>
+
+Omitted categories are left unchanged - only the categories you specify are modified. To disable all telemetry on a running session, set `enabled: false`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(kernelBrowser.session_id, {
+  telemetry: { enabled: false },
+});
+```
+
+```python Python
+kernel.browsers.update(
+    kernel_browser.session_id,
+    telemetry={"enabled": False},
+)
+```
+
+```bash CLI
+kernel browsers update <session-id> --telemetry=off
+```
+</CodeGroup>
+
+## Event body
+
+Every SSE frame carries a JSON object with this shape:
+
+```json
+{
+  "seq": 17,
+  "event": {
+    "ts": 1716900000000000,
+    "type": "console_log",
+    "source": {
+      "kind": "cdp",
+      "event": "Runtime.consoleAPICalled"
+    },
+    "data": {
+      "level": "log",
+      "text": "Page loaded successfully",
+      "args": ["Page loaded successfully"],
+      "url": "https://example.com",
+      "target_type": "page"
+    }
+  }
+}
+```
+
+| Field | Description |
+|---|---|
+| `seq` | Monotonic sequence number, also the SSE `id:` field. Use for reconnection via `Last-Event-ID`. |
+| `event.ts` | Event timestamp in Unix microseconds. |
+| `event.type` | Discriminator for the event type (e.g. `network_request`, `page_load`). |
+| `event.source.kind` | Where the event originated: `cdp` (Chrome DevTools), `kernel_api` (Kernel platform), `extension` (browser extension), or `local_process` (VM process). |
+| `event.data` | Event-specific payload. CDP-sourced events include context fields for correlation (see below). |
+
+### Shared context fields
+
+CDP-sourced events include these fields in `event.data` for correlating events across tabs, navigations, and request chains:
+
+| Field | Type | Description |
+|---|---|---|
+| `session_id` | string | CDP session identifier for the target connection |
+| `target_id` | string | Browser target identifier (stable across navigations within a tab) |
+| `target_type` | string | Target type: `page`, `background_page`, `service_worker`, `shared_worker`, or `other` |
+| `frame_id` | string | Frame within the target |
+| `loader_id` | string | Document loader identifier, resets on each navigation |
+| `url` | string | URL of the frame or request at the time of the event |
+| `nav_seq` | integer | Monotonically increasing navigation sequence number within the target |
+
+<Info>
+Monitor events (`monitor_*`) and `page_tab_opened` do not include shared context fields - they originate outside of a CDP session.
+</Info>
 
 ## Event types
 
@@ -336,7 +474,7 @@ No additional fields beyond the [shared context fields](#shared-context-fields).
 
 ### Interaction
 
-User interaction events from clicks, typing, and scrolling. Events are rate-limited to 20 per second per type to prevent flooding.
+Browser-native interaction events from clicks, typing, and scrolling inside the page. These capture DOM-level interactions, not [computer controls](/browsers/computer-controls) API calls. Events are rate-limited to 20 per second per type to prevent flooding.
 
 | Type | Description |
 |---|---|
@@ -421,106 +559,3 @@ Monitor events are always emitted regardless of category configuration. They rep
 <Warning>
 After a `monitor_disconnected` event, treat any in-progress computed state (like `network_idle` or `page_layout_settled`) as unreliable until `monitor_reconnected` arrives.
 </Warning>
-
-## Updating telemetry on a running session
-
-You can enable, disable, or reconfigure telemetry categories on an active session with a PATCH:
-
-<CodeGroup>
-```typescript Typescript/Javascript
-await kernel.browsers.update(kernelBrowser.session_id, {
-  telemetry: {
-    browser: {
-      network: { enabled: false },
-    },
-  },
-});
-```
-
-```python Python
-kernel.browsers.update(
-    kernel_browser.session_id,
-    telemetry={
-        "browser": {
-            "network": {"enabled": False},
-        },
-    },
-)
-```
-
-```bash CLI
-kernel browsers update <session-id> --telemetry=network=off
-```
-</CodeGroup>
-
-Omitted categories are left unchanged - only the categories you specify are modified. To disable all telemetry on a running session, set `enabled: false`:
-
-<CodeGroup>
-```typescript Typescript/Javascript
-await kernel.browsers.update(kernelBrowser.session_id, {
-  telemetry: { enabled: false },
-});
-```
-
-```python Python
-kernel.browsers.update(
-    kernel_browser.session_id,
-    telemetry={"enabled": False},
-)
-```
-
-```bash CLI
-kernel browsers update <session-id> --telemetry=off
-```
-</CodeGroup>
-
-## Event body
-
-Every SSE frame carries a JSON object with this shape:
-
-```json
-{
-  "seq": 17,
-  "event": {
-    "ts": 1716900000000000,
-    "type": "console_log",
-    "source": {
-      "kind": "cdp",
-      "event": "Runtime.consoleAPICalled"
-    },
-    "data": {
-      "level": "log",
-      "text": "Page loaded successfully",
-      "args": ["Page loaded successfully"],
-      "url": "https://example.com",
-      "target_type": "page"
-    }
-  }
-}
-```
-
-| Field | Description |
-|---|---|
-| `seq` | Monotonic sequence number, also the SSE `id:` field. Use for reconnection via `Last-Event-ID`. |
-| `event.ts` | Event timestamp in Unix microseconds. |
-| `event.type` | Discriminator for the event type (e.g. `network_request`, `page_load`). |
-| `event.source.kind` | Where the event originated: `cdp` (Chrome DevTools), `kernel_api` (Kernel platform), `extension` (browser extension), or `local_process` (VM process). |
-| `event.data` | Event-specific payload. CDP-sourced events include context fields for correlation (see below). |
-
-### Shared context fields
-
-CDP-sourced events include these fields in `event.data` for correlating events across tabs, navigations, and request chains:
-
-| Field | Type | Description |
-|---|---|---|
-| `session_id` | string | CDP session identifier for the target connection |
-| `target_id` | string | Browser target identifier (stable across navigations within a tab) |
-| `target_type` | string | Target type: `page`, `background_page`, `service_worker`, `shared_worker`, or `other` |
-| `frame_id` | string | Frame within the target |
-| `loader_id` | string | Document loader identifier, resets on each navigation |
-| `url` | string | URL of the frame or request at the time of the event |
-| `nav_seq` | integer | Monotonically increasing navigation sequence number within the target |
-
-<Info>
-Monitor events (`monitor_*`) and `page_tab_opened` do not include shared context fields - they originate outside of a CDP session.
-</Info>
