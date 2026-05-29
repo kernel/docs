@@ -3,7 +3,7 @@ title: "Observe"
 description: "Watch your agent work, debug what went wrong"
 ---
 
-Browser agents fail in ways that don't show up in logs. Kernel gives you four ways to see what's actually happening — live, after the fact, frame by frame, and line by line.
+Browser agents fail in ways that don't show up in logs. Kernel gives you four ways to see what's actually happening - live, after the fact, frame by frame, and line by line.
 
 ## Live view
 
@@ -37,7 +37,7 @@ Add `?readOnly=true` for a non-interactive view, or enable [kiosk mode](/browser
 
 ## Replays
 
-Replays are MP4 recordings you start and stop on demand — capture as many clips per session as you need. They're the right tool for post-hoc debugging: a failed run gives you one or more videos to scrub through, share, or attach to a bug report.
+Replays are MP4 recordings you start and stop on demand - capture as many clips per session as you need. They're the right tool for post-hoc debugging: a failed run gives you one or more videos to scrub through, share, or attach to a bug report.
 
 Replays can also be enabled on managed auth sessions, so you can [debug failed logins](https://www.kernel.sh/docs/auth/configuration#record-sessions-for-debugging) the same way.
 
@@ -79,7 +79,7 @@ Full reference: [Replays](/browsers/replays).
 
 ## Screenshots
 
-Pull a frame at any moment with computer controls — useful for snapshotting state at decision points, attaching to traces, or feeding back into a vision model.
+Pull a frame at any moment with computer controls - useful for snapshotting state at decision points, attaching to traces, or feeding back into a vision model.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -100,6 +100,50 @@ kernel browsers computer screenshot <session-id> --to screenshot.png
 </CodeGroup>
 
 For full-page captures, use [Playwright execution](/browsers/playwright-execution#screenshots) instead.
+
+## Browser telemetry
+
+Stream real-time events from the browser - console output, network requests, page lifecycle, and interactions - over Server-Sent Events. Enable it at creation, tune which categories you capture, and pipe the stream into your own observability stack.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  telemetry: { enabled: true },
+});
+
+const response = await fetch(
+  `https://api.onkernel.com/v1/browsers/${kernelBrowser.session_id}/telemetry`,
+  {
+    headers: {
+      'Authorization': `Bearer ${process.env.KERNEL_API_KEY}`,
+      'Accept': 'text/event-stream',
+    },
+  },
+);
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    telemetry={"enabled": True},
+)
+
+# Stream events via SSE
+# GET /v1/browsers/{session_id}/telemetry
+```
+
+```bash CLI
+# Create with telemetry enabled
+kernel browsers create --telemetry=all
+
+# Stream events
+kernel browsers telemetry stream <session-id>
+
+# Stream as NDJSON, filtered to network events
+kernel browsers telemetry stream <session-id> -o json --categories network
+```
+</CodeGroup>
+
+Full reference: [Browser Telemetry](/browsers/telemetry).
 
 ## Invocation logs
 
@@ -128,5 +172,5 @@ Full reference: [Logs](/apps/logs).
 
 - **Building the agent?** Keep a [live view](/browsers/live-view) tab open while you iterate.
 - **Debugging a failure?** Capture a [replay](/browsers/replays) for the run, then watch the video.
-- **Instrumenting the agent itself?** Drop [screenshots](/browsers/computer-controls#take-screenshots) and [logs](/apps/logs) into your traces at the points that matter.
+- **Instrumenting the agent itself?** Stream [browser telemetry](/browsers/telemetry) into your pipeline, or drop [screenshots](/browsers/computer-controls#take-screenshots) and [logs](/apps/logs) into your traces at the points that matter.
 - **Putting a human in the loop?** Embed the [live view](/browsers/live-view#embedding-in-an-iframe) in your own UI.

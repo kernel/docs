@@ -22,6 +22,7 @@ Create a new browser session.
 | `--headless` | Launch without GUI/VNC access. |
 | `--kiosk` | Launch in Chrome kiosk mode. |
 | `--start-url <url>` | Initial page to open on launch. |
+| `--telemetry <config>` | Enable browser telemetry. `all` enables all categories, `off` disables, or use per-category config like `network=on,page=off`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel browsers delete <session-id>`
@@ -44,6 +45,25 @@ Get detailed information about a browser session.
 | Flag | Description |
 |------|-------------|
 | `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel browsers update <session-id>`
+Update an existing browser session.
+
+| Flag | Description |
+|------|-------------|
+| `--telemetry <config>` | Update telemetry config. `all` enables all categories, `off` disables, or use per-category config like `network=on,page=off`. Unspecified categories retain their current state. |
+
+## Browser telemetry
+
+### `kernel browsers telemetry stream <session-id>`
+Stream live telemetry events from a browser session.
+
+| Flag | Description |
+|------|-------------|
+| `--categories <list>` | Comma-separated categories to include (e.g. `network,console,page,interaction,system`). |
+| `--types <list>` | Comma-separated event types to include (e.g. `network_request,console_error`). |
+| `--seq <n>` | Resume from this sequence number. `0` replays from retention start, positive values resume from that point. |
+| `--output json`, `-o json` | Output NDJSON (one compact JSON object per line). Default is tab-separated `timestamp [category] type`. |
 
 ### `kernel browsers ssh <session-id>`
 Open an interactive SSH session to a browser VM. Requires [websocat](https://github.com/vi/websocat) to be installed locally.
