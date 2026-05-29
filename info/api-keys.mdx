@@ -1,0 +1,135 @@
+---
+title: "API Keys"
+description: "Create, scope, rotate, and delete Kernel API keys"
+---
+
+An API key is the credential your server, script, or CI job uses to call Kernel without an interactive login. Treat it like a password: keep it out of client-side code, store it in a secret manager, and rotate it when access changes.
+
+Kernel only returns the plaintext key once, when you create it. Save the `key` value immediately. After that, Kernel only shows the masked value.
+
+## Before you start
+
+You need one existing Kernel credential to create another API key:
+
+- Set `KERNEL_API_KEY` before running the SDK examples.
+
+API keys can be **org** or **project** scoped:
+
+- Omit `project_id` to create an org-scoped key that can access resources across your organization.
+- Set `project_id` to create a project-scoped key that can only access resources in that project.
+- When you authenticate with a project-scoped key, you can only create another project-scoped key for the same project.
+
+## Create an API key
+
+Use the SDKs when your backend needs to provision keys for environments, customers, or automation jobs.
+
+### SDKs
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+const apiKey = await kernel.apiKeys.create({
+  name: 'staging-ci',
+  days_to_expire: 30,
+  project_id: 'proj_staging_9f3k',
+});
+
+console.log(apiKey.key); // Save this value now. Kernel won't show it again.
+console.log(apiKey.id, apiKey.masked_key);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+api_key = client.api_keys.create(
+    name="staging-ci",
+    days_to_expire=30,
+    project_id="proj_staging_9f3k",
+)
+
+print(api_key.key)  # Save this value now. Kernel won't show it again.
+print(api_key.id, api_key.masked_key)
+```
+</CodeGroup>
+
+## List and inspect API keys
+
+List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, and expiry metadata, but they don't include the plaintext key.
+
+<CodeGroup>
+```typescript TypeScript
+for await (const apiKey of kernel.apiKeys.list({ limit: 20 })) {
+  console.log(apiKey.id, apiKey.name, apiKey.masked_key);
+}
+
+const apiKey = await kernel.apiKeys.retrieve('key_01jwv4tn5m8k3q2v7x9p0a1bc2');
+console.log(apiKey.project_id, apiKey.expires_at);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+for api_key in client.api_keys.list(limit=20):
+    print(api_key.id, api_key.name, api_key.masked_key)
+
+api_key = client.api_keys.retrieve("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+print(api_key.project_id, api_key.expires_at)
+```
+</CodeGroup>
+
+## Rename or delete an API key
+
+Rename a key when the owner or purpose changes. Delete a key when the workload no longer needs access.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.apiKeys.update('key_01jwv4tn5m8k3q2v7x9p0a1bc2', {
+  name: 'staging-ci-rotated',
+});
+
+await kernel.apiKeys.delete('key_01jwv4tn5m8k3q2v7x9p0a1bc2');
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+client.api_keys.update(
+    "key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+    name="staging-ci-rotated",
+)
+
+client.api_keys.delete("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+```
+</CodeGroup>
+
+## Rotate a key
+
+Rotate by creating the replacement first, then deleting the old key after your workload has switched over.
+
+1. Create a new API key with the same scope.
+2. Store the new plaintext key in your secret manager.
+3. Deploy or restart the workload that uses `KERNEL_API_KEY`.
+4. Verify the workload can call Kernel.
+5. Delete the old API key.
+
+## Troubleshooting
+
+| Error | What it means | What to do |
+| --- | --- | --- |
+| `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
+| `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
+| `404 Not Found` | The project doesn't exist or the caller can't access it. | Check the project ID. If you're using a project-scoped key, create keys only for that same project. |

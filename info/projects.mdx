@@ -79,7 +79,7 @@ other = kernel.browsers.create(
 API keys can be **org-wide** or **project-scoped**.
 
 - **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
-- **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard and pick the target project when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
+- **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard, the [CLI](/reference/cli/api-keys), an SDK, or the [API keys guide](/info/api-keys), and pass the target `project_id` when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
 
 ### OAuth
 
