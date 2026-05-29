@@ -3,7 +3,7 @@ title: "Browser Telemetry"
 description: "Stream real-time console, network, page, and interaction events from your browser sessions"
 ---
 
-Browser telemetry gives you a real-time stream of everything happening inside a session — console output, network requests, page lifecycle events, and user interactions. Events are delivered over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), so you can process them as they happen or feed them into your own observability pipeline.
+Browser telemetry gives you a real-time stream of everything happening inside a session - console output, network requests, page lifecycle events, and user interactions. Events are delivered over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), so you can process them as they happen or feed them into your own observability pipeline.
 
 ## Enabling telemetry
 
@@ -75,7 +75,7 @@ Omitted categories default to enabled. Setting `enabled: false` at the top level
 
 ## Consuming the stream
 
-The telemetry endpoint streams events as SSE. Each frame carries a JSON envelope with a monotonic sequence number and the event payload:
+The telemetry endpoint streams events as SSE. Each frame carries a JSON object with a monotonic sequence number and the event payload:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -166,7 +166,7 @@ Last-Event-ID: 42
 
 Gaps in received `seq` values indicate dropped events.
 
-## Event categories
+## Event types
 
 Telemetry events fall into four configurable categories plus a set of monitor events that are always emitted.
 
@@ -179,7 +179,28 @@ Console output and uncaught exceptions from the browser.
 | `console_log` | `console.log`, `console.info`, `console.warn`, and other non-error console calls |
 | `console_error` | `console.error` calls and uncaught JavaScript exceptions |
 
-Console events include the message text, all arguments coerced to strings, and the JavaScript call stack when available.
+#### `console_log` data
+
+| Field | Type | Description |
+|---|---|---|
+| `level` | string | Console API method (`log`, `info`, `warn`, `debug`, `dir`, etc.) |
+| `text` | string | First argument coerced to string |
+| `args` | string[] | All arguments coerced to strings |
+| `stack_trace` | object | JavaScript call stack (when available) |
+
+#### `console_error` data
+
+Emitted from two sources: `console.error()` calls and uncaught exceptions. Some fields are only present for one source.
+
+| Field | Type | Description |
+|---|---|---|
+| `text` | string | Error message text |
+| `stack_trace` | object | Call stack |
+| `level` | string | Always `"error"` (console.error only) |
+| `args` | string[] | All arguments coerced to strings (console.error only) |
+| `line` | integer | Line number (uncaught exceptions only) |
+| `column` | integer | Column number (uncaught exceptions only) |
+| `source_url` | string | Script URL (uncaught exceptions only) |
 
 ### Network
 
@@ -192,9 +213,49 @@ HTTP request and response metadata flowing through the browser.
 | `network_loading_failed` | Failed network request (error text, canceled flag) |
 | `network_idle` | No in-flight requests for 500 ms (matches Playwright's `networkidle` heuristic) |
 
+#### `network_request` data
+
+| Field | Type | Description |
+|---|---|---|
+| `request_id` | string | Unique request identifier within the session |
+| `method` | string | HTTP method (GET, POST, etc.) |
+| `document_url` | string | URL of the document that initiated the request |
+| `headers` | object | Request headers |
+| `initiator_type` | string | What triggered the request (`script`, `parser`, `preload`, `other`) |
+| `resource_type` | string | Resource type (`Document`, `Fetch`, `XHR`, `Script`, `Stylesheet`, `Image`, etc.) |
+| `post_data` | string | Request body for POST/PUT requests |
+| `is_redirect` | boolean | True if this request results from a redirect |
+| `redirect_url` | string | Original URL before redirect |
+
+#### `network_response` data
+
+| Field | Type | Description |
+|---|---|---|
+| `request_id` | string | Matches the originating `network_request` |
+| `method` | string | HTTP method of the original request |
+| `status` | integer | HTTP status code |
+| `status_text` | string | HTTP status text (e.g. "OK", "Not Found") |
+| `headers` | object | Response headers |
+| `mime_type` | string | MIME type (e.g. `text/html`, `application/json`) |
+| `resource_type` | string | Resource type |
+| `body` | string | Truncated response body (text MIME types only) |
+
 <Info>
-Network response bodies are truncated at 8 KB for structured types (JSON, XML, form data) and 4 KB for other text. Binary responses (images, fonts, media) are excluded.
+Response bodies are truncated at 8 KB for structured types (JSON, XML, form data) and 4 KB for other text. Binary responses (images, fonts, media) are excluded.
 </Info>
+
+#### `network_loading_failed` data
+
+| Field | Type | Description |
+|---|---|---|
+| `request_id` | string | Matches the originating `network_request` |
+| `error_text` | string | Error description (e.g. `net::ERR_CONNECTION_REFUSED`) |
+| `canceled` | boolean | True if canceled by browser or page script |
+| `resource_type` | string | Resource type |
+
+#### `network_idle` data
+
+No additional fields beyond the [shared context fields](#shared-context-fields). Fires after 500 ms with no in-flight HTTP requests.
 
 ### Page
 
@@ -211,6 +272,68 @@ Page lifecycle events from navigation through layout stability.
 | `page_layout_settled` | No layout shifts for 1 s after `page_load` |
 | `page_navigation_settled` | Both `page_dom_content_loaded` and `page_layout_settled` have fired for the current navigation |
 
+#### `page_navigation` data
+
+| Field | Type | Description |
+|---|---|---|
+| `session_id` | string | CDP session identifier |
+| `target_id` | string | Browser target identifier |
+| `target_type` | string | Target type (`page`, `background_page`, `service_worker`, etc.) |
+| `url` | string | URL navigated to |
+| `frame_id` | string | Frame that navigated |
+| `loader_id` | string | New document loader identifier |
+| `parent_frame_id` | string | Parent frame for subframe navigations (absent for top-level) |
+
+<Info>
+`page_navigation` does not include `nav_seq` because this event resets the navigation epoch. Subsequent events in the same navigation share the new `nav_seq` value.
+</Info>
+
+#### `page_dom_content_loaded` / `page_load` data
+
+| Field | Type | Description |
+|---|---|---|
+| `cdp_timestamp` | number | Chrome monotonic clock time in seconds when the event fired |
+
+#### `page_tab_opened` data
+
+| Field | Type | Description |
+|---|---|---|
+| `target_id` | string | Target identifier for the new tab |
+| `target_type` | string | Target type |
+| `url` | string | Initial URL |
+| `title` | string | Initial page title |
+| `opener_id` | string | Target identifier of the tab that opened this one |
+
+<Info>
+`page_tab_opened` fires before CDP attaches to the new tab, so `session_id`, `frame_id`, `loader_id`, and `nav_seq` are absent.
+</Info>
+
+#### `page_layout_shift` data
+
+| Field | Type | Description |
+|---|---|---|
+| `source_frame_id` | string | Frame where the layout shift occurred |
+| `time` | number | Performance Timeline timestamp in milliseconds |
+| `duration` | number | Duration of the shift entry in ms |
+| `layout_shift_details.value` | number | Layout shift score (contribution to CLS) |
+| `layout_shift_details.had_recent_input` | boolean | True if preceded by user input within 500 ms (excluded from CLS) |
+
+#### `page_lcp` data
+
+| Field | Type | Description |
+|---|---|---|
+| `source_frame_id` | string | Frame where LCP element was rendered |
+| `time` | number | Performance Timeline timestamp in milliseconds |
+| `lcp_details.render_time` | number | Render time of LCP element in ms |
+| `lcp_details.load_time` | number | Load time of LCP element in ms |
+| `lcp_details.size` | number | Visible area in pixels squared |
+| `lcp_details.element_id` | string | `id` attribute of the LCP element |
+| `lcp_details.url` | string | URL of the element (images/video) |
+
+#### `page_layout_settled` / `page_navigation_settled` data
+
+No additional fields beyond the [shared context fields](#shared-context-fields).
+
 ### Interaction
 
 User interaction events from clicks, typing, and scrolling. Events are rate-limited to 20 per second per type to prevent flooding.
@@ -220,6 +343,34 @@ User interaction events from clicks, typing, and scrolling. Events are rate-limi
 | `interaction_click` | Mouse click (coordinates, target selector) |
 | `interaction_key` | Keyboard input |
 | `interaction_scroll_settled` | Scroll position stabilized after scrolling |
+
+#### `interaction_click` data
+
+| Field | Type | Description |
+|---|---|---|
+| `x` | integer | Viewport x-coordinate in CSS pixels |
+| `y` | integer | Viewport y-coordinate in CSS pixels |
+| `selector` | string | CSS selector path to the clicked element |
+| `tag` | string | HTML tag name (e.g. `BUTTON`, `A`, `DIV`) |
+| `text` | string | Visible text content of the element (suppressed for sensitive fields) |
+
+#### `interaction_key` data
+
+| Field | Type | Description |
+|---|---|---|
+| `key` | string | Key value (e.g. `Enter`, `Backspace`, `a`) |
+| `selector` | string | CSS selector path to the focused element |
+| `tag` | string | HTML tag name (e.g. `INPUT`, `TEXTAREA`) |
+
+#### `interaction_scroll_settled` data
+
+| Field | Type | Description |
+|---|---|---|
+| `from_x` | integer | Scroll x-position at start of gesture |
+| `from_y` | integer | Scroll y-position at start of gesture |
+| `to_x` | integer | Final scroll x-position |
+| `to_y` | integer | Final scroll y-position |
+| `target_selector` | string | CSS selector of the scrolled element |
 
 <Info>
 Sensitive input fields (password fields, credit card numbers, SSNs) are automatically detected. Key events are suppressed entirely for these fields, and click events omit text content but still include position and selector.
@@ -232,10 +383,40 @@ Monitor events are always emitted regardless of category configuration. They rep
 | Type | Description |
 |---|---|
 | `monitor_screenshot` | Screenshot captured (triggered on page load and exceptions, rate-limited to one every 2 s) |
-| `monitor_disconnected` | CDP connection to Chrome lost — events may be dropped until reconnection |
+| `monitor_disconnected` | CDP connection to Chrome lost - events may be dropped until reconnection |
 | `monitor_reconnected` | CDP connection re-established (auto-reconnect with exponential backoff up to 10 retries) |
-| `monitor_reconnect_failed` | All reconnection attempts exhausted — no further events will arrive |
+| `monitor_reconnect_failed` | All reconnection attempts exhausted - no further events will arrive |
 | `monitor_init_failed` | Telemetry initialization failed on the VM |
+
+#### `monitor_screenshot` data
+
+| Field | Type | Description |
+|---|---|---|
+| `png` | string | Base64-encoded PNG screenshot of the browser viewport |
+
+#### `monitor_disconnected` data
+
+| Field | Type | Description |
+|---|---|---|
+| `reason` | string | Reason for disconnection (e.g. `chrome_restarted`) |
+
+#### `monitor_reconnected` data
+
+| Field | Type | Description |
+|---|---|---|
+| `reconnect_duration_ms` | integer | Time in milliseconds taken to reconnect |
+
+#### `monitor_reconnect_failed` data
+
+| Field | Type | Description |
+|---|---|---|
+| `reason` | string | Reason for failure (e.g. `reconnect_exhausted`) |
+
+#### `monitor_init_failed` data
+
+| Field | Type | Description |
+|---|---|---|
+| `step` | string | The initialization step that failed (e.g. `Target.setAutoAttach`) |
 
 <Warning>
 After a `monitor_disconnected` event, treat any in-progress computed state (like `network_idle` or `page_layout_settled`) as unreliable until `monitor_reconnected` arrives.
@@ -272,7 +453,7 @@ kernel browsers update <session-id> --telemetry=network=off
 ```
 </CodeGroup>
 
-Omitted categories are left unchanged — only the categories you specify are modified. To disable all telemetry on a running session, set `enabled: false`:
+Omitted categories are left unchanged - only the categories you specify are modified. To disable all telemetry on a running session, set `enabled: false`:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -293,7 +474,7 @@ kernel browsers update <session-id> --telemetry=off
 ```
 </CodeGroup>
 
-## Event envelope
+## Event body
 
 Every SSE frame carries a JSON object with this shape:
 
@@ -326,14 +507,20 @@ Every SSE frame carries a JSON object with this shape:
 | `event.source.kind` | Where the event originated: `cdp` (Chrome DevTools), `kernel_api` (Kernel platform), `extension` (browser extension), or `local_process` (VM process). |
 | `event.data` | Event-specific payload. CDP-sourced events include context fields for correlation (see below). |
 
-### Event context fields
+### Shared context fields
 
 CDP-sourced events include these fields in `event.data` for correlating events across tabs, navigations, and request chains:
 
-| Field | Description |
-|---|---|
-| `session_id` | Browser session ID. |
-| `target_id` | Chrome target (tab/worker) that produced the event. |
-| `frame_id` | Frame within the target. |
-| `url` | URL of the frame at the time of the event. |
-| `nav_seq` | Navigation sequence number within the frame. Increments on each navigation. |
+| Field | Type | Description |
+|---|---|---|
+| `session_id` | string | CDP session identifier for the target connection |
+| `target_id` | string | Browser target identifier (stable across navigations within a tab) |
+| `target_type` | string | Target type: `page`, `background_page`, `service_worker`, `shared_worker`, or `other` |
+| `frame_id` | string | Frame within the target |
+| `loader_id` | string | Document loader identifier, resets on each navigation |
+| `url` | string | URL of the frame or request at the time of the event |
+| `nav_seq` | integer | Monotonically increasing navigation sequence number within the target |
+
+<Info>
+Monitor events (`monitor_*`) and `page_tab_opened` do not include shared context fields - they originate outside of a CDP session.
+</Info>
