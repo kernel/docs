@@ -70,6 +70,43 @@ other = kernel.browsers.create(
     extra_headers={"X-Kernel-Project-Id": "proj_def456"},
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Scope the whole client to a project.
+	client := kernel.NewClient(
+		option.WithHeader("X-Kernel-Project-Id", "proj_abc123"),
+	)
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+
+	// Or override per-request.
+	other, err := client.Browsers.New(
+		ctx,
+		kernel.BrowserNewParams{},
+		option.WithHeader("X-Kernel-Project-Id", "proj_def456"),
+	)
+	if err != nil {
+		panic(err)
+	}
+	_ = other
+}
+```
 </CodeGroup>
 
 ## Authentication and Project Scope
@@ -143,6 +180,33 @@ kernel = Kernel()
 project = kernel.projects.create(name="staging")
 print(project.id)  # proj_abc123
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	project, err := client.Projects.New(ctx, kernel.ProjectNewParams{
+		CreateProjectRequest: kernel.CreateProjectRequestParam{
+			Name: "staging",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(project.ID) // proj_abc123
+}
+```
 </CodeGroup>
 
 ### List projects
@@ -158,6 +222,17 @@ for await (const project of kernel.projects.list()) {
 for project in kernel.projects.list():
     print(project.id, project.name, project.status)
 ```
+
+```go Go
+pager := client.Projects.ListAutoPaging(ctx, kernel.ProjectListParams{})
+for pager.Next() {
+	project := pager.Current()
+	fmt.Println(project.ID, project.Name, project.Status)
+}
+if err := pager.Err(); err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 ### Update a project
@@ -170,6 +245,22 @@ await kernel.projects.update('proj_abc123', { name: 'production' });
 ```python Python
 kernel.projects.update("proj_abc123", name="production")
 ```
+
+```go Go
+project, err := client.Projects.Update(
+	ctx,
+	"proj_abc123",
+	kernel.ProjectUpdateParams{
+		UpdateProjectRequest: kernel.UpdateProjectRequestParam{
+			Name: kernel.String("production"),
+		},
+	},
+)
+if err != nil {
+	panic(err)
+}
+_ = project
+```
 </CodeGroup>
 
 ### Delete a project
@@ -181,6 +272,12 @@ await kernel.projects.delete('proj_abc123');
 
 ```python Python
 kernel.projects.delete("proj_abc123")
+```
+
+```go Go
+if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 

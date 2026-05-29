@@ -58,6 +58,34 @@ api_key = client.api_keys.create(
 print(api_key.key)  # Save this value now. Kernel won't show it again.
 print(api_key.id, api_key.masked_key)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	apiKey, err := client.APIKeys.New(ctx, kernel.APIKeyNewParams{
+		Name:         "staging-ci",
+		DaysToExpire: kernel.Int(30),
+		ProjectID:    kernel.String("proj_staging_9f3k"),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(apiKey.Key) // Save this value now. Kernel won't show it again.
+	fmt.Println(apiKey.ID, apiKey.MaskedKey)
+}
+```
 </CodeGroup>
 
 ## List and inspect API keys
@@ -86,6 +114,40 @@ for api_key in client.api_keys.list(limit=20):
 api_key = client.api_keys.retrieve("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
 print(api_key.project_id, api_key.expires_at)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pager := client.APIKeys.ListAutoPaging(ctx, kernel.APIKeyListParams{
+		Limit: kernel.Int(20),
+	})
+	for pager.Next() {
+		apiKey := pager.Current()
+		fmt.Println(apiKey.ID, apiKey.Name, apiKey.MaskedKey)
+	}
+	if err := pager.Err(); err != nil {
+		panic(err)
+	}
+
+	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(apiKey.ProjectID, apiKey.ExpiresAt)
+}
+```
 </CodeGroup>
 
 ## Rename or delete an API key
@@ -113,6 +175,38 @@ client.api_keys.update(
 )
 
 client.api_keys.delete("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	apiKey, err := client.APIKeys.Update(
+		ctx,
+		"key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+		kernel.APIKeyUpdateParams{
+			Name: "staging-ci-rotated",
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(apiKey.ID, apiKey.Name)
+
+	if err := client.APIKeys.Delete(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2"); err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 

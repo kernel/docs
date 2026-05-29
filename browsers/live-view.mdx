@@ -24,6 +24,29 @@ kernel = Kernel()
 browser = kernel.browsers.create()
 print(browser.browser_live_view_url)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(browser.BrowserLiveViewURL)
+}
+```
 </CodeGroup>
 
 
@@ -80,6 +103,16 @@ const browser = await kernel.browsers.create({
 kernel_browser = kernel.browsers.create(
     kiosk_mode=True
 )
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	KioskMode: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
 ```
 
 </CodeGroup>

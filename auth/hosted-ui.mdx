@@ -30,6 +30,19 @@ auth = await kernel.auth.connections.create(
     profile_name="linkedin-profile",  # Name of the profile to associate with the connection
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "linkedin.com",
+		ProfileName: "linkedin-profile", // Name of the profile to associate with the connection
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 ### 2. Start a Login Session
@@ -43,6 +56,14 @@ const login = await kernel.auth.connections.login(auth.id);
 
 ```python Python
 login = await kernel.auth.connections.login(auth.id)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
 ```
 </CodeGroup>
 
@@ -58,6 +79,11 @@ window.location.href = login.hosted_url;
 ```python Python
 # Return the URL to your frontend
 print(f"Redirect to: {login.hosted_url}")
+```
+
+```go Go
+// Return the URL to your frontend
+fmt.Println("Redirect to:", login.HostedURL)
 ```
 </CodeGroup>
 
@@ -94,6 +120,25 @@ while state.flow_status == "IN_PROGRESS":
 if state.status == "AUTHENTICATED":
     print("Authentication successful!")
 ```
+
+```go Go
+state, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+	time.Sleep(2 * time.Second)
+	state, err = client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+}
+
+if state.Status == kernel.ManagedAuthStatusAuthenticated {
+	fmt.Println("Authentication successful!")
+}
+```
 </CodeGroup>
 
 <Info>
@@ -123,6 +168,26 @@ browser = await kernel.browsers.create(
 
 # Navigate to the site—you're already logged in
 await page.goto("https://linkedin.com")
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("linkedin-profile"),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+
+// Navigate to the site—you're already logged in
+_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `await page.goto("https://linkedin.com");`,
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -202,6 +267,77 @@ if state.status == "AUTHENTICATED":
     # Navigate to the site—you're already logged in
     await page.goto("https://doordash.com")
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create connection
+	auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+		ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+			Domain:      "doordash.com",
+			ProfileName: "doordash-user-123",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Start authentication
+	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Send user to hosted page
+	fmt.Println("Login URL:", login.HostedURL)
+
+	// Poll for completion
+	state, err := client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+	for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+		time.Sleep(2 * time.Second)
+		state, err = client.Auth.Connections.Get(ctx, auth.ID)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if state.Status == kernel.ManagedAuthStatusAuthenticated {
+		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+			Profile: shared.BrowserProfileParam{
+				Name: kernel.String("doordash-user-123"),
+			},
+			Stealth: kernel.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		// Navigate to the site—you're already logged in
+		_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+			Code: `await page.goto("https://doordash.com");`,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+```
 </CodeGroup>
 
 ## Success / error redirects
@@ -235,6 +371,40 @@ query["success_url"] = "https://example.com/connected"
 query["error_url"] = "https://example.com/auth-failed"
 
 redirect_url = urlunparse(parsed._replace(query=urlencode(query)))
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	login, err := client.Auth.Connections.Login(ctx, "auth_123", kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	redirectURL, err := url.Parse(login.HostedURL)
+	if err != nil {
+		panic(err)
+	}
+
+	query := redirectURL.Query()
+	query.Set("success_url", "https://example.com/connected")
+	query.Set("error_url", "https://example.com/auth-failed")
+	redirectURL.RawQuery = query.Encode()
+
+	fmt.Println(redirectURL.String())
+}
 ```
 </CodeGroup>
 

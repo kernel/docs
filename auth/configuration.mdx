@@ -37,6 +37,21 @@ auth = await kernel.auth.connections.create(
     auto_reauth=False,
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:       "example.com",
+		ProfileName:  "my-profile",
+		HealthChecks: kernel.Bool(false),
+		AutoReauth:   kernel.Bool(false),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 Both flags can be flipped on an existing connection with `auth.connections.update`; changes take effect immediately on the running connection.
@@ -63,6 +78,20 @@ auth = await kernel.auth.connections.create(
     login_url="https://example.com/auth/signin",
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		LoginURL:    kernel.String("https://example.com/auth/signin"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 ## SSO/OAuth Support
@@ -88,6 +117,20 @@ auth = await kernel.auth.connections.create(
     profile_name="my-profile",
     allowed_domains=["sso.custom-provider.com"],
 )
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:         "example.com",
+		ProfileName:    "my-profile",
+		AllowedDomains: []string{"sso.custom-provider.com"},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
 ```
 </CodeGroup>
 
@@ -123,6 +166,29 @@ auth = await kernel.auth.connections.create(
     proxy={"id": proxy.id},
 )
 ```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeIsp,
+})
+if err != nil {
+	panic(err)
+}
+
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Proxy: kernel.ManagedAuthCreateRequestProxyParam{
+			ID: kernel.String(proxy.ID),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 You can also reference a proxy by `name` instead of `id`. The proxy must belong to the same org and project as the connection.
@@ -144,6 +210,19 @@ await kernel.auth.connections.update(
     proxy={"id": new_proxy.id},
 )
 ```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		Proxy: kernel.ManagedAuthUpdateRequestProxyParam{
+			ID: kernel.String(newProxy.ID),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 You can also override the connection's proxy for a single login by passing `proxy` on `.login()` — useful when you want to try a one-off egress without changing the connection-wide default (which would also affect subsequent health checks and reauths).
@@ -160,6 +239,18 @@ login = await kernel.auth.connections.login(
     auth.id,
     proxy={"id": one_off_proxy.id},
 )
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	Proxy: kernel.AuthConnectionLoginParamsProxy{
+		ID: kernel.String(oneOffProxy.ID),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = login
 ```
 </CodeGroup>
 
@@ -183,6 +274,20 @@ auth = await kernel.auth.connections.create(
     record_session=True,
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:        "example.com",
+		ProfileName:   "my-profile",
+		RecordSession: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging on a specific login attempt without flipping the connection-wide flag (which would also record subsequent health checks and reauths).
@@ -199,6 +304,16 @@ login = await kernel.auth.connections.login(
     auth.id,
     record_session=True,
 )
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	RecordSession: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = login
 ```
 </CodeGroup>
 
@@ -224,6 +339,23 @@ managed_auth = await kernel.auth.connections.retrieve(auth.id)
 if managed_auth.post_login_url:
     await page.goto(managed_auth.post_login_url)
     # Start automation from the dashboard/home page
+```
+
+```go Go
+managedAuth, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+if managedAuth.PostLoginURL != "" {
+	_, err := client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+		Code: fmt.Sprintf(`await page.goto(%q);`, managedAuth.PostLoginURL),
+	})
+	if err != nil {
+		panic(err)
+	}
+	// Start automation from the dashboard/home page
+}
 ```
 </CodeGroup>
 
@@ -261,5 +393,18 @@ await kernel.auth.connections.update(
     health_check_interval=1800,
     save_credentials=True,
 )
+```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		LoginURL:            kernel.String("https://example.com/new-login"),
+		HealthCheckInterval: kernel.Int(1800),
+		SaveCredentials:     kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>

@@ -37,6 +37,29 @@ kernel_browser = kernel.browsers.create(
     stealth=True,
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Stealth: kernel.Bool(true),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
 </CodeGroup>
 
 ## Bring your own proxy or CAPTCHA solver
@@ -64,6 +87,17 @@ kernel_browser = kernel.browsers.create(
     stealth=True,
     proxy_id=my_proxy.id,
 )
+```
+
+```go Go
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Stealth: kernel.Bool(true),
+	ProxyID: kernel.String(myProxy.ID),
+})
+if err != nil {
+	panic(err)
+}
+_ = kernelBrowser
 ```
 </CodeGroup>
 

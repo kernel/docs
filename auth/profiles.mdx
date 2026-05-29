@@ -38,6 +38,35 @@ try:
 except ConflictError:
     pass
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	_, err := client.Profiles.New(ctx, kernel.ProfileNewParams{
+		Name: kernel.String("profiles-demo"),
+	})
+	if err != nil {
+		var apiErr *kernel.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusConflict {
+			// Profile already exists
+			return
+		}
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 ## 2. Start a browser session using the profile and save changes
@@ -62,6 +91,19 @@ kernel_browser = await kernel.browsers.create(
         "save_changes": True,
     }
 )
+```
+
+```go Go
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String("profiles-demo"),
+		SaveChanges: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = kernelBrowser
 ```
 </CodeGroup>
 
@@ -89,6 +131,16 @@ print("Live view:", kernel_browser.browser_live_view_url)
 
 await kernel.browsers.delete_by_id(kernel_browser.session_id)
 ```
+
+```go Go
+fmt.Println("Live view:", kernelBrowser.BrowserLiveViewURL)
+
+// Navigate and create login state...
+
+if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 ## 4. Start a new session with the saved profile (read-only)
@@ -110,6 +162,18 @@ kernel_browser2 = await kernel.browsers.create(
 )
 print("Live view:", kernel_browser2.browser_live_view_url)
 ```
+
+```go Go
+kernelBrowser2, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("profiles-demo"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println("Live view:", kernelBrowser2.BrowserLiveViewURL)
+```
 </CodeGroup>
 
 ## Override opening existing tabs in a new session
@@ -129,6 +193,19 @@ browser = await kernel.browsers.create(
     profile={"name": "profiles-demo"},
     start_url="https://example.com/dashboard",
 )
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("profiles-demo"),
+	},
+	StartURL: kernel.String("https://example.com/dashboard"),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
 ```
 </CodeGroup>
 
@@ -155,6 +232,24 @@ kernel_browser = await kernel.browsers.create()
 
 # Later, load a profile into the browser
 await kernel.browsers.update(kernel_browser.session_id, profile={"name": "profiles-demo"})
+```
+
+```go Go
+// Create a browser without a profile
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+
+// Later, load a profile into the browser
+_, err = client.Browsers.Update(ctx, kernelBrowser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("profiles-demo"),
+	},
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -226,6 +321,56 @@ browser = await kernel.browsers.create(
     stealth=True,
 )
 ```
+
+```go Go
+// Create a single profile with auth connections for three sites
+gmailAuth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "gmail.com",
+		ProfileName: "workflow-bot",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = gmailAuth
+
+slackAuth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "slack.com",
+		ProfileName: "workflow-bot",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = slackAuth
+
+crmAuth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "crm.example.com",
+		ProfileName: "workflow-bot",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = crmAuth
+
+// Authenticate each connection (omitted for brevity)
+
+// Launch a single browser — logged in to Gmail, Slack, and the CRM
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("workflow-bot"),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
+```
 </CodeGroup>
 
 ### User-to-profile mapping
@@ -285,6 +430,51 @@ browser = await kernel.browsers.create(
     profile={"name": user_id},
     stealth=True,
 )
+```
+
+```go Go
+// For each user on your platform, create one profile
+// and attach all their accounts as auth connections
+userID := "user-123"
+
+if _, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "gmail.com",
+		ProfileName: userID,
+	},
+}); err != nil {
+	panic(err)
+}
+
+if _, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "linkedin.com",
+		ProfileName: userID,
+	},
+}); err != nil {
+	panic(err)
+}
+
+if _, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "github.com",
+		ProfileName: userID,
+	},
+}); err != nil {
+	panic(err)
+}
+
+// When user-123 triggers a workflow, launch a browser with their profile
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String(userID),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
 ```
 </CodeGroup>
 

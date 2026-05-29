@@ -1,5 +1,5 @@
 ---
-title: "custom chrome policies"
+title: "Custom Chrome Policies"
 description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
 ---
 
@@ -76,6 +76,53 @@ pool = kernel.browser_pools.create(
         ]
     }
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+		Name: kernel.String("my-configured-pool"),
+		Size: 5,
+		ChromePolicy: map[string]any{
+			"HomepageLocation":     "https://kernel.sh",
+			"HomepageIsNewTabPage": false,
+			"ShowHomeButton":       true,
+			"NewTabPageLocation":   "https://kernel.sh/docs",
+			"RestoreOnStartup":     4,
+			"RestoreOnStartupURLs": []string{"https://kernel.sh"},
+			"BookmarkBarEnabled":   true,
+			"ManagedBookmarks": []map[string]any{
+				{"toplevel_name": "Company Resources"},
+				{"name": "Dashboard", "url": "https://example.com/dashboard"},
+				{"name": "Documentation", "url": "https://example.com/docs"},
+				{
+					"name": "Tools",
+					"children": []map[string]string{
+						{"name": "Jira Board", "url": "https://example.com/jira"},
+						{"name": "Slack", "url": "https://example.com/slack"},
+						{"name": "GitHub PRs", "url": "https://example.com/github"},
+						{"name": "Runbooks", "url": "https://example.com/runbooks"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = pool
+}
 ```
 </CodeGroup>
 
