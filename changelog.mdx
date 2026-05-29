@@ -9,6 +9,27 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="May 28" tags={["Product", "Docs"]}>
+## Product updates
+
+- Soft-launched [auth.md](https://kernel.sh/auth.md), a discovery file that lets agents sign up for a Kernel account or fetch an API key for an existing user account on their own. Point your agent at the URL and it can self-provision. Based on the new auth.md protocol from WorkOS.
+- Added **browser telemetry** as a first-class request config. Pass `telemetry.enabled` (and per-category toggles) on `browsers.create()` or `browsers.update()` to capture telemetry for the session, and stream it live from `GET /browsers/{id}/telemetry/stream` (SSE).
+- Exposed API key management in the Node, Python, and Go SDKs. Create, list, retrieve, update, and delete keys on `/org/api_keys` programmatically.
+- Promoted `can_reauth_reason` on `ManagedAuth` to a typed enum (14 documented values like `requires_totp_without_secret`, `no_viable_plans`, `requires_external_action`) so SDK consumers can branch on it directly instead of string comparisons.
+- Added an **Auto Re-Auth** / **Needs Human** capability chip to each row on the dashboard `/auth` page, with a tooltip mapping each `can_reauth_reason` to a human-readable explanation.
+- Added TOTP secret key support to [managed auth](/auth/overview) credentials, so one-time passwords are generated automatically during login and re-authentication. No human intervention required.
+- Updated the live view loading screen to a progress bar for clearer visual feedback during browser startup.
+- The `/projects/*` endpoints are now routed under `/org/projects/*`. The previous paths are deprecated.
+
+## Documentation updates
+
+- Added new [Create](/introduction/create), [Control](/introduction/control), and [Observe](/introduction/observe) introductory guides covering the core primitives for getting started with browser automation.
+- Expanded the [Control](/introduction/control) guide with three patterns for combining computer use with `playwright.execute`: expose `playwright.execute` as a tool, checkpoint state between CUA steps, and drop the agent once selectors stabilize for replay at scale.
+- Documented the new [`health_checks` and `auto_reauth` connection flags](/auth/configuration) on managed-auth connections, including defaults, how they interact (auto_reauth only applies while health_checks is on), and a create-time example with both disabled.
+- Updated the [MCP server](/reference/mcp-server) tool reference to match the current API.
+- Clarified that stealth mode's default proxy is ISP, not residential. ISP proxies use residential ASNs on datacenter infrastructure.
+</Update>
+
 <Update label="May 21" tags={["Product", "Docs"]}>
 ## Product updates
 
