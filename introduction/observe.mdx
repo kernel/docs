@@ -101,29 +101,6 @@ kernel browsers computer screenshot <session-id> --to screenshot.png
 
 For full-page captures, use [Playwright execution](/browsers/playwright-execution#screenshots) instead.
 
-## Invocation logs
-
-If you're running an agent on Kernel's [app platform](/apps/develop), every invocation produces a streaming log feed. Tail it live while the agent runs, or pull it after the fact for debugging.
-
-<CodeGroup>
-```typescript Typescript/Javascript
-const logs = await kernel.invocations.follow(invocationId);
-
-for await (const event of logs) {
-  console.log(event);
-}
-```
-
-```python Python
-logs = kernel.invocations.follow(invocation_id)
-
-for event in logs:
-    print(event)
-```
-</CodeGroup>
-
-Full reference: [Logs](/apps/logs).
-
 ## Browser telemetry
 
 Stream real-time events from the browser - console output, network requests, page lifecycle, and interactions - over Server-Sent Events. Enable it at creation, tune which categories you capture, and pipe the stream into your own observability stack.
@@ -167,6 +144,29 @@ kernel browsers telemetry stream <session-id> -o json --categories network
 </CodeGroup>
 
 Full reference: [Browser Telemetry](/browsers/telemetry).
+
+## Invocation logs
+
+If you're running an agent on Kernel's [app platform](/apps/develop), every invocation produces a streaming log feed. Tail it live while the agent runs, or pull it after the fact for debugging.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const logs = await kernel.invocations.follow(invocationId);
+
+for await (const event of logs) {
+  console.log(event);
+}
+```
+
+```python Python
+logs = kernel.invocations.follow(invocation_id)
+
+for event in logs:
+    print(event)
+```
+</CodeGroup>
+
+Full reference: [Logs](/apps/logs).
 
 ## Picking the right tool
 
