@@ -33,6 +33,30 @@ invocation = kernel.invocations.update(
     output='{"error":"Invocation cancelled by user"}',
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.Update(ctx, "invocation_id", kernel.InvocationUpdateParams{
+		Status: kernel.InvocationUpdateParamsStatusFailed,
+		Output: kernel.String(`{"error":"Invocation cancelled by user"}`),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = invocation
+}
+```
 </CodeGroup>
 
 ## Via CLI

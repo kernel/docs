@@ -11,6 +11,7 @@ Kernel browsers are sandboxed Chromium instances that boot in under 30ms. Your a
   Install the Kernel SDK first:
   - Typescript/Javascript: `npm install @onkernel/sdk`
   - Python: `pip install kernel`
+  - Go: `go get github.com/kernel/kernel-go-sdk`
 </Info>
 
 <CodeGroup>
@@ -30,6 +31,29 @@ kernel = Kernel()
 
 kernel_browser = kernel.browsers.create()
 print(kernel_browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(kernelBrowser.SessionID)
+}
 ```
 
 ```bash CLI
@@ -74,6 +98,12 @@ await kernel.browsers.deleteByID(kernelBrowser.session_id);
 
 ```python Python
 kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```go Go
+if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+	panic(err)
+}
 ```
 
 ```bash CLI
@@ -133,6 +163,48 @@ except Exception as e:
     print(e)
 finally:
     kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+			panic(err)
+		}
+	}()
+
+	response, err := client.Browsers.Playwright.Execute(
+		ctx,
+		kernelBrowser.SessionID,
+		kernel.BrowserPlaywrightExecuteParams{
+			Code: `
+				await page.goto('https://www.onkernel.com');
+				return await page.title();
+			`,
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(response.Result)
+}
 ```
 </CodeGroup>
 

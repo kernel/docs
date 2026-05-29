@@ -4,10 +4,13 @@ This guide defines the standards for code examples across the Kernel documentati
 
 ## General Principles
 
-1. **Complete and runnable**: Every code example should be complete enough to run as-is
+1. **Context-aware completeness**: Full examples must run as-is. Focused snippets can rely
+   on variables introduced by surrounding text or sibling examples, but they must make those
+   dependencies obvious.
 2. **Consistent naming**: Use standardized variable names across all examples
-3. **No hardcoded credentials**: Never include API keys or credentials in examples
-4. **Multi-language support**: When applicable, show both TypeScript/JavaScript and Python examples
+3. **No real secrets**: Never include real API keys, passwords, tokens, or live credentials.
+   Use obviously fake values when an auth-flow example needs credential-shaped input.
+4. **Multi-language support**: When applicable, show TypeScript/JavaScript, Python, and Go examples
 
 ## Variable Naming Conventions
 
@@ -27,7 +30,24 @@ This guide defines the standards for code examples across the Kernel documentati
 - Context: `context`
 - Page: `page`
 
+### Go
+- SDK client: `client`
+- Browser instance: `kernelBrowser`
+- Additional browsers: `kernelBrowser2`, etc.
+- Context: `ctx`
+- Session ID: `sessionID`
+- Invocation ID: `invocationID`
+
 ## Code Example Structure
+
+### Full examples vs focused snippets
+
+Use a full example when the reader needs to copy and run a standalone program. Include imports,
+SDK initialization, context setup, the main operation, and error handling.
+
+Use a focused snippet when the page is walking through one step in a larger flow. Keep the snippet
+small, but rely only on variables the page already introduced, such as `client`, `ctx`,
+`kernelBrowser`, `auth`, or `browser`.
 
 ### Minimal Example (Browser Creation)
 
@@ -54,6 +74,29 @@ kernel = Kernel()
 
 kernel_browser = kernel.browsers.create()
 print(kernel_browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(kernelBrowser.SessionID)
+}
 ```
 </CodeGroup>
 
@@ -129,6 +172,16 @@ const kernel = new Kernel();
 kernel = Kernel()
 ```
 
+```go
+package main
+
+import "github.com/kernel/kernel-go-sdk"
+
+func main() {
+	_ = kernel.NewClient()
+}
+```
+
 The SDK automatically reads the API key from the `KERNEL_API_KEY` environment variable.
 
 ### ❌ Incorrect - Hardcoded credentials
@@ -143,6 +196,22 @@ const kernel = new Kernel({ apiKey: process.env.KERNEL_API_KEY });
 # DON'T DO THIS
 kernel = Kernel(api_key="your-api-key")
 kernel = Kernel(api_key=os.getenv("KERNEL_API_KEY"))
+```
+
+```go
+// DON'T DO THIS
+package main
+
+import (
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	_ = kernel.NewClient(
+		option.WithAPIKey("your-api-key"),
+	)
+}
 ```
 
 ## Feature-Specific Examples
@@ -171,6 +240,28 @@ kernel_browser = kernel.browsers.create(
     stealth=True,
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	_, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Stealth: kernel.Bool(true),
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 ### Feature with Configuration
@@ -197,9 +288,35 @@ kernel_browser = kernel.browsers.create(
     stealth=True
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Stealth: kernel.Bool(true),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	_ = kernelBrowser
+}
+```
 </CodeGroup>
 
 ## App Development Examples
+
+Kernel app examples currently use TypeScript/JavaScript and Python. Add a Go version only after the Go SDK has documented app framework support and the snippet has been tested against that SDK.
 
 For Kernel app examples, follow this pattern:
 
@@ -299,17 +416,19 @@ finally:
 ### Indentation
 - TypeScript/JavaScript: 2 spaces
 - Python: 4 spaces
+- Go: tabs from `gofmt`
 
 ### String Quotes
 - TypeScript/JavaScript: Single quotes `'` (except for avoiding escaping)
 - Python: Double quotes `"`
+- Go: Double quotes `"`
 
 ### Line Length
 - Keep lines under 100 characters when possible
 - Break long parameter lists across multiple lines
 
 ### Comments
-- Use comments sparingly - code should be self-explanatory
+- Use comments sparingly; keep code self-explanatory
 - Add comments only for non-obvious logic or important context
 - Never add comments like "NEW CODE:" or similar meta-comments
 
@@ -340,6 +459,10 @@ Always use `<CodeGroup>` with proper language labels:
 ```python Python
 # Python code here
 ```
+
+```go Go
+// Go code here
+```
 </CodeGroup>
 ````
 
@@ -350,11 +473,13 @@ Before publishing a code example, verify:
 - [ ] Includes all necessary imports
 - [ ] SDK is initialized without hardcoded API keys
 - [ ] Variable names follow conventions
-- [ ] Code is complete and runnable
+- [ ] Code is complete and runnable, or it is a focused snippet with obvious prerequisites
 - [ ] Includes error handling (for full examples)
 - [ ] Includes cleanup code (for full examples)
 - [ ] Uses proper indentation and formatting
-- [ ] Both TypeScript and Python versions are provided (when applicable)
+- [ ] TypeScript/JavaScript, Python, and Go versions are provided (when applicable)
+- [ ] Go examples are formatted with `gofmt`
+- [ ] Go examples are tested against the actual Go SDK version the docs claim to support
 - [ ] Code has been tested or follows proven patterns
 
 ## Reference
@@ -363,4 +488,3 @@ See these files for examples:
 - `introduction/create.mdx` - Standard browser creation pattern
 - `apps/develop.mdx` - App development pattern
 - `browsers/file-io.mdx` - Complex automation example
-

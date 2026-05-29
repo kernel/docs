@@ -44,6 +44,19 @@ auth = await kernel.auth.connections.create(
     profile_name="github-profile", # Name of the profile to associate with the connection
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "github.com",
+		ProfileName: "github-profile", // Name of the profile to associate with the connection
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
 
 ### 2. Start a Login Session
@@ -55,6 +68,14 @@ const login = await kernel.auth.connections.login(auth.id);
 
 ```python Python
 login = await kernel.auth.connections.login(auth.id)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
 ```
 </CodeGroup>
 
@@ -98,6 +119,69 @@ while state.flow_status == "IN_PROGRESS":
 
 if state.status == "AUTHENTICATED":
     print("Authentication successful!")
+```
+
+```go Go
+state, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+	// Submit when fields are ready (login or 2FA)
+	if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingInput && len(state.DiscoveredFields) > 0 {
+		fieldValues := map[string]string{}
+		missingFields := []string{}
+
+		for _, field := range state.DiscoveredFields {
+			switch field.Name {
+			case "username":
+				fieldValues[field.Name] = "dev-user"
+			case "email":
+				fieldValues[field.Name] = "dev@example.com"
+			case "password":
+				fieldValues[field.Name] = "correct-horse-battery-staple"
+			case "otp", "code", "totp":
+				fieldValues[field.Name] = "123456"
+			default:
+				switch field.Type {
+				case "email":
+					fieldValues[field.Name] = "dev@example.com"
+				case "password":
+					fieldValues[field.Name] = "correct-horse-battery-staple"
+				case "code", "totp":
+					fieldValues[field.Name] = "123456"
+				default:
+					missingFields = append(missingFields, field.Name)
+				}
+			}
+		}
+
+		if len(missingFields) > 0 {
+			fmt.Println("Collect values for fields:", missingFields)
+			break
+		}
+
+		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+				Fields: fieldValues,
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	time.Sleep(2 * time.Second)
+	state, err = client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+}
+
+if state.Status == kernel.ManagedAuthStatusAuthenticated {
+	fmt.Println("Authentication successful!")
+}
 ```
 </CodeGroup>
 
@@ -216,6 +300,117 @@ if state.status == "AUTHENTICATED":
     # Navigate to the site—you're already logged in
     await page.goto("https://github.com")
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func promptUserForCode() string {
+	return "123456"
+}
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create connection
+	auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+		ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+			Domain:      "github.com",
+			ProfileName: "github-profile",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+	_ = login
+
+	// Single polling loop handles login + 2FA
+	state, err := client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+
+	for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+		if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingInput && len(state.DiscoveredFields) > 0 {
+			// Check what fields are needed
+			fieldNames := map[string]bool{}
+			for _, field := range state.DiscoveredFields {
+				fieldNames[field.Name] = true
+			}
+
+			if fieldNames["username"] {
+				// Initial login
+				_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+					SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+						Fields: map[string]string{
+							"username": "my-username",
+							"password": "my-password",
+						},
+					},
+				})
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				// 2FA or additional fields
+				code := promptUserForCode()
+				_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+					SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+						Fields: map[string]string{
+							state.DiscoveredFields[0].Name: code,
+						},
+					},
+				})
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
+		time.Sleep(2 * time.Second)
+		state, err = client.Auth.Connections.Get(ctx, auth.ID)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if state.Status == kernel.ManagedAuthStatusAuthenticated {
+		fmt.Println("Authentication successful!")
+
+		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+			Profile: shared.BrowserProfileParam{
+				Name: kernel.String("github-profile"),
+			},
+			Stealth: kernel.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		// Navigate to the site—you're already logged in
+		_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+			Code: `await page.goto("https://github.com");`,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+```
 </CodeGroup>
 
 <Tip>
@@ -261,6 +456,25 @@ if state.pending_sso_buttons:
         sso_button_selector=state.pending_sso_buttons[0]["selector"],
     )
 ```
+
+```go Go
+if len(state.PendingSSOButtons) > 0 {
+	// Show the user available SSO options
+	for _, btn := range state.PendingSSOButtons {
+		fmt.Printf("%s: %s\n", btn.Provider, btn.Label)
+	}
+
+	// Submit the selected SSO button
+	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+			SSOButtonSelector: kernel.String(state.PendingSSOButtons[0].Selector),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 <Info>
@@ -288,6 +502,20 @@ if state.pending_sso_buttons:
         auth.id,
         sso_provider=state.pending_sso_buttons[0]["provider"],  # e.g., "google"
     )
+```
+
+```go Go
+if len(state.PendingSSOButtons) > 0 {
+	// Submit by provider name instead of selector
+	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+			SSOProvider: kernel.String(state.PendingSSOButtons[0].Provider), // e.g., "google"
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 
@@ -325,6 +553,25 @@ if state.mfa_options:
         auth.id,
         mfa_option_id="sms",
     )
+```
+
+```go Go
+if len(state.MfaOptions) > 0 {
+	// Available types: sms, email, totp, push, call, password, switch
+	for _, opt := range state.MfaOptions {
+		fmt.Printf("%s: %s\n", opt.Type, opt.Label)
+	}
+
+	// Submit the selected MFA method
+	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+			MfaOptionID: kernel.String("sms"),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 
@@ -367,6 +614,28 @@ if state.sign_in_options:
         auth.id,
         sign_in_option_id=state.sign_in_options[0]["id"],
     )
+```
+
+```go Go
+if len(state.SignInOptions) > 0 {
+	// Show available options to the user
+	for _, opt := range state.SignInOptions {
+		fmt.Printf("%s: %s\n", opt.ID, opt.Label)
+		if opt.Description != "" {
+			fmt.Println("  " + opt.Description)
+		}
+	}
+
+	// Submit the selected option
+	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+			SignInOptionID: kernel.String(state.SignInOptions[0].ID),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 
@@ -412,6 +681,29 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
         )
 
     # Otherwise keep polling—the flow resumes automatically when the user completes the action
+```
+
+```go Go
+if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingExternalAction {
+	// Show the message to the user
+	fmt.Println(state.ExternalActionMessage)
+	// e.g., "Check your phone for a push notification"
+
+	// Some sites offer fallback methods alongside the external action
+	// (e.g. "Try another way"). Submit one to switch verification methods.
+	if len(state.MfaOptions) > 0 {
+		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+				MfaOptionID: kernel.String(state.MfaOptions[0].Type),
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Otherwise keep polling—the flow resumes automatically when the user completes the action
+}
 ```
 </CodeGroup>
 

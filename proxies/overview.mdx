@@ -43,6 +43,30 @@ kernel = Kernel()
 proxy = kernel.proxies.create(type="datacenter")
 print(proxy.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeDatacenter,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(proxy.ID)
+}
+```
 </CodeGroup>
 
 
@@ -67,6 +91,28 @@ kernel = Kernel()
 
 proxies = kernel.proxies.list()
 print(proxies)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxies, err := client.Proxies.List(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(proxies)
+}
 ```
 </CodeGroup>
 
@@ -108,6 +154,42 @@ proxy = kernel.proxies.create(
 )
 
 browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("my-us-residential"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
 ```
 </CodeGroup>
 
@@ -154,6 +236,41 @@ proxy = kernel.proxies.create(
         "*.amazonaws.com",
     ]
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeDatacenter,
+		Name: kernel.String("proxy-with-bypass"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigDatacenterProxyConfig: &kernel.ProxyNewParamsConfigDatacenterProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+		BypassHosts: []string{
+			"localhost",
+			"internal.company.local",
+			"metadata.google.internal",
+			"*.amazonaws.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
 ```
 </CodeGroup>
 
@@ -249,6 +366,70 @@ kernel.browsers.update(
     proxy_id="",
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create two proxy configurations
+	proxyA, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("proxy-a"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigIspProxyConfig: &kernel.ProxyNewParamsConfigIspProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	proxyB, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("proxy-b"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("DE"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Launch a browser with the first proxy
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxyA.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Hot-swap to a different proxy
+	if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+		ProxyID: kernel.String(proxyB.ID),
+	}); err != nil {
+		panic(err)
+	}
+
+	// Remove the proxy entirely (route directly to the internet)
+	if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+		ProxyID: kernel.String(""),
+	}); err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 The update is synchronous — when the call returns, the proxy swap is fully applied and all new browser traffic routes through the updated proxy. The swap typically completes in 2–3 seconds.
@@ -275,6 +456,17 @@ browser = kernel.browsers.create(
     proxy_id=my_proxy.id,
 )
 ```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Stealth: kernel.Bool(false),
+	ProxyID: kernel.String(myProxy.ID),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
+```
 </CodeGroup>
 
 ### Disable default proxy on stealth browsers
@@ -293,6 +485,14 @@ kernel.browsers.update(
     browser.session_id,
     disable_default_proxy=True,
 )
+```
+
+```go Go
+if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	DisableDefaultProxy: kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -318,6 +518,25 @@ from kernel import Kernel
 
 kernel = Kernel()
 kernel.proxies.delete("id")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	if err := client.Proxies.Delete(ctx, "id"); err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 

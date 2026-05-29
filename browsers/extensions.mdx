@@ -70,6 +70,32 @@ kernel = Kernel()
 kernel_browser = kernel.browsers.create(extensions=[{"name": "my-extension"}])
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Extensions: []shared.BrowserExtensionParam{
+			{Name: kernel.String("my-extension")},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
+
 ```bash CLI
 kernel browsers create --extension my-extension
 ```

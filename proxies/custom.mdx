@@ -54,6 +54,46 @@ proxy = kernel.proxies.create(
 
 browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type:     kernel.ProxyNewParamsTypeCustom,
+		Name:     kernel.String("my-private-proxy"),
+		Protocol: kernel.ProxyNewParamsProtocolHTTPS,
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigCreateCustomProxyConfig: &kernel.ProxyNewParamsConfigCreateCustomProxyConfig{
+				Host:     "proxy.example.com",
+				Port:     443,
+				Username: kernel.String("user123"),
+				Password: kernel.String("secure_password"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
 </CodeGroup>
 
 ## Configuration Parameters
@@ -117,6 +157,44 @@ proxy = kernel.proxies.create(
         "*.trusted-domain.com",
     ]
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type:     kernel.ProxyNewParamsTypeCustom,
+		Name:     kernel.String("custom-with-bypass"),
+		Protocol: kernel.ProxyNewParamsProtocolHTTPS,
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigCreateCustomProxyConfig: &kernel.ProxyNewParamsConfigCreateCustomProxyConfig{
+				Host:     "proxy.example.com",
+				Port:     443,
+				Username: kernel.String("user123"),
+				Password: kernel.String("secure_password"),
+			},
+		},
+		BypassHosts: []string{
+			"localhost",
+			"internal.service.local",
+			"*.trusted-domain.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
 ```
 </CodeGroup>
 

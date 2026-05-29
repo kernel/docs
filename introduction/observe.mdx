@@ -28,6 +28,29 @@ kernel_browser = kernel.browsers.create()
 print(kernel_browser.browser_live_view_url)
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(kernelBrowser.BrowserLiveViewURL)
+}
+```
+
 ```bash CLI
 kernel browsers view <session-id>
 ```
@@ -63,6 +86,23 @@ kernel.browsers.replays.stop(
 )
 ```
 
+```go Go
+replay, err := client.Browsers.Replays.Start(ctx, kernelBrowser.SessionID, kernel.BrowserReplayStartParams{})
+if err != nil {
+	panic(err)
+}
+
+// ...run the agent...
+
+if err := client.Browsers.Replays.Stop(
+	ctx,
+	replay.ReplayID,
+	kernel.BrowserReplayStopParams{ID: kernelBrowser.SessionID},
+); err != nil {
+	panic(err)
+}
+```
+
 ```bash CLI
 # Start recording
 kernel browsers replays start <session-id>
@@ -94,6 +134,18 @@ screenshot = kernel.browsers.computer.capture_screenshot(
 )
 ```
 
+```go Go
+screenshot, err := client.Browsers.Computer.CaptureScreenshot(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserComputerCaptureScreenshotParams{},
+)
+if err != nil {
+	panic(err)
+}
+defer screenshot.Body.Close()
+```
+
 ```bash CLI
 kernel browsers computer screenshot <session-id> --to screenshot.png
 ```
@@ -119,6 +171,22 @@ logs = kernel.invocations.follow(invocation_id)
 
 for event in logs:
     print(event)
+```
+
+```go Go
+stream := client.Invocations.FollowStreaming(
+	ctx,
+	invocationID,
+	kernel.InvocationFollowParams{},
+)
+defer stream.Close()
+
+for stream.Next() {
+	fmt.Println(stream.Current())
+}
+if err := stream.Err(); err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 

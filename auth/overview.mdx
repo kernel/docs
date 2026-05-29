@@ -25,6 +25,19 @@ auth = await kernel.auth.connections.create(
     profile_name="netflix-user-123",
 )
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "netflix.com",
+		ProfileName: "netflix-user-123",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
 </CodeGroup>
   </Step>
   <Step title="Start a Login Session">
@@ -66,6 +79,33 @@ while state.flow_status == "IN_PROGRESS":
 if state.status == "AUTHENTICATED":
     print("Authenticated!")
 ```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+
+// Send user to login page
+fmt.Println("Login URL:", login.HostedURL)
+
+// Poll until complete
+state, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+	time.Sleep(2 * time.Second)
+	state, err = client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+}
+
+if state.Status == kernel.ManagedAuthStatusAuthenticated {
+	fmt.Println("Authenticated!")
+}
+```
 </CodeGroup>
 
   </Step>
@@ -91,6 +131,27 @@ browser = await kernel.browsers.create(
 
 # Navigate to the site—you're already logged in
 await page.goto("https://netflix.com")
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("netflix-user-123"),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
+
+// Navigate to the site—you're already logged in
+_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `await page.goto("https://netflix.com");`,
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 

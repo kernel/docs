@@ -82,6 +82,41 @@ pool = kernel.browser_pools.create(
 
 print(pool.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+		Name:           kernel.String("my-pool"),
+		Size:           10,
+		Stealth:        kernel.Bool(true),
+		Headless:       kernel.Bool(false),
+		TimeoutSeconds: kernel.Int(600),
+		StartURL:       kernel.String("https://example.com"),
+		Viewport: shared.BrowserViewportParam{
+			Width:  1280,
+			Height: 800,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(pool.ID)
+}
+```
 </CodeGroup>
 
 ### Pool configuration options
@@ -111,6 +146,18 @@ browser = kernel.browser_pools.acquire(
 print(browser.session_id)
 print(browser.cdp_ws_url)
 ```
+
+```go Go
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{
+	AcquireTimeoutSeconds: kernel.Int(30),
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(browser.SessionID)
+fmt.Println(browser.CdpWsURL)
+```
 </CodeGroup>
 
 The acquired browser includes all the same properties as a regular browser session, including `cdp_ws_url` for CDP connections and `browser_live_view_url` for live viewing.
@@ -138,6 +185,15 @@ kernel.browser_pools.release(
     reuse=True,
 )
 ```
+
+```go Go
+if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+	SessionID: browser.SessionID,
+	Reuse:     kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 ## Update a pool
@@ -159,6 +215,17 @@ updated_pool = kernel.browser_pools.update(
     stealth=True,
 )
 ```
+
+```go Go
+updatedPool, err := client.BrowserPools.Update(ctx, "my-pool", kernel.BrowserPoolUpdateParams{
+	Size:    20,
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = updatedPool
+```
 </CodeGroup>
 
 <Info>
@@ -179,6 +246,12 @@ await kernel.browserPools.flush("my-pool");
 ```python Python
 kernel.browser_pools.flush("my-pool")
 ```
+
+```go Go
+if err := client.BrowserPools.Flush(ctx, "my-pool"); err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 ## Get pool details
@@ -198,6 +271,16 @@ pool = kernel.browser_pools.retrieve("my-pool")
 
 print(pool.available_count)
 print(pool.acquired_count)
+```
+
+```go Go
+pool, err := client.BrowserPools.Get(ctx, "my-pool")
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(pool.AvailableCount)
+fmt.Println(pool.AcquiredCount)
 ```
 </CodeGroup>
 
@@ -220,6 +303,17 @@ pools = kernel.browser_pools.list()
 for pool in pools:
     print(pool.name, pool.available_count)
 ```
+
+```go Go
+pools, err := client.BrowserPools.List(ctx)
+if err != nil {
+	panic(err)
+}
+
+for _, pool := range *pools {
+	fmt.Println(pool.Name, pool.AvailableCount)
+}
+```
 </CodeGroup>
 
 ## Delete a pool
@@ -241,6 +335,20 @@ kernel.browser_pools.delete("my-pool")
 
 # Force delete even if browsers are acquired
 kernel.browser_pools.delete("my-pool", force=True)
+```
+
+```go Go
+// Delete a pool (fails if browsers are acquired)
+if err := client.BrowserPools.Delete(ctx, "my-pool", kernel.BrowserPoolDeleteParams{}); err != nil {
+	panic(err)
+}
+
+// Force delete even if browsers are acquired
+if err := client.BrowserPools.Delete(ctx, "my-pool", kernel.BrowserPoolDeleteParams{
+	Force: kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -304,6 +412,49 @@ async def main():
             )
 
 asyncio.run(main())
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Acquire a browser from an existing pool
+	kernelBrowser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		// Release back to pool for reuse
+		if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+			SessionID: kernelBrowser.SessionID,
+		}); err != nil {
+			panic(err)
+		}
+	}()
+
+	response, err := client.Browsers.Playwright.Execute(ctx, kernelBrowser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+		Code: `
+			await page.goto('https://example.com');
+			return await page.title();
+		`,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(response.Result)
+}
 ```
 </CodeGroup>
 
