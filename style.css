@@ -221,8 +221,10 @@ html.dark {
   --btn-border: #fff;
 }
 
-/* homepage hero bot: a flat #1C2024 shape on transparent, so it disappears on dark.
-   invert() flips it to near-white without needing a separate asset. */
-html.dark img[src*="tinker-bot"] {
-  filter: invert(1) !important;
-}
+/* homepage card + hero bot illustrations: light variants have cream/tan backgrounds
+   that read as bright tiles on dark. swap to recolored dark variants. */
+html.dark img[src$="/images/o11y.svg"]      { content: url("/images/o11y-dark.svg"); }
+html.dark img[src$="/images/chromium.svg"]  { content: url("/images/chromium-dark.svg"); }
+html.dark img[src$="/images/auth.svg"]      { content: url("/images/auth-dark.svg"); }
+html.dark img[src$="/images/stealth.svg"]   { content: url("/images/stealth-dark.svg"); }
+html.dark img[src$="/images/tinker-bot.svg"] { content: url("/images/tinker-bot-dark.svg"); }
