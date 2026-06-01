@@ -39,6 +39,42 @@ print(f"Recording started with ID: {replay.replay_id}")
 kernel.browsers.replays.stop(replay_id=replay.replay_id, id=kernel_browser.session_id)
 print("Recording stopped and processing")
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	replay, err := client.Browsers.Replays.Start(ctx, kernelBrowser.SessionID, kernel.BrowserReplayStartParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Recording started with ID: %s\n", replay.ReplayID)
+
+	// Perform some automation...
+
+	if err := client.Browsers.Replays.Stop(ctx, replay.ReplayID, kernel.BrowserReplayStopParams{
+		ID: kernelBrowser.SessionID,
+	}); err != nil {
+		panic(err)
+	}
+	fmt.Println("Recording stopped and processing")
+}
+```
 </CodeGroup>
 
 ## Multiple recordings per session
@@ -64,6 +100,30 @@ kernel.browsers.replays.stop(replay_id=replay1.replay_id, id=kernel_browser.sess
 replay2 = kernel.browsers.replays.start(kernel_browser.session_id)
 # Perform different automation...
 kernel.browsers.replays.stop(replay_id=replay2.replay_id, id=kernel_browser.session_id)
+```
+
+```go Go
+replay1, err := client.Browsers.Replays.Start(ctx, kernelBrowser.SessionID, kernel.BrowserReplayStartParams{})
+if err != nil {
+	panic(err)
+}
+// Perform some automation...
+if err := client.Browsers.Replays.Stop(ctx, replay1.ReplayID, kernel.BrowserReplayStopParams{
+	ID: kernelBrowser.SessionID,
+}); err != nil {
+	panic(err)
+}
+
+replay2, err := client.Browsers.Replays.Start(ctx, kernelBrowser.SessionID, kernel.BrowserReplayStartParams{})
+if err != nil {
+	panic(err)
+}
+// Perform different automation...
+if err := client.Browsers.Replays.Stop(ctx, replay2.ReplayID, kernel.BrowserReplayStopParams{
+	ID: kernelBrowser.SessionID,
+}); err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -116,5 +176,64 @@ for replay in replays:
         await f.write(content)
 
     print(f"Saved replay to {filename}")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	sessionID := "brw_01jwv4tn5m8k3q2v7x9p0a1bc2"
+
+	replays, err := client.Browsers.Replays.List(ctx, sessionID)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, replay := range *replays {
+		fmt.Printf("Replay ID: %s\n", replay.ReplayID)
+		fmt.Printf("View URL: %s\n", replay.ReplayViewURL)
+
+		videoData, err := client.Browsers.Replays.Download(ctx, replay.ReplayID, kernel.BrowserReplayDownloadParams{
+			ID: sessionID,
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		filename := fmt.Sprintf("replay-%s-%s.mp4", replay.ReplayID, sessionID)
+		file, err := os.Create(filename)
+		if err != nil {
+			videoData.Body.Close()
+			panic(err)
+		}
+
+		_, copyErr := io.Copy(file, videoData.Body)
+		closeErr := videoData.Body.Close()
+		fileErr := file.Close()
+		if copyErr != nil {
+			panic(copyErr)
+		}
+		if closeErr != nil {
+			panic(closeErr)
+		}
+		if fileErr != nil {
+			panic(fileErr)
+		}
+
+		fmt.Printf("Saved replay to %s\n", filename)
+	}
+}
 ```
 </CodeGroup>

@@ -21,6 +21,35 @@ from kernel import Kernel
 kernel = Kernel()
 logs = kernel.invocations.follow(invocation_id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	logs := client.Invocations.FollowStreaming(ctx, "inv_123", kernel.InvocationFollowParams{})
+	defer logs.Close()
+
+	for logs.Next() {
+		event := logs.Current()
+		if event.Event == "log" {
+			fmt.Println(event.Message)
+		}
+	}
+	if err := logs.Err(); err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 <Info>Log lines will be truncated to 64KiB. For large payloads write data to external storage and log a reference instead.</Info>

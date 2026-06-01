@@ -27,6 +27,25 @@ from kernel import Kernel
 kernel = Kernel()
 kernel.browsers.delete_by_id("htzv5orfit78e1m2biiifpbv")
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	if err := client.Browsers.DeleteByID(ctx, "htzv5orfit78e1m2biiifpbv"); err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 ## Automatic deletion via timeout
@@ -52,5 +71,30 @@ kernel = Kernel()
 
 browser = kernel.browsers.create(timeout_seconds=300)
 print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		TimeoutSeconds: kernel.Int(300),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(browser.SessionID)
+}
 ```
 </CodeGroup>

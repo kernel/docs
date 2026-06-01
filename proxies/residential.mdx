@@ -56,6 +56,42 @@ proxy = kernel.proxies.create(
 
 browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("my-us-residential"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
 </CodeGroup>
 
 ## Configuration Parameters
@@ -101,6 +137,24 @@ proxy = kernel.proxies.create(
 )
 ```
 
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("la-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			State:   kernel.String("CA"),
+			City:    kernel.String("los_angeles"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
 </CodeGroup>
 
 <Note>
@@ -133,6 +187,23 @@ proxy = kernel.proxies.create(
         'state': 'NY'
     }
 )
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("ny-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			State:   kernel.String("NY"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
 ```
 
 </CodeGroup>
@@ -169,6 +240,23 @@ proxy = kernel.proxies.create(
 )
 ```
 
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("comcast-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			Asn:     kernel.String("AS7922"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
 </CodeGroup>
 
 <Note>
@@ -201,6 +289,23 @@ proxy = kernel.proxies.create(
         'zip': '10001'
     }
 )
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("nyc-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			Zip:     kernel.String("10001"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
 ```
 
 </CodeGroup>
@@ -246,6 +351,27 @@ proxy = kernel.proxies.create(
         '*.internal.company.com',
     ]
 )
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("residential-with-bypass"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+		},
+	},
+	BypassHosts: []string{
+		"localhost",
+		"metadata.google.internal",
+		"*.internal.company.com",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
 ```
 </CodeGroup>
 

@@ -42,6 +42,37 @@ proxy = kernel.proxies.create(
 
 browser = kernel.browsers.create(proxy_id=proxy.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("my-isp-proxy"),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
 </CodeGroup>
 
 ## Configuration Parameters
@@ -83,6 +114,35 @@ proxy = kernel.proxies.create(
         "*.amazonaws.com",
     ]
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("isp-with-bypass"),
+		BypassHosts: []string{
+			"localhost",
+			"internal.service.local",
+			"*.amazonaws.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
 ```
 </CodeGroup>
 

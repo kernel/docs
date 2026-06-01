@@ -34,6 +34,33 @@ invocation = kernel.invocations.create(
 )
 print(invocation.id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.New(ctx, kernel.InvocationNewParams{
+		ActionName: "analyze",
+		AppName:    "my-app",
+		Version:    "1.0.0",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(invocation.ID)
+}
+```
 </CodeGroup>
 
 ### Asynchronous invocations
@@ -69,6 +96,34 @@ invocation = kernel.invocations.create(
     async_=True,
 )
 print(invocation.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.New(ctx, kernel.InvocationNewParams{
+		Async:      kernel.Bool(true),
+		ActionName: "analyze",
+		AppName:    "my-app",
+		Version:    "1.0.0",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(invocation.ID)
+}
 ```
 </CodeGroup>
 
