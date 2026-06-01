@@ -179,13 +179,7 @@ table tbody td:first-child {
   }
 }
 
-/* dark mode overrides
-   light mode is the default above; these only apply when Mintlify adds .dark to <html>.
-   The base rules hardcode light colors (opaque light table fill, rgba(0,0,0,...) borders,
-   #000 button border), which read as bright boxes or invisible lines on a dark background. */
-
-/* tables: swap the opaque light fill and black-alpha borders for grey-dark-12-alpha
-   on dark (#EDEEF0 = kernel grey-dark-12, the dark-mode foreground token). */
+/* dark mode overrides */
 html.dark .prose table,
 html.dark article table,
 html.dark table {
@@ -212,7 +206,7 @@ html.dark table tbody tr:hover {
   background-color: rgba(237, 238, 240, 0.04) !important;
 }
 
-/* tinker box border is invisible on dark without this */
+/* tinker box border */
 html.dark .tinker-box {
   border-color: rgba(237, 238, 240, 0.14);
 }
@@ -222,7 +216,5 @@ html.dark {
   --btn-border: #EDEEF0;
 }
 
-/* hero bot: a flat #1C2024 silhouette with no card frame, invisible against #212225.
-   the card illustrations (o11y, chromium, auth, stealth) intentionally keep their light
-   tiles on dark — they read as framed illustrations, not page leakage. */
+/* hero bot dark recolor */
 html.dark img[src*="/images/tinker-bot.svg"] { content: url("/images/tinker-bot-dark.svg"); }
