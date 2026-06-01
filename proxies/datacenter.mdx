@@ -6,9 +6,9 @@ Datacenter proxies use IP addresses assigned from datacenter servers to route yo
 
 ## IP Rotation Behavior
 
-Datacenter proxies provide a **stable exit IP within a single browser session** — every tab, request, and reconnection inside that session exits through the same IP, and it does not rotate mid-session (unlike residential).
+Datacenter proxies use **rotating exit IPs** — a new exit IP is assigned per request, so different requests within the same browser session can exit through different IPs.
 
-For cross-session IP stability (e.g. IP allowlists or [managed auth](/auth/overview) health checks), see [IP rotation behavior across proxy types](/proxies/overview).
+If you need a stable IP across requests and sessions (e.g. for IP allowlists or [managed auth](/auth/overview) health checks), use an [ISP proxy](/proxies/isp) instead. See [IP rotation behavior across proxy types](/proxies/overview) for the full comparison.
 
 ## Configuration
 
