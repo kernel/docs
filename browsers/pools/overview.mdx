@@ -461,3 +461,44 @@ func main() {
 ## API reference
 
 For more details on all available endpoints and parameters, see the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools).
+
+## Pool sizing calculator
+
+import { PoolSizingCalculator } from '/snippets/pool-sizing-calculator.jsx';
+
+Use the calculator below to estimate a pool size for your workload. It assumes `reuse: false` on release, so every acquisition ends in destruction and triggers a refill.
+
+<PoolSizingCalculator />
+
+### How the calculation works
+
+Two constraints have to be satisfied at the same time, so the recommended size is the larger of the two.
+
+**Concurrency floor.** With a peak acquisition rate `λ` (per minute) and an average acquired duration `d` (minutes), the number of browsers held simultaneously trends toward `λ × d`. We multiply by a 1.25× safety factor to keep ~10–20% of the pool available during normal load (see the [pool sizing guidance in the FAQ](/browsers/pools/faq#how-do-i-know-if-my-pool-is-too-small-or-too-large)).
+
+```
+concurrency_floor = ceil(λ × d × 1.25)
+```
+
+**Refill floor.** The [`fill_rate_per_minute`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute) is a percentage of pool size and is capped at 25. With `reuse: false`, browsers are destroyed at the acquisition rate, so the refill rate must keep up:
+
+```
+refill_floor = ceil(100 × λ / fill_rate)
+```
+
+**Recommended pool size.**
+
+```
+N = max(concurrency_floor, refill_floor)
+```
+
+At the 25% fill ceiling, the two constraints meet at `d ≈ 3.2` minutes. Below that, the refill ceiling sets the floor; above it, concurrency does.
+
+### Worked examples
+
+| Acquisitions/min | Duration (min) | Refill floor | Concurrency floor | Pool size | Binding |
+| --- | --- | --- | --- | --- | --- |
+| 10 | 1 | 40 | 13 | **40** | refill |
+| 10 | 5 | 40 | 63 | **63** | concurrency |
+| 30 | 2 | 120 | 75 | **120** | refill |
+| 30 | 10 | 120 | 375 | **375** | concurrency |
