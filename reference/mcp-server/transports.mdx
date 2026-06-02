@@ -1,0 +1,21 @@
+---
+title: "Transports"
+description: "Connect to the Kernel MCP server over streamable HTTP or stdio"
+---
+
+The Kernel MCP server is reachable at a single endpoint over two transports.
+
+- **Streamable HTTP (recommended):** `https://mcp.onkernel.com/mcp`
+- **stdio via `mcp-remote`** (for clients without remote MCP support):
+
+  ```bash
+  npx -y mcp-remote https://mcp.onkernel.com/mcp
+  ```
+
+Use the streamable HTTP endpoint where supported for increased reliability. If your client doesn't support remote MCP, use `mcp-remote` over stdio.
+
+<Tip>
+**Quick setup:** Use the Kernel CLI to automatically configure MCP for your tool: `kernel mcp install --target <target>`. See the [CLI MCP documentation](/reference/cli/mcp) for details.
+</Tip>
+
+Once you've chosen a transport, [connect your client](/reference/mcp-server/clients/claude) and set up [authentication](/reference/mcp-server/authentication).

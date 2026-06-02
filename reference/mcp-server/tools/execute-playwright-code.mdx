@@ -1,0 +1,33 @@
+---
+title: "execute_playwright_code"
+description: "Run Playwright/TypeScript code against a browser session"
+---
+
+Execute Playwright/TypeScript automation code against a Kernel browser session. If `session_id` is provided, uses that existing browser; otherwise creates a new one. Returns the result with a video replay URL, and auto-cleans up browsers it creates.
+
+<Tip>Use `computer_action` with the `screenshot` action instead of `page.screenshot()` in your code. For a comprehensive page state snapshot, use `await page._snapshotForAI()`.</Tip>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `code` | Playwright/TypeScript code with a `page` object in scope. Required. |
+| `session_id` | Existing browser session ID. If omitted, a new browser is created and cleaned up after execution. |
+
+## Example
+
+```json
+{
+  "code": "await page.goto('https://example.com'); return await page.title();"
+}
+```
+
+Returns:
+
+```json
+{
+  "success": true,
+  "result": "Example Domain",
+  "replay_url": "https://..."
+}
+```

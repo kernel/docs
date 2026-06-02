@@ -1,0 +1,41 @@
+---
+title: "manage_proxies"
+description: "Create, list, and delete proxy configurations"
+---
+
+Manage proxy configurations for routing browser traffic. Proxy quality for bot detection avoidance, best to worst: mobile > residential > ISP > datacenter.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Add a proxy. |
+| `list` | List all proxies. |
+| `delete` | Remove a proxy. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create`, `list`, or `delete`. Required. |
+| `type` | (create) Proxy type: `datacenter`, `isp`, `residential`, `mobile`, or `custom`. |
+| `name` | (create) Readable name for the proxy. |
+| `country` | (create) ISO 3166 country code (e.g., `US`). |
+| `state` | (create) Two-letter state code. |
+| `city` | (create) City name without spaces (e.g., `sanfrancisco`). Requires `country`. |
+| `custom_host` | (create, custom type) Proxy host address. |
+| `custom_port` | (create, custom type) Proxy port. |
+| `custom_username` | (create, custom type) Auth username. |
+| `custom_password` | (create, custom type) Auth password. |
+| `proxy_id` | (delete) Proxy ID to delete. |
+
+## Example
+
+```json
+{
+  "action": "create",
+  "type": "residential",
+  "name": "us-residential",
+  "country": "US"
+}
+```
