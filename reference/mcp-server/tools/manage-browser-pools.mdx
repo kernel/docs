@@ -1,0 +1,48 @@
+---
+title: "manage_browser_pools"
+description: "Create and manage pools of pre-warmed browsers"
+---
+
+Manage pools of pre-warmed browser instances for fast acquisition.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Set up a pool. |
+| `list` | List pools. |
+| `get` | Inspect a specific pool. |
+| `acquire` | Get a browser from a pool. |
+| `release` | Return a browser to a pool. |
+| `flush` | Destroy idle browsers in a pool. |
+| `delete` | Remove a pool. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform. Required. |
+| `id_or_name` | Pool ID or name. Required for `get`, `delete`, `flush`, `acquire`, and `release`. |
+| `name` | (create) Unique pool name. |
+| `size` | (create) Number of browsers to maintain in the pool. |
+| `fill_rate_per_minute` | (create) Pool fill rate percentage per minute. Default 10%. |
+| `headless` | (create) Headless mode for pool browsers. |
+| `stealth` | (create) Stealth mode for pool browsers. |
+| `profile_name` | (create) Profile to load into pool browsers. |
+| `proxy_id` | (create) Proxy for pool browsers. |
+| `timeout_seconds` | (create) Idle timeout for acquired browsers. Default 600. |
+| `acquire_timeout_seconds` | (acquire) Max seconds to wait for a browser. |
+| `session_id` | (release) Session ID of the browser to release. |
+| `reuse` | (release) Reuse the browser instance or recreate it. Default true. |
+| `force` | (delete) Force delete even if browsers are leased. |
+
+## Example
+
+```json
+{
+  "action": "create",
+  "name": "scrape-pool",
+  "size": 5,
+  "stealth": true
+}
+```

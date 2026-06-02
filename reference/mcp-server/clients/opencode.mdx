@@ -1,0 +1,28 @@
+---
+title: "OpenCode"
+description: "Connect OpenCode to the Kernel MCP server"
+---
+
+Add the following to your `~/.config/opencode/opencode.jsonc`:
+
+```jsonc
+{
+  "mcp": {
+    "kernel": {
+      "type": "remote",
+      "url": "https://mcp.onkernel.com/mcp"
+    }
+  }
+}
+```
+
+Then authenticate using the OpenCode CLI:
+
+```bash
+# Authenticate with Kernel
+opencode mcp auth kernel
+
+# If you need to re-authenticate, first logout then auth again
+opencode mcp logout kernel
+opencode mcp auth kernel
+```

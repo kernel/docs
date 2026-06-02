@@ -1,0 +1,44 @@
+---
+title: "Examples"
+description: "See the Kernel MCP server in action"
+---
+
+## Invoke apps from anywhere
+
+```
+Human: Run my web-scraper app to get data from reddit.com
+Assistant: I'll execute your web-scraper action with reddit.com as the target.
+[Uses manage_apps tool with action: "invoke" to run your deployed app in the cloud]
+```
+
+## Execute Playwright code dynamically
+
+```
+Human: Go to example.com and get me the page title
+Assistant: I'll execute Playwright code to navigate to the site and retrieve the title.
+[Uses execute_playwright_code tool with code: "await page.goto('https://example.com'); return await page.title();"]
+Returns: { success: true, result: "Example Domain", replay_url: "https://..." }
+```
+
+## Set up browser profiles for authentication
+
+```
+Human: Set up a profile for my work accounts
+Assistant: I'll create a profile and guide you through the setup process.
+[Uses manage_profiles tool with action: "setup"]
+
+Human: I'm done setting up my accounts
+Assistant: Perfect! I'll close the browser session and save your profile.
+[Uses manage_browsers tool with action: "delete" to save profile]
+```
+
+## Debug a browser session
+
+<Note>Attach the `debug-browser-session` prompt to your conversation first, then ask for help debugging.</Note>
+
+```
+Human: [Attaches debug-browser-session prompt with session_id and issue_description]
+       Help me debug this browser session.
+Assistant: [Follows the debugging guide from the prompt: uses Kernel CLI to check session status, 
+            read VM logs, test network connectivity, and diagnose issues]
+```
