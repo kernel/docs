@@ -1,0 +1,45 @@
+---
+title: "computer_action"
+description: "Mouse, keyboard, and screenshot controls for browser sessions"
+---
+
+Execute computer actions on a browser session. Pass a single action for simple operations, or pass multiple actions to batch them into one request for lower latency.
+
+<Tip>Always include a `screenshot` as the last action so you can see the result. `screenshot` and `get_mouse_position` return data, so they must come last.</Tip>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `session_id` | Browser session ID. Required. |
+| `actions` | Ordered list of actions to perform. Required. |
+
+## Action types
+
+| Type | Description |
+|------|-------------|
+| `click_mouse` | Click at `x`, `y`. Supports `button`, `click_type`, `num_clicks`, `hold_keys`. |
+| `move_mouse` | Move the cursor to `x`, `y`. |
+| `type_text` | Type `text`, with optional inter-key `delay`. |
+| `press_key` | Press `keys` (X11 keysym names or combos like `Ctrl+t`, `Return`). |
+| `scroll` | Scroll at `x`, `y` by `delta_x`/`delta_y` (positive = right/down). |
+| `drag_mouse` | Drag along a `path` of `[x, y]` points. |
+| `set_cursor` | Show or hide the cursor (`hidden`). |
+| `sleep` | Wait `duration_ms` between steps when the page needs time to react. |
+| `screenshot` | Capture the page, optionally limited to a `region`. |
+| `get_mouse_position` | Return the current cursor position. |
+
+## Example
+
+```json
+{
+  "session_id": "browser_abc123",
+  "actions": [
+    { "type": "click_mouse", "click_mouse": { "x": 420, "y": 300 } },
+    { "type": "type_text", "type_text": { "text": "kernel browsers" } },
+    { "type": "press_key", "press_key": { "keys": ["Return"] } },
+    { "type": "sleep", "sleep": { "duration_ms": 1000 } },
+    { "type": "screenshot" }
+  ]
+}
+```

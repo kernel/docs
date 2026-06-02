@@ -1,0 +1,48 @@
+---
+title: "manage_browsers"
+description: "Create, list, get, and delete browser sessions"
+---
+
+Manage browser sessions on the Kernel platform. Created browsers run in isolated VMs and support headless/stealth modes, profiles, proxies, viewports, extensions, and SSH tunneling.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Launch a new browser session. |
+| `list` | List existing sessions. |
+| `get` | Retrieve details about a specific session. |
+| `delete` | Terminate a session. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create`, `list`, `get`, or `delete`. Required. |
+| `session_id` | Browser session ID. Required for `get` and `delete`. |
+| `headless` | (create) Launch without GUI. Faster but no live view. |
+| `stealth` | (create) Avoid bot detection. Recommended for scraping. |
+| `kiosk_mode` | (create) Hide address bar/tabs in live view. |
+| `profile_id` / `profile_name` | (create) Profile to load saved cookies/logins. Use one, not both. |
+| `save_profile_changes` | (create) Save session changes back to the profile on close. |
+| `proxy_id` | (create) Proxy ID for traffic routing. |
+| `extension_id` / `extension_name` | (create) Extension to load. |
+| `viewport_width` / `viewport_height` | (create) Window size in pixels. Must be set together. |
+| `viewport_refresh_rate` | (create) Display refresh rate in Hz. |
+| `timeout_seconds` | (create) Inactivity timeout in seconds (max 259200 = 72h). Default 60. |
+| `local_forward` | (create) SSH local forwarding (`localport:host:remoteport`). |
+| `remote_forward` | (create) SSH remote forwarding (`remoteport:host:localport`). Use to expose a local dev server to the browser. |
+| `status` | (list) Filter by status: `active`, `deleted`, or `all`. Default `active`. |
+| `limit` | (list) Max results per page. Default 50. |
+| `offset` | (list) Pagination offset. Default 0. |
+
+## Example
+
+```json
+{
+  "action": "create",
+  "stealth": true,
+  "proxy_id": "proxy_residential_us",
+  "timeout_seconds": 3600
+}
+```

@@ -5,363 +5,51 @@ description: "Access Kernel's cloud-based browsers via MCP"
 
 Our Model Context Protocol (MCP) server lets any compatible AI model or agent launch Chromium browsers, execute Playwright code, capture video replays, and automate web interactions from Kernel's cloud platform via a single secure endpoint.
 
-## Setup Instructions
-
-### General (Transports)
-
-- Streamable HTTP (recommended): `https://mcp.onkernel.com/mcp`
-- stdio via `mcp-remote` (for clients without remote MCP support): `npx -y mcp-remote https://mcp.onkernel.com/mcp`
-
-Use the streamable HTTP endpoint where supported for increased reliability. If your client does not support remote MCP, use `mcp-remote` over stdio.
-
-Kernel's server is a centrally hosted, authenticated remote MCP using OAuth 2.1 with dynamic client registration.
-
-## Authentication
-
-### OAuth (Recommended)
-
-The MCP server uses OAuth 2.1 for user authentication. When you connect through supported clients, you'll be prompted to authorize access via your browser.
-
-### API Key Authentication
-
-For programmatic access or service-to-service authentication, you can use your Kernel API key instead of OAuth.
-
-Add your API key to the MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "kernel": {
-      "url": "https://mcp.onkernel.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_KERNEL_API_KEY"
-      }
-    }
-  }
-}
-```
-
-The server automatically detects non-JWT tokens and treats them as API keys.
-
-API key authentication is useful for:
-- Automated workflows and CI/CD pipelines
-- Server-to-server integrations
-- Environments where OAuth flows are not practical
-
-<Note>API keys bypass the OAuth flow but still require valid Kernel credentials. Ensure your API key is kept secure and not exposed in client-side code.</Note>
-
-## Connect in your client
-
-<Tip>
-**Quick setup**: Use the Kernel CLI to automatically configure MCP for your tool: `kernel mcp install --target <target>`. See the [CLI MCP documentation](/reference/cli/mcp) for details.
-</Tip>
-
-### Claude
-
-<Info>Our remote MCP server is not compatible with the method Free users of Claude use to add MCP servers.</Info>
-
-#### Pro, Max, Team & Enterprise (Claude.ai and Claude Desktop)
-
-1. Go to **Settings → Connectors → Add custom connector**.
-2. Enter: **Integration name:** `Kernel`, **Integration URL:** `https://mcp.onkernel.com/mcp`, then click **Add**.
-3. In **Settings → Connectors**, click **Connect** next to `Kernel` to launch OAuth and approve.
-4. In chat, click **Search and tools** and enable the Kernel tools if needed.
-
-<Info>On Claude for Work (Team/Enterprise), only Primary Owners or Owners can enable custom connectors for the org. After it's configured, each user still needs to go to **Settings → Connectors** and click **Connect** to authorize it for their account.</Info>
-
-#### Claude Code CLI
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target claude-code
-# Then in the REPL run once to authenticate:
-/mcp
-```
-
-**Manual setup:**
-```bash
-claude mcp add --transport http kernel https://mcp.onkernel.com/mcp
-# Then in the REPL run once to authenticate:
-/mcp
-```
-
-### Cursor
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target cursor
-```
-
-**One-click install:**
-Click [here](https://cursor.com/en/install-mcp?name=Kernel&config=eyJ1cmwiOiAiaHR0cHM6Ly9tY3Aub25rZXJuZWwuY29tL21jcCJ9) to install Kernel on Cursor.
-
-#### Manual setup
-
-1. Press **⌘/Ctrl Shift J**.
-2. Go to **MCP & Integrations → New MCP server**.
-3. Add this configuration:
-
-```json
-{
-  "mcpServers": {
-    "kernel": {
-      "url": "https://mcp.onkernel.com/mcp"
-    }
-  }
-}
-```
-
-4. Save. The server will appear in Tools.
-
-### OpenCode
-
-Add the following to your `~/.config/opencode/opencode.jsonc`:
-
-```jsonc
-{
-  "mcp": {
-    "kernel": {
-      "type": "remote",
-      "url": "https://mcp.onkernel.com/mcp"
-    }
-  }
-}
-```
-
-Then authenticate using the OpenCode CLI:
-
-```bash
-# Authenticate with Kernel
-opencode mcp auth kernel
-
-# If you need to re-authenticate, first logout then auth again
-opencode mcp logout kernel
-opencode mcp auth kernel
-```
-
-### Goose
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target goose
-```
-The command will display the YAML configuration to add to your Goose config file.
-
-**One-click install:**
-Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fmcp.onkernel.com%2Fmcp&timeout=300&id=kernel&name=Kernel&description=Access%20Kernel%27s%20cloud-based%20browsers%20via%20MCP) to install Kernel on Goose in one click.
-
-#### Goose Desktop
-
-1. Click `Extensions` in the sidebar of the Goose Desktop.
-2. Click `Add custom extension`.
-3. On the `Add custom extension` modal, enter:
-   - **Extension Name**: `Kernel`
-   - **Type**: `STDIO`
-   - **Description**: `Access Kernel's cloud-based browsers via MCP`
-   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp`
-   - **Timeout**: `300`
-4. Click `Save Changes` button.
-
-#### Goose CLI
-
-1. Run the following command:
-   ```bash
-   goose configure
-   ```
-2. Select `Add Extension` from the menu.
-3. Choose `Command-line Extension`.
-4. Follow the prompts:
-   - **Extension name**: `Kernel`
-   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp`
-   - **Timeout**: `300`
-   - **Description**: `Access Kernel's cloud-based browsers via MCP`
-
-### Visual Studio Code
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target vscode
-```
-
-**Manual setup:**
-
-Add to your VS Code settings.json:
-```json
-{
-  "mcpServers": {
-    "kernel": {
-      "url": "https://mcp.onkernel.com/mcp",
-      "type": "http"
-    }
-  }
-}
-```
-
-Or use the UI:
-1. Press **⌘/Ctrl Shift P** → search **MCP: Add Server**.
-2. Select **HTTP (HTTP or Server-Sent Events)**.
-3. Enter: `https://mcp.onkernel.com/mcp`
-4. Name the server **Kernel** → Enter.
-
-### Windsurf
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target windsurf
-```
-
-**Manual setup:**
-
-1. Press **⌘/Ctrl ,** to open settings.
-2. Navigate **Cascade → MCP servers → View raw config**.
-3. Paste:
-
-```json
-{
-  "mcpServers": {
-    "kernel": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp"]
-    }
-  }
-}
-```
-
-4. On **Manage MCPs**, click **Refresh** to load Kernel MCP.
-
-### Zed
-
-**Using Kernel CLI (recommended):**
-```bash
-kernel mcp install --target zed
-```
-
-**Manual setup:**
-
-1. Press **⌘/Ctrl ,** to open settings.
-2. Paste:
-
-```json
-{
-  "context_servers": {
-    "kernel": {
-      "source": "custom",
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp"]
-    }
-  }
-}
-```
-
-### Smithery
-
-You can connect directly to `https://mcp.onkernel.com/mcp`, or use Smithery as a proxy using its provided URL.
-
-- Use Smithery URL in any MCP client:
-  1. Open [Smithery: Kernel](https://smithery.ai/server/kernel).
-  2. Copy the URL from "Get connection URL".
-  3. Paste it into your MCP client's "Add server" flow.
-
-- Use Kernel in Smithery's Playground MCP client:
-  1. Open [Smithery Playground](https://smithery.ai/playground).
-  2. Click "Add servers", search for "Kernel", and add it.
-  3. Sign in and authorize Kernel when prompted.
-
-### Others
-
-Many other MCP-capable tools accept:
-
-- **Command:** `npx`
-- **Arguments:** `-y mcp-remote https://mcp.onkernel.com/mcp`
-
-```json
-{
-  "kernel": {
-    "command": "npx",
-    "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp"]
-  }
-}
-```
-
-Configure these values wherever the tool expects MCP server settings.
-
-## Tools
-
-Each Kernel feature has a single `manage_*` tool with an `action` parameter, keeping the tool set small and consistent. Four standalone tools handle high-frequency workflows.
-
-### `manage_*` tools
-
-- `manage_browsers` - Create, list, get, and delete browser sessions. Supports headless/stealth modes, profiles, proxies, viewports, extensions, and SSH tunneling.
-- `manage_profiles` - Setup (with guided live browser session), list, and delete browser profiles for persisting cookies and logins.
-- `manage_browser_pools` - Create, list, get, delete, and flush pools of pre-warmed browsers. Acquire and release browsers from pools.
-- `manage_proxies` - Create, list, and delete proxy configurations (datacenter, ISP, residential, mobile, custom).
-- `manage_extensions` - List and delete uploaded browser extensions.
-- `manage_apps` - List apps, invoke actions, get/list deployments, and get invocation results.
-
-### Standalone tools
-
-- `computer_action` - Mouse, keyboard, and screenshot controls for browser sessions (click, type, press_key, scroll, move, get_position, screenshot).
-- `execute_playwright_code` - Execute Playwright/TypeScript code against a browser with automatic video replay and cleanup.
-- `exec_command` - Run shell commands inside a browser VM. Returns decoded stdout/stderr.
-- `search_docs` - Search Kernel platform documentation and guides.
-
-## Resources
-
-- `browsers://` - Access browser sessions (list all or get specific session)
-- `browser_pools://` - Access browser pools (list all or get specific pool)
-- `profiles://` - Access browser profiles (list all or get specific profile)
-- `apps://` - Access deployed apps (list all or get specific app)
-
-## Prompts
-
-- `kernel-concepts` - Get explanations of Kernel's core concepts (browsers, apps, overview)
-- `debug-browser-session` - Get a comprehensive debugging guide for troubleshooting browser sessions (VM issues, network problems, Chrome errors)
-
-## Troubleshooting
-
-- Cursor clean reset: ⌘/Ctrl Shift P → run `Cursor: Clear All MCP Tokens` (resets all MCP servers and auth; re-enable Kernel and re-authenticate).
-- Clear saved auth and retry: `rm -rf ~/.mcp-auth`
-- Ensure a recent Node.js version when using `npx mcp-remote`
-- If behind strict networks, try stdio via `mcp-remote`, or explicitly set the transport your client supports
-
-## Examples
-
-### Invoke apps from anywhere
-
-```
-Human: Run my web-scraper app to get data from reddit.com
-Assistant: I'll execute your web-scraper action with reddit.com as the target.
-[Uses manage_apps tool with action: "invoke" to run your deployed app in the cloud]
-```
-
-### Execute Playwright code dynamically
-
-```
-Human: Go to example.com and get me the page title
-Assistant: I'll execute Playwright code to navigate to the site and retrieve the title.
-[Uses execute_playwright_code tool with code: "await page.goto('https://example.com'); return await page.title();"]
-Returns: { success: true, result: "Example Domain", replay_url: "https://..." }
-```
-
-### Set up browser profiles for authentication
-
-```
-Human: Set up a profile for my work accounts
-Assistant: I'll create a profile and guide you through the setup process.
-[Uses manage_profiles tool with action: "setup"]
-
-Human: I'm done setting up my accounts
-Assistant: Perfect! I'll close the browser session and save your profile.
-[Uses manage_browsers tool with action: "delete" to save profile]
-```
-
-### Debug a browser session
-
-<Note>Attach the `debug-browser-session` prompt to your conversation first, then ask for help debugging.</Note>
-
-```
-Human: [Attaches debug-browser-session prompt with session_id and issue_description]
-       Help me debug this browser session.
-Assistant: [Follows the debugging guide from the prompt: uses Kernel CLI to check session status, 
-            read VM logs, test network connectivity, and diagnose issues]
-```
+The server is a centrally hosted, authenticated remote MCP using OAuth 2.1 with dynamic client registration.
+
+## Quick start
+
+<Steps>
+  <Step title="Add the server">
+    Point your client at the streamable HTTP endpoint, or use the [Kernel CLI](/reference/cli/mcp) to configure it for you:
+
+    ```bash
+    kernel mcp install --target <target>
+    ```
+  </Step>
+  <Step title="Authenticate">
+    Authorize access through your browser when prompted. See [Authentication](/reference/mcp-server/authentication) for OAuth and API key options.
+  </Step>
+  <Step title="Start automating">
+    Use the [tools](/reference/mcp-server/tools/manage-browsers) to launch browsers, run Playwright code, and invoke your apps.
+  </Step>
+</Steps>
+
+## Explore
+
+<Columns cols={2}>
+  <Card icon="plug" title="Transports" href="/reference/mcp-server/transports">
+    Streamable HTTP and stdio endpoints.
+  </Card>
+  <Card icon="key" title="Authentication" href="/reference/mcp-server/authentication">
+    OAuth 2.1 and API key authentication.
+  </Card>
+  <Card icon="rectangle-terminal" title="Connect your client" href="/reference/mcp-server/clients/claude">
+    Setup for Claude, Cursor, VS Code, and more.
+  </Card>
+  <Card icon="wrench" title="Tools" href="/reference/mcp-server/tools/manage-browsers">
+    Browsers, profiles, proxies, apps, and more.
+  </Card>
+  <Card icon="database" title="Resources" href="/reference/mcp-server/resources">
+    Read browsers, pools, profiles, and apps.
+  </Card>
+  <Card icon="message-lines" title="Prompts" href="/reference/mcp-server/prompts">
+    Prebuilt prompts for concepts and debugging.
+  </Card>
+  <Card icon="bug" title="Troubleshooting" href="/reference/mcp-server/troubleshooting">
+    Fix connection and authentication issues.
+  </Card>
+  <Card icon="lightbulb" title="Examples" href="/reference/mcp-server/examples">
+    See the server in action.
+  </Card>
+</Columns>
