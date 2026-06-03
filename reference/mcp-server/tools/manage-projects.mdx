@@ -1,0 +1,59 @@
+---
+title: "Manage Projects"
+description: "Create, list, update, and delete Kernel projects"
+---
+
+Use `manage_projects` to manage resource isolation inside one Kernel organization. Projects let agents create scoped API keys and organize workloads without switching organizations.
+
+Create a project before provisioning project-scoped keys or grouping browser automation resources by environment, customer, or workflow.
+
+For project concepts, request scoping, and SDK examples, see [Projects](/info/projects).
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create a project. |
+| `list` | Discover projects. |
+| `get` | Retrieve one project. |
+| `update` | Rename or archive a project. |
+| `delete` | Delete an empty project. |
+
+## Recommended flow
+
+1. Call `list` with `query` to check whether the project already exists.
+2. Call `create` for a new workload or environment.
+3. Use the returned `project_id` when creating project-scoped API keys.
+4. Call `update` with `status: "archived"` when the project is no longer active.
+5. Call `delete` only after project resources have been removed.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform. Required. |
+| `project_id` | Project ID. Required for `get`, `update`, and `delete`. |
+| `name` | (create, update) Project name. |
+| `status` | (update) Project status: `active` or `archived`. |
+| `query` | (list) Case-insensitive substring match against project name. |
+| `limit` | (list) Max results per page. Must be 1-100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
+
+## Create a project
+
+```json
+{
+  "action": "create",
+  "name": "checkout-agent-prod"
+}
+```
+
+## Archive a project
+
+```json
+{
+  "action": "update",
+  "project_id": "proj_2vE0M7bLwX9kQ4nP3sY8",
+  "status": "archived"
+}
+```

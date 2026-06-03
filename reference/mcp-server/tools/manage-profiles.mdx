@@ -1,9 +1,11 @@
 ---
-title: "manage_profiles"
+title: "Manage Profiles"
 description: "Set up, list, and delete browser profiles"
 ---
 
-Manage browser profiles that persist cookies, logins, and session data across browser sessions.
+Use `manage_profiles` when a browser needs saved login state across sessions. A profile persists cookies and session data, so your agent can reuse authenticated state instead of asking the user to sign in every time.
+
+For profile concepts and SDK examples, see [Profiles](/auth/profiles).
 
 ## Actions
 
@@ -13,6 +15,13 @@ Manage browser profiles that persist cookies, logins, and session data across br
 | `list` | List all profiles. |
 | `delete` | Remove a profile. |
 
+## Recommended flow
+
+1. Call `setup` with a memorable `profile_name`.
+2. Open the returned live view URL and sign in to the target accounts.
+3. Delete the setup browser when you're done so Kernel saves the profile changes.
+4. Use `profile_name` or `profile_id` with `manage_browsers` or `manage_browser_pools` when launching future sessions.
+
 ## Parameters
 
 | Parameter | Description |
@@ -21,12 +30,30 @@ Manage browser profiles that persist cookies, logins, and session data across br
 | `profile_name` | (setup, delete) Profile name. For setup: 1–255 chars. For delete: name of the profile to remove. |
 | `profile_id` | (delete) Profile ID to delete. Alternative to `profile_name`. |
 | `update_existing` | (setup) If true, update an existing profile. Default false. |
+| `query` | (list) Search profiles by name or ID. |
+| `limit` | (list) Max results per page. Must be 1-100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
 
-## Example
+## Response behavior
+
+By default, `list` returns the full matching profile inventory so agents can choose a profile without paging. When you pass `limit` or `offset`, `list` returns structured pagination JSON with `items`, `has_more`, and `next_offset`, including explicit empty pages.
+
+## Set up a profile
 
 ```json
 {
   "action": "setup",
   "profile_name": "work-accounts"
+}
+```
+
+## Search profiles
+
+```json
+{
+  "action": "list",
+  "query": "work",
+  "limit": 20,
+  "offset": 0
 }
 ```

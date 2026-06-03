@@ -1,0 +1,58 @@
+---
+title: "Browser Curl"
+description: "Send HTTP requests through an existing browser session"
+---
+
+Use `browser_curl` when an agent needs an HTTP request to behave like it came from an existing browser session. The request goes through the browser's Chrome network stack, so it can use the session's cookies, proxy, network context, and origin behavior.
+
+This is useful after a browser has logged in to a site and the agent needs a JSON endpoint, a redirect target, or a binary asset without writing Playwright code for the request.
+
+<Note>For documentation lookup or general web search, use `search_docs` or your agent's normal search tool instead.</Note>
+
+## Recommended flow
+
+1. Use `manage_browsers` or `manage_browser_pools` to get a browser with the right cookies, proxy, and profile.
+2. Call `browser_curl` with the returned `session_id`.
+3. Use `response_encoding: "base64"` when the response might be binary.
+4. Use `execute_playwright_code` instead when you need page JavaScript, DOM state, or user-visible navigation.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `session_id` | Browser session ID. Required. |
+| `url` | Target `http` or `https` URL. Required. |
+| `method` | HTTP method: `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, or `OPTIONS`. Defaults to `GET`. |
+| `headers` | Custom headers merged with browser defaults. |
+| `body` | Request body for `POST`, `PUT`, or `PATCH` requests. |
+| `response_encoding` | Response body encoding: `utf8` or `base64`. Use `base64` for binary content. |
+| `timeout_ms` | Request timeout in milliseconds. Must be 1 or greater. |
+
+## Read an authenticated endpoint
+
+```json
+{
+  "session_id": "browser_2vDb5kRmZ4nP8xQ1cA7",
+  "url": "https://app.example.com/api/account",
+  "method": "GET",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "timeout_ms": 10000
+}
+```
+
+## Post with browser cookies
+
+```json
+{
+  "session_id": "browser_2vDb5kRmZ4nP8xQ1cA7",
+  "url": "https://app.example.com/api/tasks",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"title\":\"Run nightly checkout audit\"}",
+  "response_encoding": "utf8"
+}
+```

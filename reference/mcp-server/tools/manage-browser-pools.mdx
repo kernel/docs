@@ -1,15 +1,22 @@
 ---
-title: "manage_browser_pools"
+title: "Manage Browser Pools"
 description: "Create and manage pools of pre-warmed browsers"
 ---
 
-Manage pools of pre-warmed browser instances for fast acquisition.
+Use `manage_browser_pools` when your agent needs the same browser setup more than once. A pool keeps pre-warmed browsers ready with the profile, viewport, proxy, extension, Chrome policy, and start URL you choose, so the agent can acquire a session without waiting for a fresh browser to boot.
+
+Create the pool outside the hot path of your agent workflow. During the task, acquire a browser, control it with `computer_action` or `execute_playwright_code`, then release it back to the pool when the browser can be reused.
+
+<Info>
+Browser pools are available on Start-Up and Enterprise plans. See [Pricing](/info/pricing#reserved-browsers-browser-pools) for availability and [Browser Pools](/browsers/pools/overview) for SDK examples.
+</Info>
 
 ## Actions
 
 | Action | Description |
 |--------|-------------|
 | `create` | Set up a pool. |
+| `update` | Change pool configuration or rebuild idle browsers. |
 | `list` | List pools. |
 | `get` | Inspect a specific pool. |
 | `acquire` | Get a browser from a pool. |
@@ -17,32 +24,93 @@ Manage pools of pre-warmed browser instances for fast acquisition.
 | `flush` | Destroy idle browsers in a pool. |
 | `delete` | Remove a pool. |
 
+## Recommended flow
+
+1. Call `create` with the browser configuration your repeated task needs.
+2. Call `list` to find an existing pool, or `get` when you need the full pool configuration.
+3. Call `acquire` before browser control.
+4. Use the returned `session_id` with `computer_action`, `execute_playwright_code`, `browser_curl`, or `exec_command`.
+5. Call `release` with `reuse: true` when the session can return to the pool, or `reuse: false` when it needs to be replaced.
+6. Call `update` when you need to resize the pool or change its browser configuration.
+
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
 | `action` | Operation to perform. Required. |
-| `id_or_name` | Pool ID or name. Required for `get`, `delete`, `flush`, `acquire`, and `release`. |
-| `name` | (create) Unique pool name. |
-| `size` | (create) Number of browsers to maintain in the pool. |
-| `fill_rate_per_minute` | (create) Pool fill rate percentage per minute. Default 10%. |
-| `headless` | (create) Headless mode for pool browsers. |
-| `stealth` | (create) Stealth mode for pool browsers. |
-| `profile_name` | (create) Profile to load into pool browsers. |
-| `proxy_id` | (create) Proxy for pool browsers. |
-| `timeout_seconds` | (create) Idle timeout for acquired browsers. Default 600. |
+| `id_or_name` | Pool ID or name. Required for `update`, `get`, `delete`, `flush`, `acquire`, and `release`. |
+| `name` | (create, update) Unique pool name. |
+| `size` | (create, update) Number of browsers to maintain. Required for `create`; optional for `update`. |
+| `fill_rate_per_minute` | (create, update) Pool fill rate percentage per minute. Default 10%. |
+| `headless` | (create, update) Headless mode for pool browsers. |
+| `stealth` | (create, update) Stealth mode for pool browsers. |
+| `timeout_seconds` | (create, update) Idle timeout for acquired browsers. Default 600. |
+| `start_url` | (create, update) URL to open when a browser is warmed into the pool. Navigation is best effort. |
+| `chrome_policy` | (create, update) Chrome enterprise policy overrides. The API blocks Kernel-managed policies such as extensions, proxy, CDP, and automation. Empty objects are ignored. |
+| `kiosk_mode` | (create, update) Hide address bar and tabs in live view. |
+| `profile_name` / `profile_id` | (create, update) Profile to load into pool browsers. Use one, not both. |
+| `save_profile_changes` | (create, update) Save session changes back to the selected profile when sessions end. |
+| `proxy_id` | (create, update) Proxy for pool browsers. |
+| `extension_id` / `extension_name` | (create, update) Extension to load. Use one, not both. |
+| `viewport_width` / `viewport_height` | (create, update) Window size in pixels. Set both values together. |
+| `viewport_refresh_rate` | (create, update) Display refresh rate in Hz. |
+| `discard_all_idle` | (update) Discard idle browsers and rebuild the pool immediately. |
 | `acquire_timeout_seconds` | (acquire) Max seconds to wait for a browser. |
 | `session_id` | (release) Session ID of the browser to release. |
 | `reuse` | (release) Reuse the browser instance or recreate it. Default true. |
 | `force` | (delete) Force delete even if browsers are leased. |
 
-## Example
+## Response behavior
+
+`create` and `update` return a compact `browser_pool` summary plus `next_actions`. The next actions use the stable pool `id`, so agents can follow up without relying on the display name.
+
+`list` returns compact pool summaries and a note to call `get` for full details. `acquire` returns a compact browser summary plus next actions for controlling, releasing, and inspecting the acquired browser.
+
+## Create a checkout pool
 
 ```json
 {
   "action": "create",
-  "name": "scrape-pool",
+  "name": "retail-checkout-pool",
   "size": 5,
-  "stealth": true
+  "stealth": true,
+  "profile_id": "prof_2uWzXn7J8mY4kQpR6sT1",
+  "start_url": "https://shop.example.com/login",
+  "extension_name": "checkout-helper",
+  "viewport_width": 1440,
+  "viewport_height": 900,
+  "chrome_policy": {
+    "HomepageLocation": "https://shop.example.com"
+  }
+}
+```
+
+## Update idle capacity
+
+```json
+{
+  "action": "update",
+  "id_or_name": "pool_2vDaXqN9R1pL0tZ8YhK4",
+  "size": 8,
+  "discard_all_idle": true
+}
+```
+
+## Acquire and release a browser
+
+```json
+{
+  "action": "acquire",
+  "id_or_name": "pool_2vDaXqN9R1pL0tZ8YhK4",
+  "acquire_timeout_seconds": 30
+}
+```
+
+```json
+{
+  "action": "release",
+  "id_or_name": "pool_2vDaXqN9R1pL0tZ8YhK4",
+  "session_id": "browser_2vDb5kRmZ4nP8xQ1cA7",
+  "reuse": true
 }
 ```

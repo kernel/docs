@@ -1,18 +1,18 @@
 ---
-title: "computer_action"
-description: "Mouse, keyboard, and screenshot controls for browser sessions"
+title: "Computer Action"
+description: "Mouse, keyboard, clipboard, and screenshot controls for browser sessions"
 ---
 
-Execute computer actions on a browser session. Pass a single action for simple operations, or pass multiple actions to batch them into one request for lower latency.
+Use `computer_action` when an agent needs to interact with the browser like a user: click, type, scroll, drag, copy, paste, or inspect the screen. Pass one action for a simple operation, or batch several actions into one call to reduce latency.
 
-<Tip>Always include a `screenshot` as the last action so you can see the result. `screenshot` and `get_mouse_position` return data, so they must come last.</Tip>
+<Tip>Include a `screenshot` as the last action when you need to see the result. `screenshot`, `read_clipboard`, and `get_mouse_position` return data, so they must be the last action if included.</Tip>
 
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
 | `session_id` | Browser session ID. Required. |
-| `actions` | Ordered list of actions to perform. Required. |
+| `actions` | Ordered list of one or more actions to perform. Required. |
 
 ## Action types
 
@@ -26,10 +26,19 @@ Execute computer actions on a browser session. Pass a single action for simple o
 | `drag_mouse` | Drag along a `path` of `[x, y]` points. |
 | `set_cursor` | Show or hide the cursor (`hidden`). |
 | `sleep` | Wait `duration_ms` between steps when the page needs time to react. |
+| `write_clipboard` | Write `text` to the browser session clipboard. |
+| `read_clipboard` | Read the browser session clipboard. Must be the last action if included. |
 | `screenshot` | Capture the page, optionally limited to a `region`. |
 | `get_mouse_position` | Return the current cursor position. |
 
-## Example
+## Recommended flow
+
+1. Start with `screenshot` so the agent can see the viewport and coordinate space.
+2. Batch related pointer and keyboard actions together.
+3. Add `sleep` between actions that trigger navigation, animation, or async UI updates.
+4. End with `screenshot`, `read_clipboard`, or `get_mouse_position` only when you need returned data.
+
+## Search from the page
 
 ```json
 {
@@ -39,6 +48,21 @@ Execute computer actions on a browser session. Pass a single action for simple o
     { "type": "type_text", "type_text": { "text": "kernel browsers" } },
     { "type": "press_key", "press_key": { "keys": ["Return"] } },
     { "type": "sleep", "sleep": { "duration_ms": 1000 } },
+    { "type": "screenshot" }
+  ]
+}
+```
+
+## Clipboard example
+
+```json
+{
+  "session_id": "browser_2vDb5kRmZ4nP8xQ1cA7",
+  "actions": [
+    { "type": "write_clipboard", "write_clipboard": { "text": "https://kernel.sh/docs" } },
+    { "type": "press_key", "press_key": { "keys": ["Ctrl+l"] } },
+    { "type": "press_key", "press_key": { "keys": ["Ctrl+v"] } },
+    { "type": "press_key", "press_key": { "keys": ["Return"] } },
     { "type": "screenshot" }
   ]
 }

@@ -1,48 +1,95 @@
 ---
-title: "manage_browsers"
+title: "Manage Browsers"
 description: "Create, list, get, and delete browser sessions"
 ---
 
-Manage browser sessions on the Kernel platform. Created browsers run in isolated VMs and support headless/stealth modes, profiles, proxies, viewports, extensions, and SSH tunneling.
+Use `manage_browsers` when your agent needs one live browser session to inspect, automate, or debug web state. A created browser runs in an isolated VM and can use profiles, proxies, viewports, extensions, Chrome policy overrides, telemetry, start URLs, and SSH tunneling.
+
+For repeated browser work with the same configuration, use [Manage Browser Pools](/reference/mcp-server/tools/manage-browser-pools) instead. Pools reduce startup latency when your agent needs many similar sessions.
 
 ## Actions
 
 | Action | Description |
 |--------|-------------|
 | `create` | Launch a new browser session. |
+| `update` | Change supported session settings. |
 | `list` | List existing sessions. |
 | `get` | Retrieve details about a specific session. |
 | `delete` | Terminate a session. |
+
+## Recommended flow
+
+1. Call `list` before creating a browser if an existing session might already be active.
+2. Call `create` with the browser configuration the task needs.
+3. Use `computer_action`, `execute_playwright_code`, `browser_curl`, or `exec_command` with the returned `session_id`.
+4. Call `update` only for session settings that can change after launch, such as profile, proxy, viewport, or telemetry.
+5. Call `delete` when the task is done. If `save_profile_changes` is enabled, deleting the browser saves changes back to the selected profile.
 
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `action` | Operation to perform: `create`, `list`, `get`, or `delete`. Required. |
-| `session_id` | Browser session ID. Required for `get` and `delete`. |
+| `action` | Operation to perform: `create`, `update`, `list`, `get`, or `delete`. Required. |
+| `session_id` | Browser session ID. Required for `update`, `get`, and `delete`. |
+| `start_url` | (create) URL to open when the browser is created. Navigation is best effort. |
+| `chrome_policy` | (create) Chrome enterprise policy overrides. The API blocks Kernel-managed policies such as extensions, proxy, CDP, and automation. Empty objects are ignored. |
 | `headless` | (create) Launch without GUI. Faster but no live view. |
+| `gpu` | (create) Enable GPU acceleration. Requires `headless=false` and a Start-Up or Enterprise plan. See [GPU Acceleration](/browsers/gpu-acceleration). |
 | `stealth` | (create) Avoid bot detection. Recommended for scraping. |
 | `kiosk_mode` | (create) Hide address bar/tabs in live view. |
-| `profile_id` / `profile_name` | (create) Profile to load saved cookies/logins. Use one, not both. |
-| `save_profile_changes` | (create) Save session changes back to the profile on close. |
-| `proxy_id` | (create) Proxy ID for traffic routing. |
+| `profile_id` / `profile_name` | (create, update) Profile to load saved cookies and logins. Use one, not both. |
+| `save_profile_changes` | (create, update) Save session changes back to the profile on close. |
+| `proxy_id` | (create, update) Proxy ID for traffic routing. |
+| `clear_proxy` | (update) Remove the current proxy from the browser session. |
+| `disable_default_proxy` | (update) For stealth browsers, connect directly instead of using the default stealth proxy. |
 | `extension_id` / `extension_name` | (create) Extension to load. |
-| `viewport_width` / `viewport_height` | (create) Window size in pixels. Must be set together. |
-| `viewport_refresh_rate` | (create) Display refresh rate in Hz. |
+| `viewport_width` / `viewport_height` | (create, update) Window size in pixels. Set both values together. |
+| `viewport_refresh_rate` | (create, update) Display refresh rate in Hz. |
+| `viewport_force` | (update) Force viewport changes even when live view or recording is active. |
 | `timeout_seconds` | (create) Inactivity timeout in seconds (max 259200 = 72h). Default 60. |
 | `local_forward` | (create) SSH local forwarding (`localport:host:remoteport`). |
 | `remote_forward` | (create) SSH remote forwarding (`remoteport:host:localport`). Use to expose a local dev server to the browser. |
 | `status` | (list) Filter by status: `active`, `deleted`, or `all`. Default `active`. |
-| `limit` | (list) Max results per page. Default 50. |
-| `offset` | (list) Pagination offset. Default 0. |
+| `limit` | (list) Max results per page. Must be 1-100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
+| `telemetry_enabled` | (create, update) Enable telemetry with VM defaults, or disable telemetry when false. |
+| `telemetry_console` | (create, update) Enable or disable console telemetry. |
+| `telemetry_network` | (create, update) Enable or disable network telemetry. |
+| `telemetry_page` | (create, update) Enable or disable page lifecycle telemetry. |
+| `telemetry_interaction` | (create, update) Enable or disable user interaction telemetry. |
 
-## Example
+## Response behavior
+
+`create` and `update` return structured JSON with `browser` and `next_actions`. If you request SSH forwarding, the response includes `ssh_port_forwarding` with the CLI command, prerequisites, and the URL to use after the tunnel is running.
+
+`list` returns compact browser summaries and omits routine connection details such as `cdp_ws_url`. Use `get` with `session_id` when your agent needs full details.
+
+## Create a browser
 
 ```json
 {
   "action": "create",
   "stealth": true,
   "proxy_id": "proxy_residential_us",
+  "profile_name": "work-accounts",
+  "save_profile_changes": true,
+  "start_url": "https://app.example.com/dashboard",
+  "viewport_width": 1440,
+  "viewport_height": 900,
+  "telemetry_network": true,
   "timeout_seconds": 3600
+}
+```
+
+## Update a browser
+
+```json
+{
+  "action": "update",
+  "session_id": "browser_2vDb5kRmZ4nP8xQ1cA7",
+  "viewport_width": 1280,
+  "viewport_height": 720,
+  "viewport_force": true,
+  "clear_proxy": true
 }
 ```
