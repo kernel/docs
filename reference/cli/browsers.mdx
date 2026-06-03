@@ -60,9 +60,9 @@ Stream live telemetry events from a browser session.
 
 | Flag | Description |
 |------|-------------|
-| `--categories <list>` | Comma-separated categories to include (e.g. `network,console,page,interaction,system`). |
+| `--categories <list>` | Comma-separated categories to include (`console`, `network`, `page`, `interaction`, `system`, `api`). Invalid categories are rejected. |
 | `--types <list>` | Comma-separated event types to include (e.g. `network_request,console_error`). |
-| `--seq <n>` | Resume from this sequence number. `0` replays from retention start, positive values resume from that point. |
+| `--seq <n>` | Resume from this sequence number (must be >= 1). Omit to stream from now. |
 | `--output json`, `-o json` | Output NDJSON (one compact JSON object per line). Default is tab-separated `timestamp [category] type`. |
 
 ### `kernel browsers ssh <session-id>`

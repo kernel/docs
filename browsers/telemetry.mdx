@@ -263,6 +263,7 @@ Every SSE frame carries a JSON object with this shape:
   "event": {
     "ts": 1716900000000000,
     "type": "console_log",
+    "category": "console",
     "source": {
       "kind": "cdp",
       "event": "Runtime.consoleAPICalled"
@@ -283,6 +284,7 @@ Every SSE frame carries a JSON object with this shape:
 | `seq` | Monotonic sequence number, also the SSE `id:` field. Use for reconnection via `Last-Event-ID`. |
 | `event.ts` | Event timestamp in Unix microseconds. |
 | `event.type` | Discriminator for the event type (e.g. `network_request`, `page_load`). |
+| `event.category` | Event category: `console`, `network`, `page`, `interaction`, or `system`. |
 | `event.source.kind` | Where the event originated: `cdp` (Chrome DevTools), `kernel_api` (Kernel platform), `extension` (browser extension), or `local_process` (VM process). |
 | `event.data` | Event-specific payload. CDP-sourced events include context fields for correlation (see below). |
 
@@ -301,7 +303,7 @@ CDP-sourced events include these fields in `event.data` for correlating events a
 | `nav_seq` | integer | Monotonically increasing navigation sequence number within the target |
 
 <Info>
-Monitor events (`monitor_*`) and `page_tab_opened` do not include shared context fields - they originate outside of a CDP session.
+System events (`monitor_*`, `system_*`, `service_*`) and `page_tab_opened` do not include shared context fields - they originate outside of a CDP session.
 </Info>
 
 ## Event types
@@ -514,9 +516,9 @@ Browser-native interaction events from clicks, typing, and scrolling inside the 
 Sensitive input fields (password fields, credit card numbers, SSNs) are automatically detected. Key events are suppressed entirely for these fields, and click events omit text content but still include position and selector.
 </Info>
 
-### Monitor
+### System
 
-Monitor events are always emitted regardless of category configuration. They report on the health of the telemetry stream itself.
+System events are always emitted regardless of category configuration. They report on the health of the telemetry stream and the VM itself.
 
 | Type | Description |
 |---|---|
@@ -525,6 +527,8 @@ Monitor events are always emitted regardless of category configuration. They rep
 | `monitor_reconnected` | CDP connection re-established (auto-reconnect with exponential backoff up to 10 retries) |
 | `monitor_reconnect_failed` | All reconnection attempts exhausted - no further events will arrive |
 | `monitor_init_failed` | Telemetry initialization failed on the VM |
+| `system_oom_kill` | Linux OOM-killer terminated a process in the VM |
+| `service_crashed` | Managed service (e.g. Chromium) exited unexpectedly |
 
 #### `monitor_screenshot` data
 
@@ -555,6 +559,28 @@ Monitor events are always emitted regardless of category configuration. They rep
 | Field | Type | Description |
 |---|---|---|
 | `step` | string | The initialization step that failed (e.g. `Target.setAutoAttach`) |
+
+#### `system_oom_kill` data
+
+| Field | Type | Description |
+|---|---|---|
+| `process_name` | string | Name of the process that was killed |
+| `pid` | integer | PID of the killed process |
+| `rss_kb` | integer | Resident set size of the killed process in KB |
+| `trigger_process_name` | string | Process that triggered the OOM kill |
+| `trigger_pid` | integer | PID of the triggering process |
+| `constraint` | string | OOM constraint (`none`, `memcg`, `cpuset`, `memory_policy`) |
+| `mem_total_kb` | integer | Total VM memory in KB |
+| `mem_free_kb` | integer | Free VM memory in KB at time of kill |
+| `top_tasks` | array | Top 5 processes by RSS at time of kill |
+
+#### `service_crashed` data
+
+| Field | Type | Description |
+|---|---|---|
+| `service_name` | string | Name of the crashed service (e.g. `chromium`, `mutter`) |
+| `pid` | integer | PID of the crashed process |
+| `phase` | string | When the crash occurred: `startup`, `running`, or `gave_up` (all restart attempts exhausted) |
 
 <Warning>
 After a `monitor_disconnected` event, treat any in-progress computed state (like `network_idle` or `page_layout_settled`) as unreliable until `monitor_reconnected` arrives.
