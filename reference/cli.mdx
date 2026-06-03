@@ -37,6 +37,9 @@ kernel --version
   <Card icon="rocket" title="Apps" href="/reference/cli/apps">
     Deploy apps, invoke actions, and stream logs.
   </Card>
+  <Card icon="lock" title="Managed Auth" href="/reference/cli/managed-auth">
+    Manage auth connections, credentials, and credential providers.
+  </Card>
   <Card icon="puzzle-piece" title="Extensions" href="/reference/cli/extensions">
     Upload, download, and build browser extensions.
   </Card>
@@ -90,6 +93,26 @@ kernel deploy index.ts -o json
 ```
 
 See individual command documentation for JSON output availability.
+
+## Utility Commands
+
+### `kernel status`
+Check the operational status of Kernel services.
+
+- `--output json`, `-o json` - Output raw JSON object.
+
+### `kernel upgrade`
+Upgrade the Kernel CLI to the latest version.
+
+- `--dry-run` - Show what would be executed without running it.
+
+### `kernel completion <shell>`
+Generate a shell autocompletion script (`bash`, `zsh`, `fish`, or `powershell`).
+
+```bash
+# Load completions for the current zsh session
+source <(kernel completion zsh)
+```
 
 <Info>
 Looking for the API? See the [API Reference](https://kernel.sh/docs/api-reference/invocations/invoke-an-action).
