@@ -6,27 +6,26 @@ Manage [Projects](/info/projects) from the CLI and scope other commands to a spe
 
 ## Scoping commands to a project
 
-Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to scope any `kernel` command to a project. The flag accepts either a **project ID** or a **project name** — names are resolved case-insensitively by listing your projects.
+Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to scope any `kernel` command to a project. The flag value is forwarded verbatim as the `X-Kernel-Project-Id` header on every authenticated API request, so it must be a **project ID** — the CLI does not look up names for this flag.
 
 ```bash
-# Scope a single command by name
-kernel browsers list --project staging
-
-# Scope by ID
+# Scope a single command
 kernel browsers list --project proj_abc123
 
 # Scope via environment variable
-export KERNEL_PROJECT=staging
+export KERNEL_PROJECT=proj_abc123
 kernel apps list
 ```
 
-Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenticated API request. OAuth-based logins (`kernel login`) remain org-wide by default, so this is the recommended way to target a single project when logged in with OAuth.
+Run `kernel projects list` to find the ID for a project by name.
+
+OAuth-based logins (`kernel login`) remain org-wide by default, so this is the recommended way to target a single project when logged in with OAuth.
 
 <Info>
   Project-scoped API keys are already bound to a project server-side, so you don't need `--project` when using them — but if you do pass it, it must match the key's project or the request is rejected.
 </Info>
 
-If the name is ambiguous (multiple projects share it) or no match is found, the CLI returns a clear error; pass the project ID instead.
+Name resolution **is** supported on the `projects` subcommand positional arguments (`kernel projects get <id-or-name>`, `delete`, `limits get`, `limits set`) — those commands list your projects and match case-insensitively before issuing the request.
 
 ## Commands
 
