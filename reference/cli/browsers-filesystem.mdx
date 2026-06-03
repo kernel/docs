@@ -1,0 +1,103 @@
+---
+title: "Browser Filesystem"
+---
+
+Read, write, and manage files on the browser instance.
+
+## `kernel browsers fs new-directory <session-id>`
+Create a directory in the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute directory path to create (required). |
+| `--mode <mode>` | Directory mode in octal. |
+
+## `kernel browsers fs delete-directory <session-id>`
+Delete a directory.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute directory path to delete (required). |
+
+## `kernel browsers fs delete-file <session-id>`
+Delete a file.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute file path to delete (required). |
+
+## `kernel browsers fs download-dir-zip <session-id>`
+Download a directory as a zip archive.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute directory path to download (required). |
+| `-o, --output <path>` | Output zip file path. |
+
+## `kernel browsers fs file-info <session-id>`
+Retrieve metadata for a file or directory.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute file or directory path (required). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browsers fs list-files <session-id>`
+List directory contents.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute directory path (required). |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel browsers fs move <session-id>`
+Move or rename a file or directory.
+
+| Flag | Description |
+|------|-------------|
+| `--src <path>` | Absolute source path (required). |
+| `--dest <path>` | Absolute destination path (required). |
+
+## `kernel browsers fs read-file <session-id>`
+Read a file from the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute file path (required). |
+| `-o, --output <path>` | Output path for the downloaded file. |
+
+## `kernel browsers fs set-permissions <session-id>`
+Update file permissions or ownership.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Absolute path (required). |
+| `--mode <mode>` | File mode bits (octal string). |
+| `--owner <user>` | New owner username or UID. |
+| `--group <group>` | New group name or GID. |
+
+## `kernel browsers fs upload <session-id>`
+Upload one or more files.
+
+| Flag | Description |
+|------|-------------|
+| `--file <local:remote>` | Local-to-remote file mapping (repeatable). |
+| `--dest-dir <path>` | Destination directory for uploads. |
+| `--paths <paths>` | Local file paths to upload. |
+
+## `kernel browsers fs upload-zip <session-id>`
+Upload a zip file and extract it.
+
+| Flag | Description |
+|------|-------------|
+| `--zip <path>` | Local zip file path (required). |
+| `--dest-dir <path>` | Directory to extract into (required). |
+
+## `kernel browsers fs write-file <session-id>`
+Write a local file to the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Destination absolute file path (required). |
+| `--mode <mode>` | File mode in octal. |
+| `--source <path>` | Local source file path (required). |

@@ -1,0 +1,51 @@
+---
+title: "Browser Processes"
+---
+
+Execute and manage processes on the browser instance.
+
+## `kernel browsers process exec <session-id> [--] [command...]`
+Execute a command synchronously inside the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--command <cmd>` | Command to run; defaults to trailing args. |
+| `--args <args>` | Arguments for the command. |
+| `--cwd <path>` | Working directory. |
+| `--timeout <seconds>` | Execution timeout. |
+| `--as-user <user>` | Run as a specific user. |
+| `--as-root` | Run as root. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browsers process spawn <session-id> [--] [command...]`
+Execute a command asynchronously in the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--command <cmd>` | Command to run; defaults to trailing args. |
+| `--args <args>` | Arguments for the command. |
+| `--cwd <path>` | Working directory. |
+| `--timeout <seconds>` | Execution timeout. |
+| `--as-user <user>` | Run as a specific user. |
+| `--as-root` | Run as root. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browsers process kill <session-id> <process-id>`
+Send a signal to a process running in the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--signal <signal>` | Signal to send (`TERM`, `KILL`, `INT`, `HUP`; default: `TERM`). |
+
+## `kernel browsers process status <session-id> <process-id>`
+Check process status information.
+
+## `kernel browsers process stdin <session-id> <process-id>`
+Write base64-encoded data to a process stdin.
+
+| Flag | Description |
+|------|-------------|
+| `--data-b64 <data>` | Base64 payload to write (required). |
+
+## `kernel browsers process stdout-stream <session-id> <process-id>`
+Stream stdout and stderr from a process.

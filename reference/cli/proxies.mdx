@@ -1,0 +1,55 @@
+---
+title: "Proxies"
+---
+
+Create and manage proxy configurations for routing browser traffic.
+
+## `kernel proxies list`
+List available proxy configurations.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel proxies get <id>`
+Show details for a proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel proxies create`
+Create a new proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Proxy configuration name. |
+| `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom` (required). |
+| `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
+| `--country <code>` | ISO 3166 country code or `EU`. |
+| `--city <name>` | City (residential, mobile; requires `--country`). |
+| `--state <code>` | State/region code (residential, mobile). |
+| `--zip <zip>` | ZIP/postal code (residential, mobile). |
+| `--asn <asn>` | Autonomous system number (residential, mobile). |
+| `--os <os>` | Operating system (`windows`, `macos`, `android`; residential). |
+| `--carrier <carrier>` | Mobile carrier (mobile). |
+| `--host <host>` | Proxy host (custom; required). |
+| `--port <port>` | Proxy port (custom; required). |
+| `--username <username>` | Proxy username (custom). |
+| `--password <password>` | Proxy password (custom). |
+| `--bypass-host <hostname>` | Hostname to bypass proxy (repeatable; max 100). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel proxies check <id>`
+Run a health check on a proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel proxies delete <id>`
+Delete a proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip confirmation. |

@@ -1,0 +1,57 @@
+---
+title: "Invocations"
+---
+
+Invoke actions and stream or query invocation status and events.
+
+## `kernel invoke <app> <action>`
+Invoke an app action. By default the CLI returns immediately after the invocation is queued.
+
+| Flag | Description |
+|------|-------------|
+| `--version <version>`, `-v` | Target a specific app version (default: latest). |
+| `--payload <json>`, `-p` | Provide a JSON payload (stringified, max 64 KB). |
+| `--sync`, `-s` | Wait for completion (timeout after 60 s). |
+| `--output json`, `-o json` | Output JSONL (one JSON object per line for each invocation event). |
+
+<Info>Press `Ctrl+C` to cancel an in-flight invocation. The associated browser sessions are cleaned up automatically.</Info>
+
+## `kernel invoke history`
+Show invocation history.
+
+| Flag | Description |
+|------|-------------|
+| `--app <app_name>`, `-a` | Filter by app name. |
+| `--action <action>` | Filter by action name. |
+| `--version <version>` | Filter by invocation version. |
+| `--deployment-id <id>` | Filter by deployment ID. |
+| `--status <status>` | Filter by status (`queued`, `running`, `succeeded`, `failed`). |
+| `--since <time>` | Show invocations that started since the given time. |
+| `--limit <n>` | Maximum invocations to return (default: 100). |
+| `--offset <n>` | Number of results to skip. |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel invoke get <invocation_id>`
+Get an invocation.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel invoke update <invocation_id>`
+Update an invocation's status and output.
+
+| Flag | Description |
+|------|-------------|
+| `--status <status>` | New invocation status (`succeeded` or `failed`). |
+| `--output <json>` | Updated invocation output rendered as a JSON string. |
+
+## `kernel invoke browsers <invocation_id>`
+List browser sessions for an invocation.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel invoke delete-browsers <invocation_id>`
+Delete the browser sessions for an invocation.

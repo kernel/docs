@@ -1,0 +1,75 @@
+---
+title: "Browser Computer Controls"
+---
+
+Control mouse, keyboard, and screen on the browser instance.
+
+## `kernel browsers computer click-mouse <session-id>`
+Click the mouse at specific coordinates.
+
+| Flag | Description |
+|------|-------------|
+| `--x <coordinate>` | X coordinate (required). |
+| `--y <coordinate>` | Y coordinate (required). |
+| `--num-clicks <n>` | Number of clicks (default: 1). |
+| `--button <button>` | Mouse button (`left`, `right`, `middle`, `back`, `forward`). |
+| `--click-type <type>` | `down`, `up`, or `click` (default: `click`). |
+| `--hold-key <key>` | Modifier keys to hold (repeatable). |
+
+## `kernel browsers computer move-mouse <session-id>`
+Move the mouse pointer.
+
+| Flag | Description |
+|------|-------------|
+| `--x <coordinate>` | X coordinate (required). |
+| `--y <coordinate>` | Y coordinate (required). |
+| `--hold-key <key>` | Modifier keys to hold (repeatable). |
+
+## `kernel browsers computer screenshot <session-id>`
+Capture a screenshot.
+
+| Flag | Description |
+|------|-------------|
+| `--to <path>` | Output PNG path (required). |
+| `--x <coordinate>` | Region capture top-left X coordinate. |
+| `--y <coordinate>` | Region capture top-left Y coordinate. |
+| `--width <pixels>` | Region width. |
+| `--height <pixels>` | Region height. |
+
+## `kernel browsers computer type <session-id>`
+Type text into the browser VM.
+
+| Flag | Description |
+|------|-------------|
+| `--text <text>` | Text to type (required). |
+| `--delay <ms>` | Delay between keystrokes in milliseconds. |
+
+## `kernel browsers computer press-key <session-id>`
+Press one or more keys.
+
+| Flag | Description |
+|------|-------------|
+| `--key <key>` | Key to press (repeatable). |
+| `--duration <ms>` | Duration to hold keys. |
+| `--hold-key <key>` | Modifier keys to hold (repeatable). |
+
+## `kernel browsers computer scroll <session-id>`
+Scroll the mouse wheel.
+
+| Flag | Description |
+|------|-------------|
+| `--x <coordinate>` | X coordinate (required). |
+| `--y <coordinate>` | Y coordinate (required). |
+| `--delta-x <pixels>` | Horizontal scroll amount (+right, -left). |
+| `--delta-y <pixels>` | Vertical scroll amount (+down, -up). |
+| `--hold-key <key>` | Modifier keys to hold (repeatable). |
+
+## `kernel browsers computer drag-mouse <session-id>`
+Drag the mouse along a path.
+
+| Flag | Description |
+|------|-------------|
+| `--point <x,y>` | Points to drag through (repeatable). |
+| `--delay <ms>` | Delay before dragging starts. |
+| `--button <button>` | Mouse button (`left`, `middle`, `right`; default: `left`). |
+| `--hold-key <key>` | Modifier keys to hold (repeatable). |

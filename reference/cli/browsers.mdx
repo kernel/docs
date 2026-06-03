@@ -2,18 +2,18 @@
 title: "Browsers"
 ---
 
-## Browser sessions
+Create and manage browser sessions.
 
 <Info>Unless otherwise noted, `id` arguments refer to the browser session ID, not invocation IDs returned by Kernel commands.</Info>
 
-### `kernel browsers list`
+## `kernel browsers list`
 List all browser sessions.
 
 | Flag | Description |
 |------|-------------|
 | `--output json`, `-o json` | Output raw JSON array. |
 
-### `kernel browsers create`
+## `kernel browsers create`
 Create a new browser session.
 
 | Flag | Description |
@@ -24,28 +24,59 @@ Create a new browser session.
 | `--start-url <url>` | Initial page to open on launch. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
-### `kernel browsers delete <session-id>`
-Delete a browser session. Use `-y` to skip confirmation.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Bypass the confirmation prompt. |
-
-### `kernel browsers view <session-id>`
-Return a live view URL for remote monitoring and control.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output JSON with `liveViewUrl` field. |
-
-### `kernel browsers get <session-id>`
+## `kernel browsers get <session-id>`
 Get detailed information about a browser session.
 
 | Flag | Description |
 |------|-------------|
 | `--output json`, `-o json` | Output raw JSON object. |
 
-### `kernel browsers ssh <session-id>`
+## `kernel browsers update <session-id>`
+Update a running browser session's profile, proxy, viewport, or telemetry settings.
+
+| Flag | Description |
+|------|-------------|
+| `--profile-id <id>` | Profile ID to load (mutually exclusive with `--profile-name`). |
+| `--profile-name <name>` | Profile name to load (mutually exclusive with `--profile-id`). |
+| `--save-changes` | Save changes back to the profile when the session ends. |
+| `--proxy-id <id>` | Proxy ID to use for the session. |
+| `--clear-proxy` | Remove the proxy from the session. |
+| `--telemetry <spec>` | `all` to enable, `off` to disable, or per-category (e.g. `network=on,page=off`). |
+| `--force` | Force viewport resize even when a live view or replay is active. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browsers view <session-id>`
+Return a live view URL for remote monitoring and control.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output JSON with `liveViewUrl` field. |
+
+## `kernel browsers curl <session-id> <url>`
+Make an HTTP request from within a browser session (sharing its cookies and network context).
+
+| Flag | Description |
+|------|-------------|
+| `--request <method>`, `-X` | HTTP method (default: `GET`). |
+| `--header <Key: Value>`, `-H` | HTTP header (repeatable). |
+| `--data <body>`, `-d` | Request body. |
+| `--data-file <path>` | Read request body from a file. |
+| `--head`, `-I` | Fetch headers only. |
+| `--include`, `-i` | Include response headers in output. |
+| `--dump-header <file>`, `-D` | Write received headers to a file (`-` for stdout). |
+| `--output <file>`, `-o` | Write response body to a file. |
+| `--fail`, `-f` | Fail with no body output on HTTP errors. |
+| `--max-time <seconds>` | Maximum time allowed for the request (default: 30). |
+| `--silent`, `-s` | Suppress progress output. |
+
+## `kernel browsers delete <session-id> [ids...]`
+Delete one or more browser sessions.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Bypass the confirmation prompt. |
+
+## `kernel browsers ssh <session-id>`
 Open an interactive SSH session to a browser VM. Requires [websocat](https://github.com/vi/websocat) to be installed locally.
 
 | Flag | Description |
@@ -54,469 +85,3 @@ Open an interactive SSH session to a browser VM. Requires [websocat](https://git
 | `-L, --local-forward <spec>` | Local port forwarding (`localport:host:remoteport`). |
 | `-R, --remote-forward <spec>` | Remote port forwarding (`remoteport:host:localport`). |
 | `--setup-only` | Setup SSH on VM without connecting. |
-
-## Browser logs
-
-### `kernel browsers logs stream <session-id>`
-Stream browser logs from the supervisor or a file path.
-
-| Flag | Description |
-|------|-------------|
-| `--source <source>` | `path` or `supervisor` (required). |
-| `--follow` | Continue streaming (default: true). |
-| `--path <path>` | File path when `--source=path`. |
-| `--supervisor-process <name>` | Supervisor process when `--source=supervisor` (e.g. `chromium`). |
-
-<Info>Log lines longer than 64 KiB are truncated.</Info>
-
-## Replays
-
-### `kernel browsers replays list <session-id>`
-List replay recordings for a browser session.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel browsers replays start <session-id>`
-Start recording a replay.
-
-| Flag | Description |
-|------|-------------|
-| `--framerate <fps>` | Recording framerate in frames per second. |
-| `--max-duration <seconds>` | Maximum recording duration. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browsers replays stop <session-id> <replay-id>`
-Stop an active replay recording.
-
-### `kernel browsers replays download <session-id> <replay-id>`
-Download a replay video.
-
-| Flag | Description |
-|------|-------------|
-| `-o, --output <path>` | Output path for the downloaded replay. |
-
-## Process control
-
-### `kernel browsers process exec <session-id> [--] [command...]`
-Execute a command synchronously inside the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--command <cmd>` | Command to run; defaults to trailing args. |
-| `--args <args>` | Arguments for the command. |
-| `--cwd <path>` | Working directory. |
-| `--timeout <seconds>` | Execution timeout. |
-| `--as-user <user>` | Run as a specific user. |
-| `--as-root` | Run as root. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browsers process spawn <session-id> [--] [command...]`
-Execute a command asynchronously in the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--command <cmd>` | Command to run; defaults to trailing args. |
-| `--args <args>` | Arguments for the command. |
-| `--cwd <path>` | Working directory. |
-| `--timeout <seconds>` | Execution timeout. |
-| `--as-user <user>` | Run as a specific user. |
-| `--as-root` | Run as root. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browsers process kill <session-id> <process-id>`
-Send a signal to a process running in the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--signal <signal>` | Signal to send (`TERM`, `KILL`, `INT`, `HUP`; default: `TERM`). |
-
-### `kernel browsers process status <session-id> <process-id>`
-Check process status information.
-
-### `kernel browsers process stdin <session-id> <process-id>`
-Write base64-encoded data to a process stdin.
-
-| Flag | Description |
-|------|-------------|
-| `--data-b64 <data>` | Base64 payload to write (required). |
-
-### `kernel browsers process stdout-stream <session-id> <process-id>`
-Stream stdout and stderr from a process.
-
-## Filesystem
-
-### `kernel browsers fs new-directory <session-id>`
-Create a directory in the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute directory path to create (required). |
-| `--mode <mode>` | Directory mode in octal. |
-
-### `kernel browsers fs delete-directory <session-id>`
-Delete a directory.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute directory path to delete (required). |
-
-### `kernel browsers fs delete-file <session-id>`
-Delete a file.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute file path to delete (required). |
-
-### `kernel browsers fs download-dir-zip <session-id>`
-Download a directory as a zip archive.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute directory path to download (required). |
-| `-o, --output <path>` | Output zip file path. |
-
-### `kernel browsers fs file-info <session-id>`
-Retrieve metadata for a file or directory.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute file or directory path (required). |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browsers fs list-files <session-id>`
-List directory contents.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute directory path (required). |
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel browsers fs move <session-id>`
-Move or rename a file or directory.
-
-| Flag | Description |
-|------|-------------|
-| `--src <path>` | Absolute source path (required). |
-| `--dest <path>` | Absolute destination path (required). |
-
-### `kernel browsers fs read-file <session-id>`
-Read a file from the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute file path (required). |
-| `-o, --output <path>` | Output path for the downloaded file. |
-
-### `kernel browsers fs set-permissions <session-id>`
-Update file permissions or ownership.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Absolute path (required). |
-| `--mode <mode>` | File mode bits (octal string). |
-| `--owner <user>` | New owner username or UID. |
-| `--group <group>` | New group name or GID. |
-
-### `kernel browsers fs upload <session-id>`
-Upload one or more files.
-
-| Flag | Description |
-|------|-------------|
-| `--file <local:remote>` | Local-to-remote file mapping (repeatable). |
-| `--dest-dir <path>` | Destination directory for uploads. |
-| `--paths <paths>` | Local file paths to upload. |
-
-### `kernel browsers fs upload-zip <session-id>`
-Upload a zip file and extract it.
-
-| Flag | Description |
-|------|-------------|
-| `--zip <path>` | Local zip file path (required). |
-| `--dest-dir <path>` | Directory to extract into (required). |
-
-### `kernel browsers fs write-file <session-id>`
-Write a local file to the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--path <path>` | Destination absolute file path (required). |
-| `--mode <mode>` | File mode in octal. |
-| `--source <path>` | Local source file path (required). |
-
-## Computer controls
-
-### `kernel browsers computer click-mouse <session-id>`
-Click the mouse at specific coordinates.
-
-| Flag | Description |
-|------|-------------|
-| `--x <coordinate>` | X coordinate (required). |
-| `--y <coordinate>` | Y coordinate (required). |
-| `--num-clicks <n>` | Number of clicks (default: 1). |
-| `--button <button>` | Mouse button (`left`, `right`, `middle`, `back`, `forward`). |
-| `--click-type <type>` | `down`, `up`, or `click` (default: `click`). |
-| `--hold-key <key>` | Modifier keys to hold (repeatable). |
-
-### `kernel browsers computer move-mouse <session-id>`
-Move the mouse pointer.
-
-| Flag | Description |
-|------|-------------|
-| `--x <coordinate>` | X coordinate (required). |
-| `--y <coordinate>` | Y coordinate (required). |
-| `--hold-key <key>` | Modifier keys to hold (repeatable). |
-
-### `kernel browsers computer screenshot <session-id>`
-Capture a screenshot.
-
-| Flag | Description |
-|------|-------------|
-| `--to <path>` | Output PNG path (required). |
-| `--x <coordinate>` | Region capture top-left X coordinate. |
-| `--y <coordinate>` | Region capture top-left Y coordinate. |
-| `--width <pixels>` | Region width. |
-| `--height <pixels>` | Region height. |
-
-### `kernel browsers computer type <session-id>`
-Type text into the browser VM.
-
-| Flag | Description |
-|------|-------------|
-| `--text <text>` | Text to type (required). |
-| `--delay <ms>` | Delay between keystrokes in milliseconds. |
-
-### `kernel browsers computer press-key <session-id>`
-Press one or more keys.
-
-| Flag | Description |
-|------|-------------|
-| `--key <key>` | Key to press (repeatable). |
-| `--duration <ms>` | Duration to hold keys. |
-| `--hold-key <key>` | Modifier keys to hold (repeatable). |
-
-### `kernel browsers computer scroll <session-id>`
-Scroll the mouse wheel.
-
-| Flag | Description |
-|------|-------------|
-| `--x <coordinate>` | X coordinate (required). |
-| `--y <coordinate>` | Y coordinate (required). |
-| `--delta-x <pixels>` | Horizontal scroll amount (+right, -left). |
-| `--delta-y <pixels>` | Vertical scroll amount (+down, -up). |
-| `--hold-key <key>` | Modifier keys to hold (repeatable). |
-
-### `kernel browsers computer drag-mouse <session-id>`
-Drag the mouse along a path.
-
-| Flag | Description |
-|------|-------------|
-| `--point <x,y>` | Points to drag through (repeatable). |
-| `--delay <ms>` | Delay before dragging starts. |
-| `--button <button>` | Mouse button (`left`, `middle`, `right`; default: `left`). |
-| `--hold-key <key>` | Modifier keys to hold (repeatable). |
-
-## Playwright
-
-### `kernel browsers playwright execute <session-id> [code]`
-Execute Playwright/TypeScript code against a running browser session.
-
-| Flag | Description |
-|------|-------------|
-| `--timeout <seconds>` | Maximum execution time for the snippet. |
-
-## Extension management
-
-### `kernel extensions list`
-List all uploaded extensions.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel extensions upload <directory>`
-Upload an unpacked extension directory.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Optional unique extension name. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel extensions download <id-or-name>`
-Download an extension archive.
-
-| Flag | Description |
-|------|-------------|
-| `--to <directory>` | Output directory (required). |
-
-### `kernel extensions download-web-store <url>`
-Download an extension from the Chrome Web Store.
-
-| Flag | Description |
-|------|-------------|
-| `--to <directory>` | Output directory (required). |
-| `--os <os>` | Target OS (`mac`, `win`, `linux`; default: `linux`). |
-
-### `kernel extensions delete <id-or-name>`
-Delete an uploaded extension.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Skip confirmation. |
-
-### `kernel browsers extensions upload <session-id> <extension-path>...`
-Upload one or more unpacked Chrome extensions directly into a running browser session.
-
-## Proxy management
-
-### `kernel proxies list`
-List available proxy configurations.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel proxies get <id>`
-Show details for a proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel proxies create`
-Create a new proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Proxy configuration name. |
-| `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom` (required). |
-| `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
-| `--country <code>` | ISO 3166 country code or `EU`. |
-| `--city <name>` | City (residential, mobile; requires `--country`). |
-| `--state <code>` | State/region code (residential, mobile). |
-| `--zip <zip>` | ZIP/postal code (residential, mobile). |
-| `--asn <asn>` | Autonomous system number (residential, mobile). |
-| `--os <os>` | Operating system (`windows`, `macos`, `android`; residential). |
-| `--carrier <carrier>` | Mobile carrier (mobile). |
-| `--host <host>` | Proxy host (custom; required). |
-| `--port <port>` | Proxy port (custom; required). |
-| `--username <username>` | Proxy username (custom). |
-| `--password <password>` | Proxy password (custom). |
-| `--bypass-host <hostname>` | Hostname to bypass proxy (repeatable; max 100). |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel proxies delete <id>`
-Delete a proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Skip confirmation. |
-
-## Browser pools
-
-For more details on browser pools, see [Browser Pools](/browsers/pools/overview).
-
-### `kernel browser-pools list`
-List all browser pools.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel browser-pools create`
-Create a new browser pool.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Optional unique name for the pool. |
-| `--size <n>` | Number of browsers in the pool (required). |
-| `--fill-rate <n>` | Percentage of the pool to fill per minute. |
-| `--timeout <seconds>` | Idle timeout for browsers acquired from the pool. |
-| `--start-url <url>` | Initial page to open for new browsers. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools get <id-or-name>`
-Get pool details.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools update <id-or-name>`
-Update pool configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--size <n>` | Updated pool size. |
-| `--start-url <url>` | Initial page to open for new browsers. |
-| `--clear-start-url` | Clear the pool start URL. |
-| `--discard-all-idle` | Discard all idle browsers and refill. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools acquire <id-or-name>`
-Acquire a browser from the pool.
-
-| Flag | Description |
-|------|-------------|
-| `--timeout <seconds>` | Acquire timeout before returning 204. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools release <id-or-name>`
-Release a browser back to the pool.
-
-| Flag | Description |
-|------|-------------|
-| `--session-id <id>` | Browser session ID to release (required). |
-| `--reuse` | Reuse the browser instance (default: true). |
-
-### `kernel browser-pools delete <id-or-name>`
-Delete a pool.
-
-| Flag | Description |
-|------|-------------|
-| `--force` | Force delete even if browsers are leased. |
-
-### `kernel browser-pools flush <id-or-name>`
-Destroy all idle browsers in the pool.
-
-## Profiles
-
-For more details on browser profiles, see [Profiles](/auth/profiles).
-
-### `kernel profiles list`
-List all browser profiles.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel profiles get <id-or-name>`
-Get profile details.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel profiles create`
-Create a new browser profile.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Optional unique name for the profile. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel profiles download <id-or-name>`
-Download a profile as a ZIP archive.
-
-| Flag | Description |
-|------|-------------|
-| `--to <path>` | Output zip file path. Required. |
-| `--pretty` | Pretty-print JSON to file. |
-
-### `kernel profiles delete <id-or-name>`
-Delete a profile by ID or name.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Skip confirmation prompt. |
