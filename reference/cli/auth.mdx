@@ -24,6 +24,217 @@ export KERNEL_API_KEY=sk_1234abcd
 
 Create and manage API keys from the Kernel dashboard or with [`kernel api-keys`](/reference/cli/api-keys).
 
+## Managed auth connections
+A managed auth connection keeps a [profile](/auth/profiles) logged into a domain so future browsers reuse the authenticated session. See [Managed auth](/auth/overview) for concepts and the [programmatic flow](/auth/programmatic) for the SDK equivalent.
+
+### `kernel auth connections create`
+Create a managed auth connection for a profile and domain.
+
+| Flag | Description |
+|------|-------------|
+| `--profile-name <name>` | Name of the profile to manage (required). |
+| `--domain <domain>` | Target domain for authentication (required). |
+| `--allowed-domain <domain>` | Additional allowed domains (repeatable). |
+| `--login-url <url>` | Login page URL to skip discovery. |
+| `--health-check-interval <seconds>` | Seconds between health checks (300–86400). |
+| `--proxy-id <id>` | Proxy ID to use. |
+| `--proxy-name <name>` | Proxy name to use. |
+| `--credential-provider <name>` | External credential provider name. |
+| `--credential-name <name>` | Kernel credential name to use. |
+| `--credential-path <path>` | Provider-specific path (e.g. `VaultName/ItemName`). |
+| `--credential-auto` | Look up the credential by domain from the provider (defaults to true when `--credential-provider` is set without `--credential-path`). |
+| `--no-save-credentials` | Don't save credentials after a successful login. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel auth connections list`
+List managed auth connections.
+
+| Flag | Description |
+|------|-------------|
+| `--domain <domain>` | Filter by domain. |
+| `--profile-name <name>` | Filter by profile name. |
+| `--limit <n>` | Maximum number of results to return. |
+| `--offset <n>` | Number of results to skip. |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+### `kernel auth connections get <id>`
+Get a managed auth connection by ID.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel auth connections login <id>`
+Start a login flow and return a hosted URL for authentication.
+
+| Flag | Description |
+|------|-------------|
+| `--proxy-id <id>` | Proxy ID to use for this login. |
+| `--proxy-name <name>` | Proxy name to use for this login. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel auth connections submit <id>`
+Submit field values to an in-progress login flow. Poll the connection (or use `follow`) to track progress.
+
+| Flag | Description |
+|------|-------------|
+| `--field <name=value>` | Field name/value pair (repeatable). |
+| `--mfa-option-id <id>` | MFA option ID when an MFA method was selected. |
+| `--sign-in-option-id <id>` | Sign-in option ID when the flow returned non-MFA choices. |
+| `--sso-button-selector <xpath>` | XPath selector when choosing an SSO button. |
+| `--sso-provider <provider>` | SSO provider when choosing by provider (e.g. `google`, `github`). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+# Submit username and password
+kernel auth connections submit <id> --field username=myuser --field password=mypass
+
+# Select an MFA option
+kernel auth connections submit <id> --mfa-option-id <id>
+```
+
+### `kernel auth connections follow <id>`
+Stream real-time login flow state updates over SSE.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON events. |
+
+### `kernel auth connections update <id>`
+Update connection settings such as login URL, health checks, credential source, and proxy.
+
+| Flag | Description |
+|------|-------------|
+| `--login-url <url>` | Login page URL (set to an empty string to clear). |
+| `--allowed-domain <domain>` | Additional allowed domains (replaces the existing list). |
+| `--health-check-interval <seconds>` | Seconds between health checks. |
+| `--proxy-id <id>` | Proxy ID to use. |
+| `--proxy-name <name>` | Proxy name to use. |
+| `--credential-provider <name>` | External credential provider name. |
+| `--credential-name <name>` | Kernel credential name to use. |
+| `--credential-path <path>` | Provider-specific path (e.g. `VaultName/ItemName`). |
+| `--credential-auto` | Look up the credential by domain from the provider. |
+| `--save-credentials` | Save credentials after a successful login. |
+| `--no-save-credentials` | Don't save credentials after a successful login. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel auth connections delete <id>`
+Delete a managed auth connection.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip the confirmation prompt. |
+
+## Credentials
+Store login field values, TOTP secrets, and SSO settings that managed auth connections use to authenticate. See [Credentials](/auth/credentials) for concepts.
+
+### `kernel credentials create`
+Create a new credential.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Unique name for the credential (required). |
+| `--domain <domain>` | Target domain this credential is for (required). |
+| `--value <name=value>` | Field name/value pair (repeatable, e.g. `--value username=myuser --value password=mypass`). |
+| `--totp-secret <secret>` | Base32-encoded TOTP secret for 2FA. |
+| `--sso-provider <provider>` | SSO provider (e.g. `google`, `github`, `microsoft`). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credentials list`
+List credentials.
+
+| Flag | Description |
+|------|-------------|
+| `--domain <domain>` | Filter by domain. |
+| `--limit <n>` | Maximum number of results to return. |
+| `--offset <n>` | Number of results to skip. |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+### `kernel credentials get <id-or-name>`
+Get a credential by ID or name.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credentials update <id-or-name>`
+Update a credential.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New name for the credential. |
+| `--value <name=value>` | Field name/value pair to update (repeatable). |
+| `--totp-secret <secret>` | Base32-encoded TOTP secret (set to an empty string to remove). |
+| `--sso-provider <provider>` | SSO provider (set to an empty string to remove). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credentials totp-code <id-or-name>`
+Print the current TOTP code for a credential.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credentials delete <id-or-name>`
+Delete a credential by ID or name.
+
+## Credential providers
+Connect an external secrets manager (e.g. 1Password) so managed auth connections can look up credentials at login time instead of storing them in Kernel.
+
+### `kernel credential-providers create`
+Register a new credential provider.
+
+| Flag | Description |
+|------|-------------|
+| `--provider-type <type>` | Provider type (e.g. `onepassword`). |
+| `--name <name>` | Human-readable name for this provider instance. |
+| `--token <token>` | Service account token for the provider. |
+| `--cache-ttl <seconds>` | How long to cache credential lists (default: 300). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credential-providers list`
+List credential providers.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+### `kernel credential-providers get <id>`
+Get a credential provider by ID.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credential-providers list-items <id>`
+List items available from a credential provider.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+### `kernel credential-providers test <id>`
+Test the connection to a credential provider.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credential-providers update <id>`
+Update a credential provider.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New human-readable name. |
+| `--token <token>` | New service account token (to rotate credentials). |
+| `--cache-ttl <seconds>` | How long to cache credential lists. |
+| `--enabled` | Whether the provider is enabled for credential lookups. |
+| `--priority <n>` | Priority for credential lookups (lower numbers are checked first). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+### `kernel credential-providers delete <id>`
+Delete a credential provider.
+
 ## Global flags
 The following flags are available on every CLI command:
 
