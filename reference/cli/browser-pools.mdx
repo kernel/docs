@@ -1,0 +1,93 @@
+---
+title: "Browser Pools"
+---
+
+Manage pools of pre-warmed browsers for high-concurrency workloads. For background and scaling guidance, see [Browser Pools](/browsers/pools/overview).
+
+## `kernel browser-pools list`
+List all browser pools.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel browser-pools get <id-or-name>`
+Get details of a browser pool.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browser-pools create [name]`
+Create a new browser pool.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Optional unique name for the pool. |
+| `--size <n>` | Number of browsers in the pool. |
+| `--fill-rate <n>` | Fill rate per minute. |
+| `--timeout <seconds>` | Idle timeout in seconds. |
+| `--start-url <url>` | Initial page to open for new browsers. |
+| `--profile-id <id>` | Profile ID to load into pool browsers. |
+| `--profile-name <name>` | Profile name to load into pool browsers. |
+| `--save-changes` | Save changes back to the profile when sessions end. |
+| `--proxy-id <id>` | Proxy ID to use for pool browsers. |
+| `--extension <id-or-name>` | Extension IDs or names to load (repeatable). |
+| `--viewport <size>` | Viewport size (e.g. `1280x800`). |
+| `--headless` | Enable headless mode. |
+| `--stealth` | Enable stealth mode. |
+| `--kiosk` | Enable kiosk mode. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel browser-pools create my-pool --size 10 --fill-rate 5 --stealth
+```
+
+## `kernel browser-pools update <id-or-name>`
+Update a browser pool's configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Update the pool name. |
+| `--size <n>` | Updated pool size. |
+| `--fill-rate <n>` | Fill rate per minute. |
+| `--timeout <seconds>` | Idle timeout in seconds. |
+| `--start-url <url>` | Initial page to open for new browsers. |
+| `--clear-start-url` | Clear the pool start URL. |
+| `--discard-all-idle` | Discard all idle browsers. |
+| `--profile-id <id>` | Profile ID to load into pool browsers. |
+| `--profile-name <name>` | Profile name to load into pool browsers. |
+| `--save-changes` | Save changes back to the profile when sessions end. |
+| `--proxy-id <id>` | Proxy ID to use for pool browsers. |
+| `--extension <id-or-name>` | Extension IDs or names to load (repeatable). |
+| `--viewport <size>` | Viewport size (e.g. `1280x800`). |
+| `--headless` | Enable headless mode. |
+| `--stealth` | Enable stealth mode. |
+| `--kiosk` | Enable kiosk mode. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browser-pools acquire <id-or-name>`
+Acquire a browser from the pool.
+
+| Flag | Description |
+|------|-------------|
+| `--timeout <seconds>` | Acquire timeout in seconds. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel browser-pools release <id-or-name>`
+Release a browser back to the pool.
+
+| Flag | Description |
+|------|-------------|
+| `--session-id <id>` | Browser session ID to release. |
+| `--reuse` | Reuse the browser instance (default: `true`). |
+
+## `kernel browser-pools delete <id-or-name>`
+Delete a browser pool.
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Force delete even if browsers are leased. |
+
+## `kernel browser-pools flush <id-or-name>`
+Flush idle browsers from the pool.
