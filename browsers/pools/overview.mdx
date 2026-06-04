@@ -472,9 +472,9 @@ Use the calculator below to estimate a pool size for your workload. It assumes `
 
 ### How the calculation works
 
-Two constraints have to be satisfied at the same time, so the recommended size is the larger of the two.
+The calculator converts tasks per hour into a peak acquisition rate `λ` per minute (`tasks_per_hour / 60`, multiplied by 2× for bursty traffic) and then applies two constraints. The recommended size is the larger of the two.
 
-**Concurrency floor.** With a peak acquisition rate `λ` (per minute) and an average acquired duration `d` (minutes), the number of browsers held simultaneously trends toward `λ × d`. We multiply by a 1.25× safety factor to keep ~10–20% of the pool available during normal load (see the [pool sizing guidance in the FAQ](/browsers/pools/faq#how-do-i-know-if-my-pool-is-too-small-or-too-large)).
+**Concurrency floor.** With acquisition rate `λ` and an average acquired duration `d` (minutes), the number of browsers held simultaneously trends toward `λ × d`. We multiply by a 1.25× safety factor to keep ~10–20% of the pool available during normal load (see the [pool sizing guidance in the FAQ](/browsers/pools/faq#how-do-i-know-if-my-pool-is-too-small-or-too-large)).
 
 ```
 concurrency_floor = ceil(λ × d × 1.25)
