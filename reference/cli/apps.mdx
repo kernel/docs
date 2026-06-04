@@ -15,6 +15,20 @@ Deploy an app to Kernel from the current directory. The entrypoint file and depe
 
 <Info>`package.json` (JS/TS) or `pyproject.toml` (Python) must be present next to the entrypoint.</Info>
 
+## `kernel deploy github`
+Deploy directly from a GitHub repository without cloning or pushing locally.
+
+| Flag | Description |
+|------|-------------|
+| `--url <url>` | GitHub repository URL (e.g. `https://github.com/org/repo`). |
+| `--ref <ref>` | Git ref to deploy (branch, tag, or commit SHA). |
+| `--entrypoint <path>` | Entrypoint within the repo (e.g. `src/index.ts`). |
+| `--path <subdir>` | Subdirectory within the repo (e.g. `apps/api`). |
+| `--github-token <token>` | GitHub token for private repositories (PAT or installation access token). |
+| `--region <region>` | Deployment region (currently only `aws.us-east-1a`). |
+
+<Info>For private repositories, provide `--github-token` or set the `GITHUB_TOKEN` environment variable.</Info>
+
 ## `kernel deploy logs <deployment_id>`
 Stream build and runtime logs for a deployment.
 
@@ -34,6 +48,20 @@ Show deployment history for all apps or a specific app.
 | `--limit <n>` | Maximum number of deployments to return (default: 100, `0` = all). |
 | `--output json`, `-o json` | Output raw JSON array. |
 
+## `kernel deploy get <deployment_id>`
+Get details for a deployment.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel deploy delete <deployment_id>`
+Delete a deployment.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip confirmation prompt. |
+
 ## `kernel invoke <app> <action>`
 Invoke an app action. By default the CLI returns immediately after the invocation is queued.
 
@@ -41,10 +69,53 @@ Invoke an app action. By default the CLI returns immediately after the invocatio
 |------|-------------|
 | `--version <version>`, `-v` | Target a specific app version (default: latest). |
 | `--payload <json>`, `-p` | Provide a JSON payload (stringified, max 64 KB). |
+| `--payload-file <path>`, `-f` | Read the JSON payload from a file (use `-` for stdin). |
 | `--sync`, `-s` | Wait for completion (timeout after 60 s). |
+| `--async-timeout <seconds>` | Timeout for async invocations (min 10, max 3600). Only applies in async mode. |
+| `--since <time>` | Show invocation events since the given time when following async execution. |
 | `--output json`, `-o json` | Output JSONL (one JSON object per line for each invocation event). |
 
 <Info>Press `Ctrl+C` to cancel an in-flight invocation. The associated browser sessions are cleaned up automatically.</Info>
+
+## `kernel invoke get <invocation_id>`
+Get an invocation.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel invoke history`
+Show invocation history.
+
+| Flag | Description |
+|------|-------------|
+| `--app <name>`, `-a` | Filter by app name. |
+| `--action <name>` | Filter by action name. |
+| `--status <status>` | Filter by status: `queued`, `running`, `succeeded`, `failed`. |
+| `--deployment-id <id>` | Filter by deployment ID. |
+| `--version <version>` | Filter by invocation version. |
+| `--since <time>` | Show invocations started since the given time. |
+| `--limit <n>` | Max invocations to return (default: 100). |
+| `--offset <n>` | Number of results to skip. |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel invoke update <invocation_id>`
+Update an invocation's status or output.
+
+| Flag | Description |
+|------|-------------|
+| `--status <status>` | New status: `succeeded` or `failed`. |
+| `--output <json>` | Updated invocation output, as a JSON string. |
+
+## `kernel invoke browsers <invocation_id>`
+List browser sessions for an invocation.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel invoke delete-browsers <invocation_id>`
+Delete browser sessions for an invocation.
 
 ## `kernel app list`
 List deployed app versions.
@@ -63,12 +134,21 @@ Show deployment history for a specific app.
 | `--limit <n>` | Maximum number of deployments to return (default: 100, `0` = all). |
 | `--output json`, `-o json` | Output raw JSON array. |
 
+## `kernel app delete <app_name>`
+Delete an app and all its deployments.
+
+| Flag | Description |
+|------|-------------|
+| `--version <version>` | Only delete deployments for this version (default: all versions). |
+| `--yes`, `-y` | Skip confirmation prompt. |
+
 ## `kernel logs <app_name>`
 Tail app logs.
 
 | Flag | Description |
 |------|-------------|
 | `--version <version>` | Select an app version (default: latest). |
+| `--invocation <id>`, `-i` | Show logs for a specific invocation/run. Accepts a full ID or unambiguous prefix; respects `--follow` if still running. |
 | `--follow`, `-f` | Stream logs continuously. |
 | `--since <duration>`, `-s` | Fetch logs from a duration or timestamp (same formats as `kernel deploy logs`). |
 | `--with-timestamps` | Include timestamps in each line. |
