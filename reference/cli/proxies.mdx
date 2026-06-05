@@ -1,0 +1,66 @@
+---
+title: "Proxies"
+---
+
+Manage proxy configurations for routing browser traffic. For background on proxy types and when to use each, see [Proxies](/proxies/overview).
+
+## `kernel proxies list`
+List available proxy configurations.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel proxies get <id>`
+Show details for a proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel proxies create`
+Create a new proxy configuration. Proxy quality for bot detection avoidance, best to worst: mobile > residential > ISP > datacenter.
+
+| Flag | Description |
+|------|-------------|
+| `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom`. Required. |
+| `--name <name>` | Proxy configuration name. |
+| `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
+| `--country <code>` | ISO 3166 country code or `EU`. |
+| `--city <name>` | City name without spaces (e.g. `sanfrancisco`). Requires `--country`. |
+| `--state <code>` | Two-letter state code. |
+| `--zip <zip>` | US ZIP code. |
+| `--asn <asn>` | Autonomous system number (e.g. `AS15169`). |
+| `--os <os>` | Operating system (`windows`, `macos`, `android`). |
+| `--carrier <carrier>` | Mobile carrier. |
+| `--host <host>` | Proxy host address or IP (`custom` type). |
+| `--port <port>` | Proxy port (`custom` type). |
+| `--username <username>` | Username for proxy authentication (`custom` type). |
+| `--password <password>` | Password for proxy authentication (`custom` type). |
+| `--bypass-host <hostname>` | Hostname(s) to bypass the proxy and connect directly (repeatable or comma-separated). |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+# Datacenter proxy in the US
+kernel proxies create --type datacenter --country US --name "US Datacenter"
+
+# Custom proxy server
+kernel proxies create --type custom --host proxy.example.com --port 8080 --username myuser --password mypass
+
+# Residential proxy with location
+kernel proxies create --type residential --country US --city sanfrancisco --state CA
+```
+
+## `kernel proxies check <id>`
+Run a health check on a proxy to verify it's working and update its status.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel proxies delete <id>`
+Delete a proxy configuration.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip confirmation prompt. |

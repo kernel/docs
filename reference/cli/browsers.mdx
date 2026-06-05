@@ -45,6 +45,39 @@ Get detailed information about a browser session.
 |------|-------------|
 | `--output json`, `-o json` | Output raw JSON object. |
 
+### `kernel browsers update <session-id>`
+Update a running browser session — change or remove its proxy, load a profile, resize the viewport, or toggle telemetry.
+
+| Flag | Description |
+|------|-------------|
+| `--proxy-id <id>` | Set the proxy for the session. |
+| `--clear-proxy` | Remove the proxy from the session. |
+| `--profile-id <id>` | Load a profile by ID (only into a session without one). |
+| `--profile-name <name>` | Load a profile by name (mutually exclusive with `--profile-id`). |
+| `--save-changes` | Save changes back to the profile when the session ends. |
+| `--viewport <WxH@fps>` | Set viewport size (e.g. `1920x1080@25`). |
+| `--force` | Force a viewport resize even during an active live view or recording. |
+| `--telemetry <spec>` | Toggle telemetry: `all` to enable, `off` to disable, or per-category like `network=on,page=off`. |
+| `--output json`, `-o json` | Output raw API response as JSON. |
+
+### `kernel browsers curl <session-id> <url>`
+Make an HTTP request through the browser's network stack, inheriting its TLS fingerprint, cookies, proxy, and headers. Works like `curl`, but requests go through the browser session. See [Browser curl](/browsers/curl) for examples.
+
+| Flag | Description |
+|------|-------------|
+| `--request <method>`, `-X` | HTTP method (default: `GET`). |
+| `--header <"Key: Value">`, `-H` | Add a request header (repeatable). |
+| `--data <body>`, `-d` | Request body. |
+| `--data-file <path>` | Read the request body from a file. |
+| `--head`, `-I` | Fetch headers only. |
+| `--include`, `-i` | Include response headers in the output. |
+| `--dump-header <path>`, `-D` | Write received headers to a file (`-` for stdout). |
+| `--output <path>`, `-o` | Write the response body to a file. |
+| `--fail`, `-f` | Fail with no body output on HTTP errors. |
+| `--silent`, `-s` | Suppress progress output. |
+| `--max-time <seconds>` | Maximum time allowed for the request (default: 30). |
+| `--write-out <format>`, `-w` | Print text after completion (supports `%{http_code}`, `%{time_total}`, `%{size_download}`). |
+
 ### `kernel browsers ssh <session-id>`
 Open an interactive SSH session to a browser VM. Requires [websocat](https://github.com/vi/websocat) to be installed locally.
 
@@ -68,6 +101,18 @@ Stream browser logs from the supervisor or a file path.
 | `--supervisor-process <name>` | Supervisor process when `--source=supervisor` (e.g. `chromium`). |
 
 <Info>Log lines longer than 64 KiB are truncated.</Info>
+
+## Telemetry
+
+### `kernel browsers telemetry stream <session-id>`
+Stream live telemetry events (network, console, interaction, page, and system) from a browser session.
+
+| Flag | Description |
+|------|-------------|
+| `--categories <list>` | Filter by category: `api`, `console`, `interaction`, `network`, `page`, `system`. |
+| `--types <list>` | Filter by event type (e.g. `network_response,console_error`). |
+| `--seq <n>` | Resume after sequence number N; replays events with `seq > N` (default: `-1`, stream from now). |
+| `--output json`, `-o json` | Output newline-delimited JSON envelopes. |
 
 ## Replays
 
@@ -367,156 +412,3 @@ Delete an uploaded extension.
 
 ### `kernel browsers extensions upload <session-id> <extension-path>...`
 Upload one or more unpacked Chrome extensions directly into a running browser session.
-
-## Proxy management
-
-### `kernel proxies list`
-List available proxy configurations.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel proxies get <id>`
-Show details for a proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel proxies create`
-Create a new proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Proxy configuration name. |
-| `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom` (required). |
-| `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
-| `--country <code>` | ISO 3166 country code or `EU`. |
-| `--city <name>` | City (residential, mobile; requires `--country`). |
-| `--state <code>` | State/region code (residential, mobile). |
-| `--zip <zip>` | ZIP/postal code (residential, mobile). |
-| `--asn <asn>` | Autonomous system number (residential, mobile). |
-| `--os <os>` | Operating system (`windows`, `macos`, `android`; residential). |
-| `--carrier <carrier>` | Mobile carrier (mobile). |
-| `--host <host>` | Proxy host (custom; required). |
-| `--port <port>` | Proxy port (custom; required). |
-| `--username <username>` | Proxy username (custom). |
-| `--password <password>` | Proxy password (custom). |
-| `--bypass-host <hostname>` | Hostname to bypass proxy (repeatable; max 100). |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel proxies delete <id>`
-Delete a proxy configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Skip confirmation. |
-
-## Browser pools
-
-For more details on browser pools, see [Browser Pools](/browsers/pools/overview).
-
-### `kernel browser-pools list`
-List all browser pools.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel browser-pools create`
-Create a new browser pool.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Optional unique name for the pool. |
-| `--size <n>` | Number of browsers in the pool (required). |
-| `--fill-rate <n>` | Percentage of the pool to fill per minute. |
-| `--timeout <seconds>` | Idle timeout for browsers acquired from the pool. |
-| `--start-url <url>` | Initial page to open for new browsers. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools get <id-or-name>`
-Get pool details.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools update <id-or-name>`
-Update pool configuration.
-
-| Flag | Description |
-|------|-------------|
-| `--size <n>` | Updated pool size. |
-| `--start-url <url>` | Initial page to open for new browsers. |
-| `--clear-start-url` | Clear the pool start URL. |
-| `--discard-all-idle` | Discard all idle browsers and refill. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools acquire <id-or-name>`
-Acquire a browser from the pool.
-
-| Flag | Description |
-|------|-------------|
-| `--timeout <seconds>` | Acquire timeout before returning 204. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel browser-pools release <id-or-name>`
-Release a browser back to the pool.
-
-| Flag | Description |
-|------|-------------|
-| `--session-id <id>` | Browser session ID to release (required). |
-| `--reuse` | Reuse the browser instance (default: true). |
-
-### `kernel browser-pools delete <id-or-name>`
-Delete a pool.
-
-| Flag | Description |
-|------|-------------|
-| `--force` | Force delete even if browsers are leased. |
-
-### `kernel browser-pools flush <id-or-name>`
-Destroy all idle browsers in the pool.
-
-## Profiles
-
-For more details on browser profiles, see [Profiles](/auth/profiles).
-
-### `kernel profiles list`
-List all browser profiles.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON array. |
-
-### `kernel profiles get <id-or-name>`
-Get profile details.
-
-| Flag | Description |
-|------|-------------|
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel profiles create`
-Create a new browser profile.
-
-| Flag | Description |
-|------|-------------|
-| `--name <name>` | Optional unique name for the profile. |
-| `--output json`, `-o json` | Output raw JSON object. |
-
-### `kernel profiles download <id-or-name>`
-Download a profile as a ZIP archive.
-
-| Flag | Description |
-|------|-------------|
-| `--to <path>` | Output zip file path. Required. |
-| `--pretty` | Pretty-print JSON to file. |
-
-### `kernel profiles delete <id-or-name>`
-Delete a profile by ID or name.
-
-| Flag | Description |
-|------|-------------|
-| `--yes`, `-y` | Skip confirmation prompt. |
