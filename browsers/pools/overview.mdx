@@ -492,4 +492,4 @@ refill_floor = ceil(100 × λ / fill_rate)
 N = max(concurrency_floor, refill_floor)
 ```
 
-At the 25% fill ceiling, the two constraints meet at `d ≈ 3.2` minutes. Below that, the refill ceiling sets the floor; above it, concurrency does.
+The two constraints meet when average session duration ≈ `80 / fill_rate` minutes — about 3.2 minutes at the default 25% ceiling. Below that, refill sets the floor; above it, concurrency does.
