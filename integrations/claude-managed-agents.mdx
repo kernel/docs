@@ -6,13 +6,24 @@ title: "Claude Managed Agents"
 
 The browsers are provisioned and controlled through the [Kernel CLI](/reference/cli) from inside Anthropic's Managed Agents sandbox. Agents can fan out across many browsers in parallel, with no browser infrastructure to run yourself.
 
+This integration combines Claude's hosted agent runtime with Kernel's cloud browsers. Claude Managed Agents owns the **runtime** — it runs the agent loop in an Anthropic-managed sandbox with bash, file tools, and any custom tools you declare. Kernel owns the **browser** — a fresh, isolated, stealth Chromium session per run that the agent drives to load, read, and act on real pages. Each side handles what it's best at, and you operate neither.
+
 <Note>
 This is different from the [Claude Agent SDK](/integrations/claude-agent-sdk) integration. The **Agent SDK** is a library you run on your own machine or deploy as a Kernel app. **Managed Agents** is Anthropic's *hosted* harness — agents, sessions, environments, and vaults all live on Anthropic's side, and the agent reaches Kernel over the network. Use this page when you want Anthropic to host the agent loop.
 </Note>
 
 <Info>
-Claude Managed Agents is in early access. The beta identifiers and preview headers shown below (for example `agent_toolset_20260401` and the `managed-agents-…-research-preview` beta) are subject to change before general availability.
+Claude Managed Agents is in beta — every request carries the `managed-agents-2026-04-01` beta header, which the Anthropic SDKs set automatically. The `environment_variable` vault credential used below is a narrower research preview; [request access](https://claude.com/form/claude-managed-agents) to enable it. Preview identifiers may change before general availability.
 </Info>
+
+## Benefits of using Kernel with Claude Managed Agents
+
+- **No infrastructure to run**: Anthropic hosts the agent loop and Kernel hosts the browsers — no cold starts, container orchestration, or Chromium version pinning on your side.
+- **Parallel by default**: fan out one browser per subagent and run them concurrently, so a single coordinator can cover many pages at once.
+- **Stealth, non-headless browsing**: [stealth mode](/browsers/bot-detection/stealth) drives real Chromium that renders and behaves like a human visitor, not a flagged bot.
+- **Persistent session state**: carry cookies and logins across runs with [Profiles](/auth/profiles), so agents resume where they left off.
+- **Built-in observability**: watch agents drive their browsers live with [Live View](/browsers/live-view), or review a run afterward with [session replays](/browsers/replays).
+- **Clean separation of state**: Managed Agents holds the conversation and tool outputs; Kernel holds the page, cookies, and downloads — so you can inspect each side on its own.
 
 ## How it works
 
