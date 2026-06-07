@@ -2,9 +2,9 @@
 title: "Claude Managed Agents"
 ---
 
-[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) is Anthropic's hosted agent harness: you define an agent once, then open as many cloud **sessions** as you need, each running in an isolated Anthropic-managed sandbox. By pairing Managed Agents with Kernel, the agent drives real, stealth, non-headless cloud browsers — provisioned and controlled through the [Kernel CLI](/reference/cli) from inside the sandbox — instead of fetching raw HTML.
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) is Anthropic's hosted agent harness: you define an agent once, then start as many cloud sessions as you need, each running in an isolated Anthropic-managed sandbox. By pairing Claude Managed Agents with Kernel, your agents can browse the Web the way a person would. Kernel handles the work to spin up real browsers for the agent to engage with (including rendered pages, computer-use clicks, screenshots).
 
-This unlocks agents that browse the way a person would (rendered pages, computer-use clicks, screenshots) and that fan out across many browsers in parallel, with no browser infrastructure to run yourself.
+The browsers are provisioned and controlled through the [Kernel CLI](/reference/cli) from inside Anthropic's Managed Agents sandbox. Agents can fan out across many browsers in parallel, with no browser infrastructure to run yourself.
 
 <Note>
 This is different from the [Claude Agent SDK](/integrations/claude-agent-sdk) integration. The **Agent SDK** is a library you run on your own machine or deploy as a Kernel app. **Managed Agents** is Anthropic's *hosted* harness — agents, sessions, environments, and vaults all live on Anthropic's side, and the agent reaches Kernel over the network. Use this page when you want Anthropic to host the agent loop.
@@ -24,35 +24,7 @@ A Managed Agents + Kernel setup has two kinds of resources:
   - one or more **agents** — the system prompt, model, and tools that define behavior.
 - **Sessions**, which are ephemeral. Each session opens against an agent, attaches the vault, runs one task while you stream its events, and is deleted when done.
 
-Inside a session, the agent uses its built-in shell to run the Kernel CLI — `kernel browsers create --stealth`, `kernel browsers playwright execute`, `kernel browsers computer …` — to provision and drive cloud browsers. A common topology is a **coordinator** agent that does light recon, then delegates one page per **browser-operator** subagent and runs them all in parallel, each driving its own Kernel browser.
-
-## The two networking planes
-
-Your `KERNEL_API_KEY` never lands in the sandbox as plaintext. Two independent controls keep it that way — keep them straight, because they do different things.
-
-**Environment networking** is a firewall on the sandbox: it governs what the container can reach *at all*. Lock it to Kernel's control plane.
-
-```ts
-networking: {
-  type: "limited",
-  allow_package_managers: true,            // lets the image fetch @onkernel/cli
-  allow_mcp_servers: false,
-  allowed_hosts: ["api.onkernel.com", "*.onkernel.com"],
-}
-```
-
-**Credential networking** governs secret *substitution*, not reachability. The sandbox env var `KERNEL_API_KEY` holds an opaque placeholder; Anthropic swaps in the real secret only when that placeholder appears in an outbound request to an allowed host. The plaintext key never enters the container, never enters the model's context, and is never logged by your code.
-
-```ts
-networking: {
-  type: "limited",
-  allowed_hosts: ["api.onkernel.com", "*.onkernel.com"],
-}
-```
-
-<Warning>
-Keep both `allowed_hosts` lists as tight as the workload allows — scoped to exactly where the key is consumed. The credential allowlist is the only thing standing between a prompt-injected agent and your real key.
-</Warning>
+Inside a session, the agent uses its built-in shell to run the Kernel CLI — e.g. `kernel browsers create --stealth`, `kernel browsers playwright execute`, `kernel browsers computer …` — to provision and drive cloud browsers. 
 
 ## Prerequisites
 
