@@ -19,12 +19,12 @@ Claude Managed Agents is in beta — every request carries the `managed-agents-2
 ## Benefits of using Kernel with Claude Managed Agents
 
 - **No infrastructure to run**: Anthropic hosts the agent loop and Kernel hosts the browsers — no cold starts, container orchestration, or Chromium version pinning on your side.
+- **Clean separation of state**: Managed Agents holds the conversation and tool outputs; Kernel holds the page, cookies, and downloads — so you can inspect each side on its own.
 - **Parallel by default**: fan out one browser per subagent and run them concurrently, so a single coordinator can cover many pages at once.
 - **Stealth, non-headless browsing**: [stealth mode](/browsers/bot-detection/stealth) drives real Chromium that renders and behaves like a human visitor, not a flagged bot.
-- **Managed Authentication**: Claude Managed Agents can seamlessly access browsers on behalf of users using Kernel's secure, permissioned abstraction of user identity
+- **Managed Authentication**: Claude Managed Agents can seamlessly access browsers on behalf of users using Kernel's secure, permissioned abstraction of user identity.
 - **Persistent session state**: carry cookies and logins across runs with [Profiles](/auth/profiles), so agents resume where they left off.
 - **Built-in observability**: watch agents drive their browsers live with [Live View](/browsers/live-view), or review a run afterward with [session replays](/browsers/replays).
-- **Clean separation of state**: Managed Agents holds the conversation and tool outputs; Kernel holds the page, cookies, and downloads — so you can inspect each side on its own.
 
 ## How it works
 
