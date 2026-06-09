@@ -3,7 +3,21 @@ title: "Stream Telemetry"
 description: "Consume a session's live telemetry stream from the SDK, CLI, or raw SSE"
 ---
 
-Once a session has telemetry [enabled](/browsers/telemetry/overview), you can stream its events in real time. The stream stays open until the session terminates, and each event is wrapped in an envelope with a monotonic `seq` number you can use to reconnect without gaps.
+Once a session has telemetry [enabled](/browsers/telemetry/overview), you can stream its events in real time. The stream stays open until the session terminates, and each event is wrapped in an envelope with a monotonic `seq` number you can use to reconnect without gaps:
+
+```json
+{
+  "seq": 42,
+  "event": {
+    "ts": 1746123456789000,
+    "type": "network_response",
+    "category": "network",
+    "data": { "method": "GET", "url": "https://example.com/api", "status": 200 }
+  }
+}
+```
+
+The `data` payload differs per event type; see the [API reference](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) for each type's schema. An event whose payload exceeds 1 MB is dropped and the envelope is flagged `truncated: true`.
 
 ## Via SDK
 

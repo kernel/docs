@@ -9,7 +9,7 @@ For the full payload schema of any event type, see the [Stream telemetry events]
 
 ## Browser activity
 
-These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session, so enable only the ones you need. None are in the default set.
+These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces far more events than the operational categories, so enable only the ones you need. None are in the default set.
 
 | Category | Captures | Event types |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ Telemetry is off by default, and the [default set](#operational) carries operati
 | `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
 | `control`, `connection`, `system`, `captcha`, `monitor` | Session metadata only (control calls, connection and health events). No page content. |
 
-Captured events are stored and retrievable through the API, so this sensitivity applies to the data at rest, not just the live stream. Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content.
+Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
 
 Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text). Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
 
