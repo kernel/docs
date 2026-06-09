@@ -3,7 +3,7 @@ title: "Telemetry Overview"
 description: "Capture a real-time, categorized stream of what happens inside a browser session"
 ---
 
-Telemetry gives you a real-time stream of events from inside a browser session — console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Events are delivered over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), so you can react to them live or pipe them into your own observability stack.
+Telemetry gives you a real-time stream of events from inside a browser session - console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Events are delivered over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), so you can react to them live or pipe them into your own observability stack.
 
 ## The model
 
@@ -17,7 +17,7 @@ You configure telemetry when you [create a browser](/introduction/create) (and c
 
 ### Enable the default set
 
-Set `enabled: true` with no per-category settings to capture the default set — a lightweight bundle of operational signals (`control`, `connection`, `system`, `captcha`) that's cheap to leave on:
+Set `enabled: true` with no per-category settings to capture the default set - a lightweight bundle of operational signals (`control`, `connection`, `system`, `captcha`) that's cheap to leave on:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -47,7 +47,7 @@ kernel browsers create --telemetry=all
 
 ### Capture specific categories
 
-List exactly the categories you want under `telemetry.browser`. Only those are captured; everything else stays off. Don't set the top-level `enabled` flag in this case — the presence of category settings is what turns telemetry on:
+List exactly the categories you want under `telemetry.browser`. Only those are captured; everything else stays off. Don't set the top-level `enabled` flag in this case - the presence of category settings is what turns telemetry on:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -77,7 +77,7 @@ kernel browsers create --telemetry=console,network
 ```
 </CodeGroup>
 
-This session captures `console` and `network` only — no page, interaction, or operational events.
+This session captures `console` and `network` only - no page, interaction, or operational events.
 
 ### Disable telemetry
 
@@ -102,11 +102,11 @@ kernel browsers create --telemetry=off
 </CodeGroup>
 
 <Info>
-Updating a session's telemetry **replaces** its category selection — it isn't merged with the previous one. Send the complete set of categories you want captured.
+Updating a session's telemetry **replaces** its category selection - it isn't merged with the previous one. Send the complete set of categories you want captured.
 </Info>
 
 ## What's next
 
-- [Categories](/browsers/telemetry/categories) — every category, what it captures, the default set, and cost characteristics.
-- [Stream telemetry](/browsers/telemetry/streaming) — consume the live stream from the SDK, CLI, or raw SSE, with filtering and reconnection.
+- [Categories](/browsers/telemetry/categories) - every category, what it captures, the default set, and cost characteristics.
+- [Stream telemetry](/browsers/telemetry/streaming) - consume the live stream from the SDK, CLI, or raw SSE, with filtering and reconnection.
 - For event payload schemas, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.

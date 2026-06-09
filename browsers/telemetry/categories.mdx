@@ -16,7 +16,11 @@ These categories report what's happening in the page. Capturing any of them atta
 | `console` | Console output from the page | `console_log`, `console_error` |
 | `network` | Network requests, responses, and failures | `network_request`, `network_response`, `network_loading_failed`, `network_idle` |
 | `page` | Navigation and page lifecycle, including performance signals | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
-| `interaction` | Input driven into the page | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
+| `interaction` | Browser-native input in the page (clicks, keys, scroll) | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
+
+<Note>
+`interaction` events are browser-native DOM events observed in the page, not calls to the [computer-control](/browsers/computer-controls) API (those are reported by the `control` category). Input into sensitive fields such as passwords is suppressed: `interaction_key` isn't emitted for them, and `interaction_click` omits the element text.
+</Note>
 
 ## Operational
 
@@ -31,12 +35,12 @@ These categories report on the session itself rather than page content. They're 
 | `screenshot` | Periodic screenshots of the session | `monitor_screenshot` |
 
 <Warning>
-`screenshot` is the most expensive category to capture — each event carries an encoded image. Enable it only when you need visual snapshots, and prefer [live view](/browsers/live-view) or [replays](/browsers/replays) for continuous visibility.
+`screenshot` is the most expensive category to capture - each event carries an encoded image. Enable it only when you need visual snapshots, and prefer [live view](/browsers/live-view) or [replays](/browsers/replays) for continuous visibility.
 </Warning>
 
 ## The default set
 
-When you enable telemetry without naming any categories (`telemetry: { enabled: true }`, or `--telemetry=all`), the session captures the default set — a lightweight bundle of operational signals:
+When you enable telemetry without naming any categories (`telemetry: { enabled: true }`, or `--telemetry=all`), the session captures the default set - a lightweight bundle of operational signals:
 
 `control`, `connection`, `system`, `captcha`
 
@@ -46,4 +50,4 @@ These are inexpensive to leave on and give you a baseline view of session health
 
 `monitor` reports the health of the CDP collector itself: `monitor_disconnected`, `monitor_reconnected`, `monitor_reconnect_failed`, and `monitor_init_failed`.
 
-It isn't directly settable. It flows automatically whenever any browser-activity category (`console`, `network`, `page`, `interaction`) is captured — since those are what attach the collector — and is silent otherwise. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.
+It isn't directly settable. It flows automatically whenever any browser-activity category (`console`, `network`, `page`, `interaction`) is captured - since those are what attach the collector - and is silent otherwise. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.

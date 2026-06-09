@@ -56,7 +56,7 @@ kernel browsers telemetry stream <session-id> -o json
 ```
 
 <Info>
-CLI `--categories` and `--types` are applied locally to the stream — they don't change what the session captures. To change capture, update the session's [telemetry categories](/browsers/telemetry/categories).
+CLI `--categories` and `--types` are applied locally to the stream - they don't change what the session captures. To change capture, update the session's [telemetry categories](/browsers/telemetry/categories).
 </Info>
 
 ## Via raw SSE
@@ -64,7 +64,7 @@ CLI `--categories` and `--types` are applied locally to the stream — they don'
 The stream is a standard [SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) endpoint, so any SSE-capable client works:
 
 ```bash
-curl -N https://api.onkernel.com/v1/browsers/<session-id>/telemetry/stream \
+curl -N https://api.onkernel.com/browsers/<session-id>/telemetry/stream \
   -H "Authorization: Bearer $KERNEL_API_KEY" \
   -H "Accept: text/event-stream"
 ```
@@ -73,7 +73,7 @@ Each `data:` frame carries one JSON envelope, and the frame's `id:` field is the
 
 ## Resuming after a disconnect
 
-To pick up where you left off, resume from the last `seq` you processed — the server replays events after that sequence number. SDK clients reconnect automatically. For raw SSE, send the last seq as the `Last-Event-ID` header; with the CLI, pass `--seq`:
+To pick up where you left off, resume from the last `seq` you processed - the server replays events after that sequence number. SDK clients reconnect automatically. For raw SSE, send the last seq as the `Last-Event-ID` header; with the CLI, pass `--seq`:
 
 ```bash
 kernel browsers telemetry stream <session-id> --seq 1024
