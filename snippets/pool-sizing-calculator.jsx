@@ -88,7 +88,7 @@ export const PoolSizingCalculator = () => {
                     <button class="btn btn-primary dark:text-white" style={btnStyle(burstMode === 'steady')}
                         onClick={() => { hasInteracted.current = true; setBurstMode('steady'); }}>Steady</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(burstMode === 'bursty')}
-                        onClick={() => { hasInteracted.current = true; setBurstMode('bursty'); }}>Bursty (2×)</button>
+                        onClick={() => { hasInteracted.current = true; setBurstMode('bursty'); }}>Bursty</button>
                 </div>
                 <div style={rowStyle}>
                     <button style={disclosureStyle} onClick={() => setShowAdvanced(!showAdvanced)}>
