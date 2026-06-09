@@ -9,7 +9,7 @@ A **Project** is a named container for Kernel resources inside an organization. 
 
 - **Isolate environments** — keep `production` resources apart from `staging` or experiments.
 - **Scope access** — issue API keys that can only see resources in one project.
-- **Per-project limits** — cap concurrency on a per-project basis so one team or environment can't exhaust your org quota.
+- **Concurrency limits** — set an org-wide default cap for every project, or override it per project, so one team or environment can't exhaust your org quota.
 
 ## The Default Project
 
@@ -148,17 +148,15 @@ Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` head
 
 ## Managing Projects
 
-Use the `/projects` REST endpoints (or the SDKs' `projects` resource) to manage projects.
+Use the `/org/projects` REST endpoints (or the SDKs' `projects` resource) to manage projects.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/projects` | List projects in the organization |
-| `POST` | `/projects` | Create a project |
-| `GET` | `/projects/{id}` | Get a project by ID |
-| `PATCH` | `/projects/{id}` | Update a project's name or status (`active` / `archived`) |
-| `DELETE` | `/projects/{id}` | Delete a project (must be empty and not the last active project) |
-| `GET` | `/projects/{id}/limits` | Get per-project concurrency limit overrides |
-| `PATCH` | `/projects/{id}/limits` | Update per-project concurrency limit overrides |
+| `GET` | `/org/projects` | List projects in the organization |
+| `POST` | `/org/projects` | Create a project |
+| `GET` | `/org/projects/{id}` | Get a project by ID |
+| `PATCH` | `/org/projects/{id}` | Update a project's name or status (`active` / `archived`) |
+| `DELETE` | `/org/projects/{id}` | Delete a project (must be empty and not the last active project) |
 
 ### Create a project
 
@@ -284,5 +282,89 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
 <Info>
   You can't delete a project that still owns active resources, and you can't delete the last remaining active project in your org.
 </Info>
+
+## Concurrency Limits
+
+Kernel caps how many browser sessions can run at once, at two levels:
+
+- **Organization limit** — the total concurrent sessions allowed across your whole organization, determined by your plan. Every session counts against it.
+- **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
+
+Per-project caps come from two places:
+
+- **An org-wide default** — one value that every project inherits unless it sets its own. It applies to existing and newly created projects alike, so you don't have to configure each project by hand.
+- **A per-project override** — an explicit cap on a single project that takes precedence over the default.
+
+A project's effective cap resolves in this order:
+
+1. The project's explicit override, if set.
+2. Otherwise, the organization's default project cap, if set.
+3. Otherwise, no per-project cap — only the organization limit applies.
+
+A per-project cap never lets a project exceed your organization's concurrent-session limit.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/org/limits` | Get the org concurrent-session limit and the default per-project cap |
+| `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) |
+| `GET` | `/org/projects/{id}/limits` | Get a single project's limit overrides |
+| `PATCH` | `/org/projects/{id}/limits` | Set a single project's limit overrides (send `0` to clear a cap) |
+
+### Set an org-wide default
+
+Apply a default of 10 concurrent sessions to every project that doesn't have its own override:
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.onkernel.com/org/limits \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "default_project_max_concurrent_sessions": 10 }'
+```
+
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+await kernel.organization.limits.update({
+  default_project_max_concurrent_sessions: 10,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel.organization.limits.update(default_project_max_concurrent_sessions=10)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	_, err := client.Organization.Limits.Update(ctx, kernel.OrganizationLimitUpdateParams{
+		UpdateOrgLimitsRequest: kernel.UpdateOrgLimitsRequestParam{
+			DefaultProjectMaxConcurrentSessions: kernel.Int(10),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+To cap a specific project differently, set an explicit override on it with `PATCH /org/projects/{id}/limits` — that value takes precedence over the default.
 
 See the [API reference](https://kernel.sh/docs/api-reference/projects/list-projects) for full request and response schemas, including `ProjectLimits` for per-project concurrency caps.
