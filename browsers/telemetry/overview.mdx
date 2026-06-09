@@ -1,0 +1,112 @@
+---
+title: "Telemetry Overview"
+description: "Capture a real-time, categorized stream of what happens inside a browser session"
+---
+
+Telemetry gives you a real-time stream of events from inside a browser session — console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Events are delivered over [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), so you can react to them live or pipe them into your own observability stack.
+
+## The model
+
+Every telemetry event belongs to a **category** (`console`, `network`, `page`, and so on). Categories are the unit of control: you choose which categories a session captures, and the stream only carries events from those categories.
+
+Selection is **opt-in**. A session captures a category only if you explicitly turn it on; anything you don't list stays off. See [Categories](/browsers/telemetry/categories) for the full list, what each one captures, and its cost.
+
+## Enabling telemetry
+
+You configure telemetry when you [create a browser](/introduction/create) (and can change it later on update). There are exactly three shapes.
+
+### Enable the default set
+
+Set `enabled: true` with no per-category settings to capture the default set — a lightweight bundle of operational signals (`control`, `connection`, `system`, `captcha`) that's cheap to leave on:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  telemetry: { enabled: true },
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    telemetry={"enabled": True},
+)
+```
+
+```bash CLI
+kernel browsers create --telemetry=all
+```
+</CodeGroup>
+
+### Capture specific categories
+
+List exactly the categories you want under `telemetry.browser`. Only those are captured; everything else stays off. Don't set the top-level `enabled` flag in this case — the presence of category settings is what turns telemetry on:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  telemetry: {
+    browser: {
+      console: { enabled: true },
+      network: { enabled: true },
+    },
+  },
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    telemetry={
+        "browser": {
+            "console": {"enabled": True},
+            "network": {"enabled": True},
+        },
+    },
+)
+```
+
+```bash CLI
+kernel browsers create --telemetry=console,network
+```
+</CodeGroup>
+
+This session captures `console` and `network` only — no page, interaction, or operational events.
+
+### Disable telemetry
+
+Set `enabled: false` to capture nothing. This can't be combined with category settings:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  telemetry: { enabled: false },
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    telemetry={"enabled": False},
+)
+```
+
+```bash CLI
+kernel browsers create --telemetry=off
+```
+</CodeGroup>
+
+<Info>
+Updating a session's telemetry **replaces** its category selection — it isn't merged with the previous one. Send the complete set of categories you want captured.
+</Info>
+
+## What's next
+
+- [Categories](/browsers/telemetry/categories) — every category, what it captures, the default set, and cost characteristics.
+- [Stream telemetry](/browsers/telemetry/streaming) — consume the live stream from the SDK, CLI, or raw SSE, with filtering and reconnection.
+- For event payload schemas, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.
