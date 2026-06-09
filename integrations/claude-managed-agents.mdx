@@ -1,0 +1,217 @@
+---
+title: "Claude Managed Agents"
+---
+
+[Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) is Anthropic's hosted agent harness: you define an agent once, then start as many cloud sessions as you need, each running in an isolated Anthropic-managed sandbox. By pairing Claude Managed Agents with Kernel, your agents can browse the Web the way a person would. Kernel handles the work to spin up real browsers for the agent to engage with (including rendered pages, computer-use clicks, screenshots).
+
+The browsers are provisioned and controlled through the [Kernel CLI](/reference/cli) from inside Anthropic's Managed Agents sandbox. Agents can fan out across many browsers in parallel, with no browser infrastructure to run yourself.
+
+This integration combines Claude's hosted agent runtime with Kernel's cloud browsers. Claude Managed Agents owns the **runtime** — it runs the agent loop in an Anthropic-managed sandbox with bash, file tools, and any custom tools you declare. Kernel owns the **browser** — a fresh, isolated, stealth Chromium session per run that the agent drives to load, read, and act on real pages. Each side handles what it's best at, and you operate neither.
+
+<Note>
+This is different from the [Claude Agent SDK](/integrations/claude-agent-sdk) integration. The **Agent SDK** is a library you run on your own machine or deploy as a Kernel app. **Managed Agents** is Anthropic's *hosted* harness — agents, sessions, environments, and vaults all live on Anthropic's side, and the agent reaches Kernel over the network. Use this page when you want Anthropic to host the agent loop.
+</Note>
+
+<Info>
+Claude Managed Agents is in beta — every request carries the `managed-agents-2026-04-01` beta header, which the Anthropic SDKs set automatically. The `environment_variable` vault credential used below is a narrower research preview; [request access](https://claude.com/form/claude-managed-agents) to enable it. Preview identifiers may change before general availability.
+</Info>
+
+## Benefits of using Kernel with Claude Managed Agents
+
+- **No infrastructure to run**: Anthropic hosts the agent loop and Kernel hosts the browsers — no cold starts, container orchestration, or Chromium version pinning on your side.
+- **Clean separation of state**: Managed Agents holds the conversation and tool outputs; Kernel holds the page, cookies, and downloads — so you can inspect each side on its own.
+- **Parallel by default**: fan out one browser per subagent and run them concurrently, so a single coordinator can cover many pages at once.
+- **Stealth, non-headless browsing**: [stealth mode](/browsers/bot-detection/stealth) drives real Chromium that renders and behaves like a human visitor, not a flagged bot.
+- **Managed Authentication**: Claude Managed Agents can seamlessly access browsers on behalf of users using Kernel's secure, permissioned abstraction of user identity.
+- **Persistent session state**: carry cookies and logins across runs with [Profiles](/auth/profiles), so agents resume where they left off.
+- **Built-in observability**: watch agents drive their browsers live with [Live View](/browsers/live-view), or review a run afterward with [session replays](/browsers/replays).
+
+## How it works
+
+A Managed Agents + Kernel setup has two kinds of resources:
+
+- **Durable resources**, created once and reused across runs:
+  - an **environment** — the cloud sandbox the agent runs in, with the Kernel CLI preinstalled and outbound networking locked down,
+  - a **vault** holding your `KERNEL_API_KEY` as a credential,
+  - one or more **agents** — the system prompt, model, and tools that define behavior.
+- **Sessions**, which are ephemeral. Each session opens against an agent, attaches the vault, runs one task while you stream its events, and is deleted when done.
+
+Inside a session, the agent uses its built-in shell to run the Kernel CLI — e.g. `kernel browsers create --stealth`, `kernel browsers playwright execute`, `kernel browsers computer …` — to provision and drive cloud browsers. 
+
+## Prerequisites
+
+- **Node.js 18+** and the [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript) (`@anthropic-ai/sdk`).
+- **ANTHROPIC_API_KEY**: get from the [Anthropic Console](https://console.anthropic.com/). Drives vaults, agents, and sessions.
+- **KERNEL_API_KEY**: get from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys). Stored in the vault and injected into the sandbox as a placeholder.
+- Early-access enrollment in Claude Managed Agents (including the `environment_variable` vault credential feature).
+
+```bash
+npm install @anthropic-ai/sdk
+export ANTHROPIC_API_KEY=...
+export KERNEL_API_KEY=...
+```
+
+<Note>
+The example code below is TypeScript. The same API is exposed through the Anthropic SDKs for other languages under their `beta` namespace as Managed Agents rolls out.
+</Note>
+
+## Quickstart
+
+<Steps>
+<Step title="Create the environment">
+The environment is the sandbox your agent runs in. Preinstall the Kernel CLI so workers can run `kernel …` immediately, and apply the environment-networking firewall from above.
+
+```ts
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const KERNEL_HOSTS = ["api.onkernel.com", "*.onkernel.com"];
+
+const env = await client.beta.environments.create({
+  name: "kernel-env",
+  config: {
+    type: "cloud",
+    packages: { npm: ["@onkernel/cli"] },
+    networking: {
+      type: "limited",
+      allow_package_managers: true,
+      allow_mcp_servers: false,
+      allowed_hosts: KERNEL_HOSTS,
+    },
+  },
+});
+```
+</Step>
+
+<Step title="Store the Kernel API key in a vault">
+Create a vault, then add `KERNEL_API_KEY` as an `environment_variable` credential. The credential's `networking` block is the substitution allowlist — the real key is only injected into requests to these hosts.
+
+```ts
+const vault = await client.beta.vaults.create({
+  display_name: "Kernel vault",
+});
+
+const credential = await client.beta.vaults.credentials.create(vault.id, {
+  display_name: "Kernel API key",
+  auth: {
+    type: "environment_variable",
+    secret_name: "KERNEL_API_KEY",
+    secret_value: process.env.KERNEL_API_KEY!,
+    networking: {
+      type: "limited",
+      allowed_hosts: KERNEL_HOSTS,
+    },
+  },
+  // Enables environment_variable credentials during early access.
+  betas: ["managed-agents-2026-06-11-research-preview"],
+});
+```
+</Step>
+
+<Step title="Define the agents">
+Give the worker a system prompt that drives Kernel browsers via the CLI, and disable `web_fetch` so it can only see a page through a real browser. Add a coordinator whose `multiagent` roster delegates to the worker for parallel runs.
+
+```ts
+const WORKER_SYSTEM_PROMPT = `You are a browser-automation engineer in a Linux sandbox.
+The Kernel CLI (@onkernel/cli, binary "kernel") is preinstalled and reads KERNEL_API_KEY
+automatically. KERNEL_API_KEY is an opaque placeholder — never echo, print, or log it.
+
+Create browsers with stealth and NEVER headless:
+  kernel browsers create --stealth -o json
+Drive the page with Playwright + computer-use + screenshots, then clean up:
+  kernel browsers playwright execute <id> -o json 'await page.goto("https://example.com",{waitUntil:"load"}); return { title: await page.title() };'
+  kernel browsers computer screenshot <id> --to shot.png
+  kernel browsers delete <id>`;
+
+const worker = await client.beta.agents.create({
+  name: "browser-operator",
+  model: "claude-haiku-4-5",
+  system: WORKER_SYSTEM_PROMPT,
+  tools: [
+    { type: "agent_toolset_20260401", configs: [{ name: "web_fetch", enabled: false }] },
+  ],
+});
+
+const coordinator = await client.beta.agents.create({
+  name: "coordinator",
+  model: "claude-haiku-4-5",
+  system: "You lead a team of browser-operator subagents. Do light recon yourself, " +
+    "then delegate exactly one page per operator and run them all in parallel. " +
+    "Synthesize their findings into one report. Never print KERNEL_API_KEY.",
+  tools: [
+    { type: "agent_toolset_20260401", configs: [{ name: "web_fetch", enabled: false }] },
+  ],
+  multiagent: { type: "coordinator", agents: [{ type: "agent", id: worker.id }] },
+});
+```
+</Step>
+
+<Step title="Open a session and stream it">
+Create a session against the coordinator with the environment and vault attached, send the task, and stream events until the session goes idle. Every subagent thread inherits the vault, so each can use `KERNEL_API_KEY`.
+
+```ts
+const session = await client.beta.sessions.create({
+  agent: coordinator.id,
+  environment_id: env.id,
+  vault_ids: [vault.id],
+  title: "UX audit",
+});
+
+console.log(`Watch: https://platform.claude.com/workspaces/default/sessions/${session.id}`);
+
+const stream = await client.beta.sessions.events.stream(session.id);
+await client.beta.sessions.events.send(session.id, {
+  events: [
+    {
+      type: "user.message",
+      content: [{ type: "text", text: "Run a parallel UX audit of https://example.com." }],
+    },
+  ],
+});
+
+for await (const event of stream) {
+  if (event.type === "agent.message") {
+    for (const block of event.content) {
+      if (block.type === "text") process.stdout.write(block.text);
+    }
+  } else if (event.type === "agent.tool_use") {
+    console.log(`\n[tool: ${event.name}]`);
+  } else if (event.type === "session.status_idle") {
+    if (event.stop_reason.type === "requires_action") continue;
+    break;
+  }
+}
+```
+
+<Tip>
+Open the printed session URL to watch the agent — and its parallel subagents — drive their Kernel browsers live.
+</Tip>
+</Step>
+
+<Step title="Tear down">
+Settle the session before deleting it (the idle event fires just before the status flips, so an immediate delete can 400), then delete it. Deleting the vault cascades to its credentials; environments delete directly. Agents have no delete — archive is the terminal state.
+
+```ts
+// Wait for the session to leave "running", then delete it.
+for (let i = 0; i < 15; i++) {
+  const s = await client.beta.sessions.retrieve(session.id);
+  if (s.status !== "running") break;
+  await new Promise((r) => setTimeout(r, 1000));
+}
+await client.beta.sessions.delete(session.id);
+
+await client.beta.vaults.delete(vault.id);          // cascades to credentials
+await client.beta.environments.delete(env.id);
+await client.beta.agents.archive(coordinator.id);
+await client.beta.agents.archive(worker.id);
+```
+</Step>
+</Steps>
+
+## Next steps
+
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for reliable, non-headless browsing
+- Use [Playwright Execution](/browsers/playwright-execution) to run structured Playwright from the CLI
+- Debug runs with [live view](/browsers/live-view)
+- Persist browser state across sessions with [Managed Auth](/auth)
+- Read the [Kernel CLI reference](/reference/cli) for the full `kernel browsers` command surface
