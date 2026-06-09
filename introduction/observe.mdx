@@ -3,7 +3,7 @@ title: "Observe"
 description: "Watch your agent work, debug what went wrong"
 ---
 
-Browser agents fail in ways that don't show up in logs. Kernel gives you four ways to see what's actually happening — live, after the fact, frame by frame, and line by line.
+Browser agents fail in ways that don't show up in logs. Kernel gives you several ways to see what's actually happening — live, after the fact, frame by frame, line by line, and event by event.
 
 ## Live view
 
@@ -192,9 +192,55 @@ if err := stream.Err(); err != nil {
 
 Full reference: [Logs](/apps/logs).
 
+## Telemetry
+
+Telemetry is a real-time, structured stream of what happens inside a session — console output, network activity, page lifecycle, interactions, and operational signals like crashes. Unlike a video or screenshot, it's machine-readable, so it's the right tool for feeding session activity into your own observability pipeline or reacting to events programmatically. Enable it at creation, then stream the events:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({ telemetry: { enabled: true } });
+
+const stream = await kernel.browsers.telemetry.stream(browser.session_id);
+for await (const { seq, event } of stream) {
+  console.log(`#${seq} [${event.category}] ${event.type}`);
+}
+```
+
+```python Python
+browser = kernel.browsers.create(telemetry={"enabled": True})
+
+with kernel.browsers.telemetry.stream(browser.session_id) as stream:
+    for envelope in stream:
+        print(f"#{envelope.seq} [{envelope.event.category}] {envelope.event.type}")
+```
+
+```go Go
+stream := client.Browsers.Telemetry.StreamStreaming(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserTelemetryStreamParams{},
+)
+defer stream.Close()
+
+for stream.Next() {
+	fmt.Println(stream.Current())
+}
+if err := stream.Err(); err != nil {
+	panic(err)
+}
+```
+
+```bash CLI
+kernel browsers telemetry stream <session-id>
+```
+</CodeGroup>
+
+Full reference: [Telemetry](/browsers/telemetry/overview).
+
 ## Picking the right tool
 
 - **Building the agent?** Keep a [live view](/browsers/live-view) tab open while you iterate.
 - **Debugging a failure?** Capture a [replay](/browsers/replays) for the run, then watch the video.
 - **Instrumenting the agent itself?** Drop [screenshots](/browsers/computer-controls#take-screenshots) and [logs](/apps/logs) into your traces at the points that matter.
+- **Feeding an observability pipeline?** Stream [telemetry](/browsers/telemetry/overview) events and route them wherever you collect signals.
 - **Putting a human in the loop?** Embed the [live view](/browsers/live-view#embedding-in-an-iframe) in your own UI.
