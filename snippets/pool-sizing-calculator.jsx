@@ -46,8 +46,8 @@ export const PoolSizingCalculator = () => {
         prevResultRef.current = { poolSize };
     }, [poolSize]);
 
-    const labelStyle = { fontWeight: 600, fontSize: '0.875rem', minWidth: '12rem', flexShrink: 0, maxWidth: '12rem' };
-    const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem' };
+    const labelStyle = { fontWeight: 600, fontSize: '0.875rem', minWidth: '10rem', flexShrink: 0, maxWidth: '10rem' };
+    const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem', flexWrap: 'wrap' };
     const inputStyle = { minWidth: 0, flex: 1, maxWidth: '100%', boxSizing: 'border-box', background: 'transparent' };
     const numberInputStyle = { borderBottom: '1px solid #81b300', textAlign: 'right' };
     const flashStyle = { background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' };
