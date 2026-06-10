@@ -13,13 +13,13 @@ Stripe service slugs are prefixed with `kernel/` (from the app manifest name).
 
 | Service ID | Kind | Scope | Summary |
 |------------|------|-------|---------|
-| `kernel/plan:developer` | plan | account | Free tier — $5/mo credits, 5 concurrent browsers |
-| `kernel/plan:hobbyist` | plan | account | $30/mo, $10/mo credits, 10 concurrent browsers (email KYC) |
-| `kernel/plan:startup` | plan | account | $200/mo, $50/mo credits, 150 concurrent browsers (email KYC) |
+| `kernel/plan:developer` | plan | account | Free tier — \$5/mo credits, 5 concurrent browsers |
+| `kernel/plan:hobbyist` | plan | account | \$30/mo, \$10/mo credits, 10 concurrent browsers (email KYC) |
+| `kernel/plan:startup` | plan | account | \$200/mo, \$50/mo credits, 150 concurrent browsers (email KYC) |
 | `kernel/browser:api-access` | deployable | project | API key for launching browsers in a Stripe Project |
 
 - Only **one plan** can be active per Kernel org at a time (`allowed_updates` defines upgrade/downgrade paths).
-- `browser:api-access` is **free** when any active plan is provisioned; otherwise it is usage-based ($0.01/min standard, $0.02/min stealth).
+- `browser:api-access` is **free** when any active plan is provisioned; otherwise it is usage-based (\$0.01/min standard, \$0.02/min stealth).
 
 ## Common CLI flows
 
@@ -72,7 +72,7 @@ New accounts use the **agentic credentials** flow: after `stripe projects link` 
 Paid plans are charged through Stripe **Shared Payment Tokens** on the Metronome-managed Stripe customer.
 
 <Warning>
-The default SPT monthly spending limit is often **$50**. The Start-Up plan is **$200/mo**. Before upgrading to Start-Up, confirm the developer’s SPT limit covers the plan (`stripe projects billing show`) or ask them to raise the limit. Charges above the limit will fail.
+The default SPT monthly spending limit is often **\$50**. The Start-Up plan is **\$200/mo**. Before upgrading to Start-Up, confirm the developer’s SPT limit covers the plan (`stripe projects billing show`) or ask them to raise the limit. Charges above the limit will fail.
 </Warning>
 
 ## Full documentation
