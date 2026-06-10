@@ -5,7 +5,7 @@ description: "Capture a real-time, categorized stream of what happens inside a b
 
 Telemetry captures events from inside a browser session - console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Once enabled, you can [stream them](/browsers/telemetry/streaming) live or pull them later for analysis.
 
-Events are grouped into categories (`console`, `network`, `page`, and so on), and categories are the unit of control. Selection is opt-in: a session captures only the categories you turn on, and anything you don't stays off. See [Categories](/browsers/telemetry/categories) for the full list, what each one captures, and its cost.
+Events are grouped into categories (`console`, `network`, `page`, and so on), and categories are the unit of control. Selection is opt-in: a session captures only the categories you turn on, and anything you don't stays off. See [Categories](/browsers/telemetry/categories) for the full list and what each one captures.
 
 ## Enabling telemetry
 
@@ -98,7 +98,7 @@ kernel browsers create --telemetry=off
 </CodeGroup>
 
 <Info>
-Updating a session's telemetry replaces its category selection - it isn't merged with the previous one. Send the complete set of categories you want captured.
+On update, a category list patches the current selection - categories you don't include keep their current state. To reset the selection instead, send `enabled: true` (it replaces the selection with the categories you provide, or the default set if you provide none); send `enabled: false` to turn telemetry off.
 </Info>
 
 ## What's next
