@@ -1,23 +1,9 @@
 ---
 title: "Stream Telemetry"
-description: "Consume a session's live telemetry stream from the SDK, CLI, or raw SSE"
+description: "Consume a session's live telemetry stream from the SDK or CLI"
 ---
 
-Once a session has telemetry [enabled](/browsers/telemetry/overview), you can stream its events in real time. The stream stays open until the session terminates, and each event is wrapped in an envelope with a monotonic `seq` number you can use to reconnect without gaps:
-
-```json
-{
-  "seq": 42,
-  "event": {
-    "ts": 1746123456789000,
-    "type": "network_response",
-    "category": "network",
-    "data": { "method": "GET", "url": "https://example.com/api", "status": 200 }
-  }
-}
-```
-
-The `data` payload differs per event type; see the [API reference](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) for each type's schema. An event whose payload exceeds 1 MB is dropped and the envelope is flagged `truncated: true`.
+Once a session has telemetry [enabled](/browsers/telemetry/overview), you can stream its events in real time. The stream stays open until the session terminates.
 
 ## Via SDK
 
@@ -48,6 +34,8 @@ with kernel.browsers.telemetry.stream(session_id) as stream:
 ```
 </CodeGroup>
 
+To filter, check `event.category` and `event.type` in your loop. If the stream drops, re-open it with the last `seq` you processed as `last_event_id` to resume without gaps.
+
 ## Via CLI
 
 Stream events to your terminal. The command runs until the session ends or you interrupt it:
@@ -56,7 +44,7 @@ Stream events to your terminal. The command runs until the session ends or you i
 kernel browsers telemetry stream <session-id>
 ```
 
-Filter the stream client-side by category or event type (repeatable or comma-separated), and use `-o json` to emit newline-delimited JSON envelopes for piping:
+### Filtering by category or event type
 
 ```bash
 # Only network and console events
@@ -66,29 +54,16 @@ kernel browsers telemetry stream <session-id> --categories=network,console
 kernel browsers telemetry stream <session-id> --types=network_response,console_error
 
 # Machine-readable output
+# -o json emits newline-delimited JSON envelopes for piping:
 kernel browsers telemetry stream <session-id> -o json
 ```
 
-<Info>
-CLI `--categories` and `--types` are applied locally to the stream - they don't change what the session captures. To change capture, update the session's [telemetry categories](/browsers/telemetry/categories).
-</Info>
+### Resuming after a disconnect
 
-## Via raw SSE
-
-The stream is a standard [SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) endpoint, so any SSE-capable client works:
-
-```bash
-curl -N https://api.onkernel.com/browsers/<session-id>/telemetry/stream \
-  -H "Authorization: Bearer $KERNEL_API_KEY" \
-  -H "Accept: text/event-stream"
-```
-
-Each `data:` frame carries one JSON envelope, and the frame's `id:` field is the envelope's `seq`. A keepalive comment is sent every 15 seconds when no events arrive. The `event:` field is never set.
-
-## Resuming after a disconnect
-
-To pick up where you left off, resume from the last `seq` you processed - the server replays events after that sequence number. SDK clients reconnect automatically. For raw SSE, send the last seq as the `Last-Event-ID` header; with the CLI, pass `--seq`:
+The stream is a single connection; it does not reconnect on its own. Each event carries a monotonic `seq`, so to resume without gaps you re-open the stream and pass the last `seq` you processed.
 
 ```bash
 kernel browsers telemetry stream <session-id> --seq 1024
 ```
+
+The server then replays events after that sequence number.

@@ -3,13 +3,24 @@ title: "Telemetry Categories"
 description: "The categories a browser session can capture, what each contains, and their cost"
 ---
 
-A category groups related telemetry events and is the unit you enable or disable. Selection is opt-in: a session captures a category only when you turn it on (see [Overview](/browsers/telemetry/overview)). This page lists every category, the event types it carries, and what it costs to capture.
+A category groups related telemetry events and is the unit you enable or disable. Selection is opt-in: a session captures a category only when you turn it on.
 
 For the full payload schema of any event type, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.
 
+## Operational
+
+These categories report on the session itself rather than page content.
+
+| Category | Captures | Event types |
+| --- | --- | --- |
+| `control` | Computer-control API calls against the session | `api_call` |
+| `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
+| `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
+| `captcha` | Results of automated captcha solves | `captcha_solve_result` |
+
 ## Browser activity
 
-These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces far more events than the operational categories, so enable only the ones you need. None are in the default set.
+These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces highly granular page-level events. Capturing them adds overhead, so enable only the ones you need.
 
 | Category | Captures | Event types |
 | --- | --- | --- |
@@ -23,24 +34,15 @@ These categories report what's happening in the page. Capturing any of them atta
 `interaction` events are browser-native DOM events observed in the page, not calls to the [computer-control](/browsers/computer-controls) API (those are reported by the `control` category).
 </Note>
 
-<Warning>
-`screenshot` is the most expensive category to capture - each event carries an encoded image. Enable it only when you need visual snapshots, and prefer [live view](/browsers/live-view) or [replays](/browsers/replays) for continuous visibility.
-</Warning>
+### The monitor category
 
-## Operational
+`monitor` reports the health of the CDP collector itself: `monitor_disconnected`, `monitor_reconnected`, `monitor_reconnect_failed`, and `monitor_init_failed`.
 
-These categories report on the session itself rather than page content, and they're cheap to capture. Together they make up the default set - what a session captures when you enable telemetry without naming any categories (`telemetry: { enabled: true }` or `--telemetry=all`), giving you a baseline view of session health and control activity.
-
-| Category | Captures | Event types |
-| --- | --- | --- |
-| `control` | Computer-control API calls against the session | `api_call` |
-| `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
-| `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
-| `captcha` | Results of automated captcha solves | `captcha_solve_result` |
+It isn't directly settable. It flows automatically whenever any of the browser-activity categories are captured. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.
 
 ## Data sensitivity
 
-Telemetry is off by default, and the [default set](#operational) carries operational metadata only - no page content. The browser-activity categories are different: they capture what actually flows through the session, which is your own browser's data and can include credentials and personal information.
+Telemetry is off by default and the default set carries operational metadata only. The browser-activity categories are different: they capture what actually flows through the session, which is your own browser's data and can include credentials and personal information.
 
 | Category | Can contain sensitive data |
 | --- | --- |
@@ -58,9 +60,3 @@ Some exposure is reduced for you automatically: input into sensitive fields such
 <Warning>
 If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
-
-## The monitor category
-
-`monitor` reports the health of the CDP collector itself: `monitor_disconnected`, `monitor_reconnected`, `monitor_reconnect_failed`, and `monitor_init_failed`.
-
-It isn't directly settable. It flows automatically whenever any [browser-activity category](#browser-activity) is captured - since those are what attach the collector - and is silent otherwise. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.

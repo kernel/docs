@@ -1,6 +1,6 @@
 ---
 title: "Telemetry Overview"
-description: "Capture a real-time, categorized stream of what happens inside a browser session"
+description: "Capture what happens inside a browser session"
 ---
 
 Telemetry captures events from inside a browser session - console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Once enabled, you can [stream them](/browsers/telemetry/streaming) live or pull them later for analysis.
@@ -43,7 +43,7 @@ kernel browsers create --telemetry=all
 
 ### Capture specific categories
 
-List exactly the categories you want under `telemetry.browser`. Only those are captured; everything else stays off. Don't set the top-level `enabled` flag in this case - the presence of category settings is what turns telemetry on:
+List the categories you want under `telemetry.browser`. For example, this session captures `console` and `network` only:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -73,27 +73,30 @@ kernel browsers create --telemetry=console,network
 ```
 </CodeGroup>
 
-This session captures `console` and `network` only - no page, interaction, or operational events.
-
 ### Disable telemetry
 
-Set `enabled: false` to capture nothing. This can't be combined with category settings:
+<Info>
+Telemetry is disabled by default. Use this only when updating a session to turn previously enabled telemetry back off.
+</Info>
+
+Set `enabled: false` on an existing session to turn telemetry off:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-const browser = await kernel.browsers.create({
+await kernel.browsers.update(browser.session_id, {
   telemetry: { enabled: false },
 });
 ```
 
 ```python Python
-browser = kernel.browsers.create(
+kernel.browsers.update(
+    browser.session_id,
     telemetry={"enabled": False},
 )
 ```
 
 ```bash CLI
-kernel browsers create --telemetry=off
+kernel browsers update <session-id> --telemetry=off
 ```
 </CodeGroup>
 
