@@ -22,6 +22,7 @@ Create a new browser session.
 | `--headless` | Launch without GUI/VNC access. |
 | `--kiosk` | Launch in Chrome kiosk mode. |
 | `--start-url <url>` | Initial page to open on launch. |
+| `--telemetry <spec>` | Configure [telemetry](/browsers/telemetry/overview) (opt-in): `all` for the default set, `off` to disable, or a comma-separated category list like `console,network`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel browsers delete <session-id>`
@@ -57,7 +58,7 @@ Update a running browser session — change or remove its proxy, load a profile,
 | `--save-changes` | Save changes back to the profile when the session ends. |
 | `--viewport <WxH@fps>` | Set viewport size (e.g. `1920x1080@25`). |
 | `--force` | Force a viewport resize even during an active live view or recording. |
-| `--telemetry <spec>` | Toggle telemetry: `all` to enable, `off` to disable, or per-category like `network=on,page=off`. |
+| `--telemetry <spec>` | Update [telemetry](/browsers/telemetry/overview): `all` resets to the default set, `off` disables, or a comma-separated list like `console,network` to merge those categories into the current selection. |
 | `--output json`, `-o json` | Output raw API response as JSON. |
 
 ### `kernel browsers curl <session-id> <url>`
@@ -105,11 +106,11 @@ Stream browser logs from the supervisor or a file path.
 ## Telemetry
 
 ### `kernel browsers telemetry stream <session-id>`
-Stream live telemetry events (network, console, interaction, page, and system) from a browser session.
+Stream live [telemetry](/browsers/telemetry/overview) events from a browser session. Filters are applied client-side and don't change what the session captures.
 
 | Flag | Description |
 |------|-------------|
-| `--categories <list>` | Filter by category: `api`, `console`, `interaction`, `network`, `page`, `system`. |
+| `--categories <list>` | Filter by category: `console`, `network`, `page`, `interaction`, `control`, `connection`, `system`, `screenshot`, `captcha`, `monitor`. |
 | `--types <list>` | Filter by event type (e.g. `network_response,console_error`). |
 | `--seq <n>` | Resume after sequence number N; replays events with `seq > N` (default: `-1`, stream from now). |
 | `--output json`, `-o json` | Output newline-delimited JSON envelopes. |
