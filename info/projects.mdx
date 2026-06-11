@@ -25,13 +25,24 @@ A project must also be empty before it can be deleted — archive or remove its 
 
 ## Scoping Requests to a Project
 
-Pass the `X-Kernel-Project-Id` header on any API request to scope it to a specific project. Without the header (and without a project-scoped API key), requests operate org-wide.
+Pass the `X-Kernel-Project-Id` header — a project ID or name — on any API request to scope it to a specific project. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
 
 ```bash
 curl https://api.onkernel.com/browsers \
   -H "Authorization: Bearer $KERNEL_API_KEY" \
   -H "X-Kernel-Project-Id: proj_abc123"
 ```
+
+### Resolution rules
+
+- **Unknown or archived project** — a header naming a project that doesn't exist or isn't active fails with `404 Not Found`:
+
+  ```json
+  { "code": "project_not_found", "message": "Project not found or inactive" }
+  ```
+
+- **The default project is the baseline** — naming your organization's default project is exactly equivalent to omitting the header, for both reads and writes.
+- **Scoped keys reject mismatches** — with a project-scoped API key, a header naming any other project fails with `403 Forbidden` (see [API keys](#api-keys) below).
 
 ### SDK usage
 
