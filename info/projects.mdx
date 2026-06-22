@@ -25,7 +25,7 @@ A project must also be empty before it can be deleted — archive or remove its 
 
 ## Scoping Requests to a Project
 
-Pass the `X-Kernel-Project-Id` header — a project ID or name — on any API request to scope it to a specific project. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
+Pass the `X-Kernel-Project-Id` header — a project ID — on any API request to scope it to a specific project. The header takes the project's ID, not its name; the CLI's `--project` flag and the SDKs resolve names to IDs for you. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
 
 ```bash
 curl https://api.onkernel.com/browsers \
