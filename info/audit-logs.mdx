@@ -43,6 +43,37 @@ for event in client.audit_logs.list(
 ):
     print(event.timestamp, event.method, event.path, event.status)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pager := client.AuditLogs.ListAutoPaging(ctx, kernel.AuditLogListParams{
+		Start:  time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
+		End:    time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
+		Limit:  kernel.Int(100),
+		Method: kernel.String("POST"),
+	})
+	for pager.Next() {
+		event := pager.Current()
+		fmt.Println(event.Timestamp, event.Method, event.Path, event.Status)
+	}
+	if err := pager.Err(); err != nil {
+		panic(err)
+	}
+}
+```
 </CodeGroup>
 
 ## Filter audit logs
@@ -84,6 +115,39 @@ logs = client.audit_logs.list(
 
 for event in logs:
     print(event.email, event.client_ip, event.user_agent)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pager := client.AuditLogs.ListAutoPaging(ctx, kernel.AuditLogListParams{
+		Start:        time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
+		End:          time.Date(2026, time.June, 8, 0, 0, 0, 0, time.UTC),
+		Limit:        kernel.Int(50),
+		AuthStrategy: kernel.String("api_key"),
+		ExcludeMethod: kernel.String("GET"),
+		Search:       kernel.String("/browsers"),
+	})
+	for pager.Next() {
+		event := pager.Current()
+		fmt.Println(event.Email, event.ClientIP, event.UserAgent)
+	}
+	if err := pager.Err(); err != nil {
+		panic(err)
+	}
+}
 ```
 </CodeGroup>
 
