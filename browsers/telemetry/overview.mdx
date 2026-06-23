@@ -7,6 +7,10 @@ Telemetry captures events from inside a browser session - console output, networ
 
 Events are grouped into categories (`console`, `network`, `page`, and so on), and categories are the unit of control. Selection is opt-in: a session captures only the categories you turn on, and anything you don't stays off. See [Categories](/browsers/telemetry/categories) for the full list and what each one captures.
 
+<Warning>
+The default set carries operational metadata only, but the browser-activity categories (`network`, `console`, `page`, `interaction`, `screenshot`) capture what flows through the session and can include credentials and personal data. Enable them deliberately and review [Data sensitivity](/browsers/telemetry/categories#data-sensitivity) before turning them on, especially under HIPAA, GDPR, or similar obligations.
+</Warning>
+
 <Info>
 Telemetry is a recent addition. If the `telemetry` options or `telemetry stream` command aren't available, upgrade to the latest CLI (`kernel upgrade`) and SDK (`@onkernel/sdk` for TypeScript, `kernel` for Python).
 </Info>
