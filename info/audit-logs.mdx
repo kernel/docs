@@ -1,0 +1,130 @@
+---
+title: "Audit Logs"
+description: "List organization API request audit events"
+---
+
+Audit logs record authenticated API requests for your organization. Use them to review who called Kernel, which endpoint they called, when the request happened, and how the request completed.
+
+Audit logs are ordered newest first. The `start` timestamp is inclusive, the `end` timestamp is exclusive, and each request can cover up to 30 days. Each page returns up to 100 events.
+
+## List audit logs
+
+Use the SDKs to page through logs for a time window.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+for await (const event of kernel.auditLogs.list({
+  start: '2026-06-01T00:00:00Z',
+  end: '2026-06-02T00:00:00Z',
+  limit: 100,
+  method: 'POST',
+})) {
+  console.log(event.timestamp, event.method, event.path, event.status);
+}
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+for event in client.audit_logs.list(
+    start="2026-06-01T00:00:00Z",
+    end="2026-06-02T00:00:00Z",
+    limit=100,
+    method="POST",
+):
+    print(event.timestamp, event.method, event.path, event.status)
+```
+</CodeGroup>
+
+## Filter audit logs
+
+Use filters to narrow the time window to the events you need:
+
+- `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
+- `service` filters by the service that emitted the audit event.
+- `method` filters by HTTP method.
+- `exclude_method` excludes a single HTTP method.
+- `search` matches path, user ID, email, client IP, and status.
+- `search_user_id` adds one or more user IDs to the search.
+
+<CodeGroup>
+```typescript TypeScript
+const logs = kernel.auditLogs.list({
+  start: '2026-06-01T00:00:00Z',
+  end: '2026-06-08T00:00:00Z',
+  limit: 50,
+  auth_strategy: 'api_key',
+  exclude_method: 'GET',
+  search: '/browsers',
+});
+
+for await (const event of logs) {
+  console.log(event.email, event.client_ip, event.user_agent);
+}
+```
+
+```python Python
+logs = client.audit_logs.list(
+    start="2026-06-01T00:00:00Z",
+    end="2026-06-08T00:00:00Z",
+    limit=50,
+    auth_strategy="api_key",
+    exclude_method="GET",
+    search="/browsers",
+)
+
+for event in logs:
+    print(event.email, event.client_ip, event.user_agent)
+```
+</CodeGroup>
+
+## Page with HTTP
+
+The API returns the next cursor in the `X-Next-Page-Token` response header. Pass it back as `page_token` to read the next page.
+
+```bash
+curl --get https://api.onkernel.com/audit-logs \
+  --header "Authorization: Bearer $KERNEL_API_KEY" \
+  --data-urlencode "start=2026-06-01T00:00:00Z" \
+  --data-urlencode "end=2026-06-02T00:00:00Z" \
+  --data-urlencode "limit=100"
+```
+
+```bash
+curl --get https://api.onkernel.com/audit-logs \
+  --header "Authorization: Bearer $KERNEL_API_KEY" \
+  --data-urlencode "start=2026-06-01T00:00:00Z" \
+  --data-urlencode "end=2026-06-02T00:00:00Z" \
+  --data-urlencode "limit=100" \
+  --data-urlencode "page_token=eyJ0IjoiMjAyNi0wNi0wMVQyMzo1OTo1OS43NDUxMjNaIn0"
+```
+
+Use `X-Has-More: true` to decide whether to continue paging. Page tokens are opaque; store and pass them exactly as returned.
+
+## Response fields
+
+Each audit log entry includes:
+
+- `timestamp`
+- `auth_strategy`
+- `user_id`
+- `email`
+- `status`
+- `method`
+- `path`
+- `route`
+- `domain`
+- `duration_ms`
+- `client_ip`
+- `user_agent`
+
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the full request and response schema.
