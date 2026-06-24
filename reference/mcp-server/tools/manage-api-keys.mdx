@@ -1,0 +1,61 @@
+---
+title: "Manage API Keys"
+description: "Create, list, update, and revoke Kernel API keys"
+---
+
+Use `manage_api_keys` when an agent or automation workflow needs to provision, inspect, rename, or revoke Kernel API keys. Created keys include the plaintext secret once; later reads return masked key metadata.
+
+Create project-scoped keys for workloads that only need one project's resources. Use org-wide keys only when the workload needs access across projects.
+
+For API key concepts, scoping rules, rotation guidance, and SDK examples, see [API Keys](/info/api-keys).
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create an org-wide or project-scoped API key. |
+| `list` | List masked API keys. |
+| `get` | Retrieve one masked API key. |
+| `update` | Rename an API key. |
+| `delete` | Revoke an API key. |
+
+## Recommended flow
+
+1. Call `list` before creating a key so you don't duplicate an existing workload key.
+2. Call `create` with `project_id` for project-scoped automation.
+3. Store the returned plaintext key immediately.
+4. Call `update` when a key's owner or purpose changes.
+5. Call `delete` to revoke keys for retired workloads.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform. Required. |
+| `api_key_id` | API key ID. Required for `get`, `update`, and `delete`. |
+| `name` | (create, update) API key name. |
+| `project_id` | (create) Project ID for project-scoped keys. Omit or use `null` for org-wide keys. |
+| `days_to_expire` | (create) Days until expiry, up to 3650. Use `null` for no expiry. |
+| `limit` | (list) Max results per page. Must be 1-100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
+
+## Create a project-scoped key
+
+```json
+{
+  "action": "create",
+  "name": "checkout-agent-prod",
+  "project_id": "proj_2vE0M7bLwX9kQ4nP3sY8",
+  "days_to_expire": 90
+}
+```
+
+## Rename a key
+
+```json
+{
+  "action": "update",
+  "api_key_id": "ak_2vE1qJ7ZpLm8N4cT6rW0",
+  "name": "checkout-agent-prod-rotated"
+}
+```

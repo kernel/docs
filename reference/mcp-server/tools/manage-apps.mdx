@@ -1,9 +1,9 @@
 ---
-title: "manage_apps"
+title: "Manage Apps"
 description: "List apps, invoke actions, and check deployments and invocations"
 ---
 
-Manage Kernel apps, deployments, and invocations.
+Use `manage_apps` when an agent needs to run a deployed Kernel app or inspect app deployment state. List apps first when the agent doesn't know the exact app or action name, then invoke the action and poll the invocation result.
 
 ## Actions
 
@@ -14,6 +14,13 @@ Manage Kernel apps, deployments, and invocations.
 | `get_deployment` | Retrieve a deployment by ID. |
 | `list_deployments` | Check deployment status. |
 | `get_invocation` | Check action results. |
+
+## Recommended flow
+
+1. Call `list_apps` to discover available apps and actions.
+2. Call `invoke` with `app_name`, `action_name`, and a JSON-string `payload`.
+3. Call `get_invocation` with the returned invocation ID when you need the result later.
+4. Use `list_deployments` and `get_deployment` when the agent needs deployment status.
 
 ## Parameters
 
@@ -26,10 +33,10 @@ Manage Kernel apps, deployments, and invocations.
 | `version` | (list_apps, invoke) App version filter. Defaults to `latest` for invoke. |
 | `deployment_id` | (get_deployment) Deployment ID to retrieve. |
 | `invocation_id` | (get_invocation) Invocation ID to retrieve. |
-| `limit` | (list_apps, list_deployments) Max results. Default 50. |
-| `offset` | (list_apps, list_deployments) Pagination offset. Default 0. |
+| `limit` | (list_apps, list_deployments) Max results per page. Must be 1-100. |
+| `offset` | (list_apps, list_deployments) Pagination offset. Must be 0 or greater. |
 
-## Example
+## Invoke an app
 
 ```json
 {

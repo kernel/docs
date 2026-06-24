@@ -1,0 +1,78 @@
+---
+title: "Manage Auth Connections"
+description: "Create and operate managed auth connections for browser profiles"
+---
+
+Use `manage_auth_connections` when you want Kernel to keep a browser profile logged in to a third-party site. A connection ties a domain to a profile, then drives login and re-auth flows with stored credentials, external provider credentials, or user-provided input.
+
+This tool is best for recurring workflows where the agent needs durable access to a site but the login flow can require MFA, SSO, or occasional user review.
+
+For managed auth concepts, profile lifecycle, and SDK flows, see [Managed Auth](/auth/overview) and [Programmatic](/auth/programmatic).
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Start managing auth for a profile and domain. |
+| `list` | List auth connections. |
+| `get` | Poll one connection or login flow state. |
+| `delete` | Remove an auth connection. |
+| `login` | Begin a login flow. Returns a hosted URL and live view URL. |
+| `submit` | Submit discovered field values, an MFA option, or an SSO button selection. |
+
+## Recommended flow
+
+1. Call `create` with `domain` and `profile_name`.
+2. Call `login` to start a login flow.
+3. Share the returned hosted URL with the user or watch the returned live view URL.
+4. Call `get` to poll flow state and inspect `discovered_fields`.
+5. Call `submit` when the flow asks for field values, an MFA option, or an SSO choice.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform. Required. |
+| `id` | Auth connection ID. Required for `get`, `delete`, `login`, and `submit`. |
+| `domain` | (create) Target domain, such as `netflix.com`. |
+| `profile_name` | (create) Profile to manage auth for. Also filters `list`. |
+| `allowed_domains` | (create) Additional domains valid for this auth flow. Common SSO providers are allowed by default. |
+| `credential_name` | (create) Name of a stored Kernel credential for automatic login. |
+| `credential_provider` | (create) External credential provider name, such as `1password`. Use with `credential_path` or `credential_auto`. |
+| `credential_path` | (create) Provider-specific item path, such as `Engineering/Netflix Admin`. |
+| `credential_auto` | (create) If true, the provider auto-looks up credentials by domain. |
+| `login_url` | (create) Explicit login page URL to skip discovery. |
+| `health_check_interval` | (create) Seconds between automatic re-auth checks. The max is 86400. |
+| `save_credentials` | (create) Save credentials after each successful login. Default true. |
+| `proxy_id` / `proxy_name` | (create, login) Proxy to route the auth flow through. |
+| `domain_filter` | (list) Filter by domain. |
+| `limit` | (list) Max results per page. Must be 1-100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
+| `fields` | (submit) Map of field name to value, such as `{ "mfa_code": "123456" }`. Check `discovered_fields` from `get`. |
+| `mfa_option_id` | (submit) MFA option ID from the connection. |
+| `sso_button_selector` | (submit) XPath of an SSO button to click instead of submitting fields. |
+
+## Create a managed login
+
+```json
+{
+  "action": "create",
+  "domain": "accounts.example.com",
+  "profile_name": "work-accounts",
+  "credential_name": "example-work-login",
+  "login_url": "https://accounts.example.com/login",
+  "health_check_interval": 3600
+}
+```
+
+## Submit an MFA code
+
+```json
+{
+  "action": "submit",
+  "id": "authconn_2vE3Nq8WmY5bL0sC9pR1",
+  "fields": {
+    "mfa_code": "123456"
+  }
+}
+```
