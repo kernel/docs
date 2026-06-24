@@ -165,7 +165,7 @@ Use the `/org/projects` REST endpoints (or the SDKs' `projects` resource) to man
 | --- | --- | --- |
 | `GET` | `/org/projects` | List projects in the organization |
 | `POST` | `/org/projects` | Create a project |
-| `GET` | `/org/projects/{id}` | Get a project by ID |
+| `GET` | `/org/projects/{id}` | Get a project by ID or name |
 | `PATCH` | `/org/projects/{id}` | Update a project's name or status (`active` / `archived`) |
 | `DELETE` | `/org/projects/{id}` | Delete a project (must be empty and not the last active project) |
 
@@ -241,6 +241,30 @@ for pager.Next() {
 if err := pager.Err(); err != nil {
 	panic(err)
 }
+```
+</CodeGroup>
+
+### Get a project
+
+Project names are unique within an organization. You can retrieve a project by its ID or by its name.
+
+<CodeGroup>
+```typescript TypeScript
+const project = await kernel.projects.get('staging');
+console.log(project.id); // proj_abc123
+```
+
+```python Python
+project = kernel.projects.get("staging")
+print(project.id)  # proj_abc123
+```
+
+```go Go
+project, err := client.Projects.Get(ctx, "staging")
+if err != nil {
+	panic(err)
+}
+fmt.Println(project.ID) // proj_abc123
 ```
 </CodeGroup>
 
