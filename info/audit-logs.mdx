@@ -78,7 +78,7 @@ func main() {
 
 ## Filter audit logs
 
-Use filters to narrow the time window to the events you need:
+Use filters to narrow results to the events you need:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
@@ -156,7 +156,7 @@ func main() {
 The API returns the next cursor in the `X-Next-Page-Token` response header. Pass it back as `page_token` to read the next page.
 
 ```bash
-curl --get https://api.onkernel.com/audit-logs \
+curl --include --get https://api.onkernel.com/audit-logs \
   --header "Authorization: Bearer $KERNEL_API_KEY" \
   --data-urlencode "start=2026-06-01T00:00:00Z" \
   --data-urlencode "end=2026-06-02T00:00:00Z" \
@@ -164,7 +164,7 @@ curl --get https://api.onkernel.com/audit-logs \
 ```
 
 ```bash
-curl --get https://api.onkernel.com/audit-logs \
+curl --include --get https://api.onkernel.com/audit-logs \
   --header "Authorization: Bearer $KERNEL_API_KEY" \
   --data-urlencode "start=2026-06-01T00:00:00Z" \
   --data-urlencode "end=2026-06-02T00:00:00Z" \
