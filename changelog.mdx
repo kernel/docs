@@ -12,18 +12,18 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="June 26" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Added an opt-in `playwright_execute` tool to [`@onkernel/cua-agent`](https://github.com/kernel/cua) for combining computer use with Playwright automation, plus support for `gemini-3.5-flash` as a CUA model. The companion CLI [`@onkernel/cua-cli`](https://www.npmjs.com/package/@onkernel/cua-cli) is now published to npm, and the [CLI](https://github.com/kernel/cli)'s TypeScript computer-use templates have been simplified to build on the new package.
-- Extended the [MCP server](https://www.kernel.sh/docs/reference/mcp-server)'s browser pool tool with SDK parity fields (`start_url`, `chrome_policy`, `kiosk_mode`, profile and viewport settings, `fill_rate_per_minute`) and a structured acquire/release workflow. Added parity actions across `manage_apps` (`delete_deployment`, app/deployment search), `manage_proxies` (`get`, `check` with optional `check_url`), `manage_profiles` (`get`, paginated search), and `manage_projects` (`get_limits`, `update_limits`). Tool annotations now cover all tools.
+- Added a `playwright_execute` tool to [`@onkernel/cua-agent`](https://github.com/kernel/cua) for combining computer use with Playwright automation, plus support for `gemini-3.5-flash` as a CUA model. 
+- Extended the [MCP server](https://www.kernel.sh/docs/reference/mcp-server)'s browser pool tool with SDK parity fields (`start_url`, `chrome_policy`, `kiosk_mode`, profile and viewport settings, `fill_rate_per_minute`) and a structured acquire/release workflow. Added parity for actions across `manage_apps` (`delete_deployment`, app/deployment search), `manage_proxies` (`get`, `check` with optional `check_url`), `manage_profiles` (`get`, paginated search), and `manage_projects` (`get_limits`, `update_limits`).
 - Added a `start_url` parameter to browser pool `acquire`, letting each acquired session override the pool's default start URL.
 - Added `--chrome-policy` flags to `browsers create`/`update` and `browser-pools create`/`update` in the [CLI](https://github.com/kernel/cli) for setting Chrome popup, PDF, and homepage behavior from the terminal.
 - Extended `kernel browsers update` in the [CLI](https://github.com/kernel/cli) with `--name` and `--tag` parameters, so a running session's name and tags can be changed after creation alongside the existing `browsers create`/`acquire` flags.
-- Added an API key [rotate endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key) (`POST /org/api_keys/{id}/rotate`) that issues a replacement key, copies the rotated key's name and project scope, and keeps the old key working for a configurable grace period (default 7 days). Exposed in the Node, Python, and Go SDKs.
+- Added an API key [rotate endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key) (`POST /org/api_keys/{id}/rotate`) that issues a replacement key, copies the rotated key's name and project scope, and keeps the old key working for a configurable grace period (default 7 days). 
 - Shipped a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth, deterministic MP4 videos from a web scene — used internally for launch and explainer clips.
 
 ## Documentation updates
 
-- Enabled dark mode on the documentation site behind a theme toggle (default stays light).
-- Added a Common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples for popup blocking, PDF inline rendering, and homepage overrides.
+- Enabled dark mode on the docs.
+- Added a common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples for popup blocking, PDF inline rendering, and homepage overrides.
 - Documented [`X-Kernel-Project-Id`](/info/projects) header resolution rules and direct project and extension lookups on the Projects page.
 - Documented the API key [rotate endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key), including the optional `days_to_expire` and `expire_in_days` parameters.
 </Update>
