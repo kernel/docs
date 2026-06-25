@@ -6,21 +6,22 @@ Kernel proxies enable you to route browser traffic through different types of pr
 
 ## Proxy Types
 
-Kernel supports four types of proxies:
+Kernel supports five types of proxies:
 
 1. [**Datacenter**](/proxies/datacenter) - Traffic routed through commercial data centers
 2. [**ISP**](/proxies/isp) - Traffic routed through data centers, using residential IP addresses leased from from internet service providers
 3. [**Residential**](/proxies/residential) - Traffic routed through real residential IP addresses
-4. [**Custom**](/proxies/custom) - Your own proxy servers
+4. [**Mobile**](/proxies/mobile) - Traffic routed through mobile carrier networks
+5. [**Custom**](/proxies/custom) - Your own proxy servers
 
-Datacenter has the fastest speed, while residential is least detectable. ISP is a balance between the two options, with less-flexible geotargeting. Kernel recommends to use the first option in the list that works for your use case.
+Datacenter has the fastest speed, while residential and mobile are least detectable. ISP is a balance between the options, with less-flexible geotargeting. Kernel recommends using the first option in the list that works for your use case.
 
 <Info>
 ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP, and it only changes in rare ISP-initiated replacement events. This makes them suitable for IP allowlists or [managed auth](/auth/overview) health checks that must egress from a single IP.
 
 Datacenter proxies use **rotating exit IPs** — a new exit IP is assigned per request, so different requests within the same browser session can exit through different IPs. For a stable IP across requests and sessions, use an ISP proxy or a [custom (BYO) proxy](/proxies/custom) pointed at infrastructure you control.
 
-Residential proxies use **rotating exit IPs** that may change per connection — see [Residential Proxies](/proxies/residential#ip-rotation-behavior) for details.
+Residential and mobile proxies use **rotating exit IPs** that may change per connection — see [Residential Proxies](/proxies/residential#ip-rotation-behavior) and [Mobile Proxies](/proxies/mobile) for details.
 </Info>
 
 ## Create a proxy
