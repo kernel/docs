@@ -1,5 +1,5 @@
 ---
-title: "custom chrome policies"
+title: "Custom Chrome Policies"
 description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
 ---
 
@@ -77,6 +77,53 @@ pool = kernel.browser_pools.create(
     }
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+		Name: kernel.String("my-configured-pool"),
+		Size: 5,
+		ChromePolicy: map[string]any{
+			"HomepageLocation":     "https://kernel.sh",
+			"HomepageIsNewTabPage": false,
+			"ShowHomeButton":       true,
+			"NewTabPageLocation":   "https://kernel.sh/docs",
+			"RestoreOnStartup":     4,
+			"RestoreOnStartupURLs": []string{"https://kernel.sh"},
+			"BookmarkBarEnabled":   true,
+			"ManagedBookmarks": []map[string]any{
+				{"toplevel_name": "Company Resources"},
+				{"name": "Dashboard", "url": "https://example.com/dashboard"},
+				{"name": "Documentation", "url": "https://example.com/docs"},
+				{
+					"name": "Tools",
+					"children": []map[string]string{
+						{"name": "Jira Board", "url": "https://example.com/jira"},
+						{"name": "Slack", "url": "https://example.com/slack"},
+						{"name": "GitHub PRs", "url": "https://example.com/github"},
+						{"name": "Runbooks", "url": "https://example.com/runbooks"},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = pool
+}
+```
 </CodeGroup>
 
 ## Updating policies on an existing pool
@@ -126,6 +173,72 @@ The example above demonstrates setting a default homepage and managed bookmarks.
 | `RestoreOnStartupURLs` | `string[]` | URLs to open when the browser starts. Requires `RestoreOnStartup` set to `4` |
 | `BookmarkBarEnabled` | `boolean` | Shows the bookmark bar |
 | `ManagedBookmarks` | `array` | Pre-configured bookmarks. Supports folders via nested `children` arrays |
+
+## Common use cases
+
+`chrome_policy` is also accepted directly on `browsers.create()` when you don't need a reserved pool. The examples below use that path.
+
+### Allow pop-ups
+
+Chrome's default blocks pop-ups, which breaks sites that open download dialogs or OAuth windows in a new window. Set `DefaultPopupsSetting` to `1` to allow them (`2` blocks).
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "DefaultPopupsSetting": 1,
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    DefaultPopupsSetting: 1,
+  },
+});
+```
+</CodeGroup>
+
+### Control file download behavior
+
+When automating file downloads that trigger permission prompts, combine `DefaultPopupsSetting: 1` with `DownloadRestrictions: 0` to allow all downloads.
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "DefaultPopupsSetting": 1,
+        "DownloadRestrictions": 0,
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    DefaultPopupsSetting: 1,
+    DownloadRestrictions: 0,
+  },
+});
+```
+</CodeGroup>
 
 ## Available policies
 

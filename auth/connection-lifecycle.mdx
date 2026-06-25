@@ -47,6 +47,17 @@ await kernel.auth.connections.update(
     health_check_interval=1800,  # 30 minutes
 )
 ```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		HealthCheckInterval: kernel.Int(1800), // 30 minutes
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 ### Sessions that expire faster than the interval
@@ -96,6 +107,22 @@ if state.status == "NEEDS_AUTH":
     login = await kernel.auth.connections.login(auth.id)
     # Handle login flow as usual
 ```
+
+```go Go
+state, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+if state.Status == kernel.ManagedAuthStatusNeedsAuth {
+	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+	_ = login
+	// Handle login flow as usual
+}
+```
 </CodeGroup>
 
 ## When a login fails
@@ -139,6 +166,16 @@ login = await kernel.auth.connections.login(
     auth.id,
     record_session=True,
 )
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	RecordSession: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = login
 ```
 </CodeGroup>
 

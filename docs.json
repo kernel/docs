@@ -14,12 +14,14 @@
     { "source": "/browsers/create-a-browser", "destination": "/introduction/create" },
     { "source": "/introduction", "destination": "/" },
     { "source": "/quickstart", "destination": "/" },
-    { "source": "/home", "destination": "/" }
+    { "source": "/home", "destination": "/" },
+    { "source": "/llm.md", "destination": "/integrations/stripe-projects" },
+    { "source": "/llm-browser.md", "destination": "/integrations/stripe-projects-browser" }
   ],
   "theme": "palm",
   "appearance": {
     "default": "light",
-    "strict": true
+    "strict": false
   },
   "name": "Kernel",
   "colors": {
@@ -65,7 +67,7 @@
         "tab": "Guides",
         "groups": [
           {
-            "group": "Introduction",
+            "group": "Overview",
             "pages": [
               "index",
               "introduction/create",
@@ -113,6 +115,7 @@
                       "auth/faq"
                     ]
                   },
+                  "info/api-keys",
                   "browsers/file-io",
                   "browsers/curl",
                   "browsers/ssh",
@@ -145,6 +148,14 @@
                     ]
                   },
                   "browsers/extensions",
+                  {
+                    "group": "Telemetry",
+                    "pages": [
+                      "browsers/telemetry/overview",
+                      "browsers/telemetry/categories",
+                      "browsers/telemetry/streaming"
+                    ]
+                  },
                   {
                     "group": "Reserved Browsers",
                     "pages": [
@@ -191,6 +202,7 @@
               "integrations/agent-browser",
               "integrations/browser-use",
               "integrations/claude-agent-sdk",
+              "integrations/claude-managed-agents",
               {
                 "group": "Computer Use",
                 "pages": [
@@ -214,6 +226,13 @@
                   "integrations/vercel/overview",
                   "integrations/vercel/ai-sdk",
                   "integrations/vercel/marketplace"
+                ]
+              },
+              {
+                "group": "Stripe Projects",
+                "pages": [
+                  "integrations/stripe-projects",
+                  "integrations/stripe-projects-browser"
                 ]
               },
               "integrations/1password"
@@ -250,21 +269,86 @@
       },
       {
         "tab": "CLI",
-        "pages": [
-          "reference/cli",
-          "reference/cli/create",
-          "reference/cli/auth",
-          "reference/cli/browsers",
-          "reference/cli/apps",
-          "reference/cli/projects",
-          "reference/cli/mcp",
-          "reference/cli/extensions"
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "reference/cli",
+              "reference/cli/create",
+              "reference/cli/auth"
+            ]
+          },
+          {
+            "group": "Commands",
+            "pages": [
+              "reference/cli/apps",
+              "reference/cli/browsers",
+              "reference/cli/browser-pools",
+              "reference/cli/profiles",
+              "reference/cli/proxies",
+              "reference/cli/extensions",
+              "reference/cli/managed-auth",
+              "reference/cli/projects",
+              "reference/cli/api-keys",
+              "reference/cli/mcp"
+            ]
+          }
         ]
       },
       {
         "tab": "MCP",
-        "pages": [
-          "reference/mcp-server"
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "reference/mcp-server",
+              "reference/mcp-server/transports",
+              "reference/mcp-server/authentication"
+            ]
+          },
+          {
+            "group": "Connect Your Client",
+            "pages": [
+              "reference/mcp-server/clients/claude",
+              "reference/mcp-server/clients/cursor",
+              "reference/mcp-server/clients/opencode",
+              "reference/mcp-server/clients/goose",
+              "reference/mcp-server/clients/vscode",
+              "reference/mcp-server/clients/windsurf",
+              "reference/mcp-server/clients/zed",
+              "reference/mcp-server/clients/smithery",
+              "reference/mcp-server/clients/others"
+            ]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "reference/mcp-server/tools/manage-browsers",
+              "reference/mcp-server/tools/manage-profiles",
+              "reference/mcp-server/tools/manage-browser-pools",
+              "reference/mcp-server/tools/manage-proxies",
+              "reference/mcp-server/tools/manage-extensions",
+              "reference/mcp-server/tools/manage-apps",
+              "reference/mcp-server/tools/computer-action",
+              "reference/mcp-server/tools/execute-playwright-code",
+              "reference/mcp-server/tools/exec-command",
+              "reference/mcp-server/tools/search-docs"
+            ]
+          },
+          {
+            "group": "Resources & Prompts",
+            "pages": [
+              "reference/mcp-server/resources",
+              "reference/mcp-server/prompts"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/mcp-server/troubleshooting",
+              "reference/mcp-server/examples"
+            ]
+          }
         ]
       },
       {
@@ -273,10 +357,14 @@
       }
     ]
   },
-  "logo": "/logo/black.svg",
+  "logo": {
+    "light": "/logo/black.svg",
+    "dark": "/logo/white.svg"
+  },
   "background": {
     "color": {
-      "light": "#F0F0F3"
+      "light": "#F0F0F3",
+      "dark": "#212225"
     }
   },
   "footer": {

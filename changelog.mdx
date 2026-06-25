@@ -9,6 +9,62 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="June 12" tags={["Product", "Docs"]}>
+## Product updates
+
+- Released the [Kernel × Claude Managed Agents cookbook](https://github.com/kernel/claude-managed-agents-kernel), a public recipe for running parallel computer-use agent swarms with [Claude Managed Agents](/integrations/claude-managed-agents) on Kernel cloud browsers, with API keys secured via Vaults.
+- Shipped a `kernel-browser-harness` [skill](https://github.com/kernel/skills) for setting up Kernel browser sessions inside Claude Code with persistent session IDs across calls.
+- Extended `kernel browsers acquire` in the [CLI](https://github.com/kernel/cli) with `name` and `tags` parameters, so pooled browsers can be labeled at acquisition time alongside `browsers create`.
+- Made browser [telemetry](/browsers/telemetry) categories opt-in. The `--telemetry` flag (and `telemetry` request config) now records only the categories you list; enabling telemetry without specifying categories ships a small default set instead of every category.
+
+## Documentation updates
+
+- Published a new [browser telemetry](/browsers/telemetry) guide covering categories, the stream API, and event shapes.
+- Wrote a [Claude Managed Agents](/integrations/claude-managed-agents) integration guide with a link to the public cookbook.
+- Documented the org-wide default [per-project concurrency cap](/info/projects) on the Projects page.
+- Expanded the [CLI reference](/reference/cli) to include several previously missing subcommands.
+</Update>
+
+<Update label="June 5" tags={["Product", "Docs"]}>
+## Product updates
+
+- Browser sessions now play audio by default, and the browser replay recording API gained a `record_audio` option to capture that audio in replay videos.
+- Extended browser telemetry to the [CLI](https://github.com/kernel/cli): use `--telemetry=all|off|<list>` on `browsers create` and `browsers update` to configure telemetry per session, and `kernel browsers telemetry stream <id>` to tail live events with category and type filters and SSE resume support.
+- Added API key management commands to the [CLI](https://github.com/kernel/cli) for creating, listing, retrieving, updating, and deleting org API keys directly from the terminal.
+- Expanded the [MCP server](https://www.kernel.sh/docs/reference/mcp-server) from 10 to 16 tools, adding managed auth (`manage_auth_connections`, `manage_credentials`, `manage_credential_providers`), `browser_curl` for HTTP(S) through a live browser, API key management, and project management. MCP-created browser sessions also now accept the same configuration as the API.
+- Browser sessions can now be given a custom name at create time, making them easier to identify in the dashboard and audit logs.
+- Improved `kernel status` to distinguish between the API being down versus unreachable.
+
+## Documentation updates
+
+- Reorganized the [MCP server](/reference/mcp-server) documentation into per-page navigation for easier browsing.
+- Expanded and regrouped the [CLI reference](/reference/cli) to match the MCP docs structure.
+- Added Go SDK code examples across the docs.
+- Added a [managed auth CLI reference](/reference/cli/auth) page.
+- Clarified that ISP proxies provide a static IP across sessions.
+</Update>
+
+<Update label="May 28" tags={["Product", "Docs"]}>
+## Product updates
+
+- Soft-launched [auth.md](https://kernel.sh/auth.md), a discovery file that lets agents sign up for a Kernel account or fetch an API key for an existing user account on their own. Point your agent at the URL and it can self-provision. Based on the new auth.md protocol from WorkOS.
+- Added **browser telemetry** as a first-class request config. Pass `telemetry.enabled` (and per-category toggles) on `browsers.create()` or `browsers.update()` to capture telemetry for the session, and stream it live from `GET /browsers/{id}/telemetry/stream` (SSE).
+- Exposed API key management in the Node, Python, and Go SDKs. Create, list, retrieve, update, and delete keys on `/org/api_keys` programmatically.
+- Promoted `can_reauth_reason` on `ManagedAuth` to a typed enum (14 documented values like `requires_totp_without_secret`, `no_viable_plans`, `requires_external_action`) so SDK consumers can branch on it directly instead of string comparisons.
+- Added an **Auto Re-Auth** / **Needs Human** capability chip to each row on the dashboard `/auth` page, with a tooltip mapping each `can_reauth_reason` to a human-readable explanation.
+- Added TOTP secret key support to [managed auth](/auth/overview) credentials, so one-time passwords are generated automatically during login and re-authentication. No human intervention required.
+- Updated the live view loading screen to a progress bar for clearer visual feedback during browser startup.
+- The `/projects/*` endpoints are now routed under `/org/projects/*`. The previous paths are deprecated.
+
+## Documentation updates
+
+- Added new [Create](/introduction/create), [Control](/introduction/control), and [Observe](/introduction/observe) introductory guides covering the core primitives for getting started with browser automation.
+- Expanded the [Control](/introduction/control) guide with three patterns for combining computer use with `playwright.execute`: expose `playwright.execute` as a tool, checkpoint state between CUA steps, and drop the agent once selectors stabilize for replay at scale.
+- Documented the new [`health_checks` and `auto_reauth` connection flags](/auth/configuration) on managed-auth connections, including defaults, how they interact (auto_reauth only applies while health_checks is on), and a create-time example with both disabled.
+- Updated the [MCP server](/reference/mcp-server) tool reference to match the current API.
+- Clarified that stealth mode's default proxy is ISP, not residential. ISP proxies use residential ASNs on datacenter infrastructure.
+</Update>
+
 <Update label="May 21" tags={["Product", "Docs"]}>
 ## Product updates
 
@@ -68,7 +124,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 - Launched [Projects](/info/projects) so you can keep `production` and `staging` separate, split resources between teams, scope API keys to a single environment, and cap concurrency per project so one workload can't exhaust your org quota. Existing resources have been moved into a **Default** project, so nothing changes for current workloads.
 - Kernel is now a [Cloudflare Web Bot Auth partner](https://www.kernel.sh/blog/cloudflare). Kernel browsers can [cryptographically identify themselves](/browsers/bot-detection/web-bot-auth) to Cloudflare-protected sites, so Kernel traffic isn't blocked.
-- Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed residential proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
+- Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed ISP proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
 - Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
 - Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
 - The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.

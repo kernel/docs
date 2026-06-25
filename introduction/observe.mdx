@@ -3,7 +3,7 @@ title: "Observe"
 description: "Watch your agent work, debug what went wrong"
 ---
 
-Browser agents fail in ways that don't show up in logs. Kernel gives you four ways to see what's actually happening — live, after the fact, frame by frame, and line by line.
+Browser agents fail in ways that don't show up in logs. Kernel gives you several ways to see what's actually happening: live, after the fact, frame by frame, line by line, and event by event.
 
 ## Live view
 
@@ -28,6 +28,29 @@ kernel_browser = kernel.browsers.create()
 print(kernel_browser.browser_live_view_url)
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(kernelBrowser.BrowserLiveViewURL)
+}
+```
+
 ```bash CLI
 kernel browsers view <session-id>
 ```
@@ -37,7 +60,7 @@ Add `?readOnly=true` for a non-interactive view, or enable [kiosk mode](/browser
 
 ## Replays
 
-Replays are MP4 recordings you start and stop on demand — capture as many clips per session as you need. They're the right tool for post-hoc debugging: a failed run gives you one or more videos to scrub through, share, or attach to a bug report.
+Replays are MP4 recordings you start and stop on demand - capture as many clips per session as you need. They're the right tool for post-hoc debugging: a failed run gives you one or more videos to scrub through, share, or attach to a bug report.
 
 Replays can also be enabled on managed auth sessions, so you can [debug failed logins](https://www.kernel.sh/docs/auth/configuration#record-sessions-for-debugging) the same way.
 
@@ -63,6 +86,23 @@ kernel.browsers.replays.stop(
 )
 ```
 
+```go Go
+replay, err := client.Browsers.Replays.Start(ctx, kernelBrowser.SessionID, kernel.BrowserReplayStartParams{})
+if err != nil {
+	panic(err)
+}
+
+// ...run the agent...
+
+if err := client.Browsers.Replays.Stop(
+	ctx,
+	replay.ReplayID,
+	kernel.BrowserReplayStopParams{ID: kernelBrowser.SessionID},
+); err != nil {
+	panic(err)
+}
+```
+
 ```bash CLI
 # Start recording
 kernel browsers replays start <session-id>
@@ -79,7 +119,7 @@ Full reference: [Replays](/browsers/replays).
 
 ## Screenshots
 
-Pull a frame at any moment with computer controls — useful for snapshotting state at decision points, attaching to traces, or feeding back into a vision model.
+Pull a frame at any moment with computer controls - useful for snapshotting state at decision points, attaching to traces, or feeding back into a vision model.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -92,6 +132,18 @@ const screenshot = await kernel.browsers.computer.captureScreenshot(
 screenshot = kernel.browsers.computer.capture_screenshot(
     id=kernel_browser.session_id,
 )
+```
+
+```go Go
+screenshot, err := client.Browsers.Computer.CaptureScreenshot(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserComputerCaptureScreenshotParams{},
+)
+if err != nil {
+	panic(err)
+}
+defer screenshot.Body.Close()
 ```
 
 ```bash CLI
@@ -120,13 +172,75 @@ logs = kernel.invocations.follow(invocation_id)
 for event in logs:
     print(event)
 ```
+
+```go Go
+stream := client.Invocations.FollowStreaming(
+	ctx,
+	invocationID,
+	kernel.InvocationFollowParams{},
+)
+defer stream.Close()
+
+for stream.Next() {
+	fmt.Println(stream.Current())
+}
+if err := stream.Err(); err != nil {
+	panic(err)
+}
+```
 </CodeGroup>
 
 Full reference: [Logs](/apps/logs).
+
+## Telemetry
+
+Telemetry is a real-time, structured stream of what happens inside a session: console output, network activity, page lifecycle, interactions, and operational signals like crashes. Unlike a video or screenshot, it's machine-readable, so it's the right tool for feeding session activity into your own observability pipeline or reacting to events programmatically. Enable it at creation, then stream the events:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({ telemetry: { enabled: true } });
+
+const stream = await kernel.browsers.telemetry.stream(browser.session_id);
+for await (const { seq, event } of stream) {
+  console.log(`#${seq} [${event.category}] ${event.type}`);
+}
+```
+
+```python Python
+browser = kernel.browsers.create(telemetry={"enabled": True})
+
+with kernel.browsers.telemetry.stream(browser.session_id) as stream:
+    for envelope in stream:
+        print(f"#{envelope.seq} [{envelope.event.category}] {envelope.event.type}")
+```
+
+```go Go
+stream := client.Browsers.Telemetry.StreamStreaming(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserTelemetryStreamParams{},
+)
+defer stream.Close()
+
+for stream.Next() {
+	fmt.Println(stream.Current())
+}
+if err := stream.Err(); err != nil {
+	panic(err)
+}
+```
+
+```bash CLI
+kernel browsers telemetry stream <session-id>
+```
+</CodeGroup>
+
+Full reference: [Telemetry](/browsers/telemetry/overview).
 
 ## Picking the right tool
 
 - **Building the agent?** Keep a [live view](/browsers/live-view) tab open while you iterate.
 - **Debugging a failure?** Capture a [replay](/browsers/replays) for the run, then watch the video.
 - **Instrumenting the agent itself?** Drop [screenshots](/browsers/computer-controls#take-screenshots) and [logs](/apps/logs) into your traces at the points that matter.
+- **Feeding an observability pipeline?** Stream [telemetry](/browsers/telemetry/overview) events and route them wherever you collect signals.
 - **Putting a human in the loop?** Embed the [live view](/browsers/live-view#embedding-in-an-iframe) in your own UI.

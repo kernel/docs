@@ -42,6 +42,24 @@ auth = await kernel.auth.connections.create(
 login = await kernel.auth.connections.login(auth.id)
 # login.id, login.handoff_code
 ```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "netflix.com",
+		ProfileName: "user-123",
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+fmt.Println(login.ID, login.HandoffCode)
+```
 </CodeGroup>
 
 <Info>

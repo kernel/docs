@@ -1,0 +1,296 @@
+---
+title: "API Keys"
+description: "Create, scope, rotate, and delete Kernel API keys"
+---
+
+An API key is the credential your server, script, or CI job uses to call Kernel without an interactive login. Treat it like a password: keep it out of client-side code, store it in a secret manager, and rotate it when access changes.
+
+Kernel only returns the plaintext key once, when you create it. Save the `key` value immediately. After that, Kernel only shows the masked value.
+
+## Before you start
+
+You need one existing Kernel credential to create another API key:
+
+- Set `KERNEL_API_KEY` before running the SDK examples.
+
+API keys can be **org** or **project** scoped:
+
+- Omit `project_id` to create an org-scoped key that can access resources across your organization.
+- Set `project_id` to create a project-scoped key that can only access resources in that project.
+- When you authenticate with a project-scoped key, you can only create another project-scoped key for the same project.
+
+## Create an API key
+
+Use the SDKs when your backend needs to provision keys for environments, customers, or automation jobs.
+
+### SDKs
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+const apiKey = await kernel.apiKeys.create({
+  name: 'staging-ci',
+  days_to_expire: 30,
+  project_id: 'proj_staging_9f3k',
+});
+
+console.log(apiKey.key); // Save this value now. Kernel won't show it again.
+console.log(apiKey.id, apiKey.masked_key);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+api_key = client.api_keys.create(
+    name="staging-ci",
+    days_to_expire=30,
+    project_id="proj_staging_9f3k",
+)
+
+print(api_key.key)  # Save this value now. Kernel won't show it again.
+print(api_key.id, api_key.masked_key)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	apiKey, err := client.APIKeys.New(ctx, kernel.APIKeyNewParams{
+		Name:         "staging-ci",
+		DaysToExpire: kernel.Int(30),
+		ProjectID:    kernel.String("proj_staging_9f3k"),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(apiKey.Key) // Save this value now. Kernel won't show it again.
+	fmt.Println(apiKey.ID, apiKey.MaskedKey)
+}
+```
+</CodeGroup>
+
+## List and inspect API keys
+
+List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, and expiry metadata, but they don't include the plaintext key.
+
+<CodeGroup>
+```typescript TypeScript
+for await (const apiKey of kernel.apiKeys.list({ limit: 20 })) {
+  console.log(apiKey.id, apiKey.name, apiKey.masked_key);
+}
+
+const apiKey = await kernel.apiKeys.retrieve('key_01jwv4tn5m8k3q2v7x9p0a1bc2');
+console.log(apiKey.project_id, apiKey.expires_at);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+for api_key in client.api_keys.list(limit=20):
+    print(api_key.id, api_key.name, api_key.masked_key)
+
+api_key = client.api_keys.retrieve("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+print(api_key.project_id, api_key.expires_at)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pager := client.APIKeys.ListAutoPaging(ctx, kernel.APIKeyListParams{
+		Limit: kernel.Int(20),
+	})
+	for pager.Next() {
+		apiKey := pager.Current()
+		fmt.Println(apiKey.ID, apiKey.Name, apiKey.MaskedKey)
+	}
+	if err := pager.Err(); err != nil {
+		panic(err)
+	}
+
+	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(apiKey.ProjectID, apiKey.ExpiresAt)
+}
+```
+</CodeGroup>
+
+## Rename or delete an API key
+
+Rename a key when the owner or purpose changes. Delete a key when the workload no longer needs access.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.apiKeys.update('key_01jwv4tn5m8k3q2v7x9p0a1bc2', {
+  name: 'staging-ci-rotated',
+});
+
+await kernel.apiKeys.delete('key_01jwv4tn5m8k3q2v7x9p0a1bc2');
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+client.api_keys.update(
+    "key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+    name="staging-ci-rotated",
+)
+
+client.api_keys.delete("key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	apiKey, err := client.APIKeys.Update(
+		ctx,
+		"key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+		kernel.APIKeyUpdateParams{
+			Name: "staging-ci-rotated",
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(apiKey.ID, apiKey.Name)
+
+	if err := client.APIKeys.Delete(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2"); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+## Rotate a key
+
+`rotate` issues a replacement key in a single call and keeps the old key working for a short grace period, so your workload can switch over without downtime. The new key copies the rotated key's name and project scope, and—like create—Kernel returns the plaintext `key` only once.
+
+Two optional parameters control the timing:
+
+- `days_to_expire` sets the new key's lifetime in days (`1`-`3650`). Omit it to give the new key the same lifetime the rotated key originally had, or to never expire if the old key never did.
+- `expire_in_days` sets how long the old key keeps working before it expires. Use `0` to revoke it immediately, or omit it for the default 7-day grace window. The old key stops authenticating automatically once the window passes—you don't need to delete it.
+
+<CodeGroup>
+```typescript TypeScript
+const rotated = await kernel.apiKeys.rotate('key_01jwv4tn5m8k3q2v7x9p0a1bc2', {
+  days_to_expire: 30,
+  expire_in_days: 7,
+});
+
+console.log(rotated.key); // Save this value now. Kernel won't show it again.
+console.log(rotated.id, rotated.masked_key);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+rotated = client.api_keys.rotate(
+    "key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+    days_to_expire=30,
+    expire_in_days=7,
+)
+
+print(rotated.key)  # Save this value now. Kernel won't show it again.
+print(rotated.id, rotated.masked_key)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	rotated, err := client.APIKeys.Rotate(
+		ctx,
+		"key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+		kernel.APIKeyRotateParams{
+			DaysToExpire: kernel.Int(30),
+			ExpireInDays: kernel.Int(7),
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(rotated.Key) // Save this value now. Kernel won't show it again.
+	fmt.Println(rotated.ID, rotated.MaskedKey)
+}
+```
+</CodeGroup>
+
+After you rotate a key:
+
+1. Store the new plaintext key in your secret manager.
+2. Deploy or restart the workload that uses `KERNEL_API_KEY`.
+3. Verify the workload can call Kernel before the grace window ends.
+
+To cut over immediately instead of using a grace window, pass `expire_in_days: 0` so the old key stops working as soon as the new one is issued.
+
+## Troubleshooting
+
+| Error | What it means | What to do |
+| --- | --- | --- |
+| `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
+| `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
+| `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
+| `404 Not Found` | The project or API key doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |

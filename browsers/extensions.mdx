@@ -44,6 +44,9 @@ kernel extensions upload ./my-extension --name my-extension
 Extensions uploaded to Kernel are assigned a random ID, but you can also give them a name for easier reference.
 This name must be unique within your [project](/info/projects).
 
+To retrieve an extension's metadata without downloading the archive, call `GET /extensions/{id_or_name}/metadata`.
+The response includes the extension's ID, name, size, and timestamps.
+
 ## Using extensions in a browser
 
 Passing the extension name or ID to the `create` method will load it into the browser.
@@ -68,6 +71,32 @@ from kernel import Kernel
 
 kernel = Kernel()
 kernel_browser = kernel.browsers.create(extensions=[{"name": "my-extension"}])
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Extensions: []shared.BrowserExtensionParam{
+			{Name: kernel.String("my-extension")},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
 ```
 
 ```bash CLI

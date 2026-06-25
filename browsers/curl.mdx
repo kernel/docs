@@ -49,6 +49,45 @@ browser = client.browsers.create()
 response: httpx.Response = client.browsers.request(browser.session_id, "GET", "https://example.com")
 print("status", response.status_code)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	httpClient, err := client.Browsers.HTTPClient(browser.SessionID)
+	if err != nil {
+		panic(err)
+	}
+
+	response, err := httpClient.Get("https://example.com")
+	if err != nil {
+		panic(err)
+	}
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("body", string(body))
+}
+```
 </CodeGroup>
 
 ## Buffered browser curl
@@ -81,6 +120,36 @@ browser = client.browsers.create()
 
 buffered = client.browsers.curl(browser.session_id, url="https://example.com", method="GET")
 print("body", buffered.body)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	buffered, err := client.Browsers.Curl(ctx, browser.SessionID, kernel.BrowserCurlParams{
+		URL:    "https://example.com",
+		Method: kernel.BrowserCurlParamsMethodGet,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("body", buffered.Body)
+}
 ```
 </CodeGroup>
 

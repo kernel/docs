@@ -1,0 +1,62 @@
+---
+title: "Telemetry Categories"
+description: "The categories a browser session can capture, what each contains, and their cost"
+---
+
+A category groups related telemetry events and is the unit you enable or disable. Selection is opt-in: a session captures a category only when you turn it on.
+
+For the full payload schema of any event type, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.
+
+## Operational
+
+These categories report on the session itself rather than page content.
+
+| Category | Captures | Event types |
+| --- | --- | --- |
+| `control` | Computer-control API calls against the session | `api_call` |
+| `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
+| `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
+| `captcha` | Results of automated captcha solves | `captcha_solve_result` |
+
+## Browser activity
+
+These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces highly granular page-level events. Capturing them adds overhead, so enable only the ones you need.
+
+| Category | Captures | Event types |
+| --- | --- | --- |
+| `console` | Console output from the page | `console_log`, `console_error` |
+| `network` | Network requests, responses, and failures | `network_request`, `network_response`, `network_loading_failed`, `network_idle` |
+| `page` | Navigation and page lifecycle, including performance signals | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
+| `interaction` | Browser-native input in the page (clicks, keys, scroll) | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
+| `screenshot` | Periodic screenshots of the session | `monitor_screenshot` |
+
+<Note>
+`interaction` events are browser-native DOM events observed in the page, not calls to the [computer-control](/browsers/computer-controls) API (those are reported by the `control` category).
+</Note>
+
+### The monitor category
+
+`monitor` reports the health of the CDP collector itself: `monitor_disconnected`, `monitor_reconnected`, `monitor_reconnect_failed`, and `monitor_init_failed`.
+
+It isn't directly settable. It flows automatically whenever any of the browser-activity categories are captured. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.
+
+## Data sensitivity
+
+Telemetry is off by default and the default set carries operational metadata only. The browser-activity categories are different: they capture what actually flows through the session, which is your own browser's data and can include credentials and personal information.
+
+| Category | Can contain sensitive data |
+| --- | --- |
+| `network` | Request and response headers (including `Authorization` and `Cookie`), request bodies, and truncated response bodies, plus full URLs. A common place for session tokens, credentials, and personal data. |
+| `console` | Anything the page logs. Applications often log access tokens, request or response bodies, and personal data through `console.log`. |
+| `page` | Page URLs and titles, which can embed tokens or identifiers in query strings or fragments. |
+| `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
+| `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
+| `control`, `connection`, `system`, `captcha`, `monitor` | Session metadata only (control calls, connection and health events). No page content. |
+
+Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
+
+Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text). Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
+
+<Warning>
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
+</Warning>

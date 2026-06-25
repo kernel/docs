@@ -60,6 +60,41 @@ response = kernel.browsers.playwright.execute(
 print(response.result)  # "Example Domain"
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create a browser
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Execute Playwright code
+	response, err := client.Browsers.Playwright.Execute(ctx, kernelBrowser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+		Code: `
+			await page.goto('https://example.com');
+			return await page.title();
+		`,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(response.Result) // "Example Domain"
+}
+```
+
 ```bash CLI
 kernel browsers playwright execute <session_id> 'await page.goto("https://www.onkernel.com"); return page.title();'
 ```
@@ -107,6 +142,22 @@ response = kernel.browsers.playwright.execute(
 
 print(response.result)  # {'title': 'Example Domain', 'url': 'https://example.com'}
 ```
+
+```go Go
+response, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://example.com');
+		const title = await page.title();
+		const url = page.url();
+		return { title, url };
+	`,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(response.Result) // map[title:Example Domain url:https://example.com]
+```
 </CodeGroup>
 
 ## Timeout configuration
@@ -136,6 +187,20 @@ response = kernel.browsers.playwright.execute(
     """,
     timeout_sec=120
 )
+```
+
+```go Go
+response, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://example.com');
+		return await page.title();
+	`,
+	TimeoutSec: kernel.Int(120),
+})
+if err != nil {
+	panic(err)
+}
+_ = response
 ```
 </CodeGroup>
 
@@ -173,6 +238,23 @@ response = kernel.browsers.playwright.execute(
 if not response.success:
     print('Error:', response.error)
     print('Stderr:', response.stderr)
+```
+
+```go Go
+response, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://invalid-url');
+		return await page.title();
+	`,
+})
+if err != nil {
+	panic(err)
+}
+
+if !response.Success {
+	fmt.Println("Error:", response.Error)
+	fmt.Println("Stderr:", response.Stderr)
+}
 ```
 </CodeGroup>
 

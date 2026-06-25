@@ -47,6 +47,57 @@ Kernel browsers expose four ways to drive a session. For agents, we recommend [c
         text="kernel cloud browsers",
     )
     ```
+
+    ```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	screenshot, err := client.Browsers.Computer.CaptureScreenshot(
+		ctx,
+		kernelBrowser.SessionID,
+		kernel.BrowserComputerCaptureScreenshotParams{},
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer screenshot.Body.Close()
+
+	if err := client.Browsers.Computer.ClickMouse(
+		ctx,
+		kernelBrowser.SessionID,
+		kernel.BrowserComputerClickMouseParams{
+			X: 420,
+			Y: 280,
+		},
+	); err != nil {
+		panic(err)
+	}
+
+	if err := client.Browsers.Computer.TypeText(
+		ctx,
+		kernelBrowser.SessionID,
+		kernel.BrowserComputerTypeTextParams{
+			Text: "kernel cloud browsers",
+		},
+	); err != nil {
+		panic(err)
+	}
+}
+    ```
     </CodeGroup>
   </Tab>
   <Tab title="Playwright Execution">
@@ -77,6 +128,24 @@ Kernel browsers expose four ways to drive a session. For agents, we recommend [c
     )
 
     print(response.result)
+    ```
+
+    ```go Go
+response, err := client.Browsers.Playwright.Execute(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserPlaywrightExecuteParams{
+		Code: `
+          await page.goto('https://example.com');
+          return await page.title();
+        `,
+	},
+)
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(response.Result)
     ```
     </CodeGroup>
   </Tab>
@@ -192,6 +261,26 @@ response = kernel.browsers.playwright.execute(
 )
 
 print(response.result)
+```
+
+```go Go
+response, err := client.Browsers.Playwright.Execute(
+	ctx,
+	kernelBrowser.SessionID,
+	kernel.BrowserPlaywrightExecuteParams{
+		Code: `
+			const rows = await page.$$eval('table tr', (trs) =>
+				trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent))
+			);
+			return rows;
+		`,
+	},
+)
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(response.Result)
 ```
 </CodeGroup>
 

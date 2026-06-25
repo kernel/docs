@@ -32,6 +32,29 @@ kernel_browser = kernel.browsers.create(
     gpu=True
 )
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		GPU: kernel.Bool(true),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
 </CodeGroup>
 
 You can also enable GPU acceleration in the dashboard when deploying a browser under **Advanced Configuration**.

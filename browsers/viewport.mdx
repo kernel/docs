@@ -21,6 +21,15 @@ const defaultViewport = await kernel.browsers.create();
 default_viewport = kernel.browsers.create()
 ```
 
+```go Go
+// Uses default viewport (1920x1080@25Hz)
+defaultViewport, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+_ = defaultViewport
+```
+
 </CodeGroup>
 
 ## Setting viewport configuration
@@ -77,6 +86,47 @@ kernel_browser_auto = kernel.browsers.create(
         "height": 1080
     }
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Explicitly specify refresh rate
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Viewport: shared.BrowserViewportParam{
+			Width:       1920,
+			Height:      1080,
+			RefreshRate: kernel.Int(25),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+
+	// Auto-determine refresh rate from dimensions (25Hz for 1920x1080)
+	kernelBrowserAuto, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Viewport: shared.BrowserViewportParam{
+			Width:  1920,
+			Height: 1080,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowserAuto
+}
 ```
 
 </CodeGroup>
@@ -200,6 +250,71 @@ wuxga = kernel.browsers.create(
 )
 ```
 
+```go Go
+// Full HD (1920x1080) at 25Hz - explicit refresh rate
+fullHD, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:       1920,
+		Height:      1080,
+		RefreshRate: kernel.Int(25),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = fullHD
+
+// Full HD (1920x1080) - auto-determined 25Hz (Default configuration)
+fullHDAuto, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  1920,
+		Height: 1080,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = fullHDAuto
+
+// QHD (2560x1440) - auto-determined 10Hz
+// Note: May affect live view responsiveness
+qhd, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  2560,
+		Height: 1440,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = qhd
+
+// XGA (1024x768) - auto-determined 60Hz
+xga, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  1024,
+		Height: 768,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = xga
+
+// WUXGA (1920x1200) at 25Hz - explicit refresh rate
+wuxga, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:       1920,
+		Height:      1200,
+		RefreshRate: kernel.Int(25),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = wuxga
+```
+
 </CodeGroup>
 
 ## Dynamically changing the viewport
@@ -226,6 +341,27 @@ kernel_browser = await kernel.browsers.create()
 
 # Later, change the viewport
 await kernel.browsers.update(kernel_browser.session_id, viewport={"width": 1024, "height": 768})
+```
+
+```go Go
+// Create a browser with default viewport
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+
+// Later, change the viewport
+_, err = client.Browsers.Update(ctx, kernelBrowser.SessionID, kernel.BrowserUpdateParams{
+	Viewport: kernel.BrowserUpdateParamsViewport{
+		BrowserViewportParam: shared.BrowserViewportParam{
+			Width:  1024,
+			Height: 768,
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 
@@ -255,6 +391,21 @@ await kernel.browsers.update(
     kernel_browser.session_id,
     viewport={"width": 1024, "height": 768, "force": True}
 )
+```
+
+```go Go
+_, err := client.Browsers.Update(ctx, kernelBrowser.SessionID, kernel.BrowserUpdateParams{
+	Viewport: kernel.BrowserUpdateParamsViewport{
+		BrowserViewportParam: shared.BrowserViewportParam{
+			Width:  1024,
+			Height: 768,
+		},
+		Force: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
 ```
 </CodeGroup>
 

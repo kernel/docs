@@ -58,6 +58,45 @@ kernel.browsers.computer.click_mouse(
 )
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Basic left click at (100, 200)
+	if err := client.Browsers.Computer.ClickMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerClickMouseParams{
+		X: 100,
+		Y: 200,
+	}); err != nil {
+		panic(err)
+	}
+
+	// Double right-click while holding Shift
+	if err := client.Browsers.Computer.ClickMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerClickMouseParams{
+		X:         100,
+		Y:         200,
+		Button:    kernel.BrowserComputerClickMouseParamsButtonRight,
+		ClickType: kernel.BrowserComputerClickMouseParamsClickTypeClick,
+		NumClicks: kernel.Int(2),
+		HoldKeys:  []string{"Shift"},
+	}); err != nil {
+		panic(err)
+	}
+}
+```
+
 ```bash CLI
 # Click the mouse at coordinates (100, 200)
 kernel browsers computer click-mouse <session id> --x 100 --y 200
@@ -139,6 +178,52 @@ kernel.browsers.computer.move_mouse(
 )
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Human-like smooth movement (default)
+	if err := client.Browsers.Computer.MoveMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerMoveMouseParams{
+		X: 500,
+		Y: 300,
+	}); err != nil {
+		panic(err)
+	}
+
+	// Smooth movement with custom duration
+	if err := client.Browsers.Computer.MoveMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerMoveMouseParams{
+		X:          800,
+		Y:          600,
+		Smooth:     kernel.Bool(true),
+		DurationMs: kernel.Int(1500),
+	}); err != nil {
+		panic(err)
+	}
+
+	// Instant teleport (disable smooth)
+	if err := client.Browsers.Computer.MoveMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerMoveMouseParams{
+		X:      100,
+		Y:      200,
+		Smooth: kernel.Bool(false),
+	}); err != nil {
+		panic(err)
+	}
+}
+```
+
 ```bash CLI
 # Smooth movement (default)
 kernel browsers computer move-mouse <session id> --x 500 --y 300
@@ -208,6 +293,68 @@ with open('region.png', 'wb') as f:
         region={"x": 0, "y": 0, "width": 800, "height": 600},
     )
     f.write(image_data.read())
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"io"
+	"os"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Full screenshot
+	response, err := client.Browsers.Computer.CaptureScreenshot(ctx, kernelBrowser.SessionID, kernel.BrowserComputerCaptureScreenshotParams{})
+	if err != nil {
+		panic(err)
+	}
+	imageData, err := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err != nil {
+		panic(err)
+	}
+	if closeErr != nil {
+		panic(closeErr)
+	}
+	if err := os.WriteFile("screenshot.png", imageData, 0644); err != nil {
+		panic(err)
+	}
+
+	// Region screenshot
+	response, err = client.Browsers.Computer.CaptureScreenshot(ctx, kernelBrowser.SessionID, kernel.BrowserComputerCaptureScreenshotParams{
+		Region: kernel.BrowserComputerCaptureScreenshotParamsRegion{
+			X:      0,
+			Y:      0,
+			Width:  800,
+			Height: 600,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	imageData, err = io.ReadAll(response.Body)
+	closeErr = response.Body.Close()
+	if err != nil {
+		panic(err)
+	}
+	if closeErr != nil {
+		panic(closeErr)
+	}
+	if err := os.WriteFile("region.png", imageData, 0644); err != nil {
+		panic(err)
+	}
+}
 ```
 
 ```bash CLI
@@ -297,6 +444,40 @@ kernel.browsers.computer.type_text(
 )
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Type literal text
+	if err := client.Browsers.Computer.TypeText(ctx, kernelBrowser.SessionID, kernel.BrowserComputerTypeTextParams{
+		Text: "The quick brown fox jumps over the lazy dog.",
+	}); err != nil {
+		panic(err)
+	}
+
+	// Fixed delay between keystrokes
+	if err := client.Browsers.Computer.TypeText(ctx, kernelBrowser.SessionID, kernel.BrowserComputerTypeTextParams{
+		Text:  "Slow typing...",
+		Delay: kernel.Int(100),
+	}); err != nil {
+		panic(err)
+	}
+}
+```
+
 ```bash CLI
 # Human-like smooth typing (default)
 kernel browsers computer type <session id> --text "The quick brown fox"
@@ -363,6 +544,41 @@ kernel.browsers.computer.press_key(
 )
 ```
 
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Tap a key combination
+	if err := client.Browsers.Computer.PressKey(ctx, kernelBrowser.SessionID, kernel.BrowserComputerPressKeyParams{
+		Keys: []string{"Ctrl+t"},
+	}); err != nil {
+		panic(err)
+	}
+
+	// Hold keys for 250ms while also holding Alt
+	if err := client.Browsers.Computer.PressKey(ctx, kernelBrowser.SessionID, kernel.BrowserComputerPressKeyParams{
+		Keys:     []string{"Ctrl+Shift+Tab"},
+		Duration: kernel.Int(250),
+		HoldKeys: []string{"Alt"},
+	}); err != nil {
+		panic(err)
+	}
+}
+```
+
 ```bash CLI
 # Press one or more keys (repeatable --key)
 kernel browsers computer press-key <session id> --key Ctrl+t
@@ -404,6 +620,34 @@ kernel.browsers.computer.scroll(
     delta_x=0,
     delta_y=120,
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	if err := client.Browsers.Computer.Scroll(ctx, kernelBrowser.SessionID, kernel.BrowserComputerScrollParams{
+		X:      300,
+		Y:      400,
+		DeltaX: kernel.Int(0),
+		DeltaY: kernel.Int(120),
+	}); err != nil {
+		panic(err)
+	}
+}
 ```
 
 ```bash CLI
@@ -502,6 +746,63 @@ kernel.browsers.computer.drag_mouse(
     steps_per_segment=10,
     step_delay_ms=50,
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Human-like smooth drag (default)
+	if err := client.Browsers.Computer.DragMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerDragMouseParams{
+		Path: [][]int64{
+			{100, 200},
+			{400, 350},
+			{700, 200},
+		},
+	}); err != nil {
+		panic(err)
+	}
+
+	// Smooth drag with custom duration
+	if err := client.Browsers.Computer.DragMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerDragMouseParams{
+		Path: [][]int64{
+			{100, 200},
+			{400, 350},
+			{700, 200},
+		},
+		Smooth:     kernel.Bool(true),
+		DurationMs: kernel.Int(2000),
+	}); err != nil {
+		panic(err)
+	}
+
+	// Linear interpolation drag (legacy behavior)
+	if err := client.Browsers.Computer.DragMouse(ctx, kernelBrowser.SessionID, kernel.BrowserComputerDragMouseParams{
+		Path: [][]int64{
+			{100, 200},
+			{400, 350},
+			{700, 200},
+		},
+		Smooth:          kernel.Bool(false),
+		StepsPerSegment: kernel.Int(10),
+		StepDelayMs:     kernel.Int(50),
+	}); err != nil {
+		panic(err)
+	}
+}
 ```
 
 ```bash CLI

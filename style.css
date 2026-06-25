@@ -178,3 +178,49 @@ table tbody td:first-child {
     width: 100%;
   }
 }
+
+/* dark mode overrides */
+html.dark .prose table,
+html.dark article table,
+html.dark table {
+  border-color: rgba(237, 238, 240, 0.10) !important;
+  background-color: rgba(237, 238, 240, 0.02) !important;
+}
+
+html.dark .prose table thead th,
+html.dark article table thead th,
+html.dark table thead th {
+  background-color: rgba(237, 238, 240, 0.04) !important;
+  border-bottom-color: rgba(237, 238, 240, 0.10) !important;
+}
+
+html.dark .prose table tbody tr,
+html.dark article table tbody tr,
+html.dark table tbody tr {
+  border-bottom-color: rgba(237, 238, 240, 0.08) !important;
+}
+
+html.dark .prose table tbody tr:hover,
+html.dark article table tbody tr:hover,
+html.dark table tbody tr:hover {
+  background-color: rgba(237, 238, 240, 0.04) !important;
+}
+
+/* tinker box border */
+html.dark .tinker-box {
+  border-color: rgba(237, 238, 240, 0.14);
+}
+
+/* pricing calculator button border */
+html.dark {
+  --btn-border: #EDEEF0;
+}
+
+/* warning callout — selector depends on mintlify's yellow-* classes; renames silently break this */
+html.dark .callout[class*="yellow"] {
+  background-color: rgba(237, 238, 240, 0.03) !important;
+  border-color: rgba(237, 238, 240, 0.10) !important;
+}
+html.dark .callout[class*="yellow"] svg {
+  color: #CAB168 !important;
+}

@@ -1,0 +1,48 @@
+---
+title: "Profiles"
+---
+
+Manage browser profiles that persist cookies, local storage, and other browser state across sessions. For background, see [Profiles](/auth/profiles).
+
+## `kernel profiles list`
+List all browser profiles.
+
+| Flag | Description |
+|------|-------------|
+| `--query <text>` | Search profiles by name or ID. |
+| `--page <n>` | Page number, 1-based (default: `1`). |
+| `--per-page <n>` | Items per page (default: `20`). |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+## `kernel profiles get <id-or-name>`
+Get details for a profile by ID or name.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel profiles create`
+Create a new browser profile.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | Optional unique profile name. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+## `kernel profiles download <id-or-name>`
+Download a profile and extract its user-data archive into the directory given by `--to`. The directory is created if it doesn't exist.
+
+| Flag | Description |
+|------|-------------|
+| `--to <dir>` | Directory to extract the profile into. Required. |
+
+```bash
+kernel profiles download my-profile --to ./profile-data
+```
+
+## `kernel profiles delete <id-or-name>`
+Delete a profile by ID or name.
+
+| Flag | Description |
+|------|-------------|
+| `--yes`, `-y` | Skip confirmation prompt. |

@@ -2,13 +2,13 @@
 title: "ISP Proxies"
 ---
 
-ISP (Internet Service Provider) proxies combine the speed of datacenter proxies with better legitimacy, as they use IP addresses assigned by real ISPs.
+ISP (Internet Service Provider) proxies are hosted on datacenter infrastructure but use IP addresses assigned by real residential ISPs. Because the ASN belongs to a residential ISP, target sites see them as residential IPs — while the underlying datacenter hosting gives you the speed and stability you'd expect from a datacenter proxy.
 
 ## IP Rotation Behavior
 
-ISP proxies provide a **stable exit IP within a single browser session** — every tab, request, and reconnection inside that session exits through the same IP, and it does not rotate mid-session (unlike residential).
+ISP proxies provide a **static exit IP that persists across sessions** — every tab, request, reconnection, and future browser session attached to this proxy exits through the same IP. The IP only changes in rare ISP-initiated replacement events.
 
-For cross-session IP stability (e.g. IP allowlists or [managed auth](/auth/overview) health checks), see [IP rotation behavior across proxy types](/proxies/overview).
+This makes ISP proxies suitable for use cases that require a stable IP, such as IP allowlists or [managed auth](/auth/overview) health checks. For comparison with other proxy types, see [IP rotation behavior across proxy types](/proxies/overview).
 
 ## Configuration
 
@@ -41,6 +41,37 @@ proxy = kernel.proxies.create(
 )
 
 browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("my-isp-proxy"),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
 ```
 </CodeGroup>
 
@@ -83,6 +114,35 @@ proxy = kernel.proxies.create(
         "*.amazonaws.com",
     ]
 )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("isp-with-bypass"),
+		BypassHosts: []string{
+			"localhost",
+			"internal.service.local",
+			"*.amazonaws.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
 ```
 </CodeGroup>
 
