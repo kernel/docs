@@ -17,6 +17,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added a `start_url` parameter to browser pool `acquire`, letting each acquired session override the pool's default start URL.
 - Added `--chrome-policy` flags to `browsers create`/`update` and `browser-pools create`/`update` in the [CLI](https://github.com/kernel/cli) for setting Chrome popup, PDF, and homepage behavior from the terminal.
 - Extended `kernel browsers update` in the [CLI](https://github.com/kernel/cli) with `--name` and `--tag` parameters, so a running session's name and tags can be changed after creation alongside the existing `browsers create`/`acquire` flags.
+- Finalized session names and tags in the dashboard: sessions can be renamed and re-tagged after creation, the launch dialog accepts an initial set of tags, and entries on the sessions list are click-to-filter by tag.
 - Added an API key [rotate endpoint](/api-reference/api-keys/rotate-an-api-key) (`POST /org/api_keys/{id}/rotate`) that issues a replacement key, copies the rotated key's name and project scope, and keeps the old key working for a configurable grace period (default 7 days). 
 - Shipped a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth, deterministic MP4 videos from a web scene — used internally for launch and explainer clips.
 
