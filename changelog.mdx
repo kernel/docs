@@ -12,21 +12,20 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="June 26" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua), our open-source computer use agent framework, with an opt-in `playwright_execute` tool for combining computer use with Playwright automation and support for Gemini 3.5 Flash. The companion CLI ([`@onkernel/cua-cli`](https://www.npmjs.com/package/@onkernel/cua-cli)) is now publishable to npm.
-- Extended the [MCP server](https://www.kernel.sh/docs/reference/mcp-server) with app, proxy, and extension management tools, browser pool improvements (fill rate configuration, acquire/release workflow), and MCP tool annotations across all tools for better AI agent discoverability.
-- Added `--chrome-policy` flags to browser and pool commands in the [CLI](https://github.com/kernel/cli) for configuring Chrome settings like popups, PDF behavior, and homepage directly from the terminal.
-- Added `--name` and `--tag` flags to `kernel browsers update` in the [CLI](https://github.com/kernel/cli) for modifying session metadata after creation.
-- Browser pool acquire now accepts a `start_url` parameter, allowing each acquired browser to override the pool's default start URL.
-- Added an API key [rotation endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key) for rotating keys without deleting and recreating them.
-- Simplified TypeScript computer-use templates in the [CLI](https://github.com/kernel/cli) by leveraging the new `@onkernel/cua-agent` package.
-- Added a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth MP4 videos from animated web visualizations.
+- Added an opt-in `playwright_execute` tool to [`@onkernel/cua-agent`](https://github.com/kernel/cua) for combining computer use with Playwright automation, plus support for `gemini-3.5-flash` as a CUA model. The companion CLI [`@onkernel/cua-cli`](https://www.npmjs.com/package/@onkernel/cua-cli) is now published to npm, and the [CLI](https://github.com/kernel/cli)'s TypeScript computer-use templates have been simplified to build on the new package.
+- Extended the [MCP server](https://www.kernel.sh/docs/reference/mcp-server)'s browser pool tool with SDK parity fields (`start_url`, `chrome_policy`, `kiosk_mode`, profile and viewport settings, `fill_rate_per_minute`) and a structured acquire/release workflow. Added parity actions across `manage_apps` (`delete_deployment`, app/deployment search), `manage_proxies` (`get`, `check` with optional `check_url`), `manage_profiles` (`get`, paginated search), and `manage_projects` (`get_limits`, `update_limits`). Tool annotations now cover all tools.
+- Added a `start_url` parameter to browser pool `acquire`, letting each acquired session override the pool's default start URL.
+- Added `--chrome-policy` flags to `browsers create`/`update` and `browser-pools create`/`update` in the [CLI](https://github.com/kernel/cli) for setting Chrome popup, PDF, and homepage behavior from the terminal.
+- Extended `kernel browsers update` in the [CLI](https://github.com/kernel/cli) with `--name` and `--tag` parameters, so a running session's name and tags can be changed after creation alongside the existing `browsers create`/`acquire` flags.
+- Added an API key [rotate endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key) (`POST /org/api_keys/{id}/rotate`) that issues a replacement key, copies the rotated key's name and project scope, and keeps the old key working for a configurable grace period (default 7 days). Exposed in the Node, Python, and Go SDKs.
+- Shipped a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth, deterministic MP4 videos from a web scene — used internally for launch and explainer clips.
 
 ## Documentation updates
 
 - Enabled dark mode on the documentation site behind a theme toggle (default stays light).
-- Added a Common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples.
-- Documented [X-Kernel-Project-Id](/info/projects) resolution rules and direct project and extension lookups.
-- Documented the API key [rotation endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key).
+- Added a Common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples for popup blocking, PDF inline rendering, and homepage overrides.
+- Documented [`X-Kernel-Project-Id`](/info/projects) header resolution rules and direct project and extension lookups on the Projects page.
+- Documented the API key [rotate endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key), including the optional `days_to_expire` and `expire_in_days` parameters.
 </Update>
 
 <Update label="June 12" tags={["Product", "Docs"]}>
