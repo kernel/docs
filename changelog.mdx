@@ -9,6 +9,26 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="June 26" tags={["Product", "Docs"]}>
+## Product updates
+
+- Released [`@onkernel/cua-agent`](https://github.com/kernel/cua), an open-source computer use agent framework with an opt-in `playwright_execute` tool for combining computer use with Playwright automation, support for Gemini 3.5 Flash, and a publishable CLI ([`@onkernel/cua-cli`](https://www.npmjs.com/package/@onkernel/cua-cli)).
+- Extended the [MCP server](https://www.kernel.sh/docs/reference/mcp-server) with app, proxy, and extension management tools, browser pool improvements (fill rate configuration, acquire/release workflow), and MCP tool annotations across all tools for better AI agent discoverability.
+- Added `--chrome-policy` flags to browser and pool commands in the [CLI](https://github.com/kernel/cli) for configuring Chrome settings like popups, PDF behavior, and homepage directly from the terminal.
+- Added `--name` and `--tag` flags to `kernel browsers update` in the [CLI](https://github.com/kernel/cli) for modifying session metadata after creation.
+- Browser pool acquire now accepts a `start_url` parameter, allowing each acquired browser to override the pool's default start URL.
+- Added an API key [rotation endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key) for rotating keys without deleting and recreating them.
+- Simplified TypeScript computer-use templates in the [CLI](https://github.com/kernel/cli) by leveraging the new `@onkernel/cua-agent` package.
+- Added a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth MP4 videos from animated web visualizations.
+
+## Documentation updates
+
+- Enabled dark mode on the documentation site behind a theme toggle (default stays light).
+- Added a Common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples.
+- Documented [X-Kernel-Project-Id](/info/projects) resolution rules and direct project and extension lookups.
+- Documented the API key [rotation endpoint](https://kernel.sh/docs/api-reference/api-keys/rotate-an-api-key).
+</Update>
+
 <Update label="June 12" tags={["Product", "Docs"]}>
 ## Product updates
 
