@@ -461,3 +461,35 @@ func main() {
 ## API reference
 
 For more details on all available endpoints and parameters, see the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools).
+
+## Pool sizing calculator
+
+import { PoolSizingCalculator } from '/snippets/pool-sizing-calculator.jsx';
+
+Use the calculator below to estimate a pool size for your workload. It assumes `reuse: false` on release, so every acquisition ends in destruction and triggers a refill.
+
+<PoolSizingCalculator />
+
+### How the calculation works
+
+The calculator converts tasks per hour into a peak acquisition rate `λ` per minute (`tasks_per_hour / 60`, multiplied by 2× for bursty traffic) and then applies two constraints. The recommended size is the larger of the two.
+
+**Concurrency floor.** With acquisition rate `λ` and an average acquired duration `d` (minutes), the number of browsers held simultaneously trends toward `λ × d`. We multiply by a 1.25× safety factor to keep ~10–20% of the pool available during normal load (see the [pool sizing guidance in the FAQ](/browsers/pools/faq#how-do-i-know-if-my-pool-is-too-small-or-too-large)).
+
+```
+concurrency_floor = ceil(λ × d × 1.25)
+```
+
+**Refill floor.** The [`fill_rate_per_minute`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute) is a percentage of pool size and is capped at 25. With `reuse: false`, browsers are destroyed at the acquisition rate, so the refill rate must keep up:
+
+```
+refill_floor = ceil(100 × λ / fill_rate)
+```
+
+**Recommended pool size.**
+
+```
+N = max(concurrency_floor, refill_floor)
+```
+
+The two constraints meet when average session duration ≈ `80 / fill_rate` minutes — about 3.2 minutes at the default 25% ceiling. Below that, refill sets the floor; above it, concurrency does.
