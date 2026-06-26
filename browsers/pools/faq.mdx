@@ -30,6 +30,10 @@ No. Idle browsers in a pool are pre-loaded with the profile's contents at the ti
 
 To force the pool to pick up new profile contents, either call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`.
 
+### Can pooled browsers save changes back to a profile?
+
+No. A profile attached to a pool is loaded read-only — pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools. Sending `save_changes` on a pool's profile is silently ignored (it is not rejected), so reusing a single-session profile object won't error. To capture profile state, use a single browser session instead: `kernel.browsers.create({ profile: { name, save_changes: true } })`.
+
 ### Should I set `reuse: true` or `reuse: false` when releasing?
 
 Use `reuse: true` (default) for efficiency. Only use `reuse: false` when you suspect browser state corruption or need a guaranteed clean browser session.
