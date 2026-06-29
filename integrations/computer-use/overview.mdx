@@ -1,0 +1,71 @@
+---
+title: "Overview"
+description: "Run screenshot-driven computer use agents on Kernel cloud browsers"
+---
+
+Computer use models are vision-language models (VLMs) that operate a browser the way a person does: they look at a screenshot, decide what to do next, and emit a concrete action—move the mouse, click, type, scroll, or drag. Kernel runs these agents on cloud browsers, so you don't install or maintain anything locally, and gives the model the low-level [Computer Controls API](/browsers/computer-controls) it needs to see the screen and act on it.
+
+## How computer use works on Kernel
+
+Every computer use integration runs the same action-observation loop:
+
+1. **Capture** a screenshot of the current browser state with the [Computer Controls API](/browsers/computer-controls).
+2. **Predict** the next action by sending that screenshot to your model.
+3. **Execute** the returned action—click, type, scroll, drag, or key press—through Computer Controls.
+4. **Repeat** until the task is complete.
+
+Computer Controls emulates native keyboard and mouse input at the OS level—with human-like [Bézier curves](/browsers/computer-controls#move-the-mouse) by default—instead of driving the page over the Chrome DevTools Protocol (CDP). This keeps the loop close to real user input and reduces the automation signals that [bot detection](/browsers/bot-detection/overview) systems look for.
+
+The loop works with any VLM that predicts actions from pixels. The models below are the ones we maintain ready-to-deploy templates and guides for.
+
+## Supported models
+
+<CardGroup cols={2}>
+  <Card title="Anthropic" icon="robot" href="/integrations/computer-use/anthropic">
+    Claude's computer use tool
+  </Card>
+  <Card title="Gemini" icon="google" href="/integrations/computer-use/gemini">
+    Google's Gemini 2.5 Computer Use model
+  </Card>
+  <Card title="OpenAGI" icon="wand-magic-sparkles" href="/integrations/computer-use/openagi">
+    OpenAGI's Lux model
+  </Card>
+  <Card title="OpenAI" icon="circle-nodes" href="/integrations/computer-use/openai">
+    OpenAI's computer-using agent (CUA)
+  </Card>
+  <Card title="Tzafon" icon="bolt" href="/integrations/computer-use/tzafon">
+    Tzafon's Northstar CUA Fast model
+  </Card>
+  <Card title="Yutori" icon="location-arrow" href="/integrations/computer-use/yutori">
+    Yutori's Navigator n1.5 pixels-to-actions model
+  </Card>
+</CardGroup>
+
+Using a model that isn't listed here? Any VLM works—wire its predicted actions straight to the [Computer Controls API](/browsers/computer-controls) and run the same loop.
+
+## Get started
+
+Each model page includes a one-command template so you can deploy a working agent in minutes. For example, to scaffold the Anthropic integration:
+
+```bash
+kernel create --name my-computer-use-app --template computer-use
+```
+
+Pick a model above to get its template, then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to run your agent on Kernel.
+
+## Benefits of using Kernel for computer use
+
+- **No local browser management**: Run computer use automations without installing or maintaining browsers locally
+- **Scalability**: Launch multiple browser sessions in parallel for concurrent AI agents
+- **Stealth mode**: Built-in anti-detection features for reliable web interactions
+- **Session state**: Maintain browser state across runs via [Profiles](/auth/profiles)
+- **Live view**: Debug your agents with real-time browser viewing
+- **Cloud infrastructure**: Run computationally intensive AI agents without local resource constraints
+
+## Next steps
+
+- Read the [Computer Controls API](/browsers/computer-controls) reference for the full set of mouse, keyboard, and screenshot actions
+- Check out [live view](/browsers/live-view) for debugging your automations
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
+- Learn how to properly [terminate browser sessions](/browsers/termination)
+- Learn how to [deploy](/apps/deploy) your computer use app to Kernel
