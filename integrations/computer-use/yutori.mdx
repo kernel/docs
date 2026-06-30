@@ -18,6 +18,29 @@ Choose `TypeScript` or `Python` as the programming language.
 
 Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to deploy and run your Yutori automation on Kernel's infrastructure.
 
+## Build your own agent
+
+For full control over the loop, drive Navigator n1.5 from TypeScript with [`@onkernel/cua-agent`](/integrations/computer-use/overview#build-your-own-agent):
+
+```ts
+import Kernel from "@onkernel/sdk";
+import { CuaAgent } from "@onkernel/cua-agent";
+
+const client = new Kernel({ apiKey: process.env.KERNEL_API_KEY! });
+const browser = await client.browsers.create({ stealth: true });
+
+const agent = new CuaAgent({
+  browser,
+  client,
+  initialState: {
+    model: "yutori:n1.5-latest",
+    systemPrompt: "You are a careful browser automation agent.",
+  },
+});
+
+await agent.prompt("Open news.ycombinator.com and summarize the top story.");
+```
+
 ## Benefits of using Kernel with Yutori n1.5
 
 - **No local browser management**: Run n1.5 automations without installing or maintaining browsers locally

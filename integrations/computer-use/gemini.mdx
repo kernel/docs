@@ -2,7 +2,7 @@
 title: "Gemini"
 ---
 
-[Gemini 2.5 Computer Use](https://blog.google/technology/google-deepmind/gemini-computer-use-model/) is Google's groundbreaking capability that enables AI models to interact with computers the way humans do—by looking at screens, moving cursors, clicking buttons, and typing text. This powerful feature allows AI agents to control web browsers, navigate interfaces, and perform complex tasks across applications.
+[Gemini 2.5 Computer Use](https://blog.google/technology/google-deepmind/gemini-computer-use-model/) is Google's groundbreaking capability that enables AI models to interact with computers the way humans do by looking at screens, moving cursors, clicking buttons, and typing text. This powerful feature allows AI agents to control web browsers, navigate interfaces, and perform complex tasks across applications.
 
 By integrating Gemini 2.5 Computer Use with Kernel, you can run these AI-powered browser automations on cloud-hosted infrastructure, eliminating the need for local browser management and enabling scalable, reliable AI agents.
 
@@ -15,6 +15,29 @@ kernel create --name my-computer-use-app --language typescript --template gemini
 ```
 
 Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to deploy and run your Computer Use automation on Kernel's infrastructure.
+
+## Build your own agent
+
+For full control over the loop, drive Gemini from TypeScript with [`@onkernel/cua-agent`](/integrations/computer-use/overview#build-your-own-agent):
+
+```ts
+import Kernel from "@onkernel/sdk";
+import { CuaAgent } from "@onkernel/cua-agent";
+
+const client = new Kernel({ apiKey: process.env.KERNEL_API_KEY! });
+const browser = await client.browsers.create({ stealth: true });
+
+const agent = new CuaAgent({
+  browser,
+  client,
+  initialState: {
+    model: "google:gemini-3-flash-preview",
+    systemPrompt: "You are a careful browser automation agent.",
+  },
+});
+
+await agent.prompt("Open news.ycombinator.com and summarize the top story.");
+```
 
 ## Benefits of using Kernel with Computer Use
 
