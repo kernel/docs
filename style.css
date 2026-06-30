@@ -28,10 +28,29 @@ kbd {
   --btn-selected-bg: #CAB168;
   --btn-border: #000;
 }
-/* style sidebar titles */
-#navigation-items .sidebar-group-header #sidebar-title{
-  font-weight: bold;
-  font-size: 15px;
+/* sidebar section headings — recede to a quiet "eyebrow" so they read as
+   structure, distinct from the clickable page links below them. mintlify
+   renders the group title as .sidebar-group-header (the old #sidebar-title id
+   no longer exists), and the inner h3 inherits font/size/color from it. */
+#navigation-items .sidebar-group-header {
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.09em;
+  color: #60646c !important;
+}
+html.dark #navigation-items .sidebar-group-header {
+  color: rgba(237, 238, 240, 0.55) !important;
+}
+
+/* divider + breathing room above each section after the first (non-first
+   sections are wrapped by mintlify in a margin-top div) */
+#navigation-items div[class*="mt-"] > .sidebar-group-header {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(33, 34, 37, 0.1);
+}
+html.dark #navigation-items div[class*="mt-"] > .sidebar-group-header {
+  border-top-color: rgba(237, 238, 240, 0.1);
 }
 
 /* move nested nav arrows to the right */
