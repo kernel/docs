@@ -3,7 +3,7 @@ title: "Overview"
 description: "Run computer use agents on Kernel cloud browsers"
 ---
 
-Computer use models are vision-language models (VLMs) that operate a browser the way a person does: they look at a screenshot, decide what to do next, and emit a concrete action—move the mouse, click, type, scroll, or drag. Kernel runs these agents on cloud browsers, so you don't install or maintain anything locally, and gives the model the low-level [Computer Controls API](/browsers/computer-controls#take-screenshots) it needs to see the screen and act on it.
+Computer use models are vision-language models (VLMs) that operate a browser the way a person does: they look at a screenshot, decide what to do next, and emit a concrete action: move the mouse, click, type, scroll, or drag. Kernel runs these agents on cloud browsers, so you don't install or maintain anything locally, and gives the model the low-level [Computer Controls API](/browsers/computer-controls#take-screenshots) it needs to see the screen and act on it.
 
 ## How computer use works on Kernel
 
@@ -11,10 +11,10 @@ Every computer use integration runs the same action-observation loop:
 
 1. **Capture** a screenshot of the current browser state with the [Computer Controls API](/browsers/computer-controls).
 2. **Predict** the next action by sending that screenshot to your model.
-3. **Execute** the returned action—click, type, scroll, drag, or key press—through Computer Controls.
+3. **Execute** the returned action (click, type, scroll, drag, or key press) through Computer Controls.
 4. **Repeat** until the task is complete.
 
-Computer Controls emulates native keyboard and mouse input at the OS level—with human-like [Bézier curves](/browsers/computer-controls#move-the-mouse) by default—instead of driving the page over the Chrome DevTools Protocol (CDP). This keeps the loop close to real user input and reduces the automation signals that [bot detection](/browsers/bot-detection/overview) systems look for.
+Computer Controls emulates native keyboard and mouse input at the OS level (with human-like [Bézier curves](/browsers/computer-controls#move-the-mouse) by default) instead of driving the page over the Chrome DevTools Protocol (CDP). This keeps the loop close to real user input and reduces the automation signals that [bot detection](/browsers/bot-detection/overview) systems look for.
 
 The loop works with any VLM that predicts actions from pixels. The models below are the ones we maintain ready-to-deploy templates and guides for.
 
@@ -41,7 +41,7 @@ The loop works with any VLM that predicts actions from pixels. The models below 
   </Card>
 </CardGroup>
 
-Using a model that isn't listed here? Any VLM works—wire its predicted actions straight to the [Computer Controls API](/browsers/computer-controls) and run the same loop.
+Using a model that isn't listed here? Any VLM works; wire its predicted actions straight to the [Computer Controls API](/browsers/computer-controls) and run the same loop.
 
 ## Get started
 
