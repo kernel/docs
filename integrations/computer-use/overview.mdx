@@ -53,6 +53,45 @@ kernel create --name my-computer-use-app --template computer-use
 
 Pick a model above to get its template, then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to run your agent on Kernel.
 
+## Build your own agent
+
+For full control over the loop, [`@onkernel/cua-agent`](https://github.com/kernel/cua/tree/main/packages/agent) is a TypeScript library that runs it against a Kernel browser for you. You point it at a model, give it a task, and it handles the screenshots, actions, and follow-up turns.
+
+```bash
+npm install @onkernel/cua-agent @onkernel/cua-ai @onkernel/sdk
+```
+
+```ts
+import Kernel from "@onkernel/sdk";
+import { CuaAgent } from "@onkernel/cua-agent";
+
+const client = new Kernel({ apiKey: process.env.KERNEL_API_KEY! });
+const browser = await client.browsers.create({ stealth: true });
+
+const agent = new CuaAgent({
+  browser,
+  client,
+  initialState: {
+    model: "anthropic:claude-opus-4-7", // swap to target another provider
+    systemPrompt: "You are a careful browser automation agent.",
+  },
+});
+
+await agent.prompt("Open news.ycombinator.com and summarize the top story.");
+```
+
+Switch providers by changing the `model` ref:
+
+| Provider | Model ref |
+| --- | --- |
+| Anthropic | `anthropic:claude-opus-4-7` |
+| OpenAI | `openai:gpt-5.5` |
+| Gemini | `google:gemini-3-flash-preview` |
+| Tzafon | `tzafon:tzafon.northstar-cua-fast` |
+| Yutori | `yutori:n1.5-latest` |
+
+Set the matching provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `TZAFON_API_KEY`, or `YUTORI_API_KEY`) alongside `KERNEL_API_KEY`.
+
 ## Benefits of using Kernel for computer use
 
 - **No local browser management**: Run computer use automations without installing or maintaining browsers locally
