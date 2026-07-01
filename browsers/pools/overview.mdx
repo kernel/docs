@@ -236,6 +236,10 @@ The `size` parameter is always required when updating a pool, even if you only w
 
 By default, updating a pool discards all idle browsers and rebuilds them with the new configuration. Set `discard_all_idle: false` to keep existing idle browsers and only apply the new configuration to newly created browsers.
 
+<Note>
+Updating a pool only affects idle browsers. Browsers that are acquired when you call `update()` keep the configuration they were created with — releasing them with `reuse: true` returns them to the pool still on the old config. To avoid stale browsers, release with `reuse: false`, or wait for them to be destroyed via `timeout_seconds` and refilled with the new config.
+</Note>
+
 ## Flush idle browsers
 
 Destroy all idle browsers in the pool. Acquired browsers are not affected. The pool will automatically refill with the pool's specified configuration.

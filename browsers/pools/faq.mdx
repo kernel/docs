@@ -30,6 +30,12 @@ No. Idle browsers in a pool are pre-loaded with the profile's contents at the ti
 
 To force the pool to pick up new profile contents, either call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`.
 
+### If I update a pool's config while browsers are acquired, do they get the new config when released?
+
+No. Config updates only apply to idle browsers — all of them by default, or just newly-created ones if you pass `discard_all_idle: false`. A browser that's acquired when you call `update()` keeps the config it was created with. Releasing it with `reuse: true` (the default) returns it to the pool still on the old config, so the pool can hold a mix of old- and new-config browsers until the acquired ones cycle out.
+
+To avoid stale browsers, release with `reuse: false` to destroy and rebuild on release, or wait for the acquired browsers to be destroyed via `timeout_seconds` (the pool refills with the new config automatically).
+
 ### Can pooled browsers save changes back to a profile?
 
 No. A profile attached to a pool is loaded read-only — pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools. Sending `save_changes` on a pool's profile is silently ignored (it is not rejected), so reusing a single-session profile object won't error. To capture profile state, use a single browser session instead: `kernel.browsers.create({ profile: { name, save_changes: true } })`.
