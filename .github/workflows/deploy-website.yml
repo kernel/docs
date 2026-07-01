@@ -1,0 +1,21 @@
+name: Redeploy Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - changelog.mdx
+
+jobs:
+  deploy-hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.WEBSITE_VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "WEBSITE_VERCEL_DEPLOY_HOOK secret is not set; skipping."
+            exit 1
+          fi
+          curl -fsS -X POST "$DEPLOY_HOOK_URL"
