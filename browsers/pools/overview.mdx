@@ -200,7 +200,7 @@ if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseP
 
 ## Update a pool
 
-Update the pool configuration. By default, all idle browsers are discarded and rebuilt with the new configuration.
+Update the pool configuration. By default, existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -234,10 +234,10 @@ _ = updatedPool
 The `size` parameter is always required when updating a pool, even if you only want to change other settings.
 </Info>
 
-By default, updating a pool discards all idle browsers and rebuilds them with the new configuration. Set `discard_all_idle: false` to keep existing idle browsers and only apply the new configuration to newly created browsers.
+By default (`discard_all_idle: false`), updating a pool leaves existing idle browsers untouched — they keep their original configuration, and only browsers created after the update use the new configuration. Set `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
 
 <Warning>
-Reused browsers keep the configuration they were created with. A pool update only rebuilds the browsers that are idle at the time of the update (the default `discard_all_idle: true` behavior). A browser that's acquired during an update keeps its original configuration, and if you then release it with `reuse: true` (the default) it re-enters the pool still carrying that stale configuration and keeps getting handed out that way.
+Reused browsers keep the configuration they were created with. A plain `update()` rebuilds nothing that already exists — it only changes the config used for future browsers. To rebuild the idle browsers too, pass `discard_all_idle: true` (or call [`flush()`](#flush-idle-browsers)). Either way, browsers that are acquired during an update are never touched: an in-use browser keeps its original configuration, and if you then release it with `reuse: true` (the default) it re-enters the pool still carrying that stale configuration and keeps getting handed out that way.
 
 You have three ways to get an in-use browser onto the new configuration:
 
