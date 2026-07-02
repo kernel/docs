@@ -9,6 +9,24 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="July 3" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added `kernel extensions get <id-or-name>` to the [CLI](https://github.com/kernel/cli) for extension metadata lookups, with table or JSON output.
+- Added `kernel browsers telemetry events <id>` to the [CLI](https://github.com/kernel/cli) for paginated historical telemetry reads, and a `--replay=all` flag on `browsers telemetry stream` to replay from the oldest retained event.
+- Browser pools dropped the `--save-changes` flag on `browser-pools create`/`update` in favor of simplified id/name-only pool profiles; single-session `browsers create --save-changes` is unaffected.
+- Added support for the `claude-sonnet-5` model to [`@onkernel/cua-ai`](https://github.com/kernel/cua).
+- Threaded `previous_response_id` through the Tzafon and OpenAI computer-use providers in [`@onkernel/cua-ai`](https://github.com/kernel/cua), so multi-turn runs send only the latest screenshot delta instead of replaying the full history each turn.
+- Rebuilt the dashboard managed-auth connection detail page around an overview/history/config tab layout, with a pinned stats row and a full event timeline (logins, re-auths, health checks) filterable by type.
+- Added mobile proxy creation to the dashboard, with country, state, and city targeting.
+- Added tablet (`768x1024`) and mobile (`390x844`) viewport presets to the dashboard pool create/edit dialogs.
+
+## Documentation updates
+
+- Added a [Computer Use overview page](/integrations/computer-use/overview) covering the shared screenshot-predict-execute loop and a guide for building custom agents with `@onkernel/cua-agent`.
+- Clarified that browsers released back into a pool with the default `reuse: true` keep their original configuration, and that `browserPools.update()` only rebuilds idle browsers when `discard_all_idle: true` is passed.
+</Update>
+
 <Update label="June 26" tags={["Product", "Docs"]}>
 ## Product updates
 
