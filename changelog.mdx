@@ -12,18 +12,18 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="July 3" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Added `kernel extensions get <id-or-name>` to the [CLI](https://github.com/kernel/cli) for extension metadata lookups, with table or JSON output.
-- Added `kernel browsers telemetry events <id>` to the [CLI](https://github.com/kernel/cli) for paginated historical telemetry reads, and a `--replay=all` flag on `browsers telemetry stream` to replay from the oldest retained event.
-- Browser pools dropped the `--save-changes` flag on `browser-pools create`/`update` in favor of simplified id/name-only pool profiles; single-session `browsers create --save-changes` is unaffected.
-- Added support for the `claude-sonnet-5` model to [`@onkernel/cua-ai`](https://github.com/kernel/cua).
+- Shipped `kernel extensions get <id-or-name>` in the [CLI](https://github.com/kernel/cli) for extension metadata lookups, with table or JSON output.
+- Extended CLI browser telemetry with `kernel browsers telemetry events <id>` for paginated historical reads and a `--replay=all` flag on `browsers telemetry stream` to replay from the oldest retained event.
+- Simplified browser pool profiles to id/name-only, dropping the `--save-changes` flag on `browser-pools create`/`update`; single-session `browsers create --save-changes` is unaffected.
+- Extended [`@onkernel/cua-ai`](https://github.com/kernel/cua) with computer-use support for the `claude-sonnet-5` model.
 - Threaded `previous_response_id` through the Tzafon and OpenAI computer-use providers in [`@onkernel/cua-ai`](https://github.com/kernel/cua), so multi-turn runs send only the latest screenshot delta instead of replaying the full history each turn.
 - Rebuilt the dashboard managed-auth connection detail page around an overview/history/config tab layout, with a pinned stats row and a full event timeline (logins, re-auths, health checks) filterable by type.
-- Added mobile proxy creation to the dashboard, with country, state, and city targeting.
-- Added tablet (`768x1024`) and mobile (`390x844`) viewport presets to the dashboard pool create/edit dialogs.
+- Brought mobile proxy creation into the dashboard, with country, state, and city targeting.
+- Expanded the dashboard pool create/edit dialogs with tablet (`768x1024`) and mobile (`390x844`) viewport presets.
 
 ## Documentation updates
 
-- Added a [Computer Use overview page](/integrations/computer-use/overview) covering the shared screenshot-predict-execute loop and a guide for building custom agents with `@onkernel/cua-agent`.
+- Published a [Computer Use overview page](/integrations/computer-use/overview) covering the shared screenshot-predict-execute loop and a guide for building custom agents with `@onkernel/cua-agent`.
 - Clarified that browsers released back into a pool with the default `reuse: true` keep their original configuration, and that `browserPools.update()` only rebuilds idle browsers when `discard_all_idle: true` is passed.
 </Update>
 
