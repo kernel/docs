@@ -196,6 +196,30 @@ func main() {
 ```
 </CodeGroup>
 
+## Check proxy health
+
+Before attaching a proxy to a browser session, run a health check to verify credentials and connectivity. Pass an optional `url` to test reachability against a specific target instead of Kernel's default test URLs.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.proxies.check(proxy.id, { url: 'https://example.com' });
+```
+
+```python Python
+kernel.proxies.check(id=proxy.id, url="https://example.com")
+```
+
+```go Go
+client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
+    URL: kernel.String("https://example.com"),
+})
+```
+</CodeGroup>
+
+<Info>
+For ISP and datacenter proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
+</Info>
+
 ## Bypass hosts
 
 Configure specific hostnames to bypass the proxy and connect directly. This is useful for accessing internal services, metadata endpoints, or reducing latency for trusted domains.
