@@ -198,59 +198,26 @@ func main() {
 
 ## Check proxy health
 
-Before attaching a proxy to a browser session, run a health check to verify credentials and connectivity. This is especially useful right after creation, after rotating credentials, or when a session against the proxy starts failing. Pass an optional `url` to test reachability against a specific target instead of Kernel's default test URLs.
+Before attaching a proxy to a browser session, run a health check to verify credentials and connectivity. Pass an optional `url` to test reachability against a specific target instead of Kernel's default test URLs.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
-
-const kernel = new Kernel();
-
-const result = await kernel.proxies.check(proxy.id, {
-  url: 'https://example.com',
-});
-console.log(result.last_checked_at, result.ip_address);
+await kernel.proxies.check(proxy.id, { url: 'https://example.com' });
 ```
 
 ```python Python
-from kernel import Kernel
-
-kernel = Kernel()
-
-result = kernel.proxies.check(
-    id=proxy.id,
-    url="https://example.com",
-)
-print(result.last_checked_at, result.ip_address)
+kernel.proxies.check(id=proxy.id, url="https://example.com")
 ```
 
 ```go Go
-package main
-
-import (
-	"context"
-	"fmt"
-
-	"github.com/kernel/kernel-go-sdk"
-)
-
-func main() {
-	ctx := context.Background()
-	client := kernel.NewClient()
-
-	result, err := client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
-		URL: kernel.String("https://example.com"),
-	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(result.LastCheckedAt, result.IPAddress)
-}
+client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
+    URL: kernel.String("https://example.com"),
+})
 ```
 </CodeGroup>
 
 <Info>
-For ISP and datacenter proxies, the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent browser sessions will reach the same target from the same IP. For residential and mobile proxies, the exit node changes between requests, so the check validates credentials and connectivity but does not guarantee that a later session will use the same exit IP. When `url` is provided, the result does not update the proxy's stored health status, since a failure may indicate a problem with the target site rather than the proxy itself.
+For ISP and datacenter proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
 </Info>
 
 ## Bypass hosts
