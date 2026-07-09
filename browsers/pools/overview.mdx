@@ -125,6 +125,8 @@ Pools can be pre-configured with options like start url, custom extensions, supp
 
 A profile attached to a pool is loaded read-only: pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools (it is silently ignored if sent). To capture profile state, use a single browser session with `save_changes` instead — see [Profiles](/auth/profiles).
 
+When a pool has a profile attached, you can optionally enable `refresh_on_profile_update` to automatically flush idle browsers whenever the profile's contents are updated — so the pool always picks up the latest profile data. See [Refresh on profile update](#refresh-on-profile-update) below.
+
 ## Acquire a browser
 
 Acquire a browser from the pool. The request returns immediately if a browser is available, or waits until one becomes available. The `acquire_timeout_seconds` parameter controls how long to wait; it defaults to the calculated time it would take to fill the pool at the pool's configured [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
@@ -235,6 +237,20 @@ The `size` parameter is always required when updating a pool, even if you only w
 </Info>
 
 By default (`discard_all_idle: false`), updating a pool leaves existing idle browsers untouched — they keep their original configuration, and only browsers created after the update use the new configuration. Set `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
+
+## Refresh on profile update
+
+When a pool is configured with a [profile](/auth/profiles), the profile data is loaded into each browser when it's created. Normally, updating the profile's contents (for example, re-saving cookies or auth state to the same profile) does not propagate to already-warmed browsers — only newly-filled browsers use the updated profile.
+
+Set `refresh_on_profile_update: true` when creating or updating a pool to have the pool automatically flush its idle browsers whenever the profile is updated. This ensures that acquired browsers always get the latest profile data without manual intervention.
+
+<Info>
+`refresh_on_profile_update` requires a profile to be set on the pool. Setting it on a pool without a profile returns a validation error.
+</Info>
+
+### How it works
+
+When a profile is saved (for example, after a successful [Managed Auth](/auth/overview) login or a `save_changes` browser session), Kernel checks whether any browser pools use that profile with `refresh_on_profile_update` enabled. If so, all idle browsers in each matching pool are flushed — they are replaced with fresh browsers that load the updated profile. Acquired browsers are not affected; they continue running with the profile data they were created with.
 
 <Warning>
 Reused browsers keep the configuration they were created with. A plain `update()` rebuilds nothing that already exists — it only changes the config used for future browsers. To rebuild the idle browsers too, pass `discard_all_idle: true` (or call [`flush()`](#flush-idle-browsers)). Either way, browsers that are acquired during an update are never touched: an in-use browser keeps its original configuration, and if you then release it with `reuse: true` (the default) it re-enters the pool still carrying that stale configuration and keeps getting handed out that way.
