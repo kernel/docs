@@ -14,23 +14,17 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 - Consolidated on-demand and browser-pool concurrency into a single unified [concurrency limit](/info/projects) that counts `browsers.create()` sessions and pool reservations against one org cap. `max_pooled_sessions` is deprecated; `max_concurrent_sessions` now covers both. Rolling out gradually.
 - Shipped `kernel audit-logs search` in the [CLI](https://github.com/kernel/cli) for querying the org audit log by time window, HTTP method, service, auth strategy, and user, with table or JSON output. `GET` requests are excluded by default to keep the signal on mutations.
-- Extended `kernel browsers telemetry events` in the [CLI](https://github.com/kernel/cli) with per-category, per-type, and session-token filter flags plus paged reads across the full retained archive.
-- Added a `refresh_on_profile_update` flag to [browser pools](/browsers/pools) (SDK, [CLI](https://github.com/kernel/cli) `--refresh-on-profile-update`, and dashboard). Opted-in pools automatically flush their idle browsers when the pool's managed-auth profile re-authenticates, so pooled sessions stay logged in instead of serving stale cookies after a re-auth.
+- Added a `refresh_on_profile_update` flag to [browser pools](/browsers/pools) (SDK, [CLI](https://github.com/kernel/cli) `--refresh-on-profile-update`, and dashboard). Opted-in pools automatically flush their idle browsers when the pool's managed-auth profile re-authenticates, so pooled sessions stay logged in after a re-auth.
 - Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua) with action-plane modes — `computer`, `browser`, and `hybrid` — plus `setMode()` and a `/mode` runtime switcher, and wired in support for Anthropic's shipped native `computer_20260701` and `browser_20260701` tools.
-- Telemetry requests on `browsers.create` now merge onto the operational default set (`control`, `connection`, `system`, `captcha`) instead of replacing it, so opting into a rich category like `page` no longer silently drops the defaults. Create and update resolve identical payloads identically.
-- Browser telemetry `page_error` events now include the exception message text (not just the type), so debugging session errors no longer requires opening the replay.
-- Fixed browser telemetry `interaction_click` / `interaction_key` / `interaction_scroll_settled` events not firing when the `interaction` category was enabled mid-session or against an already-loaded page, and stopped dropping keystrokes during fast or automated typing.
 - Exposed `profile_id` and `extension_ids` on browser pool reads, and returned an SHA-256 checksum for uploaded extensions.
 - Added the ability to inspect credential value keys and remove specific values on managed-auth credential updates.
 - `DELETE /org/api_keys/{id}` now returns `400 cannot_delete_current_key` when the target key is the one authenticating the request, so scripts and Terraform-style provisioners can't brick their own credentials mid-run.
 
 ## Documentation updates
 
-- Documented the unified [concurrency limit](/info/projects) semantics and marked `max_pooled_sessions` deprecated across pricing, projects, and the CLI reference.
+- Documented the unified [concurrency limit](/info/projects) and marked `max_pooled_sessions` deprecated across pricing, projects, and the CLI reference.
 - Documented the new [`refresh_on_profile_update`](/browsers/pools) browser pool flag.
 - Added a proxy [health check](/proxies/overview) reference to the proxies overview.
-- Added a [Google Analytics 4](/integrations/ga4) integration guide.
-- Made the [1Password](/integrations/1password) linked-item example generic across item types and documented the current SSO/identity flow limitation.
 </Update>
 
 <Update label="July 3" tags={["Product", "Docs"]}>
