@@ -32,9 +32,12 @@ You have three ways to get it onto the new configuration: release it with `reuse
 
 ### If I update a profile's contents, will my pool's idle browsers pick up the change?
 
-No. Idle browsers in a pool are pre-loaded with the profile's contents at the time they were filled. Updating the profile (for example, re-saving auth state to the same `profile_id`) does not propagate to already-warmed browsers — only newly-filled browsers will use the updated profile.
+Not by default. Idle browsers in a pool are pre-loaded with the profile's contents at the time they were filled. Updating the profile (for example, re-saving auth state to the same `profile_id`) does not propagate to already-warmed browsers — only newly-filled browsers will use the updated profile.
 
-To force the pool to pick up new profile contents, either call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`.
+To force the pool to pick up new profile contents, you have two options:
+
+- **Automatic**: Enable `refresh_on_profile_update` on the pool (see [Refresh on profile update](/browsers/pools/overview#refresh-on-profile-update)). When the profile is saved, the pool automatically flushes idle browsers so they are replaced with fresh ones using the updated profile.
+- **Manual**: Call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`.
 
 ### Can pooled browsers save changes back to a profile?
 
