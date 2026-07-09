@@ -1,9 +1,11 @@
 ---
 title: "Overview"
-description: "Pre-configure pools of reserved browsers for immediate acquisition"
+description: "Pre-configure pools of reserved browsers"
 ---
 
-Browser pools let you maintain a set of reserved, identical browsers ready for immediate use. Use them to set your preferred browser configuration in advance, allowing you to minimize browser start-up latency and scale your workloads in production.
+Browser pools let you maintain a set of reserved, identical browsers ready for immediate use. Use them to set your preferred browser configuration in advance (such as stealth, proxies, extensions, and profiles), allowing you to minimize browser start-up latency and scale your workloads in production. 
+
+Acquiring a browser from a pool is faster than creating a browser directly. Reserved browsers and on-demand browsers share the same concurrency limit, and reserved browsers aren't billed until they're used. See [Scale](/introduction/scale) for how pools fit into best practices for production architecture.
 
 ## How browser pools work
 
@@ -27,7 +29,7 @@ Browser pools are a way to pre-configure a fixed set of browsers without being c
     </Info>
   </Step>
   <Step title="Release a browser">
-    When you're done with a browser, release it back to the pool. this step is important; otherwise, the browser will continue to be in an `acquired` state until it times out.
+    When you're done with a browser, release it back to the pool. This step is important; otherwise, the browser will continue to be in an `acquired` state until it times out.
     
     <Info>
     Failing to release browsers may result in unexpected latency when acquiring future browsers.
