@@ -127,7 +127,7 @@ Pools can be pre-configured with options like start url, custom extensions, supp
 
 A profile attached to a pool is loaded read-only: pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools (it is silently ignored if sent). To capture profile state, use a single browser session with `save_changes` instead — see [Profiles](/auth/profiles).
 
-When a pool has a profile attached, you can optionally enable `refresh_on_profile_update` to automatically flush idle browsers whenever the profile's contents are updated — so the pool always picks up the latest profile data. See [Refresh on profile update](#refresh-on-profile-update) below.
+When a pool has a profile attached, `refresh_on_profile_update` is automatically enabled — the pool flushes idle browsers whenever the profile's contents are updated, so it always picks up the latest profile data. See [Refresh on profile update](#refresh-on-profile-update) below.
 
 ## Acquire a browser
 
@@ -244,10 +244,12 @@ By default (`discard_all_idle: false`), updating a pool leaves existing idle bro
 
 When a pool is configured with a [profile](/auth/profiles), the profile data is loaded into each browser when it's created. Normally, updating the profile's contents (for example, re-saving cookies or auth state to the same profile) does not propagate to already-warmed browsers — only newly-filled browsers use the updated profile.
 
-Set `refresh_on_profile_update: true` when creating or updating a pool to have the pool automatically flush its idle browsers whenever the profile is updated. This ensures that acquired browsers always get the latest profile data without manual intervention.
+`refresh_on_profile_update` is automatically set to `true` when a pool is created with a profile, or when an existing pool's profile is changed. This ensures that acquired browsers always get the latest profile data without manual intervention. You can explicitly set it to `false` to opt out.
+
+When a pool's profile is removed (by passing `{ "id": "" }`), `refresh_on_profile_update` is forced to `false`.
 
 <Info>
-`refresh_on_profile_update` requires a profile to be set on the pool. Setting it on a pool without a profile returns a validation error.
+`refresh_on_profile_update` requires a profile to be set on the pool. Setting it explicitly to `true` on a pool without a profile returns a validation error. When created without a profile, it defaults to `false`.
 </Info>
 
 ### How it works
