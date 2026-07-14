@@ -58,5 +58,7 @@ Captured events are persisted and can be replayed by [resuming the stream](/brow
 Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text). Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
 
 <Warning>
-If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured.
+
+If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
