@@ -59,10 +59,10 @@ Some exposure is reduced for you automatically: input into sensitive fields such
 
 ### Restrictions for organizations with a BAA
 
-If your organization has signed a business associate agreement (BAA) with Kernel, the `network`, `console`, and `screenshot` categories are blocked and can't be captured. These are the categories most likely to record protected health information (PHI): full request and response data, arbitrary page logs, and rendered images of the screen.
+If your organization has signed a business associate agreement (BAA) with Kernel - the contract required to handle data under HIPAA - the `network`, `console`, and `screenshot` categories are blocked and can't be captured. These are the categories most likely to record protected health information (PHI): full request and response data, anything the page logs, and rendered images of the screen.
 
 The restriction is enforced when you create a session (`POST /browsers`) or update one (`PATCH /browsers/{id}`). Enabling any blocked category returns a `400` response with the code `telemetry_category_restricted`, and the session's telemetry config is left unchanged. The remaining browser-activity categories (`page` and `interaction`) and all operational categories stay available.
 
 <Warning>
-If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. `page` and `interaction` remain available under a BAA but can still carry identifiers or personal data - enable them only when you need them. If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. `page` and `interaction` stay available under a BAA but can still carry personal data. If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
