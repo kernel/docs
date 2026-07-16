@@ -8,11 +8,29 @@ Audit logs record authenticated API requests for your organization. Use them to 
 Choose the workflow that matches the amount of data you need:
 
 | Workflow | Best for | Output |
-|---|---|---|
+|----------|----------|--------|
 | Search | Interactive investigation and recent activity | A table, JSON array, or paginated SDK results |
 | Export | Archival, compliance, and offline analysis | JSON Lines (`.jsonl`) or gzip-compressed JSON Lines (`.jsonl.gz`) |
 
 Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
+
+## Before you start
+
+- Audit logs cover your entire organization, not a single project.
+- Set `KERNEL_API_KEY` before running the examples. Any credential that authenticates to your organization can read its audit logs.
+
+## Filter audit logs
+
+The API and SDKs use the same filters for search and export:
+
+- `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
+- `service` filters by the service that emitted the audit event.
+- `method` includes one HTTP method.
+- `exclude_method` excludes one or more HTTP methods, with up to 10 values.
+- `search` matches path, user ID, email, client IP, and status.
+- `search_user_id` adds up to 100 user IDs to the free-text search.
+
+The CLI exposes the same filters as flags. See the [audit log CLI reference](/reference/cli/audit-logs) for the full list.
 
 ## Search with the CLI
 
@@ -110,84 +128,9 @@ func main() {
 ```
 </CodeGroup>
 
-## Filter audit logs
+## Search with HTTP
 
-The API and SDKs use the same filters for search and export:
-
-- `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
-- `service` filters by the service that emitted the audit event.
-- `method` includes one HTTP method.
-- `exclude_method` excludes one or more HTTP methods, with up to 10 values.
-- `search` matches path, user ID, email, client IP, and status.
-- `search_user_id` adds up to 100 user IDs to the free-text search.
-
-<CodeGroup>
-```typescript TypeScript
-const logs = kernel.auditLogs.list({
-  start: '2026-06-01T00:00:00Z',
-  end: '2026-06-08T00:00:00Z',
-  limit: 50,
-  auth_strategy: 'api_key',
-  exclude_method: ['GET'],
-  search: '/browsers',
-});
-
-for await (const event of logs) {
-  console.log(event.email, event.client_ip, event.user_agent);
-}
-```
-
-```python Python
-logs = client.audit_logs.list(
-    start="2026-06-01T00:00:00Z",
-    end="2026-06-08T00:00:00Z",
-    limit=50,
-    auth_strategy="api_key",
-    exclude_method=["GET"],
-    search="/browsers",
-)
-
-for event in logs:
-    print(event.email, event.client_ip, event.user_agent)
-```
-
-```go Go
-package main
-
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/kernel/kernel-go-sdk"
-)
-
-func main() {
-	ctx := context.Background()
-	client := kernel.NewClient()
-
-	pager := client.AuditLogs.ListAutoPaging(ctx, kernel.AuditLogListParams{
-		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
-		End:           time.Date(2026, time.June, 8, 0, 0, 0, 0, time.UTC),
-		Limit:         kernel.Int(50),
-		AuthStrategy:  kernel.String("api_key"),
-		ExcludeMethod: []string{"GET"},
-		Search:        kernel.String("/browsers"),
-	})
-	for pager.Next() {
-		event := pager.Current()
-		fmt.Println(event.Email, event.ClientIP, event.UserAgent)
-	}
-	if err := pager.Err(); err != nil {
-		panic(err)
-	}
-}
-```
-</CodeGroup>
-
-## Page with HTTP
-
-The REST API returns pagination state in these response headers:
+Search over raw HTTP with a `GET` request. The response carries pagination state in these headers:
 
 - `X-Limit` is the page size applied to the request.
 - `X-Has-More` indicates whether older records remain.
@@ -211,14 +154,16 @@ curl --include --get https://api.onkernel.com/audit-logs \
   --data-urlencode "start=2026-06-01T00:00:00Z" \
   --data-urlencode "end=2026-06-02T00:00:00Z" \
   --data-urlencode "limit=100" \
-  --data-urlencode "page_token=$NEXT_PAGE_TOKEN"
+  --data-urlencode "page_token=<value from X-Next-Page-Token>"
 ```
 
 Page tokens are opaque. Don't decode, construct, or modify them.
 
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the complete search contract and response schema.
+
 ## Download an export with the CLI
 
-Use the CLI to download every chunk in a time window into one verified gzip-compressed JSONL file:
+The export workflow is exposed through the `kernel audit-logs download` command and the export-chunk API endpoint. Use the CLI to download every chunk in a time window into one verified gzip-compressed JSONL file:
 
 ```bash
 kernel audit-logs download \
@@ -227,48 +172,13 @@ kernel audit-logs download \
   --to audit-june.jsonl.gz
 ```
 
-The CLI:
-
-1. downloads up to 50,000 records per chunk,
-2. verifies each chunk against its `X-Content-Sha256` checksum,
-3. retries transient and integrity failures,
-4. writes to a temporary `.partial` file, and
-5. publishes the final file only after every chunk succeeds.
-
-Incomplete downloads are removed and don't resume across CLI runs. Rerunning the command starts the export again. Use `--force` to replace an existing output file.
+The download is all-or-nothing: the CLI verifies every chunk it receives and writes the output file only after the whole export succeeds. Incomplete downloads are removed and don't resume across CLI runs; rerunning the command starts the export again. Use `--force` to replace an existing output file. See the [audit log CLI reference](/reference/cli/audit-logs#download-behavior) for chunk sizes, checksums, and retry behavior.
 
 Like CLI search, CLI download excludes `GET` by default. Search and download accept the same filters.
 
-## Download an export chunk with HTTP
-
-The export API returns one chunk per request. Save the response headers separately from the binary body:
-
-```bash
-curl --fail-with-body --silent --show-error --get \
-  https://api.onkernel.com/audit-logs/export/chunk \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "format=jsonl.gz" \
-  --dump-header audit-logs-chunk.headers \
-  --output audit-logs-chunk.jsonl.gz
-```
-
-When `X-Has-More` is `true`, copy `X-Next-Cursor` and pass it unchanged to download the next chunk:
-
-```bash
-curl --fail-with-body --silent --show-error --get \
-  https://api.onkernel.com/audit-logs/export/chunk \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "format=jsonl.gz" \
-  --data-urlencode "cursor=$NEXT_CURSOR" \
-  --dump-header audit-logs-next-chunk.headers \
-  --output audit-logs-next-chunk.jsonl.gz
-```
-
 ## Download an export chunk with an SDK
+
+The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
 Save the response body exactly as returned, then inspect `X-Has-More`. When it is `true`, pass `X-Next-Cursor` as `cursor` on the next request.
 
@@ -358,10 +268,39 @@ func main() {
 ```
 </CodeGroup>
 
+## Download an export chunk with HTTP
+
+Save the response headers separately from the binary body:
+
+```bash
+curl --fail-with-body --silent --show-error --get \
+  https://api.onkernel.com/audit-logs/export/chunk \
+  --header "Authorization: Bearer $KERNEL_API_KEY" \
+  --data-urlencode "start=2026-06-01T00:00:00Z" \
+  --data-urlencode "end=2026-06-02T00:00:00Z" \
+  --data-urlencode "format=jsonl.gz" \
+  --dump-header audit-logs-chunk.headers \
+  --output audit-logs-chunk.jsonl.gz
+```
+
+When `X-Has-More` is `true`, copy `X-Next-Cursor` and pass it unchanged to download the next chunk:
+
+```bash
+curl --fail-with-body --silent --show-error --get \
+  https://api.onkernel.com/audit-logs/export/chunk \
+  --header "Authorization: Bearer $KERNEL_API_KEY" \
+  --data-urlencode "start=2026-06-01T00:00:00Z" \
+  --data-urlencode "end=2026-06-02T00:00:00Z" \
+  --data-urlencode "format=jsonl.gz" \
+  --data-urlencode "cursor=<value from X-Next-Cursor>" \
+  --dump-header audit-logs-next-chunk.headers \
+  --output audit-logs-next-chunk.jsonl.gz
+```
+
 <Warning>
-  SDK examples above download one chunk. A complete custom exporter must repeat requests until `X-Has-More` is `false`, persist the cursor only after safely writing a chunk, and verify `X-Content-Sha256` against the exact response bytes. Use the CLI when you don't need custom storage or processing.
+  The SDK and HTTP examples above download one chunk. A complete custom exporter must repeat requests until `X-Has-More` is `false`, persist the cursor only after safely writing a chunk, and verify `X-Content-Sha256` against the exact response bytes. Use the CLI when you don't need custom storage or processing.
 </Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
-See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the complete search contract and response schema.
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for the complete export contract and response schema.

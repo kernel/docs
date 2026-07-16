@@ -20,11 +20,11 @@ kernel audit-logs search \
 If you omit the time flags, the command searches from 24 hours ago through now. The start is inclusive and the end is exclusive. Each time window can cover up to 30 days.
 
 | Flag | Description |
-|---|---|
+|------|-------------|
 | `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Defaults to 24 hours ago. |
 | `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Defaults to now. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
-| `--method <method>` | Return one HTTP method. Passing `GET` also overrides the default GET exclusion. |
+| `--method <method>` | Return one HTTP method. Passing any method disables the default GET exclusion. |
 | `--exclude-method <method>` | Exclude an HTTP method in addition to the default GET exclusion. |
 | `--include-get` | Include GET requests, which are excluded by default. |
 | `--service <service>` | Filter by service. |
@@ -63,11 +63,11 @@ kernel audit-logs download \
 `--start` and `--end` are required. The start is inclusive and the end is exclusive, and the time window can cover up to 30 days.
 
 | Flag | Description |
-|---|---|
+|------|-------------|
 | `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Required. |
 | `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Required. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
-| `--method <method>` | Return one HTTP method. Passing `GET` also overrides the default GET exclusion. |
+| `--method <method>` | Return one HTTP method. Passing any method disables the default GET exclusion. |
 | `--exclude-method <method>` | Exclude an HTTP method in addition to the default GET exclusion. |
 | `--include-get` | Include GET requests, which are excluded by default. |
 | `--service <service>` | Filter by service. |
