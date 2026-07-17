@@ -22,13 +22,13 @@ The API and SDKs use the same filters for search and export:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
-- `method` includes one HTTP method. In the CLI, passing any method disables the default GET exclusion.
-- `exclude_method` excludes one or more HTTP methods in addition to the default CLI exclusion, with up to 10 values.
+- `method` includes one HTTP method.
+- `exclude_method` excludes up to 10 HTTP methods.
 - `search` matches path, user ID, email, client IP, and status.
 - `search_user_id` adds up to 100 user IDs to the free-text search.
 
 <Note>
-The CLI excludes `GET` by default to reduce noise; the API and SDKs include all methods unless you filter. Use `--include-get` in the CLI or omit `exclude_method: ["GET"]` in SDKs to include them.
+The API and SDKs include all methods unless you filter. Only the CLI excludes `GET` by default to reduce noise. Pass `--include-get` to include GET requests, or pass `--method GET` to return only GET requests.
 </Note>
 
 ## Search audit logs
@@ -106,36 +106,40 @@ See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-aud
 
 The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
-Each chunk is a complete gzip stream, so appending each response body as-is produces one valid file. Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`. This matches the CLI download behavior, which verifies `X-Content-Sha256` and retries transient failures:
+Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`. With the `jsonl.gz` format, each chunk is an independent gzip member, and appending the members produces a valid gzip file. With `jsonl`, each chunk contains raw JSON Lines that you can also append.
+
+The following minimal examples write all chunks to one file. For a hardened export with checksum verification and retries, use the [CLI](/reference/cli/audit-logs#kernel-audit-logs-download).
 
 <CodeGroup>
 ```typescript TypeScript
-import { appendFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel({
   apiKey: process.env.KERNEL_API_KEY,
 });
 
-let cursor: string | undefined;
-while (true) {
-  const response = await kernel.auditLogs.exportChunk({
-    start: '2026-06-01T00:00:00Z',
-    end: '2026-06-02T00:00:00Z',
-    format: 'jsonl.gz',
-    exclude_method: ['GET'],
-    cursor,
-  });
+const file = await open('audit-logs.jsonl.gz', 'w');
+try {
+  let cursor: string | undefined;
+  while (true) {
+    const response = await kernel.auditLogs.exportChunk({
+      start: '2026-06-01T00:00:00Z',
+      end: '2026-06-02T00:00:00Z',
+      format: 'jsonl.gz',
+      exclude_method: ['GET'],
+      cursor,
+    });
 
-  await appendFile(
-    'audit-logs.jsonl.gz',
-    Buffer.from(await response.arrayBuffer()),
-  );
+    await file.write(Buffer.from(await response.arrayBuffer()));
 
-  if (response.headers.get('x-has-more') !== 'true') {
-    break;
+    if (response.headers.get('x-has-more') !== 'true') {
+      break;
+    }
+    cursor = response.headers.get('x-next-cursor') ?? undefined;
   }
-  cursor = response.headers.get('x-next-cursor') ?? undefined;
+} finally {
+  await file.close();
 }
 ```
 
@@ -156,9 +160,9 @@ with open("audit-logs.jsonl.gz", "wb") as file:
     while True:
         response = client.audit_logs.export_chunk(**params)
         file.write(response.read())
-        if response.http_response.headers.get("x-has-more") != "true":
+        if response.headers.get("x-has-more") != "true":
             break
-        params["cursor"] = response.http_response.headers.get("x-next-cursor")
+        params["cursor"] = response.headers.get("x-next-cursor")
 ```
 
 ```go Go
@@ -195,10 +199,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if _, err := io.Copy(file, response.Body); err != nil {
-			panic(err)
+		_, copyErr := io.Copy(file, response.Body)
+		closeErr := response.Body.Close()
+		if copyErr != nil {
+			panic(copyErr)
 		}
-		response.Body.Close()
+		if closeErr != nil {
+			panic(closeErr)
+		}
 
 		if response.Header.Get("X-Has-More") != "true" {
 			break
@@ -210,7 +218,7 @@ func main() {
 </CodeGroup>
 
 <Warning>
-  A production exporter should persist the cursor only after safely writing a chunk and verify `X-Content-Sha256` against the exact response bytes.
+  Don't use these minimal loops for a production export without adding integrity checks and durable cursor storage. For each chunk, buffer the exact response bytes, compare their SHA-256 hash with `X-Content-Sha256`, write the verified bytes, and then validate the cursor. When `X-Has-More` is `true`, require a non-empty `X-Next-Cursor` that differs from the current cursor. Persist that cursor only after the verified chunk is safely written. You must also retry transient failures. The [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) implements this hardened path.
 </Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.

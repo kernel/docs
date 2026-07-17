@@ -51,7 +51,7 @@ kernel audit-logs search --method GET
 
 ## `kernel audit-logs download`
 
-Download every audit log in a time window as one gzip-compressed JSONL file.
+Download matching audit logs in a time window as one gzip-compressed JSONL file.
 
 ```bash
 kernel audit-logs download \
@@ -84,7 +84,7 @@ The command downloads up to 50,000 records at a time and appends each chunk to `
 
 A chunk is attempted up to seven times when a network error, HTTP `429`, HTTP `5xx`, truncated response, or checksum mismatch occurs. Retries use exponential backoff capped at eight seconds.
 
-The CLI renames the temporary file to the requested output only after every chunk succeeds. If the download fails, it removes the incomplete temporary file. Downloads don't resume across CLI runs; rerunning the command starts again from the beginning.
+The CLI renames the temporary file to the requested output only after every chunk transfers successfully. If a transfer fails, it removes the incomplete temporary file. If the final rename fails, the completed download remains at `<output>.partial`. Downloads don't resume across CLI runs; rerunning the command starts again from the beginning.
 
 The command refuses to replace an existing output unless you pass `--force`.
 
