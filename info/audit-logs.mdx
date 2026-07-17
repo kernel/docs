@@ -175,31 +175,37 @@ Like CLI search, CLI download excludes `GET` by default. Search and download acc
 
 The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
-Save the response body exactly as returned, then inspect `X-Has-More`. When it is `true`, pass `X-Next-Cursor` as `cursor` on the next request.
+Each chunk is a complete gzip stream, so appending each response body as-is produces one valid file. Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`:
 
 <CodeGroup>
 ```typescript TypeScript
-import { writeFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel({
   apiKey: process.env.KERNEL_API_KEY,
 });
 
-const response = await kernel.auditLogs.exportChunk({
-  start: '2026-06-01T00:00:00Z',
-  end: '2026-06-02T00:00:00Z',
-  format: 'jsonl.gz',
-  exclude_method: ['GET'],
-});
+let cursor: string | undefined;
+while (true) {
+  const response = await kernel.auditLogs.exportChunk({
+    start: '2026-06-01T00:00:00Z',
+    end: '2026-06-02T00:00:00Z',
+    format: 'jsonl.gz',
+    exclude_method: ['GET'],
+    cursor,
+  });
 
-await writeFile(
-  'audit-logs-chunk.jsonl.gz',
-  Buffer.from(await response.arrayBuffer()),
-);
+  await appendFile(
+    'audit-logs.jsonl.gz',
+    Buffer.from(await response.arrayBuffer()),
+  );
 
-console.log(response.headers.get('x-has-more'));
-console.log(response.headers.get('x-next-cursor'));
+  if (response.headers.get('x-has-more') !== 'true') {
+    break;
+  }
+  cursor = response.headers.get('x-next-cursor') ?? undefined;
+}
 ```
 
 ```python Python
@@ -208,16 +214,20 @@ from kernel import Kernel
 
 client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
 
-response = client.audit_logs.export_chunk(
-    start="2026-06-01T00:00:00Z",
-    end="2026-06-02T00:00:00Z",
-    format="jsonl.gz",
-    exclude_method=["GET"],
-)
-response.write_to_file("audit-logs-chunk.jsonl.gz")
+params = {
+    "start": "2026-06-01T00:00:00Z",
+    "end": "2026-06-02T00:00:00Z",
+    "format": "jsonl.gz",
+    "exclude_method": ["GET"],
+}
 
-print(response.http_response.headers.get("x-has-more"))
-print(response.http_response.headers.get("x-next-cursor"))
+with open("audit-logs.jsonl.gz", "wb") as file:
+    while True:
+        response = client.audit_logs.export_chunk(**params)
+        file.write(response.read())
+        if response.http_response.headers.get("x-has-more") != "true":
+            break
+        params["cursor"] = response.http_response.headers.get("x-next-cursor")
 ```
 
 ```go Go
@@ -236,32 +246,41 @@ func main() {
 	ctx := context.Background()
 	client := kernel.NewClient()
 
-	response, err := client.AuditLogs.ExportChunk(ctx, kernel.AuditLogExportChunkParams{
-		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
-		End:           time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
-		Format:        kernel.AuditLogExportChunkParamsFormatJSONLGz,
-		ExcludeMethod: []string{"GET"},
-	})
-	if err != nil {
-		panic(err)
-	}
-	defer response.Body.Close()
-
-	file, err := os.Create("audit-logs-chunk.jsonl.gz")
+	file, err := os.Create("audit-logs.jsonl.gz")
 	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
 
-	if _, err := io.Copy(file, response.Body); err != nil {
-		panic(err)
+	params := kernel.AuditLogExportChunkParams{
+		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
+		End:           time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
+		Format:        kernel.AuditLogExportChunkParamsFormatJSONLGz,
+		ExcludeMethod: []string{"GET"},
 	}
 
-	println(response.Header.Get("X-Has-More"))
-	println(response.Header.Get("X-Next-Cursor"))
+	for {
+		response, err := client.AuditLogs.ExportChunk(ctx, params)
+		if err != nil {
+			panic(err)
+		}
+		if _, err := io.Copy(file, response.Body); err != nil {
+			panic(err)
+		}
+		response.Body.Close()
+
+		if response.Header.Get("X-Has-More") != "true" {
+			break
+		}
+		params.Cursor = kernel.String(response.Header.Get("X-Next-Cursor"))
+	}
 }
 ```
 </CodeGroup>
+
+<Warning>
+  A production exporter should persist the cursor only after safely writing a chunk and verify `X-Content-Sha256` against the exact response bytes.
+</Warning>
 
 ## Download an export chunk with HTTP
 
@@ -291,10 +310,6 @@ curl --fail-with-body --silent --show-error --get \
   --dump-header audit-logs-next-chunk.headers \
   --output audit-logs-next-chunk.jsonl.gz
 ```
-
-<Warning>
-  The SDK and HTTP examples above download one chunk. A complete custom exporter must repeat requests until `X-Has-More` is `false`, persist the cursor only after safely writing a chunk, and verify `X-Content-Sha256` against the exact response bytes. Use the CLI when you don't need custom storage or processing.
-</Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
