@@ -14,7 +14,7 @@ Choose the workflow that matches the amount of data you need:
 
 Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
 
-Working from the terminal? Both workflows are also available in the CLI — see the [audit log CLI reference](/reference/cli/audit-logs).
+Both workflows are also available in the [CLI](/reference/cli/audit-logs), and the API reference documents the raw HTTP contract for [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk).
 
 ## Filter audit logs
 
@@ -27,7 +27,7 @@ The API and SDKs use the same filters for search and export:
 - `search` matches path, user ID, email, client IP, and status.
 - `search_user_id` adds up to 100 user IDs to the free-text search.
 
-## Search with an SDK
+## Search audit logs
 
 Each API page contains up to 100 events. The SDK pagination helpers request older pages as you iterate.
 
@@ -96,40 +96,9 @@ func main() {
 ```
 </CodeGroup>
 
-## Search with HTTP
-
-Search over raw HTTP with a `GET` request. The response carries pagination state in these headers:
-
-- `X-Limit` is the page size applied to the request.
-- `X-Has-More` indicates whether older records remain.
-- `X-Next-Page-Token` contains the opaque token for the next page.
-
-Request the first page:
-
-```bash
-curl --include --get https://api.onkernel.com/audit-logs \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "limit=100"
-```
-
-If `X-Has-More` is `true`, copy the `X-Next-Page-Token` value and pass it unchanged:
-
-```bash
-curl --include --get https://api.onkernel.com/audit-logs \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "limit=100" \
-  --data-urlencode "page_token=<value from X-Next-Page-Token>"
-```
-
-Page tokens are opaque. Don't decode, construct, or modify them.
-
 See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the complete search contract and response schema.
 
-## Export with an SDK
+## Export audit logs
 
 The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
@@ -239,35 +208,6 @@ func main() {
 <Warning>
   A production exporter should persist the cursor only after safely writing a chunk and verify `X-Content-Sha256` against the exact response bytes.
 </Warning>
-
-## Export with HTTP
-
-Save the response headers separately from the binary body:
-
-```bash
-curl --fail-with-body --silent --show-error --get \
-  https://api.onkernel.com/audit-logs/export/chunk \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "format=jsonl.gz" \
-  --dump-header audit-logs-chunk.headers \
-  --output audit-logs-chunk.jsonl.gz
-```
-
-When `X-Has-More` is `true`, copy `X-Next-Cursor` and pass it unchanged to download the next chunk:
-
-```bash
-curl --fail-with-body --silent --show-error --get \
-  https://api.onkernel.com/audit-logs/export/chunk \
-  --header "Authorization: Bearer $KERNEL_API_KEY" \
-  --data-urlencode "start=2026-06-01T00:00:00Z" \
-  --data-urlencode "end=2026-06-02T00:00:00Z" \
-  --data-urlencode "format=jsonl.gz" \
-  --data-urlencode "cursor=<value from X-Next-Cursor>" \
-  --dump-header audit-logs-next-chunk.headers \
-  --output audit-logs-next-chunk.jsonl.gz
-```
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
