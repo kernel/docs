@@ -14,7 +14,7 @@ Choose the workflow that matches the amount of data you need:
 
 Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
 
-Both workflows are also available in the [CLI](/reference/cli/audit-logs), and the API reference documents the raw HTTP contract for [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk).
+Both workflows are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
 
 ## Filter audit logs
 
@@ -22,10 +22,14 @@ The API and SDKs use the same filters for search and export:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
-- `method` includes one HTTP method.
-- `exclude_method` excludes one or more HTTP methods, with up to 10 values.
+- `method` includes one HTTP method. In the CLI, passing any method disables the default GET exclusion.
+- `exclude_method` excludes one or more HTTP methods in addition to the default CLI exclusion, with up to 10 values.
 - `search` matches path, user ID, email, client IP, and status.
 - `search_user_id` adds up to 100 user IDs to the free-text search.
+
+<Note>
+The CLI excludes `GET` by default to reduce noise; the API and SDKs include all methods unless you filter. Use `--include-get` in the CLI or omit `exclude_method: ["GET"]` in SDKs to include them.
+</Note>
 
 ## Search audit logs
 
@@ -96,13 +100,13 @@ func main() {
 ```
 </CodeGroup>
 
-See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the complete search contract and response schema.
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the full request and response schema.
 
 ## Export audit logs
 
 The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
-Each chunk is a complete gzip stream, so appending each response body as-is produces one valid file. Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`:
+Each chunk is a complete gzip stream, so appending each response body as-is produces one valid file. Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`. This matches the CLI download behavior, which verifies `X-Content-Sha256` and retries transient failures:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -211,4 +215,4 @@ func main() {
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
-See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for the complete export contract and response schema.
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for the full request and response schema.
