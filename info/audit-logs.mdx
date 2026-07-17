@@ -131,7 +131,7 @@ try {
       cursor,
     });
 
-    await file.write(Buffer.from(await response.arrayBuffer()));
+    await file.writeFile(Buffer.from(await response.arrayBuffer()));
 
     if (response.headers.get('x-has-more') !== 'true') {
       break;
