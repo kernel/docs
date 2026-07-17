@@ -22,13 +22,13 @@ The API and SDKs use the same filters for search and export:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
-- `method` includes one HTTP method.
-- `exclude_method` excludes up to 10 HTTP methods.
+- `method` returns only requests that use the specified HTTP method.
+- `exclude_method` removes requests that use any of up to 10 specified HTTP methods.
 - `search` matches path, user ID, email, client IP, and status.
 - `search_user_id` adds up to 100 user IDs to the free-text search.
 
 <Note>
-The API and SDKs include all methods unless you filter. Only the CLI excludes `GET` by default to reduce noise. Pass `--include-get` to include GET requests, or pass `--method GET` to return only GET requests.
+The API and SDKs include all methods unless you filter. Only the CLI excludes `GET` by default to reduce noise. Pass `--include-get` to remove that default exclusion, or pass `--method GET` to return only GET requests.
 </Note>
 
 ## Search audit logs
