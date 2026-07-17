@@ -9,10 +9,12 @@ Choose the workflow that matches the amount of data you need:
 
 | Workflow | Best for | Output |
 |----------|----------|--------|
-| Search | Interactive investigation and recent activity | A table, JSON array, or paginated SDK results |
+| Search | Interactive investigation and recent activity | Paginated JSON events |
 | Export | Archival, compliance, and offline analysis | JSON Lines (`.jsonl`) or gzip-compressed JSON Lines (`.jsonl.gz`) |
 
 Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
+
+Working from the terminal? Both workflows are also available in the CLI — see the [audit log CLI reference](/reference/cli/audit-logs).
 
 ## Filter audit logs
 
@@ -24,35 +26,6 @@ The API and SDKs use the same filters for search and export:
 - `exclude_method` excludes one or more HTTP methods, with up to 10 values.
 - `search` matches path, user ID, email, client IP, and status.
 - `search_user_id` adds up to 100 user IDs to the free-text search.
-
-The CLI exposes the same filters as flags. See the [audit log CLI reference](/reference/cli/audit-logs) for the full list.
-
-## Search with the CLI
-
-Search the previous 24 hours:
-
-```bash
-kernel audit-logs search
-```
-
-Add a time window and filters:
-
-```bash
-kernel audit-logs search \
-  --start 2026-06-01 \
-  --end 2026-06-08 \
-  --search /browsers \
-  --limit 500 \
-  --output json
-```
-
-The CLI accepts RFC 3339 timestamps or `YYYY-MM-DD` dates. Date-only values represent midnight UTC.
-
-<Note>
-  The CLI excludes `GET` requests by default to reduce noise. Pass `--include-get` to include them, or `--method GET` to return only `GET` requests. The API and SDKs don't exclude `GET` unless you set `exclude_method`.
-</Note>
-
-See the [audit log CLI reference](/reference/cli/audit-logs) for all flags and defaults.
 
 ## Search with an SDK
 
@@ -156,22 +129,7 @@ Page tokens are opaque. Don't decode, construct, or modify them.
 
 See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the complete search contract and response schema.
 
-## Download an export with the CLI
-
-The export workflow is exposed through the `kernel audit-logs download` command and the export-chunk API endpoint. Use the CLI to download every chunk in a time window into one verified gzip-compressed JSONL file:
-
-```bash
-kernel audit-logs download \
-  --start 2026-06-01 \
-  --end 2026-07-01 \
-  --to audit-june.jsonl.gz
-```
-
-The download is all-or-nothing: the CLI verifies every chunk it receives and writes the output file only after the whole export succeeds. Incomplete downloads are removed and don't resume across CLI runs; rerunning the command starts the export again. Use `--force` to replace an existing output file. See the [audit log CLI reference](/reference/cli/audit-logs#download-behavior) for chunk sizes, checksums, and retry behavior.
-
-Like CLI search, CLI download excludes `GET` by default. Search and download accept the same filters.
-
-## Download an export chunk with an SDK
+## Export with an SDK
 
 The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
 
@@ -282,7 +240,7 @@ func main() {
   A production exporter should persist the cursor only after safely writing a chunk and verify `X-Content-Sha256` against the exact response bytes.
 </Warning>
 
-## Download an export chunk with HTTP
+## Export with HTTP
 
 Save the response headers separately from the binary body:
 
