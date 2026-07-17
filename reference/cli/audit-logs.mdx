@@ -24,9 +24,9 @@ If you omit the time flags, the command searches from 24 hours ago through now. 
 | `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Defaults to 24 hours ago. |
 | `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Defaults to now. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
-| `--method <method>` | Return one HTTP method. Passing any method disables the default GET exclusion. |
-| `--exclude-method <method>` | Exclude an HTTP method in addition to the default GET exclusion. |
-| `--include-get` | Include GET requests, which are excluded by default. |
+| `--method <method>` | Return only requests that use this HTTP method. |
+| `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
+| `--include-get` | Remove the default GET exclusion when `--method` is not set. |
 | `--service <service>` | Filter by service. |
 | `--auth-strategy <strategy>` | Filter by authentication strategy. |
 | `--user-id <id>` | Add a user ID to the search. Repeat the flag for multiple IDs. |
@@ -39,10 +39,10 @@ If you omit the time flags, the command searches from 24 hours ago through now. 
 
 ### Include GET requests
 
-GET requests are excluded by default to reduce noise:
+By default, the CLI returns matching requests for every HTTP method except GET. `--include-get` removes that default exclusion. `--method` selects exactly one method, so `--method GET` returns only GET requests.
 
 ```bash
-# Include GET alongside every other method
+# Return all matching methods, including GET
 kernel audit-logs search --include-get
 
 # Return only GET requests
@@ -67,9 +67,9 @@ kernel audit-logs download \
 | `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Required. |
 | `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Required. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
-| `--method <method>` | Return one HTTP method. Passing any method disables the default GET exclusion. |
-| `--exclude-method <method>` | Exclude an HTTP method in addition to the default GET exclusion. |
-| `--include-get` | Include GET requests, which are excluded by default. |
+| `--method <method>` | Return only requests that use this HTTP method. |
+| `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
+| `--include-get` | Remove the default GET exclusion when `--method` is not set. |
 | `--service <service>` | Filter by service. |
 | `--auth-strategy <strategy>` | Filter by authentication strategy. |
 | `--user-id <id>` | Add a user ID to the search. Repeat the flag for multiple IDs. |
