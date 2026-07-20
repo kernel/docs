@@ -80,13 +80,11 @@ Date-only values represent midnight UTC. For example, `--start 2026-06-01 --end 
 
 ### Download behavior
 
-The command downloads up to 50,000 records at a time and appends each chunk to `<output>.partial`. Before writing a chunk, it verifies the SHA-256 checksum returned by the API.
+The CLI downloads up to 50,000 records per batch, verifies each batch's SHA-256 checksum, and automatically retries transient failures.
 
-A chunk is attempted up to seven times when a network error, HTTP `429`, HTTP `5xx`, truncated response, or checksum mismatch occurs. Retries use exponential backoff capped at eight seconds.
+The requested output appears only after the full download succeeds. Failed downloads are removed, though a completed download may remain at `<output>.partial` if it can't be moved to the requested path.
 
-The CLI renames the temporary file to the requested output only after every chunk transfers successfully. If a transfer fails, it removes the incomplete temporary file. If the final rename fails, the completed download remains at `<output>.partial`. Downloads don't resume across CLI runs; rerunning the command starts again from the beginning.
-
-The command refuses to replace an existing output unless you pass `--force`.
+Downloads don't resume: rerunning the command starts over. Existing files are replaced only when you pass `--force`.
 
 ## Aliases
 
