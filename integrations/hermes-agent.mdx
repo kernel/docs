@@ -1,0 +1,127 @@
+---
+title: "Hermes Agent"
+description: "Run Hermes Agent browser tools on Kernel cloud browsers"
+---
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) is an AI agent with browser automation, terminal access, skills, and messaging integrations. The [Kernel browser plugin](https://github.com/kernel/hermes-browser-plugin) routes Hermes's `browser_*` tools through Kernel cloud browsers and handles browser creation and cleanup for you.
+
+## Install the plugin
+
+Install and enable the plugin from the Kernel repository:
+
+```bash
+hermes plugins install kernel/hermes-browser-plugin --enable
+```
+
+You need:
+
+- A current Hermes Agent installation with browser-provider plugin support
+- A [Kernel API key](https://dashboard.onkernel.com/api-keys)
+- Node.js 20 or newer for Hermes's `agent-browser` dependency
+
+<Note>
+Some Hermes versions prompt for `KERNEL_API_KEY` during plugin installation and some don't. Selecting Kernel as the browser provider doesn't set the API key.
+</Note>
+
+## Configure Hermes Desktop
+
+1. Open **Capabilities → Tools → Browser Automation**.
+2. Select **Kernel**.
+3. If `agent_browser` isn't installed, click **Run setup** and wait for the one-time installation to finish.
+4. Open the three-dot menu next to `KERNEL_API_KEY` and enter your [Kernel API key](https://dashboard.onkernel.com/api-keys).
+5. Optionally set `KERNEL_PROXY_NAME` and `KERNEL_PROFILE_NAME` from their three-dot menus.
+6. In a terminal, run the following command so Hermes's cleanup timer matches the plugin's 10-minute Kernel browser timeout:
+
+```bash
+hermes config set browser.inactivity_timeout 600
+```
+
+7. Restart any running Hermes chat or gateway so it reads the updated settings.
+
+## Configure the Hermes CLI
+
+Select Kernel and match Hermes's cleanup timeout to the plugin's browser timeout:
+
+```bash
+hermes config set browser.cloud_provider kernel
+hermes config set browser.inactivity_timeout 600
+```
+
+If plugin installation didn't prompt for your API key, add `KERNEL_API_KEY` to the active Hermes profile's `.env` file. This command prints the file's location:
+
+```bash
+hermes config env-path
+```
+
+Install `agent-browser` once if Hermes hasn't installed it yet:
+
+```bash
+hermes tools post-setup agent_browser
+```
+
+Verify your setup:
+
+```bash
+hermes plugins list
+hermes config show
+hermes doctor
+```
+
+## Configure a default profile or proxy
+
+The Kernel provider supports these settings in the active Hermes profile:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `KERNEL_API_KEY` | Yes | Authenticates requests to Kernel |
+| `KERNEL_PROFILE_NAME` | No | Loads an existing Kernel profile by name |
+| `KERNEL_PROXY_NAME` | No | Resolves and attaches an existing Kernel proxy by name |
+
+When you set `KERNEL_PROFILE_NAME`, the plugin saves browser changes back to that profile when the browser ends. This preserves cookies, logins, and other session state for future runs.
+
+## Understand browser cleanup
+
+The plugin creates every Kernel browser with a 10-minute inactivity timeout. Hermes also maintains its own browser cleanup timer, which defaults to two minutes and refreshes whenever Hermes runs a `browser_*` tool. Matching it to 10 minutes prevents Hermes from deleting the browser before Kernel's timeout.
+
+When Hermes cleans up a session, it closes `agent-browser`, deletes the Kernel browser, and removes the session from its local registry. Hermes also runs this cleanup when its process exits normally. Kernel's 10-minute timeout remains the remote fallback if Hermes crashes or loses its connection.
+
+<Note>
+[Kernel standby](/browsers/standby) incurs zero browser usage cost only when no CDP, WebDriver, live-view, or computer-controls client is connected. Hermes maintains an `agent-browser` CDP session while it tracks the browser, so a longer Hermes cleanup timeout improves continuity but can also keep the browser active longer.
+</Note>
+
+## Verify browser routing
+
+Start Hermes with browser tools enabled:
+
+```bash
+hermes chat --verbose --toolsets browser
+```
+
+Then ask Hermes:
+
+> Use `browser_navigate`, not web search, to open https://example.com. Call `browser_snapshot`, report the exact title and `stealth_features`, and tell me whether any cloud fallback warning occurred.
+
+A successful run has these results:
+
+1. The page title is `Example Domain`.
+2. `stealth_features` includes `stealth`.
+3. The tool result has no `fallback_warning`.
+4. A matching browser appears in the [Kernel Dashboard](https://dashboard.onkernel.com/browsers).
+5. Exiting Hermes or waiting for cleanup removes the browser.
+
+Hermes can fall back to local Chromium if a cloud provider fails. A successful navigation alone doesn't confirm that Hermes used Kernel; verify both the tool result and the Kernel Dashboard.
+
+## Update the plugin
+
+Pull the latest version and restart Hermes Desktop, your active chat, or the gateway:
+
+```bash
+hermes plugins update browser-kernel
+```
+
+## Next steps
+
+- Use [Live View](/browsers/live-view) to inspect an active Hermes browser
+- Create reusable browser state with [Profiles](/auth/profiles)
+- Configure a named [Proxy](/proxies/overview)
+- Learn how Kernel [terminates browser sessions](/browsers/termination)

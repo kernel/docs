@@ -22,13 +22,25 @@ When a browser from a pool is set to be destroyed (by reaching its specified `ti
 
 ### Can I update a pool's configuration without recreating it?
 
-Yes, use `kernel.browserPools.update()`. By default, idle browsers are discarded and rebuilt with new configuration. Set `discard_all_idle: false` to only apply changes to newly created browsers.
+Yes, use `kernel.browserPools.update()`. By default (`discard_all_idle: false`), existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
+
+### If I update a pool, do browsers that are currently in use pick up the new configuration?
+
+No. A plain `update()` doesn't rebuild any existing browsers — it only changes the configuration used for future ones. Even the idle browsers keep their old config unless you pass `discard_all_idle: true` (or flush the pool). Browsers that are acquired during the update are never touched regardless: an in-use browser keeps its original configuration, and if you release it with `reuse: true` (the default) it returns to the pool still running the old configuration and keeps getting handed out that way.
+
+You have three ways to get it onto the new configuration: release it with `reuse: false` so it's destroyed and rebuilt on release instead of the old one returning to the pool; let the acquired browser reach its `timeout_seconds` while idle so it's destroyed and the pool refills automatically; or flush it after the fact with `kernel.browserPools.flush()` (or a later `kernel.browserPools.update()` with `discard_all_idle: true`) once the in-use browsers have been released.
 
 ### If I update a profile's contents, will my pool's idle browsers pick up the change?
 
-No. Idle browsers in a pool are pre-loaded with the profile's contents at the time they were filled. Updating the profile (for example, re-saving auth state to the same `profile_id`) does not propagate to already-warmed browsers — only newly-filled browsers will use the updated profile.
+By default, yes — `refresh_on_profile_update` is automatically set to `true` when a pool is created with a profile or when the pool's profile is changed. Idle browsers are flushed whenever the profile is saved, so they get replaced with fresh ones using the updated profile.
 
-To force the pool to pick up new profile contents, either call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`.
+If you've explicitly disabled `refresh_on_profile_update`, you can still force the pool to pick up new profile contents:
+
+- **Manual**: Call `kernel.browserPools.flush()` to destroy idle browsers (the pool refills automatically), or call `kernel.browserPools.update()` with `discard_all_idle: true`. See [Refresh on profile update](/browsers/pools/overview#refresh-on-profile-update).
+
+### Can pooled browsers save changes back to a profile?
+
+No. A profile attached to a pool is loaded read-only — pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools. Sending `save_changes` on a pool's profile is silently ignored (it is not rejected), so reusing a single-session profile object won't error. To capture profile state, use a single browser session instead: `kernel.browsers.create({ profile: { name, save_changes: true } })`.
 
 ### Should I set `reuse: true` or `reuse: false` when releasing?
 
@@ -40,7 +52,7 @@ The pool's `timeout_seconds` only applies while the browser is acquired. If your
 
 ### Can I use different browser configurations within the same pool?
 
-All browsers in a pool initialize with the same configuration. Calling `kernel.browserPools.update()` updates the configuration for all idle browsers in the pool.
+All browsers in a pool initialize with the same configuration. Calling `kernel.browserPools.update()` changes the pool's configuration for browsers created after the update; existing idle browsers keep their original configuration unless you pass `discard_all_idle: true` (or flush the pool).
 Once you've acquired a browser, you can apply certain [hot swap configurations](https://www.kernel.sh/docs/api-reference/browsers/update-browser-session) to that browser instance using `kernel.browsers.update()`.
 
 ### How do I handle rate limiting from target websites?

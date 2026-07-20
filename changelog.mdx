@@ -9,6 +9,84 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="July 17" tags={["Product", "Docs"]}>
+## Product updates
+
+- Launched [browser telemetry](/browsers/telemetry): capture events from inside a browser session — console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes — then stream them live or pull them later for analysis, with opt-in control over which categories you capture. Alongside the launch, we added an in-VM OTLP export sink and OTel-compatible support in the browser events API, so telemetry can be shipped to any OpenTelemetry-compatible collector.
+- Added new Grok 4.5 and Meta Muse Spark computer-use providers to [`@onkernel/cua-agent`](https://github.com/kernel/cua), along with a `--proxy` flag for routing the agent's browser through a Kernel proxy, configurable retries on transient provider errors, and opt-in recovery when a provider returns an exact-empty response.
+- Gave `kernel audit-logs` in the [CLI](https://github.com/kernel/cli) a `download` subcommand for chunked bulk exports and the ability to exclude multiple HTTP methods from `search`, so audit workflows can pull large windows without hitting pagination caps.
+- Improved cold-start performance: reduced Chromium restart time, and cut ~5s off session creation for profile-restore paths by fixing a chromium-launcher port check that blocked on stale sockets.
+- Set the default fill-rate for new [browser pools](/browsers/pools) created from the dashboard or [CLI](https://github.com/kernel/cli) to 25%, so pools warm up more predictably out of the box.
+- [`refresh_on_profile_update`](/browsers/pools) now defaults to `true` when a browser pool has a profile attached, and auto-unsets when the profile is removed, so pooled sessions stay in sync with the underlying profile without manual configuration.
+- Expanded [managed auth](/auth/overview): the dashboard can now manage credential fields and TOTP secrets directly, and reauth now selects an already signed-in account on the SSO account chooser, so re-authentications can complete without human intervention when the browser is already signed in.
+- Shipped a Cmd+K command palette to the dashboard for jump-to-anywhere navigation.
+- Published [`hermes-browser-plugin`](https://github.com/kernel/hermes-browser-plugin), a new Kernel cloud browser provider plugin for Hermes Agent.
+- Improved [just-html](https://github.com/kernel/just-html) with section deeplinks, comment permalinks, and a public integration-discovery metadata endpoint, so shared docs are easier to navigate, link, and index by agents.
+
+## Documentation updates
+
+- Published a new [Zero Data Retention](/info/zero-data-retention) page covering Kernel's ZDR posture.
+- Documented a "managed proxy without CAPTCHA solver" pattern for [stealth BYO proxy](/browsers/bot-detection/stealth) setups.
+- Moved the scaling guide into Introduction as a dedicated [Scale](/introduction/scale) page.
+- Documented in the [browser telemetry](/browsers/telemetry) guide which categories are disabled under BAA.
+</Update>
+
+<Update label="July 10" tags={["Product", "Docs"]}>
+## Product updates
+
+- Consolidated on-demand and browser-pool concurrency into a single unified [concurrency limit](/info/projects) that counts `browsers.create()` sessions and pool reservations against one org cap. `max_pooled_sessions` is deprecated; `max_concurrent_sessions` now covers both. Rolling out gradually.
+- Shipped `kernel audit-logs search` in the [CLI](https://github.com/kernel/cli) for querying the org audit log by time window, HTTP method, service, auth strategy, and user, with table or JSON output. `GET` requests are excluded by default to keep the signal on mutations.
+- Added a `refresh_on_profile_update` flag to [browser pools](/browsers/pools) (SDK, [CLI](https://github.com/kernel/cli) `--refresh-on-profile-update`, and dashboard). Opted-in pools automatically flush their idle browsers when the pool's managed-auth profile re-authenticates, so pooled sessions stay logged in after a re-auth.
+- Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua) with action-plane modes — `computer`, `browser`, and `hybrid` — plus `setMode()` and a `/mode` runtime switcher, and wired in support for Anthropic's shipped native `computer_20260701` and `browser_20260701` tools.
+- Exposed `profile_id` and `extension_ids` on browser pool reads, and returned an SHA-256 checksum for uploaded extensions.
+- Added the ability to inspect credential value keys and remove specific values on managed-auth credential updates.
+- `DELETE /org/api_keys/{id}` now returns `400 cannot_delete_current_key` when the target key is the one authenticating the request, so scripts and Terraform-style provisioners can't brick their own credentials mid-run.
+
+## Documentation updates
+
+- Documented the unified [concurrency limit](/info/projects) and marked `max_pooled_sessions` deprecated across pricing, projects, and the CLI reference.
+- Documented the new [`refresh_on_profile_update`](/browsers/pools) browser pool flag.
+- Added a proxy [health check](/proxies/overview) reference to the proxies overview.
+</Update>
+
+<Update label="July 3" tags={["Product", "Docs"]}>
+## Product updates
+
+- Shipped `kernel extensions get <id-or-name>` in the [CLI](https://github.com/kernel/cli) for extension metadata lookups, with table or JSON output.
+- Extended CLI browser telemetry with `kernel browsers telemetry events <id>` for paginated historical reads and a `--replay=all` flag on `browsers telemetry stream` to replay from the oldest retained event.
+- Simplified browser pool profiles to id/name-only, dropping the `--save-changes` flag on `browser-pools create`/`update`; single-session `browsers create --save-changes` is unaffected.
+- Extended [`@onkernel/cua-ai`](https://github.com/kernel/cua) with computer-use support for the `claude-sonnet-5` model.
+- Threaded `previous_response_id` through the Tzafon and OpenAI computer-use providers in [`@onkernel/cua-ai`](https://github.com/kernel/cua), so multi-turn runs send only the latest screenshot delta instead of replaying the full history each turn.
+- Rebuilt the dashboard managed-auth connection detail page around an overview/history/config tab layout, with a pinned stats row and a full event timeline (logins, re-auths, health checks) filterable by type.
+- Brought mobile proxy creation into the dashboard, with country, state, and city targeting.
+- Expanded the dashboard pool create/edit dialogs with tablet (`768x1024`) and mobile (`390x844`) viewport presets.
+
+## Documentation updates
+
+- Published a [Computer Use overview page](/integrations/computer-use/overview) covering the shared screenshot-predict-execute loop and a guide for building custom agents with `@onkernel/cua-agent`.
+- Clarified that browsers released back into a pool with the default `reuse: true` keep their original configuration, and that `browserPools.update()` only rebuilds idle browsers when `discard_all_idle: true` is passed.
+</Update>
+
+<Update label="June 26" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added a `playwright_execute` tool to [`@onkernel/cua-agent`](https://github.com/kernel/cua) for combining computer use with Playwright automation, plus support for `gemini-3.5-flash` as a CUA model. 
+- Extended the [MCP server](/reference/mcp-server)'s browser pool tool with SDK parity fields (`start_url`, `chrome_policy`, `kiosk_mode`, profile and viewport settings, `fill_rate_per_minute`) and a structured acquire/release workflow. Added parity for actions across `manage_apps` (`delete_deployment`, app/deployment search), `manage_proxies` (`get`, `check` with optional `check_url`), `manage_profiles` (`get`, paginated search), and `manage_projects` (`get_limits`, `update_limits`).
+- Added a `start_url` parameter to browser pool `acquire`, letting each acquired session override the pool's default start URL.
+- Added `--chrome-policy` flags to `browsers create`/`update` and `browser-pools create`/`update` in the [CLI](https://github.com/kernel/cli) for setting Chrome popup, PDF, and homepage behavior from the terminal.
+- Extended `kernel browsers update` in the [CLI](https://github.com/kernel/cli) with `--name` and `--tag` parameters, so a running session's name and tags can be changed after creation alongside the existing `browsers create`/`acquire` flags.
+- Brought custom session names and tags into the dashboard: the launch dialog now accepts an initial set of tags, sessions can be renamed and re-tagged after creation, and tag chips on the sessions list are click-to-filter — so the names and tags set via the API are actionable from the UI, making it easier to find a specific session out of many concurrent ones.
+- Added an API key [rotate endpoint](/api-reference/api-keys/rotate-an-api-key) (`POST /org/api_keys/{id}/rotate`) that issues a replacement key, copies the rotated key's name and project scope, and keeps the old key working for a configurable grace period (default 7 days). 
+- Shipped a `generate-video` [skill](https://github.com/kernel/skills) for producing smooth, deterministic MP4 videos from a web scene — used internally for launch and explainer clips.
+
+## Documentation updates
+
+- Enabled dark mode on the docs.
+- Added a common use cases section to the [policy.json](/browsers/pools/policy-json) page with `browsers.create()` examples for popup blocking, PDF inline rendering, and homepage overrides.
+- Documented [`X-Kernel-Project-Id`](/info/projects) header resolution rules and direct project and extension lookups on the Projects page.
+- Documented the API key [rotate endpoint](/api-reference/api-keys/rotate-an-api-key), including the optional `days_to_expire` and `expire_in_days` parameters.
+</Update>
+
 <Update label="June 12" tags={["Product", "Docs"]}>
 ## Product updates
 
@@ -31,7 +109,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Browser sessions now play audio by default, and the browser replay recording API gained a `record_audio` option to capture that audio in replay videos.
 - Extended browser telemetry to the [CLI](https://github.com/kernel/cli): use `--telemetry=all|off|<list>` on `browsers create` and `browsers update` to configure telemetry per session, and `kernel browsers telemetry stream <id>` to tail live events with category and type filters and SSE resume support.
 - Added API key management commands to the [CLI](https://github.com/kernel/cli) for creating, listing, retrieving, updating, and deleting org API keys directly from the terminal.
-- Expanded the [MCP server](https://www.kernel.sh/docs/reference/mcp-server) from 10 to 16 tools, adding managed auth (`manage_auth_connections`, `manage_credentials`, `manage_credential_providers`), `browser_curl` for HTTP(S) through a live browser, API key management, and project management. MCP-created browser sessions also now accept the same configuration as the API.
+- Expanded the [MCP server](/reference/mcp-server) from 10 to 16 tools, adding managed auth (`manage_auth_connections`, `manage_credentials`, `manage_credential_providers`), `browser_curl` for HTTP(S) through a live browser, API key management, and project management. MCP-created browser sessions also now accept the same configuration as the API.
 - Browser sessions can now be given a custom name at create time, making them easier to identify in the dashboard and audit logs.
 - Improved `kernel status` to distinguish between the API being down versus unreachable.
 
@@ -331,7 +409,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - We released [skills](https://skills.sh/?q=kernel/skills) for Kernel, so you can easily build browser agents directly from Claude Code.
 
 ## Documentation updates
-- We published a [Scaling in Production guide](/browsers/pools/scaling) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
+- We published a [Scaling in Production guide](/introduction/scale) with recommendations and best practices for handling high-concurrency workloads. Read it to learn how and when to use browser pools versus on-demand browsers, and see code samples for production implementations.
 - Added a new [integration guide](https://www.kernel.sh/docs/integrations/agent-browser) for [Agent Browser](https://github.com/vercel-labs/agent-browser), Vercel's headless browser automation CLI, which has built-in support for Kernel browsers.
 </Update>
 

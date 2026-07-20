@@ -165,7 +165,7 @@ Use the `/org/projects` REST endpoints (or the SDKs' `projects` resource) to man
 | --- | --- | --- |
 | `GET` | `/org/projects` | List projects in the organization |
 | `POST` | `/org/projects` | Create a project |
-| `GET` | `/org/projects/{id}` | Get a project by ID |
+| `GET` | `/org/projects/{id}` | Get a project by ID or name |
 | `PATCH` | `/org/projects/{id}` | Update a project's name or status (`active` / `archived`) |
 | `DELETE` | `/org/projects/{id}` | Delete a project (must be empty and not the last active project) |
 
@@ -244,6 +244,30 @@ if err := pager.Err(); err != nil {
 ```
 </CodeGroup>
 
+### Get a project
+
+Project names are unique within an organization. You can retrieve a project by its ID or by its name.
+
+<CodeGroup>
+```typescript TypeScript
+const project = await kernel.projects.get('staging');
+console.log(project.id); // proj_abc123
+```
+
+```python Python
+project = kernel.projects.get("staging")
+print(project.id)  # proj_abc123
+```
+
+```go Go
+project, err := client.Projects.Get(ctx, "staging")
+if err != nil {
+	panic(err)
+}
+fmt.Println(project.ID) // proj_abc123
+```
+</CodeGroup>
+
 ### Update a project
 
 <CodeGroup>
@@ -296,9 +320,9 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
 
 ## Concurrency Limits
 
-Kernel caps how many browser sessions can run at once, at two levels:
+Kernel caps how many browsers can run at once, at two levels. A single limit covers both on-demand browsers (`browsers.create()`) and [browser pools](/browsers/pools/overview) — standalone sessions and reserved pool capacity count against the same cap.
 
-- **Organization limit** — the total concurrent sessions allowed across your whole organization, determined by your plan. Every session counts against it.
+- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. Every browser session and every reserved pool slot counts against it.
 - **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
 
 Per-project caps come from two places:
@@ -312,18 +336,22 @@ A project's effective cap resolves in this order:
 2. Otherwise, the organization's default project cap, if set.
 3. Otherwise, no per-project cap — only the organization limit applies.
 
-A per-project cap never lets a project exceed your organization's concurrent-session limit.
+A per-project cap never lets a project exceed your organization's concurrency limit.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/org/limits` | Get the org concurrent-session limit and the default per-project cap |
+| `GET` | `/org/limits` | Get the org concurrency limit and the default per-project cap |
 | `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) |
 | `GET` | `/org/projects/{id}/limits` | Get a single project's limit overrides |
 | `PATCH` | `/org/projects/{id}/limits` | Set a single project's limit overrides (send `0` to clear a cap) |
 
+<Info>
+  `max_pooled_sessions` is deprecated. Pooled browsers now count toward `max_concurrent_sessions`, and requests that set `max_pooled_sessions` return a `400`.
+</Info>
+
 ### Set an org-wide default
 
-Apply a default of 10 concurrent sessions to every project that doesn't have its own override:
+Apply a default of 10 concurrent browsers to every project that doesn't have its own override:
 
 <CodeGroup>
 ```bash cURL

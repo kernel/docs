@@ -58,15 +58,18 @@ Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session he
 
 ## Concurrency limits
 
+Kernel enforces a single concurrency limit covering all browsers you run at once — whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
+
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
-| Reserved browsers ([browser pools](/browsers/pools/overview)) | 0 | 0 | 100 | Custom |
-| On-demand browsers | 5 | 10 | 50 | Custom |
+| Concurrent browsers | 5 | 10 | 150 | Custom |
 | App invocations | 5 | 10 | 50 | Custom |
 | App invocations (per-app) | 5 | 10 | 20 | Custom |
 | Managed auth health check interval | N/A | 1 hour minimum | 20 minutes minimum | Custom |
 
-> Note: Browsers in [Standby Mode](/browsers/standby) count against on-demand concurrency limits.
+> Note: Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired — a pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
+
+> Note: Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
 
 > Note: Limits are org-wide by default unless stated otherwise. `Managed auth profiles` refer to profiles with active auth connections that Kernel maintains using your stored [Credentials](/auth/credentials) or [1Password connection](/integrations/1password). A single profile can have multiple auth connections (one per domain) — see [Profiles](/auth/profiles#multiple-auth-connections-per-profile) for details.
 
@@ -84,4 +87,4 @@ Rate-limited endpoints include these headers on every response:
 
 All Kernel SDKs automatically retry `429` responses up to 2 times, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
 
-If you need higher rate limits, [contact us](https://calendly.com/d/cs5d-5vx-qp3).
+If you need higher rate limits, [contact us](https://calendly.com/d/d3tn-5kp-5yt).

@@ -484,4 +484,5 @@ _ = browser
 - Profiles store cookies and local storage. Start the session with `save_changes: true` to write changes back when the browser is closed.
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
 - Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
+- `save_changes` applies only to single browser sessions (`kernel.browsers.create()`). [Browser pools](/browsers/pools/overview) load a profile read-only and never persist changes back to it; `save_changes` sent on a pool's profile is silently ignored.
 - Profile data is encrypted end to end using a per-organization key.
