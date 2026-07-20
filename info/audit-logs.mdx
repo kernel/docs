@@ -105,7 +105,7 @@ The export API returns one chunk per request. Export paging uses a cursor rather
 
 Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`. With the `jsonl.gz` format, each chunk is an independent gzip member, and appending the members produces a valid gzip file. With `jsonl`, each chunk contains raw JSON Lines that you can also append.
 
-The following minimal examples write all chunks to one file. For a hardened export with checksum verification and retries, use the [CLI](/reference/cli/audit-logs#kernel-audit-logs-download).
+The SDK download helpers verify each chunk, retry transient transfer failures, and write the complete export to a destination you provide. They don't close the destination.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -118,23 +118,15 @@ const kernel = new Kernel({
 
 const file = await open('audit-logs.jsonl.gz', 'w');
 try {
-  let cursor: string | undefined;
-  while (true) {
-    const response = await kernel.auditLogs.exportChunk({
+  await kernel.auditLogs.download(
+    {
       start: '2026-06-01T00:00:00Z',
       end: '2026-06-02T00:00:00Z',
       format: 'jsonl.gz',
       exclude_method: ['GET'],
-      cursor,
-    });
-
-    await file.writeFile(Buffer.from(await response.arrayBuffer()));
-
-    if (response.headers.get('x-has-more') !== 'true') {
-      break;
-    }
-    cursor = response.headers.get('x-next-cursor') ?? undefined;
-  }
+    },
+    file,
+  );
 } finally {
   await file.close();
 }
@@ -146,20 +138,14 @@ from kernel import Kernel
 
 client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
 
-params = {
-    "start": "2026-06-01T00:00:00Z",
-    "end": "2026-06-02T00:00:00Z",
-    "format": "jsonl.gz",
-    "exclude_method": ["GET"],
-}
-
 with open("audit-logs.jsonl.gz", "wb") as file:
-    while True:
-        response = client.audit_logs.export_chunk(**params)
-        file.write(response.read())
-        if response.headers.get("x-has-more") != "true":
-            break
-        params["cursor"] = response.headers.get("x-next-cursor")
+    client.audit_logs.download(
+        to=file,
+        start="2026-06-01T00:00:00Z",
+        end="2026-06-02T00:00:00Z",
+        format="jsonl.gz",
+        exclude_method=["GET"],
+    )
 ```
 
 ```go Go
@@ -167,7 +153,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"os"
 	"time"
 
@@ -184,46 +169,20 @@ func main() {
 	}
 	defer file.Close()
 
-	params := kernel.AuditLogExportChunkParams{
+	_, err = client.AuditLogs.Download(ctx, kernel.AuditLogDownloadParams{
 		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
 		End:           time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
 		Format:        kernel.AuditLogExportChunkParamsFormatJSONLGz,
 		ExcludeMethod: []string{"GET"},
-	}
-
-	for {
-		response, err := client.AuditLogs.ExportChunk(ctx, params)
-		if err != nil {
-			panic(err)
-		}
-		_, copyErr := io.Copy(file, response.Body)
-		closeErr := response.Body.Close()
-		if copyErr != nil {
-			panic(copyErr)
-		}
-		if closeErr != nil {
-			panic(closeErr)
-		}
-
-		if response.Header.Get("X-Has-More") != "true" {
-			break
-		}
-		params.Cursor = kernel.String(response.Header.Get("X-Next-Cursor"))
+	}, file)
+	if err != nil {
+		panic(err)
 	}
 }
 ```
 </CodeGroup>
 
-<Warning>
-Don't use these minimal loops for production exports without these safeguards:
-
-- Buffer each chunk's exact response bytes and verify their SHA-256 hash against `X-Content-Sha256` before writing.
-- When `X-Has-More` is `true`, require a non-empty `X-Next-Cursor` that differs from the current cursor.
-- Persist the cursor only after the verified chunk is safely written.
-- Retry transient failures.
-
-The [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) implements these safeguards.
-</Warning>
+For atomic file replacement and cleanup after failed downloads, use the [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download).
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
