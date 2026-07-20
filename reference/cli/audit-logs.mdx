@@ -4,6 +4,8 @@ title: "Audit Logs"
 
 Search and download [organization audit logs](/info/audit-logs) from the CLI.
 
+Time values can be dates (`2026-06-01`) or timestamps (`2026-06-01T15:04:05Z`). Dates begin at midnight UTC.
+
 ## `kernel audit-logs search`
 
 Search audit logs within a time window. Results are ordered newest first.
@@ -18,8 +20,6 @@ kernel audit-logs search \
 ```
 
 If you omit the time flags, the command searches from 24 hours ago through now. The start is inclusive and the end is exclusive. Each time window can cover up to 30 days.
-
-For time values, use a date like `2026-06-01`, a UTC timestamp like `2026-06-01T15:04:05Z`, or a timestamp with an offset like `2026-06-01T11:04:05-04:00`. Dates begin at midnight UTC.
 
 | Flag | Description |
 |------|-------------|
@@ -63,8 +63,6 @@ kernel audit-logs download \
 ```
 
 `--start` and `--end` are required. The start is inclusive and the end is exclusive, and the time window can cover up to 30 days.
-
-For time values, use a date like `2026-06-01`, a UTC timestamp like `2026-06-01T15:04:05Z`, or a timestamp with an offset like `2026-06-01T11:04:05-04:00`. Dates begin at midnight UTC.
 
 | Flag | Description |
 |------|-------------|
