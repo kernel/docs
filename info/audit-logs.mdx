@@ -215,7 +215,14 @@ func main() {
 </CodeGroup>
 
 <Warning>
-  Don't use these minimal loops for a production export without adding integrity checks and durable cursor storage. For each chunk, buffer the exact response bytes, compare their SHA-256 hash with `X-Content-Sha256`, write the verified bytes, and then validate the cursor. When `X-Has-More` is `true`, require a non-empty `X-Next-Cursor` that differs from the current cursor. Persist that cursor only after the verified chunk is safely written. You must also retry transient failures. The [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) implements this hardened path.
+Don't use these minimal loops for production exports without these safeguards:
+
+- Buffer each chunk's exact response bytes and verify their SHA-256 hash against `X-Content-Sha256` before writing.
+- When `X-Has-More` is `true`, require a non-empty `X-Next-Cursor` that differs from the current cursor.
+- Persist the cursor only after the verified chunk is safely written.
+- Retry transient failures.
+
+The [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) implements these safeguards.
 </Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
