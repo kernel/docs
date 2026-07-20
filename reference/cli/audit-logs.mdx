@@ -19,10 +19,12 @@ kernel audit-logs search \
 
 If you omit the time flags, the command searches from 24 hours ago through now. The start is inclusive and the end is exclusive. Each time window can cover up to 30 days.
 
+For time values, use a date like `2026-06-01`, a UTC timestamp like `2026-06-01T15:04:05Z`, or a timestamp with an offset like `2026-06-01T11:04:05-04:00`. Dates begin at midnight UTC.
+
 | Flag | Description |
 |------|-------------|
-| `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Defaults to 24 hours ago. |
-| `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Defaults to now. |
+| `--start <time>` | Inclusive start. Defaults to 24 hours ago. |
+| `--end <time>` | Exclusive end. Defaults to now. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
 | `--method <method>` | Return only requests that use this HTTP method. |
 | `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
@@ -62,10 +64,12 @@ kernel audit-logs download \
 
 `--start` and `--end` are required. The start is inclusive and the end is exclusive, and the time window can cover up to 30 days.
 
+For time values, use a date like `2026-06-01`, a UTC timestamp like `2026-06-01T15:04:05Z`, or a timestamp with an offset like `2026-06-01T11:04:05-04:00`. Dates begin at midnight UTC.
+
 | Flag | Description |
 |------|-------------|
-| `--start <time>` | Inclusive start, as RFC 3339 or `YYYY-MM-DD`. Required. |
-| `--end <time>` | Exclusive end, as RFC 3339 or `YYYY-MM-DD`. Required. |
+| `--start <time>` | Inclusive start. Required. |
+| `--end <time>` | Exclusive end. Required. |
 | `--search <text>` | Search path, user ID, email, client IP, and status. |
 | `--method <method>` | Return only requests that use this HTTP method. |
 | `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
@@ -76,7 +80,7 @@ kernel audit-logs download \
 | `--to <path>` | Output `.jsonl.gz` path. For the example above, the default is `audit-logs-20260601-20260701.jsonl.gz`. |
 | `--force` | Replace an existing output file. |
 
-Date-only values represent midnight UTC. For example, `--start 2026-06-01 --end 2026-07-01` covers all of June in UTC.
+For example, `--start 2026-06-01 --end 2026-07-01` covers all of June in UTC.
 
 ### Download behavior
 
