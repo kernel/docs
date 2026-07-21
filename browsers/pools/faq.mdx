@@ -40,7 +40,12 @@ If you've explicitly disabled `refresh_on_profile_update`, you can still force t
 
 ### Can pooled browsers save changes back to a profile?
 
-No. A profile attached to a pool is loaded read-only — pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools. Sending `save_changes` on a pool's profile is silently ignored (it is not rejected), so reusing a single-session profile object won't error. To capture profile state, use a single browser session instead: `kernel.browsers.create({ profile: { name, save_changes: true } })`.
+Not at the pool level, but yes per session. These are two different things:
+
+- **A profile set on the pool config** is loaded read-only. Every browser in the pool shares it and would try to save concurrently, so `save_changes` does not apply to pools — sending it on a pool's profile is silently ignored (not rejected). This is by design: it prevents profile corruption and the ambiguity of which idle browser's state would "win".
+- **A profile attached to a single browser _after_ you acquire it** does persist. Create the pool with no profile, acquire a browser, attach a per-user profile with `save_changes: true` via `kernel.browsers.update()`, then release with `reuse: false` so the browser is destroyed (which flushes the profile) instead of returning to the pool.
+
+The second pattern is the recommended way to load many per-user profiles through a pool's pre-warmed browsers — see [Per-user profiles with pools](/browsers/pools/overview#per-user-profiles-with-pools).
 
 ### Should I set `reuse: true` or `reuse: false` when releasing?
 

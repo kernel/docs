@@ -266,6 +266,94 @@ You have three ways to get an in-use browser onto the new configuration:
 - **Clean it up after the fact:** [`flush()`](#flush-idle-browsers) the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released.
 </Warning>
 
+## Per-user profiles with pools
+
+A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-browsers) and shared by every browser, so it can't hold per-user login state across many users in a single pool. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
+
+1. **Create the pool with no profile.** A profile can only be loaded into a browser that was created without one, so the pool must be profile-free.
+2. **Acquire a browser** from the pool.
+3. **Attach the user's profile** with `save_changes: true` using `kernel.browsers.update()`.
+4. **Run your automation, then release with `reuse: false`.** This destroys the browser instead of returning it to the pool — which both persists the profile changes and prevents state from leaking to the next user.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Declare the pool once, separately from your workload runtime, with no profile attached
+const pool = await kernel.browserPools.create({ name: "my-pool", size: 10 });
+
+// Later, at runtime, acquire from the pool per user:
+const browser = await kernel.browserPools.acquire("my-pool", {});
+
+// Load this user's profile and persist any changes on destroy
+await kernel.browsers.update(browser.session_id, {
+  profile: { name: userId, save_changes: true },
+});
+
+// ... run your automation against browser.cdp_ws_url ...
+
+// Destroy on release so the profile persists and no state leaks to the next user
+await kernel.browserPools.release("my-pool", {
+  session_id: browser.session_id,
+  reuse: false,
+});
+```
+
+```python Python
+# Declare the pool once, separately from your workload runtime, with no profile attached
+pool = kernel.browser_pools.create(name="my-pool", size=10)
+
+# Later, at runtime, acquire from the pool per user:
+browser = kernel.browser_pools.acquire("my-pool")
+
+# Load this user's profile and persist any changes on destroy
+kernel.browsers.update(
+    browser.session_id,
+    profile={"name": user_id, "save_changes": True},
+)
+
+# ... run your automation against browser.cdp_ws_url ...
+
+# Destroy on release so the profile persists and no state leaks to the next user
+kernel.browser_pools.release(
+    "my-pool",
+    session_id=browser.session_id,
+    reuse=False,
+)
+```
+
+```go Go
+// Declare the pool once, separately from your workload runtime, with no profile attached.
+// Later, at runtime, acquire from the pool per user:
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
+if err != nil {
+	panic(err)
+}
+
+// Load this user's profile and persist any changes on destroy
+if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String(userID),
+		SaveChanges: kernel.Bool(true),
+	},
+}); err != nil {
+	panic(err)
+}
+
+// ... run your automation against browser.CdpWsURL ...
+
+// Destroy on release so the profile persists and no state leaks to the next user
+if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+	SessionID: browser.SessionID,
+	Reuse:     kernel.Bool(false),
+}); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Info>
+Releasing with `reuse: false` triggers a pool refill at the configured [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute), so the pool tops back up to `size` with fresh, profile-free browsers ready for the next user.
+</Info>
+
 ## Flush idle browsers
 
 Destroy all idle browsers in the pool. Acquired browsers are not affected. The pool will automatically refill with the pool's specified configuration.
