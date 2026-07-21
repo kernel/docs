@@ -7,13 +7,13 @@ Execute Playwright/TypeScript automation code against an existing Kernel browser
 
 <Note>`session_id` is required. Unlike earlier versions, this tool no longer creates a browser when `session_id` is omitted, and no longer deletes the browser after execution. Create a session with `manage_browsers` (action `create`), pass its `session_id` here, then delete it with `manage_browsers` when done.</Note>
 
-<Tip>Use `computer_action` with the `screenshot` action instead of `page.screenshot()` in your code. For a comprehensive page state snapshot, use `await page._snapshotForAI()`.</Tip>
+<Tip>Use `computer_action` with the `screenshot` action instead of `page.screenshot()` in your code. To read page state, return only what you need — prefer a targeted selector (e.g. `await page.locator('h1').innerText()`) or a region-scoped accessibility snapshot (e.g. `await page.locator('main').ariaSnapshot()`) rather than dumping the whole page.</Tip>
 
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `code` | Playwright/TypeScript code with a `page` object in scope. Required. |
+| `code` | Playwright/TypeScript code with `page`, `context`, and `browser` objects in scope; the value you `return` is sent back. Required. |
 | `session_id` | Existing browser session ID to run against. Required. |
 
 ## Example
