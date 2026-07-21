@@ -268,7 +268,7 @@ You have three ways to get an in-use browser onto the new configuration:
 
 ## Per-user profiles with pools
 
-A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-browsers) and shared by every browser, so it can't hold per-user login state. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
+A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-browsers) and shared by every browser, so it can't hold per-user login state across many users in a single pool. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
 
 1. **Create the pool with no profile.** A profile can only be loaded into a browser that was created without one, so the pool must be profile-free.
 2. **Acquire a browser** from the pool.
