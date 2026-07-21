@@ -101,7 +101,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-aud
 
 ## Export audit logs
 
-The SDK download helpers write a complete export to a destination you provide. They:
+The SDK download helpers default to `jsonl.gz` and write a complete export to a destination you provide. They:
 
 - request every chunk until the export is complete
 - validate pagination metadata and each chunk's SHA-256 checksum before writing
@@ -125,7 +125,6 @@ try {
     {
       start: '2026-06-01T00:00:00Z',
       end: '2026-06-02T00:00:00Z',
-      format: 'jsonl.gz',
       exclude_method: ['GET'],
     },
     file,
@@ -146,7 +145,6 @@ with open("audit-logs.jsonl.gz", "wb") as file:
         to=file,
         start="2026-06-01T00:00:00Z",
         end="2026-06-02T00:00:00Z",
-        format="jsonl.gz",
         exclude_method=["GET"],
     )
 ```
@@ -175,7 +173,6 @@ func main() {
 	_, err = client.AuditLogs.Download(ctx, kernel.AuditLogDownloadParams{
 		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
 		End:           time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
-		Format:        kernel.AuditLogExportChunkParamsFormatJSONLGz,
 		ExcludeMethod: []string{"GET"},
 	}, file)
 	if err != nil {
