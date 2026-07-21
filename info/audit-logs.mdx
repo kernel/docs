@@ -178,10 +178,6 @@ func main() {
 ```
 </CodeGroup>
 
-<Warning>
-If a download fails, the destination may contain a partial export. To publish only completed exports, write to a temporary file and atomically rename it after the download succeeds.
-</Warning>
-
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
 For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for pagination headers, formats, and the full request and response schema.
