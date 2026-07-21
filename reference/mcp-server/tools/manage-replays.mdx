@@ -1,0 +1,38 @@
+---
+title: "manage_replays"
+description: "Start, stop, and list video replay recordings for a browser session"
+---
+
+Record video replays of a browser session. Recording is opt-in and session-scoped: start a recording once, run your automation (for example with [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code)), then stop it — rather than recording each call separately.
+
+<Note>Replays require a headful session. They are not available for [headless](/browsers/headless) browsers.</Note>
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `start` | Begin recording a session. Returns a `replay_id`. |
+| `stop` | Stop a recording. |
+| `list` | List recordings for a session, including their view/download URLs. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `start`, `stop`, or `list`. Required. |
+| `session_id` | Browser session ID. Required. |
+| `replay_id` | Recording ID to stop. Required for `stop`. |
+| `framerate` | (start) Frames per second for the recording. |
+| `max_duration_in_seconds` | (start) Maximum recording length in seconds. |
+| `record_audio` | (start) Capture audio in addition to video. |
+
+## Example
+
+```json
+{
+  "action": "start",
+  "session_id": "session_abc123",
+  "framerate": 30,
+  "max_duration_in_seconds": 300
+}
+```
