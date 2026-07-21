@@ -5,7 +5,7 @@ description: "Give your Vercel Eve agent a Kernel cloud browser with a one-line 
 
 ## Overview
 
-The [`@onkernel/eve-extension`](https://www.npmjs.com/package/@onkernel/eve-extension) package is a [Vercel Eve](https://vercel.com/eve) extension that gives your agent a Kernel cloud browser. Mount it and Kernel's browser toolset plus a `browse` skill show up under your mount automatically — no browser tool code to write or maintain. See [what you get](#what-you-get) for the full toolset.
+The [`@onkernel/eve-extension`](https://www.npmjs.com/package/@onkernel/eve-extension) package is a [Vercel Eve](https://vercel.com/eve) extension that gives your agent a Kernel cloud browser. Mount it and Kernel's browser toolset plus a `browse` skill show up under your mount automatically — no browser tool code to write or maintain. See [included tools and skills](#included-tools-and-skills) for the full toolset.
 
 The tools aren't reimplemented in the extension. It packages a single MCP connection to [Kernel's hosted MCP server](https://github.com/onkernel/kernel-mcp-server), and Eve discovers the tools at runtime under your mount namespace (e.g. `kernel__browser__manage_browsers`).
 
@@ -22,7 +22,11 @@ You can authenticate through [Vercel Connect](https://vercel.com/connect) — th
 
 ## Setup with Vercel Connect (recommended)
 
-With Vercel Connect, no key touches your app, environment, or the model, and each user authenticates as themselves with a one-time consent that's cached afterward. This is a good fit for Kernel's per-user managed auth.
+Vercel Connect is the recommended path because:
+
+- No key touches your app, environment, or the model.
+- Each user authenticates as themselves with a one-time consent that's cached afterward.
+- Per-user identity is a good fit for Kernel's [managed auth](/auth/overview).
 
 **1. Install** the extension:
 
@@ -56,7 +60,7 @@ npx eve dev     # or: npx eve deploy
 
 Leave `KERNEL_API_KEY` unset. The first time a user drives the browser, Eve surfaces a Connect consent prompt; they approve once and it's cached from then on, persisting across threads and sessions.
 
-## What you get
+## Included tools and skills
 
 Once mounted, the agent has the following tools, namespaced under your mount (e.g. `kernel__browser__*` — discover the exact names via `connection_search`):
 
@@ -66,9 +70,20 @@ Once mounted, the agent has the following tools, namespaced under your mount (e.
 - **`manage_auth_connections`** — Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
 - **`manage_profiles`** — create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
 - **`manage_proxies`** — create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
-- the **`browse` skill** — the loop the model follows to drive the browser end to end. It runs autonomously but is human-in-the-loop friendly: it surfaces the live-view URL for take-over, hands off for sign-ins, ambiguous choices, and sensitive actions, and defaults to Kernel managed auth for authenticated sites.
+- the **`browse` skill** — the loop the model follows to drive the browser end to end.
 
-A few heavier tools are off by default to keep an autonomous agent's blast radius small on a shared API key. You can add any of them via a [connection override](#overriding-the-connection): `browser_curl` (raw HTTP through the session), `manage_credentials` (create, read, and delete stored credentials — the managed-auth flow above works without it), `exec_command` (shell exec in the VM), and `manage_browser_pools`.
+The `browse` skill runs autonomously but is human-in-the-loop friendly:
+
+- It surfaces the live-view URL so you can take over.
+- It hands off for sign-ins, ambiguous choices, and sensitive actions.
+- It defaults to Kernel managed auth for authenticated sites.
+
+A few heavier tools are off by default to keep an autonomous agent's blast radius small on a shared API key. Add any of them via a [connection override](#overriding-the-connection):
+
+- `browser_curl` — raw HTTP through the session.
+- `manage_credentials` — create, read, and delete stored credentials (the managed-auth flow above works without it).
+- `exec_command` — shell exec in the VM.
+- `manage_browser_pools` — manage pools of pre-warmed browsers.
 
 <Warning>
   The default mount has no approval gate, and its toolset includes `execute_playwright_code` (arbitrary JS in the browser VM) and `manage_auth_connections` (reuse of logged-in sessions). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org. That's fine for a **personal or single-tenant** agent. For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection) — `approval: once()` (per session) or `approval: always()` (every controlled action).
