@@ -202,6 +202,93 @@ if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseP
 ```
 </CodeGroup>
 
+## Per-user profiles with pools
+
+A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-browsers) and shared by every browser, so it can't hold per-user login state. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
+
+1. **Create the pool with no profile.** A profile can only be loaded into a browser that was created without one, so the pool must be profile-free.
+2. **Acquire a browser** from the pool.
+3. **Attach the user's profile** with `save_changes: true` using `kernel.browsers.update()`.
+4. **Run your automation, then release with `reuse: false`.** This destroys the browser instead of returning it to the pool — which both persists the profile changes and prevents state from leaking to the next user.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Create the pool once, with no profile attached
+const pool = await kernel.browserPools.create({ name: "my-pool", size: 10 });
+
+// Then, per user:
+const browser = await kernel.browserPools.acquire("my-pool", {});
+
+// Load this user's profile and persist any changes on destroy
+await kernel.browsers.update(browser.session_id, {
+  profile: { name: userId, save_changes: true },
+});
+
+// ... run your automation against browser.cdp_ws_url ...
+
+// Destroy on release so the profile persists and no state leaks to the next user
+await kernel.browserPools.release("my-pool", {
+  session_id: browser.session_id,
+  reuse: false,
+});
+```
+
+```python Python
+# Create the pool once, with no profile attached
+pool = kernel.browser_pools.create(name="my-pool", size=10)
+
+# Then, per user:
+browser = kernel.browser_pools.acquire("my-pool")
+
+# Load this user's profile and persist any changes on destroy
+kernel.browsers.update(
+    browser.session_id,
+    profile={"name": user_id, "save_changes": True},
+)
+
+# ... run your automation against browser.cdp_ws_url ...
+
+# Destroy on release so the profile persists and no state leaks to the next user
+kernel.browser_pools.release(
+    "my-pool",
+    session_id=browser.session_id,
+    reuse=False,
+)
+```
+
+```go Go
+// Acquire a browser from a profile-free pool
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
+if err != nil {
+	panic(err)
+}
+
+// Load this user's profile and persist any changes on destroy
+if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String(userID),
+		SaveChanges: kernel.Bool(true),
+	},
+}); err != nil {
+	panic(err)
+}
+
+// ... run your automation against browser.CdpWsURL ...
+
+// Destroy on release so the profile persists and no state leaks to the next user
+if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+	SessionID: browser.SessionID,
+	Reuse:     kernel.Bool(false),
+}); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Info>
+Releasing with `reuse: false` triggers a pool refill at the configured [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute), so the pool tops back up to `size` with fresh, profile-free browsers ready for the next user.
+</Info>
+
 ## Update a pool
 
 Update the pool configuration. By default, existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.

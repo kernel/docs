@@ -257,6 +257,10 @@ if err != nil {
 You cannot load a profile into a browser that was already created with a profile. The browser must have been created without any profile configuration.
 </Warning>
 
+<Note>
+This is also how you use [browser pools](/browsers/pools/overview#per-user-profiles-with-pools) with per-user profiles: acquire a profile-free browser from the pool, load the user's profile with `save_changes: true`, then release it with `reuse: false` so the changes persist and the browser is destroyed rather than handed to the next user.
+</Note>
+
 ## Other ways to use profiles
 
 The API and SDKs support listing, deleting, and downloading profile data as JSON. See the [API reference](https://kernel.sh/docs/api-reference/profiles/list-profiles) for more details.
@@ -484,5 +488,5 @@ _ = browser
 - Profiles store cookies and local storage. Start the session with `save_changes: true` to write changes back when the browser is closed.
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
 - Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
-- `save_changes` applies only to single browser sessions (`kernel.browsers.create()`). [Browser pools](/browsers/pools/overview) load a profile read-only and never persist changes back to it; `save_changes` sent on a pool's profile is silently ignored.
+- `save_changes` applies to a profile attached to a single browser — either at creation (`kernel.browsers.create()`) or loaded afterward with `kernel.browsers.update()`. A profile set on a [browser pool's](/browsers/pools/overview) config is loaded read-only and never persisted; `save_changes` sent on a pool's profile is silently ignored. To persist per-user state through a pool, attach the profile after acquiring the browser and release with `reuse: false` — see [Per-user profiles with pools](/browsers/pools/overview#per-user-profiles-with-pools).
 - Profile data is encrypted end to end using a per-organization key.
