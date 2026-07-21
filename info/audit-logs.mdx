@@ -179,7 +179,7 @@ func main() {
 </CodeGroup>
 
 <Warning>
-If a download fails, the destination may contain a partial export. Write to a temporary file and rename it after success, or use the [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) for automatic cleanup and atomic replacement.
+If a download fails, the destination may contain a partial export. To publish only completed exports, write to a temporary file and atomically rename it after the download succeeds.
 </Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
