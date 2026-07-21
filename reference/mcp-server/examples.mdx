@@ -15,9 +15,21 @@ Assistant: I'll execute your web-scraper action with reddit.com as the target.
 
 ```
 Human: Go to example.com and get me the page title
-Assistant: I'll execute Playwright code to navigate to the site and retrieve the title.
-[Uses execute_playwright_code tool with code: "await page.goto('https://example.com'); return await page.title();"]
-Returns: { success: true, result: "Example Domain", replay_url: "https://..." }
+Assistant: I'll create a browser session, then execute Playwright code to navigate to the site and retrieve the title.
+[Uses manage_browsers tool with action: "create" to launch a session]
+[Uses execute_playwright_code tool with session_id and code: "await page.goto('https://example.com'); return await page.title();"]
+Returns: { success: true, result: "Example Domain" }
+[Uses manage_browsers tool with action: "delete" to clean up the session]
+```
+
+## Record a video replay of an automation
+
+```
+Human: Record a video while you scrape this page
+Assistant: I'll start a replay recording, run the automation, then stop it.
+[Uses manage_replays tool with action: "start" and the session_id]
+[Uses execute_playwright_code tool to run the automation]
+[Uses manage_replays tool with action: "stop" to end the recording]
 ```
 
 ## Set up browser profiles for authentication

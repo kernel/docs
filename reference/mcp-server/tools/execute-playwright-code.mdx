@@ -3,7 +3,9 @@ title: "execute_playwright_code"
 description: "Run Playwright/TypeScript code against a browser session"
 ---
 
-Execute Playwright/TypeScript automation code against a Kernel browser session. If `session_id` is provided, uses that existing browser; otherwise creates a new one. Returns the result with a video replay URL, and auto-cleans up browsers it creates.
+Execute Playwright/TypeScript automation code against an existing Kernel browser session. This tool is a thin passthrough: it runs your code in the browser's VM and returns the result. It does not manage browser lifecycle — create and delete sessions with [`manage_browsers`](/reference/mcp-server/tools/manage-browsers).
+
+<Note>`session_id` is required. Unlike earlier versions, this tool no longer creates a browser when `session_id` is omitted, and no longer deletes the browser after execution. Create a session with `manage_browsers` (action `create`), pass its `session_id` here, then delete it with `manage_browsers` when done.</Note>
 
 <Tip>Use `computer_action` with the `screenshot` action instead of `page.screenshot()` in your code. For a comprehensive page state snapshot, use `await page._snapshotForAI()`.</Tip>
 
@@ -12,12 +14,13 @@ Execute Playwright/TypeScript automation code against a Kernel browser session. 
 | Parameter | Description |
 |-----------|-------------|
 | `code` | Playwright/TypeScript code with a `page` object in scope. Required. |
-| `session_id` | Existing browser session ID. If omitted, a new browser is created and cleaned up after execution. |
+| `session_id` | Existing browser session ID to run against. Required. |
 
 ## Example
 
 ```json
 {
+  "session_id": "session_abc123",
   "code": "await page.goto('https://example.com'); return await page.title();"
 }
 ```
@@ -27,7 +30,8 @@ Returns:
 ```json
 {
   "success": true,
-  "result": "Example Domain",
-  "replay_url": "https://..."
+  "result": "Example Domain"
 }
 ```
+
+<Tip>To capture a video recording around your automation, start a recording with [`manage_replays`](/reference/mcp-server/tools/manage-replays) before your calls and stop it when done.</Tip>
