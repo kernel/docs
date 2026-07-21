@@ -86,7 +86,10 @@ A few heavier tools are off by default to keep an autonomous agent's blast radiu
 - `manage_browser_pools`: manage pools of pre-warmed browsers.
 
 <Warning>
-  The default mount has no approval gate, and its toolset includes `execute_playwright_code` (arbitrary JS in the browser VM) and `manage_auth_connections` (reuse of logged-in sessions). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org. That's fine for a **personal or single-tenant** agent. For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection): `approval: once()` (per session) or `approval: always()` (every controlled action).
+  The default mount has no approval gate, and its toolset can run arbitrary JS in the browser VM (`execute_playwright_code`) and reuse logged-in sessions (`manage_auth_connections`). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org.
+
+  - For a **personal or single-tenant** agent, the default is fine.
+  - For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection): `approval: once()` (per session) or `approval: always()` (every controlled action).
 </Warning>
 
 ## Authenticate with an API key instead
