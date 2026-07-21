@@ -101,11 +101,14 @@ See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-aud
 
 ## Export audit logs
 
-The export API returns one chunk per request. Export paging uses a cursor rather than the page token used by search; both are opaque values you pass back unchanged.
+The SDK download helpers write a complete export to a destination you provide. They:
 
-Repeat requests until `X-Has-More` is `false`, passing `X-Next-Cursor` back as `cursor`. With the `jsonl.gz` format, each chunk is an independent gzip member, and appending the members produces a valid gzip file. With `jsonl`, each chunk contains raw JSON Lines that you can also append.
+- request every chunk until the export is complete
+- validate pagination metadata and each chunk's SHA-256 checksum before writing
+- retry transient HTTP and transfer failures
+- append verified chunks in order
 
-The SDK download helpers verify each chunk, retry transient transfer failures, and write the complete export to a destination you provide. They don't close the destination.
+The helpers don't close the destination. Python provides equivalent sync and async methods; both accept a synchronous binary destination.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -182,8 +185,10 @@ func main() {
 ```
 </CodeGroup>
 
-For atomic file replacement and cleanup after failed downloads, use the [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download).
+<Warning>
+If a download fails, the destination may contain a partial export. Write to a temporary file and rename it after success, or use the [CLI download command](/reference/cli/audit-logs#kernel-audit-logs-download) for automatic cleanup and atomic replacement.
+</Warning>
 
 Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`, which provides a stable tie-breaker when multiple events share a timestamp.
 
-See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for the full request and response schema.
+For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for pagination headers, formats, and the full request and response schema.
