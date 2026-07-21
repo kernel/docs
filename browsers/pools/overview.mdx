@@ -277,10 +277,10 @@ A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-// Create the pool once, with no profile attached
+// Declare the pool once, separately from your workload runtime, with no profile attached
 const pool = await kernel.browserPools.create({ name: "my-pool", size: 10 });
 
-// Then, per user:
+// Later, at runtime, acquire from the pool per user:
 const browser = await kernel.browserPools.acquire("my-pool", {});
 
 // Load this user's profile and persist any changes on destroy
@@ -298,10 +298,10 @@ await kernel.browserPools.release("my-pool", {
 ```
 
 ```python Python
-# Create the pool once, with no profile attached
+# Declare the pool once, separately from your workload runtime, with no profile attached
 pool = kernel.browser_pools.create(name="my-pool", size=10)
 
-# Then, per user:
+# Later, at runtime, acquire from the pool per user:
 browser = kernel.browser_pools.acquire("my-pool")
 
 # Load this user's profile and persist any changes on destroy
@@ -321,7 +321,8 @@ kernel.browser_pools.release(
 ```
 
 ```go Go
-// Acquire a browser from a profile-free pool
+// Declare the pool once, separately from your workload runtime, with no profile attached.
+// Later, at runtime, acquire from the pool per user:
 browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
 if err != nil {
 	panic(err)
