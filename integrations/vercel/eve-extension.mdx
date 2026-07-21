@@ -1,0 +1,206 @@
+---
+title: "Eve Extension"
+description: "Give your Vercel Eve agent a Kernel cloud browser with a one-line mount"
+---
+
+## Overview
+
+The [`@onkernel/eve-extension`](https://www.npmjs.com/package/@onkernel/eve-extension) package is a [Vercel Eve](https://vercel.com/eve) extension that gives your agent a Kernel cloud browser. Mount it and Kernel's browser toolset — session management, Playwright execution, human-like computer controls — plus a `browse` skill show up under your mount automatically. There's no browser tool code to write or maintain.
+
+The tools aren't reimplemented in the extension. It packages a single MCP connection to [Kernel's hosted MCP server](https://github.com/onkernel/kernel-mcp-server), and Eve discovers the tools at runtime under your mount namespace (e.g. `kernel__browser__manage_browsers`).
+
+You can authenticate through [Vercel Connect](https://vercel.com/connect) — the recommended setup, where no API key touches your app and each user authenticates as themselves — or with a static Kernel API key. Either way it's a one-line mount; you pick the auth model in the mount config.
+
+## Prerequisites
+
+- **Node 24+**
+- An Eve agent project running **Eve `>= 0.25`** — extensions need it. Older Eve silently ignores `agent/extensions/` and nothing mounts. If you don't have a project yet:
+  ```bash
+  npx eve@latest init my-agent && cd my-agent
+  ```
+- A [Kernel account](https://dashboard.onkernel.com) — either a Vercel Connect Kernel connector (recommended path below) or a Kernel API key
+
+## Setup with Vercel Connect (recommended)
+
+With Vercel Connect, no key touches your app, environment, or the model, and each user authenticates as themselves with a one-time consent that's cached afterward. This is a good fit for Kernel's per-user managed auth.
+
+**1. Install** the extension:
+
+```bash
+pnpm add @onkernel/eve-extension
+```
+
+**2. Create and attach the Kernel connector** in Vercel Connect. Name it `eve-extension` so the mount snippet works unedited:
+
+```bash
+vercel connect create mcp.onkernel.com --name eve-extension
+vercel connect attach mcp.onkernel.com/eve-extension
+```
+
+You can also add it from the Vercel dashboard under **Connectors → Browse all → Kernel**. Confirm the UID with `vercel connect list`.
+
+**3. Mount the extension** — one line, passing the connector UID:
+
+```typescript
+// agent/extensions/kernel.ts
+import kernel from "@onkernel/eve-extension";
+
+export default kernel({ connect: "mcp.onkernel.com/eve-extension" });
+```
+
+**4. Run it:**
+
+```bash
+npx eve dev     # or: npx eve deploy
+```
+
+Leave `KERNEL_API_KEY` unset. The first time a user drives the browser, Eve surfaces a Connect consent prompt; they approve once and it's cached from then on, persisting across threads and sessions.
+
+## What you get
+
+Once mounted, the agent has the following tools, namespaced under your mount (e.g. `kernel__browser__*` — discover the exact names via `connection_search`):
+
+- **`manage_browsers`** — create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
+- **`execute_playwright_code`** — run Playwright against the live page to read, navigate, click, or type.
+- **`computer_action`** — human-like mouse, keyboard, and screenshot controls for the same session.
+- **`manage_auth_connections`** — Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
+- **`manage_profiles`** — create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
+- **`manage_proxies`** — create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
+- the **`browse` skill** — the loop the model follows to drive the browser end to end. It runs autonomously but is human-in-the-loop friendly: it surfaces the live-view URL for take-over, hands off for sign-ins, ambiguous choices, and sensitive actions, and defaults to Kernel managed auth for authenticated sites.
+
+A few heavier tools are off by default to keep an autonomous agent's blast radius small on a shared API key. You can add any of them via a [connection override](#overriding-the-connection): `browser_curl` (raw HTTP through the session), `manage_credentials` (create, read, and delete stored credentials — the managed-auth flow above works without it), `exec_command` (shell exec in the VM), and `manage_browser_pools`.
+
+<Warning>
+  The default mount has no approval gate, and its toolset includes `execute_playwright_code` (arbitrary JS in the browser VM) and `manage_auth_connections` (reuse of logged-in sessions). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org. That's fine for a **personal or single-tenant** agent. For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection) — `approval: once()` (per session) or `approval: always()` (every controlled action).
+</Warning>
+
+## Auth models
+
+Both models are one-line mounts — no connection override needed:
+
+| Model | Mount | Consent behavior |
+| --- | --- | --- |
+| **Per-user via Vercel Connect** (recommended; each person authenticates as themselves) | `kernel({ connect: "mcp.onkernel.com/<name>" })` | Each user consents once, ever; the grant persists across threads and sessions. No key in your app or environment. |
+| **Shared API key** | `kernel({ apiKey })` or set `KERNEL_API_KEY` | One key for everyone, no prompts, no connector setup. |
+
+## Authenticate with an API key instead
+
+One shared credential, no connector setup. A good fit for a single-tenant or personal agent.
+
+**1. Install** the extension:
+
+```bash
+pnpm add @onkernel/eve-extension
+```
+
+**2. Get a Kernel API key** at [dashboard.onkernel.com/api-keys](https://dashboard.onkernel.com/api-keys) and set it in the agent's environment:
+
+```bash
+# local dev — in the agent's .env.local
+KERNEL_API_KEY=sk_...
+
+# deploying to Vercel
+npx vercel env add KERNEL_API_KEY
+```
+
+**3. Mount the extension** — a single file that reads `KERNEL_API_KEY` from the environment:
+
+```typescript
+// agent/extensions/kernel.ts
+export { default } from "@onkernel/eve-extension";
+```
+
+**4. Run:** `npx eve dev` or `npx eve deploy`.
+
+To pass the key explicitly instead of via the environment:
+
+```typescript
+// agent/extensions/kernel.ts
+import kernel from "@onkernel/eve-extension";
+
+export default kernel({ apiKey: process.env.KERNEL_API_KEY });
+```
+
+### Configuration
+
+`kernel({ ... })` accepts:
+
+| Option    | Default                    | Purpose                                                                                    |
+| --------- | -------------------------- | ------------------------------------------------------------------------------------------ |
+| `connect` | —                          | Vercel Connect connector UID — brokers a per-user token, so no API key is used.            |
+| `apiKey`  | `KERNEL_API_KEY` env var   | Kernel API key bearer token. Used when `connect` is not set; read lazily at request time.  |
+
+When `connect` is set it takes precedence. Otherwise the key is read from `apiKey`, and failing that from `KERNEL_API_KEY`.
+
+## Overriding the connection
+
+You only need this for advanced customization — widening the tool allowlist or adding an approval gate before irreversible actions. Auth is handled by the mount config above, so you don't override for that.
+
+Mount the extension as a directory and name the connection file `browser.ts` to shadow the extension's built-in `browser` connection:
+
+```
+agent/extensions/kernel/
+  extension.ts             # export default kernel({ connect: "mcp.onkernel.com/eve-extension" })
+  connections/browser.ts   # shadows the extension's "browser" connection
+```
+
+```typescript
+// agent/extensions/kernel/connections/browser.ts
+import { defineMcpClientConnection } from "eve/connections";
+import { connect } from "@vercel/connect/eve";
+import { always } from "eve/tools/approval";
+
+export default defineMcpClientConnection({
+  url: "https://mcp.onkernel.com/mcp",
+  description: "Kernel cloud browser.",
+  auth: connect("mcp.onkernel.com/eve-extension"), // or { getToken: async () => ({ token: process.env.KERNEL_API_KEY! }) }
+  tools: {
+    allow: [
+      "manage_browsers",
+      "execute_playwright_code",
+      "computer_action",
+      "browser_curl", // high blast radius — raw HTTP through the session
+      "manage_auth_connections",
+      "manage_credentials", // high blast radius — create/read/delete stored credentials
+      "manage_profiles",
+      "manage_proxies",
+      "manage_browser_pools", // heavier tools, off by default — add as needed
+      "exec_command", // high blast radius — shell exec in the VM
+    ],
+  },
+  approval: always(), // re-check every controlled action; once() would auto-allow the rest of the session
+});
+```
+
+## Additional resources
+
+<CardGroup cols={3}>
+  <Card
+    title="Vercel Eve"
+    icon="robot"
+    href="https://vercel.com/eve"
+  >
+    Vercel's agent framework
+  </Card>
+  <Card
+    title="Kernel MCP Server"
+    icon="github"
+    href="https://github.com/onkernel/kernel-mcp-server"
+  >
+    The hosted MCP server the extension connects to
+  </Card>
+  <Card
+    title="Managed Auth"
+    icon="key"
+    href="/auth/overview"
+  >
+    Log agents into sites without handling credentials
+  </Card>
+</CardGroup>
+
+## Related
+
+- [Vercel Marketplace Integration](/integrations/vercel/marketplace)
+- [AI SDK Tool](/integrations/vercel/ai-sdk)
+- [Browser Creation](/introduction/create)
+- [Live View](/browsers/live-view)
