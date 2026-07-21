@@ -5,20 +5,20 @@ description: "Give your Vercel Eve agent a Kernel cloud browser with a one-line 
 
 ## Overview
 
-The [`@onkernel/eve-extension`](https://www.npmjs.com/package/@onkernel/eve-extension) package is a [Vercel Eve](https://vercel.com/eve) extension that gives your agent a Kernel cloud browser. Mount it and Kernel's browser toolset plus a `browse` skill show up under your mount automatically — no browser tool code to write or maintain. See [included tools and skills](#included-tools-and-skills) for the full toolset.
+The [`@onkernel/eve-extension`](https://www.npmjs.com/package/@onkernel/eve-extension) package is a [Vercel Eve](https://vercel.com/eve) extension that gives your agent a Kernel cloud browser. Mount it and Kernel's browser toolset plus a `browse` skill show up under your mount automatically, so there's no browser tool code to write or maintain. See [included tools and skills](#included-tools-and-skills) for the full toolset.
 
 The tools aren't reimplemented in the extension. It packages a single MCP connection to [Kernel's hosted MCP server](https://github.com/onkernel/kernel-mcp-server), and Eve discovers the tools at runtime under your mount namespace (e.g. `kernel__browser__manage_browsers`).
 
-You can authenticate through [Vercel Connect](https://vercel.com/connect) — the recommended setup, where no API key touches your app and each user authenticates as themselves — or with a static Kernel API key. Either way it's a one-line mount; you pick the auth model in the mount config.
+You can authenticate through [Vercel Connect](https://vercel.com/connect) or with a static Kernel API key. Connect is the recommended setup: no API key touches your app, and each user authenticates as themselves. Either way it's a one-line mount, and you pick the auth model in the mount config.
 
 ## Prerequisites
 
 - **Node 24+**
-- An Eve agent project running **Eve `>= 0.25`** — extensions need it. Older Eve silently ignores `agent/extensions/` and nothing mounts. If you don't have a project yet:
+- An Eve agent project running **Eve `>= 0.25`**, which extensions require. Older Eve silently ignores `agent/extensions/` and nothing mounts. If you don't have a project yet:
   ```bash
   npx eve@latest init my-agent && cd my-agent
   ```
-- A [Kernel account](https://dashboard.onkernel.com) — either a Vercel Connect Kernel connector (recommended path below) or a Kernel API key
+- A [Kernel account](https://dashboard.onkernel.com), with either a Vercel Connect Kernel connector (recommended path below) or a Kernel API key
 
 ## Setup with Vercel Connect (recommended)
 
@@ -43,7 +43,7 @@ vercel connect attach mcp.onkernel.com/eve-extension
 
 You can also add it from the Vercel dashboard under **Connectors → Browse all → Kernel**. Confirm the UID with `vercel connect list`.
 
-**3. Mount the extension** — one line, passing the connector UID:
+**3. Mount the extension** in one line, passing the connector UID:
 
 ```typescript
 // agent/extensions/kernel.ts
@@ -62,15 +62,15 @@ Leave `KERNEL_API_KEY` unset. The first time a user drives the browser, Eve surf
 
 ## Included tools and skills
 
-Once mounted, the agent has the following tools, namespaced under your mount (e.g. `kernel__browser__*` — discover the exact names via `connection_search`):
+Once mounted, the agent has the following tools, namespaced under your mount (e.g. `kernel__browser__*`; discover the exact names via `connection_search`):
 
-- **`manage_browsers`** — create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
-- **`execute_playwright_code`** — run Playwright against the live page to read, navigate, click, or type.
-- **`computer_action`** — human-like mouse, keyboard, and screenshot controls for the same session.
-- **`manage_auth_connections`** — Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
-- **`manage_profiles`** — create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
-- **`manage_proxies`** — create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
-- the **`browse` skill** — the loop the model follows to drive the browser end to end.
+- **`manage_browsers`**: create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
+- **`execute_playwright_code`**: run Playwright against the live page to read, navigate, click, or type.
+- **`computer_action`**: human-like mouse, keyboard, and screenshot controls for the same session.
+- **`manage_auth_connections`**: Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
+- **`manage_profiles`**: create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
+- **`manage_proxies`**: create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
+- the **`browse` skill**: the loop the model follows to drive the browser end to end.
 
 The `browse` skill runs autonomously but is human-in-the-loop friendly:
 
@@ -80,23 +80,14 @@ The `browse` skill runs autonomously but is human-in-the-loop friendly:
 
 A few heavier tools are off by default to keep an autonomous agent's blast radius small on a shared API key. Add any of them via a [connection override](#overriding-the-connection):
 
-- `browser_curl` — raw HTTP through the session.
-- `manage_credentials` — create, read, and delete stored credentials (the managed-auth flow above works without it).
-- `exec_command` — shell exec in the VM.
-- `manage_browser_pools` — manage pools of pre-warmed browsers.
+- `browser_curl`: raw HTTP through the session.
+- `manage_credentials`: create, read, and delete stored credentials (the managed-auth flow above works without it).
+- `exec_command`: shell exec in the VM.
+- `manage_browser_pools`: manage pools of pre-warmed browsers.
 
 <Warning>
-  The default mount has no approval gate, and its toolset includes `execute_playwright_code` (arbitrary JS in the browser VM) and `manage_auth_connections` (reuse of logged-in sessions). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org. That's fine for a **personal or single-tenant** agent. For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection) — `approval: once()` (per session) or `approval: always()` (every controlled action).
+  The default mount has no approval gate, and its toolset includes `execute_playwright_code` (arbitrary JS in the browser VM) and `manage_auth_connections` (reuse of logged-in sessions). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org. That's fine for a **personal or single-tenant** agent. For **team or multi-tenant** deployments, add an approval gate via a [connection override](#overriding-the-connection): `approval: once()` (per session) or `approval: always()` (every controlled action).
 </Warning>
-
-## Auth models
-
-Both models are one-line mounts — no connection override needed:
-
-| Model | Mount | Consent behavior |
-| --- | --- | --- |
-| **Per-user via Vercel Connect** (recommended; each person authenticates as themselves) | `kernel({ connect: "mcp.onkernel.com/<name>" })` | Each user consents once, ever; the grant persists across threads and sessions. No key in your app or environment. |
-| **Shared API key** | `kernel({ apiKey })` or set `KERNEL_API_KEY` | One key for everyone, no prompts, no connector setup. |
 
 ## Authenticate with an API key instead
 
@@ -111,14 +102,14 @@ pnpm add @onkernel/eve-extension
 **2. Get a Kernel API key** at [dashboard.onkernel.com/api-keys](https://dashboard.onkernel.com/api-keys) and set it in the agent's environment:
 
 ```bash
-# local dev — in the agent's .env.local
+# local dev: in the agent's .env.local
 KERNEL_API_KEY=sk_...
 
 # deploying to Vercel
 npx vercel env add KERNEL_API_KEY
 ```
 
-**3. Mount the extension** — a single file that reads `KERNEL_API_KEY` from the environment:
+**3. Mount the extension** in a single file that reads `KERNEL_API_KEY` from the environment:
 
 ```typescript
 // agent/extensions/kernel.ts
@@ -142,14 +133,14 @@ export default kernel({ apiKey: process.env.KERNEL_API_KEY });
 
 | Option    | Default                    | Purpose                                                                                    |
 | --------- | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `connect` | —                          | Vercel Connect connector UID — brokers a per-user token, so no API key is used.            |
+| `connect` | None                       | Vercel Connect connector UID that brokers a per-user token, so no API key is used.         |
 | `apiKey`  | `KERNEL_API_KEY` env var   | Kernel API key bearer token. Used when `connect` is not set; read lazily at request time.  |
 
 When `connect` is set it takes precedence. Otherwise the key is read from `apiKey`, and failing that from `KERNEL_API_KEY`.
 
 ## Overriding the connection
 
-You only need this for advanced customization — widening the tool allowlist or adding an approval gate before irreversible actions. Auth is handled by the mount config above, so you don't override for that.
+You only need this for advanced customization: widening the tool allowlist or adding an approval gate before irreversible actions. Auth is handled by the mount config above, so you don't override for that.
 
 Mount the extension as a directory and name the connection file `browser.ts` to shadow the extension's built-in `browser` connection:
 
@@ -174,13 +165,13 @@ export default defineMcpClientConnection({
       "manage_browsers",
       "execute_playwright_code",
       "computer_action",
-      "browser_curl", // high blast radius — raw HTTP through the session
+      "browser_curl", // high blast radius: raw HTTP through the session
       "manage_auth_connections",
-      "manage_credentials", // high blast radius — create/read/delete stored credentials
+      "manage_credentials", // high blast radius: create/read/delete stored credentials
       "manage_profiles",
       "manage_proxies",
-      "manage_browser_pools", // heavier tools, off by default — add as needed
-      "exec_command", // high blast radius — shell exec in the VM
+      "manage_browser_pools", // heavier tools, off by default
+      "exec_command", // high blast radius: shell exec in the VM
     ],
   },
   approval: always(), // re-check every controlled action; once() would auto-allow the rest of the session
