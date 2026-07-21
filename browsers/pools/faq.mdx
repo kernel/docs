@@ -47,10 +47,6 @@ Not at the pool level, but yes per session. These are two different things:
 
 The second pattern is the recommended way to load many per-user profiles through a pool's pre-warmed browsers — see [Per-user profiles with pools](/browsers/pools/overview#per-user-profiles-with-pools).
 
-### How do I use a different profile per user with a pool and persist each user's state?
-
-Create the pool with **no profile**, then per user: acquire a browser, attach that user's profile with `save_changes: true` using `kernel.browsers.update()`, run your automation, and release with `reuse: false`. Releasing with `reuse: false` destroys the browser instead of returning it to the pool, which both persists the profile changes and guarantees no state leaks to the next user. The pool then refills automatically with fresh, profile-free browsers. See [Per-user profiles with pools](/browsers/pools/overview#per-user-profiles-with-pools) for the full flow with code.
-
 ### Should I set `reuse: true` or `reuse: false` when releasing?
 
 Use `reuse: true` (default) for efficiency. Only use `reuse: false` when you suspect browser state corruption or need a guaranteed clean browser session.
