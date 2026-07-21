@@ -145,18 +145,49 @@ The directory should contain your public keys in JWKS format:
 kernel extensions build-web-bot-auth \
   --to ./web-bot-auth-ext \
   --key ./my-key.jwk \
-  --url https://yourdomain.com/.well-known/http-message-signatures-directory \
+  --url https://yourdomain.com \
+  --signature-agent https://yourdomain.com \
   --upload my-web-bot-auth
 ```
 
-### 4. Register with Vercel and other Web Bot Auth-aware directories (optional)
+### 4. Kernel Search configuration
+
+Kernel Search uses a distinct Web Bot Auth identity from Kernel's user-driven
+agent traffic:
+
+- User-Agent: `KernelSearchBot`
+- Signature-Agent: `https://search.bot.kernel.sh`
+- Key directory:
+  `https://search.bot.kernel.sh/.well-known/http-message-signatures-directory`
+
+To build a browser extension for Kernel Search, use the Kernel Search Ed25519
+private key (JWK) and upload it under a distinct extension name:
+
+```bash
+kernel extensions build-web-bot-auth \
+  --to ./web-bot-auth-search-ext \
+  --key ./kernel-search.jwk \
+  --url https://www.kernel.sh \
+  --signature-agent https://search.bot.kernel.sh \
+  --upload web-bot-auth-search
+```
+
+For host-proxy based signing, configure the Search crawler's host-proxy
+environment with:
+
+```bash
+HOST_PROXY_WEB_BOT_AUTH_ENABLED=true
+HOST_PROXY_WEB_BOT_AUTH_KEY_PATH=/path/to/kernel-search-private-key.pem
+HOST_PROXY_WEB_BOT_AUTH_DIRECTORY_URL=https://search.bot.kernel.sh
+```
+
+The signing key must correspond to the public key hosted by
+`search.bot.kernel.sh`.
+
+### 5. Register with Vercel and other Web Bot Auth-aware directories (optional)
 
 If you want Vercel-protected sites to recognize your agent, you can register your key directory with [Vercel](https://bots.fyi/new-bot). Kernel is officially listed in the Vercel directory.
 
-
-
-
- 
 ## References
 
 - [Vercel's Public Directory](https://bots.fyi/?query=kernel)
