@@ -1,15 +1,16 @@
+import Link from "fumadocs-core/link";
 import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 import { Callout } from "fumadocs-ui/components/callout";
-import { Cards, Card as FumaCard } from "fumadocs-ui/components/card";
+import { Cards } from "fumadocs-ui/components/card";
 import { Step as FumaStep, Steps } from "fumadocs-ui/components/steps";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import {
   Children,
   type ComponentProps,
-  type CSSProperties,
   isValidElement,
   type ReactNode,
 } from "react";
+import { cn } from "@/lib/cn";
 
 /**
  * Mintlify MDX components mapped to fumadocs equivalents, registered under
@@ -47,17 +48,34 @@ interface MintCardProps {
 
 export function Card({ title, href, img, children }: MintCardProps) {
   // Mintlify icons are Font Awesome names; fumadocs expects React nodes, so
-  // string icons are dropped
+  // string icons are dropped. Mintlify order: artwork, then title, then body,
+  // with no hover wash.
+  const Comp = href ? Link : "div";
   return (
-    <FumaCard title={title} href={href}>
+    <Comp
+      href={href}
+      data-card
+      className="not-prose block rounded-xl border bg-fd-card p-4 text-fd-card-foreground"
+    >
       {img ? (
         // biome-ignore lint/performance/noImgElement: content-supplied art, unoptimized svg
         <img src={img} alt="" className="mb-3 w-full" />
       ) : null}
-      {children}
-    </FumaCard>
+      <h3 className="mb-1 text-sm font-medium">{title}</h3>
+      <div className="prose-no-margin text-sm text-fd-muted-foreground empty:hidden">
+        {children}
+      </div>
+    </Comp>
   );
 }
+
+// static map so Tailwind sees the class names at build time
+const colsClass: Record<number, string> = {
+  1: "md:grid-cols-1",
+  2: "md:grid-cols-2",
+  3: "md:grid-cols-3",
+  4: "md:grid-cols-4",
+};
 
 export function CardGroup(props: {
   cols?: number;
@@ -65,12 +83,7 @@ export function CardGroup(props: {
   children: ReactNode;
 }) {
   return (
-    <Cards
-      className={props.className}
-      style={
-        props.cols ? ({ "--cols": props.cols } as CSSProperties) : undefined
-      }
-    >
+    <Cards className={cn(props.cols && colsClass[props.cols], props.className)}>
       {props.children}
     </Cards>
   );

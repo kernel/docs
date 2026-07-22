@@ -84,6 +84,28 @@ export function buildTree(): PageTree.Root {
   return { name: "Kernel", children };
 }
 
+let eyebrowMap: Map<string, string> | undefined;
+
+/**
+ * The innermost docs.json group containing a page — Mintlify renders this as
+ * the eyebrow above the page title.
+ */
+export function getEyebrow(slugs: string[]): string | undefined {
+  if (!eyebrowMap) {
+    eyebrowMap = new Map();
+    const visit = (pages: MintlifyPages, group: string) => {
+      for (const entry of pages) {
+        if (typeof entry === "string") eyebrowMap?.set(entry, group);
+        else visit(entry.pages, entry.group);
+      }
+    };
+    for (const tab of docsJson.navigation.tabs as MintlifyTab[]) {
+      for (const group of tab.groups ?? []) visit(group.pages, group.group);
+    }
+  }
+  return eyebrowMap.get(slugs.length === 0 ? "index" : slugs.join("/"));
+}
+
 function apiReferenceTab(): PageTree.Folder | undefined {
   const native = apiSource.getPageTree();
   return {

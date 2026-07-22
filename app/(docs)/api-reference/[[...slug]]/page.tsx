@@ -2,6 +2,7 @@ import { DocsBody, DocsPage } from "fumadocs-ui/layouts/notebook/page";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OpenAPIPage } from "@/components/api-page";
+import { SocialFooter } from "@/components/social-footer";
 import { apiSource } from "@/lib/source";
 
 export default async function Page(
@@ -12,7 +13,7 @@ export default async function Page(
   if (!page) notFound();
 
   return (
-    <DocsPage toc={page.data.toc}>
+    <DocsPage toc={page.data.toc} footer={{ children: <SocialFooter /> }}>
       <DocsBody>
         <OpenAPIPage {...page.data.getOpenAPIPageProps()} />
       </DocsBody>
