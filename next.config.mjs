@@ -8,14 +8,17 @@ const withMDX = createMDX();
 const config = {
   reactStrictMode: true,
   async rewrites() {
-    // agents can fetch raw markdown by appending .md/.mdx to any page URL
+    // agents can fetch raw markdown by appending .md/.mdx to any content page
+    // URL. /api-reference is excluded: those pages are generated from the
+    // OpenAPI spec and have no markdown source, so the llms handler can't serve
+    // them — the spec itself is their machine-readable form.
     return [
       {
-        source: "/:path((?!llms\\.|api/|_next/).+)\\.md",
+        source: "/:path((?!llms\\.|api/|api-reference/|_next/).+)\\.md",
         destination: "/llms.mdx/:path/content.md",
       },
       {
-        source: "/:path((?!llms\\.|api/|_next/).+)\\.mdx",
+        source: "/:path((?!llms\\.|api/|api-reference/|_next/).+)\\.mdx",
         destination: "/llms.mdx/:path/content.md",
       },
     ];

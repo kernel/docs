@@ -109,11 +109,22 @@ export function Markdown({ text }: { text: string }) {
   );
 }
 
+// Bounded so streaming (a distinct partial string per token) can't grow the
+// cache without limit. The current text is always the most recently inserted
+// key, so it's never the entry evicted.
 const cache = new Map<string, Promise<ReactNode>>();
+const CACHE_LIMIT = 50;
 
 function Renderer({ text }: { text: string }) {
-  const result = cache.get(text) ?? processor.process(text);
-  cache.set(text, result);
+  let result = cache.get(text);
+  if (!result) {
+    result = processor.process(text);
+    cache.set(text, result);
+    if (cache.size > CACHE_LIMIT) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+  }
 
   return use(result);
 }

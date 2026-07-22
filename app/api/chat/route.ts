@@ -126,7 +126,12 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   // requests always carry a matching Origin header
   const origin = req.headers.get("origin");
   const host = req.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host) {
+  if (
+    !origin ||
+    !host ||
+    !URL.canParse(origin) ||
+    new URL(origin).host !== host
+  ) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -144,6 +149,12 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   const { rateLimited } = await checkRateLimit("chat", { request: req });
   if (rateLimited) {
     return new Response("Too Many Requests", { status: 429 });
+  }
+
+  // reject an oversized body before parsing it, so a huge payload isn't fully
+  // materialized just to be rejected below
+  if (Number(req.headers.get("content-length")) > MAX_INPUT_CHARS) {
+    return new Response("Payload Too Large", { status: 413 });
   }
 
   const reqJson = await req.json();

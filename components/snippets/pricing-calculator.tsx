@@ -3,6 +3,16 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Card, Columns } from "../mintlify";
 
+const VALID_PLANS = new Set(["free", "hobbyist", "startup"]);
+const VALID_BROWSER_TYPES = new Set(["headless", "headful", "gpu"]);
+
+// number inputs: an empty or invalid field clamps to 0 instead of propagating
+// NaN into the price totals
+const toPositiveInt = (value: string) => {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? 0 : Math.max(0, n);
+};
+
 export function PricingCalculator() {
   const defaults = {
     plan: "free",
@@ -35,6 +45,20 @@ export function PricingCalculator() {
     price: number;
   } | null>(null);
   const hasInteracted = useRef(false);
+
+  // hydrate from shared-link query params on mount (client-only, so no SSR
+  // mismatch); the effect below keeps the URL in sync as the user interacts
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const pl = p.get("plan");
+    const bt = p.get("browserType");
+    const dur = Number(p.get("duration"));
+    const ses = Number(p.get("sessions"));
+    if (pl && VALID_PLANS.has(pl)) setPlan(pl);
+    if (bt && VALID_BROWSER_TYPES.has(bt)) setBrowserType(bt);
+    if (dur > 0) setAvgSessionLength(dur);
+    if (ses > 0) setNumSessions(ses);
+  }, []);
 
   useEffect(() => {
     if (!hasInteracted.current) return;
@@ -158,7 +182,7 @@ export function PricingCalculator() {
             value={avgSessionLength}
             onChange={(e) => {
               hasInteracted.current = true;
-              setAvgSessionLength(parseInt(e.target.value, 10));
+              setAvgSessionLength(toPositiveInt(e.target.value));
             }}
           />
         </div>
@@ -173,7 +197,7 @@ export function PricingCalculator() {
             value={numSessions}
             onChange={(e) => {
               hasInteracted.current = true;
-              setNumSessions(parseInt(e.target.value, 10));
+              setNumSessions(toPositiveInt(e.target.value));
             }}
           />
         </div>

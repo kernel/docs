@@ -116,7 +116,11 @@ export function AISearchInputActions() {
 const StorageKeyInput = '__ai_search_input';
 export function AISearchInput(props: ComponentProps<'form'>) {
   const { status, sendMessage, stop } = useChatContext();
-  const [input, setInput] = useState(() => localStorage.getItem(StorageKeyInput) ?? '');
+  // guard localStorage: this client component also renders on the server pass,
+  // where localStorage is undefined
+  const [input, setInput] = useState(() =>
+    typeof window === 'undefined' ? '' : (localStorage.getItem(StorageKeyInput) ?? ''),
+  );
   const isLoading = status === 'streaming' || status === 'submitted';
   const onStart = (e?: SyntheticEvent) => {
     e?.preventDefault();

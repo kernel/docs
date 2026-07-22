@@ -10,6 +10,9 @@ export default function proxy(request: NextRequest) {
     isMarkdownPreferred(request) &&
     !pathname.startsWith("/llms.") &&
     !pathname.startsWith("/api/") &&
+    // /api-reference pages are generated from the OpenAPI spec and have no
+    // markdown source; serve the HTML page instead of rewriting to a 404
+    !pathname.startsWith("/api-reference") &&
     !pathname.includes(".")
   ) {
     const slug = pathname === "/" ? "" : pathname;
