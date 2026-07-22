@@ -1,8 +1,12 @@
+import { BotIdClient } from "botid/client";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import "./global.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+
+// paths whose requests carry a BotID challenge token, verified in the route
+const protectedRoutes = [{ path: "/api/chat", method: "POST" }];
 
 const inter = Inter({
   subsets: ["latin"],
@@ -25,6 +29,9 @@ export const metadata: Metadata = {
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
+      <head>
+        <BotIdClient protect={protectedRoutes} />
+      </head>
       <body className="flex flex-col min-h-screen">
         <RootProvider>{children}</RootProvider>
         <Script

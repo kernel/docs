@@ -7,8 +7,10 @@ import {
   tool,
   toUIMessageStream,
 } from "ai";
+import { checkBotId } from "botid/server";
 import { Document, type DocumentData } from "flexsearch";
 import { z } from "zod";
+import { allowChatRequest } from "@/lib/ratelimit";
 import { source } from "@/lib/source";
 import type { ChatUIMessage, SearchTool } from "../../../components/ai/search";
 
@@ -82,6 +84,22 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   const host = req.headers.get("host");
   if (!origin || !host || new URL(origin).host !== host) {
     return new Response("Forbidden", { status: 403 });
+  }
+
+  // invisible bot check (Vercel BotID); bypasses in development
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  // per-client rate limit; no-op unless Upstash is configured. On Vercel the
+  // leftmost x-forwarded-for entry is the real client IP.
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "anonymous";
+  if (!(await allowChatRequest(ip))) {
+    return new Response("Too Many Requests", { status: 429 });
   }
 
   const reqJson = await req.json();
