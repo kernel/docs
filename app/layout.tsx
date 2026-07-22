@@ -5,8 +5,15 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
 
-// paths whose requests carry a BotID challenge token, verified in the route
-const protectedRoutes = [{ path: "/api/chat", method: "POST" }];
+// paths whose requests carry a BotID challenge token, verified in the route.
+// checkLevel must match the server's checkBotId() call exactly.
+const protectedRoutes = [
+  {
+    path: "/api/chat",
+    method: "POST",
+    advancedOptions: { checkLevel: "deepAnalysis" as const },
+  },
+];
 
 const inter = Inter({
   subsets: ["latin"],

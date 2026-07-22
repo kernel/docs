@@ -1,4 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { checkRateLimit } from "@vercel/firewall";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -10,7 +11,6 @@ import {
 import { checkBotId } from "botid/server";
 import { Document, type DocumentData } from "flexsearch";
 import { z } from "zod";
-import { allowChatRequest } from "@/lib/ratelimit";
 import { source } from "@/lib/source";
 import type { ChatUIMessage, SearchTool } from "../../../components/ai/search";
 
@@ -86,19 +86,19 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // invisible bot check (Vercel BotID); bypasses in development
-  const verification = await checkBotId();
+  // invisible bot check (Vercel BotID); bypasses in development.
+  // checkLevel must match the BotIdClient protect config in the root layout.
+  const verification = await checkBotId({
+    advancedOptions: { checkLevel: "deepAnalysis" },
+  });
   if (verification.isBot) {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // per-client rate limit; no-op unless Upstash is configured. On Vercel the
-  // leftmost x-forwarded-for entry is the real client IP.
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "anonymous";
-  if (!(await allowChatRequest(ip))) {
+  // per-client rate limit via the Vercel Firewall "chat" rule (limit + window
+  // are configured in the dashboard); keys on the client IP by default
+  const { rateLimited } = await checkRateLimit("chat", { request: req });
+  if (rateLimited) {
     return new Response("Too Many Requests", { status: 429 });
   }
 
