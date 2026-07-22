@@ -1,5 +1,6 @@
 import type * as PageTree from "fumadocs-core/page-tree";
 import type { ReactNode } from "react";
+import { apiSidebarLabel } from "@/components/api-method-badge";
 import docsJson from "../docs.json";
 import { apiSource, source } from "./source";
 
@@ -115,13 +116,37 @@ function fixAcronymSpacing(name: ReactNode): ReactNode {
   return name.replace(/\b[A-Z](?: [A-Z])+\b/g, (run) => run.replace(/ /g, ""));
 }
 
-function fixNames(nodes: PageTree.Node[]): PageTree.Node[] {
+// Rebuild each endpoint's sidebar label as a filled method badge + summary
+// (see apiSidebarLabel), and fix acronym spacing on the tag section headings.
+function decorateApiTree(nodes: PageTree.Node[]): PageTree.Node[] {
   return nodes.map((node) => {
-    const fixed = { ...node, name: fixAcronymSpacing(node.name) };
-    if ("children" in fixed && fixed.children) {
-      fixed.children = fixNames(fixed.children);
+    if (node.type === "folder") {
+      return {
+        ...node,
+        name: fixAcronymSpacing(node.name),
+        children: decorateApiTree(node.children),
+      };
     }
-    return fixed;
+    if (node.type === "page") {
+      const slugs = node.url
+        .replace(/^\/api-reference\/?/, "")
+        .split("/")
+        .filter(Boolean);
+      const page = apiSource.getPage(slugs);
+      const method = page?.data._openapi.method;
+      if (page && method) {
+        return {
+          ...node,
+          name: apiSidebarLabel(
+            method,
+            page.data.title,
+            page.data._openapi.deprecated,
+          ),
+        };
+      }
+      return node;
+    }
+    return { ...node, name: fixAcronymSpacing(node.name) };
   });
 }
 
@@ -131,6 +156,6 @@ function apiReferenceTab(): PageTree.Folder | undefined {
     type: "folder",
     name: "API Reference",
     root: true,
-    children: fixNames(native.children),
+    children: decorateApiTree(native.children),
   };
 }

@@ -9,17 +9,8 @@ import {
 } from "fumadocs-ui/components/ui/popover";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/cn";
 
 type Operation = OpenAPIV3_2.OperationObject;
-
-// status code -> accent, matching the way API docs colour response codes
-function statusColor(status: string): string {
-  if (status.startsWith("2")) return "text-green-600 dark:text-green-500";
-  if (status.startsWith("3")) return "text-yellow-600 dark:text-yellow-500";
-  if (/^[45]/.test(status)) return "text-red-600 dark:text-red-500";
-  return "text-fd-muted-foreground";
-}
 
 /**
  * Response section rendered with a status-code dropdown and the selected
@@ -55,12 +46,7 @@ export function ApiResponses({
         </h2>
         <div className="not-prose flex items-center gap-3">
           <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger
-              className={cn(
-                "inline-flex items-center gap-1 font-mono text-sm",
-                statusColor(status),
-              )}
-            >
+            <PopoverTrigger className="inline-flex items-center gap-1 font-mono text-sm">
               {status}
               <ChevronDown className="size-3.5 text-fd-muted-foreground" />
             </PopoverTrigger>
@@ -73,10 +59,7 @@ export function ApiResponses({
                     setSelected(s);
                     setOpen(false);
                   }}
-                  className={cn(
-                    "p-2 text-left font-mono text-sm hover:bg-fd-accent hover:text-fd-accent-foreground",
-                    statusColor(s),
-                  )}
+                  className="p-2 text-left font-mono text-sm hover:bg-fd-accent hover:text-fd-accent-foreground"
                 >
                   {s}
                 </button>
