@@ -9,6 +9,7 @@ import {
   toUIMessageStream,
 } from "ai";
 import { checkBotId } from "botid/server";
+import { traced } from "braintrust";
 import { Document, type DocumentData } from "flexsearch";
 import { z } from "zod";
 import { source } from "@/lib/source";
@@ -69,6 +70,25 @@ const anthropic = createAnthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+const CHAT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
+
+// cap request size before the model call so one caller can't push a huge
+// context and run up token cost; a normal docs conversation is well under this
+const MAX_INPUT_CHARS = 50_000;
+
+// last user message text, for the Braintrust span input
+function lastUserText(
+  messages: ChatUIMessage[] | undefined,
+): string | undefined {
+  const parts = messages?.at(-1)?.parts;
+  if (!Array.isArray(parts)) return undefined;
+  const text = parts
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join("")
+    .trim();
+  return text || undefined;
+}
+
 /** System prompt, you can update it to provide more specific information */
 const systemPrompt = [
   "You are an AI assistant for the Kernel documentation site (Kernel provides sandboxed cloud browsers for automations and web agents).",
@@ -104,35 +124,53 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
 
   const reqJson = await req.json();
 
-  const result = streamText({
-    model: anthropic(
-      process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",
-    ),
-    // AI SDK v7: the system prompt goes here, not as a role:"system" message
-    instructions: systemPrompt,
-    maxOutputTokens: 2048,
-    stopWhen: stepCountIs(5),
-    tools: {
-      search: searchTool,
-    },
-    messages: await convertToModelMessages<ChatUIMessage>(
-      reqJson.messages ?? [],
-      {
-        convertDataPart(part) {
-          if (part.type === "data-client")
-            return {
-              type: "text",
-              text: `[Client Context: ${JSON.stringify(part.data)}]`,
-            };
-        },
-      },
-    ),
-    toolChoice: "auto",
-  });
+  // reject oversized payloads before the model call — bounds per-request cost
+  if (JSON.stringify(reqJson.messages ?? []).length > MAX_INPUT_CHARS) {
+    return new Response("Payload Too Large", { status: 413 });
+  }
 
-  return createUIMessageStreamResponse({
-    stream: toUIMessageStream({ stream: result.stream }),
-  });
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+  // Braintrust span for this chat turn; the AI SDK call is auto-instrumented
+  // as a child (output, tokens, cost). No-ops when BRAINTRUST_API_KEY is unset.
+  return traced(
+    async (span) => {
+      span.log({
+        input: lastUserText(reqJson.messages),
+        metadata: { ip, model: CHAT_MODEL },
+      });
+
+      const result = streamText({
+        model: anthropic(CHAT_MODEL),
+        // AI SDK v7: the system prompt goes here, not as a role:"system" message
+        instructions: systemPrompt,
+        maxOutputTokens: 2048,
+        stopWhen: stepCountIs(5),
+        tools: {
+          search: searchTool,
+        },
+        messages: await convertToModelMessages<ChatUIMessage>(
+          reqJson.messages ?? [],
+          {
+            convertDataPart(part) {
+              if (part.type === "data-client")
+                return {
+                  type: "text",
+                  text: `[Client Context: ${JSON.stringify(part.data)}]`,
+                };
+            },
+          },
+        ),
+        toolChoice: "auto",
+      });
+
+      return createUIMessageStreamResponse({
+        stream: toUIMessageStream({ stream: result.stream }),
+      });
+    },
+    { name: "docs-chat", type: "function" },
+  );
 }
 
 const searchTool = tool({

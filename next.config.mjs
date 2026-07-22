@@ -1,4 +1,5 @@
 import { withBotId } from "botid/next/config";
+import { wrapNextjsConfigWithBraintrust } from "braintrust/next";
 import { createMDX } from "fumadocs-mdx/next";
 
 const withMDX = createMDX();
@@ -100,4 +101,6 @@ const config = {
   },
 };
 
-export default withBotId(withMDX(config));
+// Braintrust auto-instruments the AI SDK (streamText) at build time; keep it
+// the outermost wrapper. See instrumentation.ts for the logger init.
+export default wrapNextjsConfigWithBraintrust(withBotId(withMDX(config)));
