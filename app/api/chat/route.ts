@@ -73,9 +73,11 @@ const anthropic = createAnthropic({
 
 const CHAT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
 
-// cap request size before the model call so one caller can't push a huge
-// context and run up token cost; a normal docs conversation is well under this
-const MAX_INPUT_CHARS = 50_000;
+// coarse abuse ceiling on request size (~100k tokens, about half of Haiku's
+// 200k context) so a single caller can't fill the context every request. Sized
+// well above any real multi-turn docs conversation; cost is otherwise bounded
+// by the rate limit + the key's spend cap.
+const MAX_INPUT_CHARS = 400_000;
 
 // last user message text, for the Braintrust span input
 function lastUserText(
