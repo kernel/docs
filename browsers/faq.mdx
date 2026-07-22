@@ -21,13 +21,14 @@ If you're experiencing slower-than-expected browser creation times, review your 
 
 ## Sites with heavier bot detection
 
-Kernel browsers can navigate to most websites, including popular ones with a reputation for aggressive automation defenses (LinkedIn, Facebook, Instagram, X, Amazon, Reddit, and similar). Loading a page and interacting with it is not the same problem as staying undetected through a login flow or at scale — which is where friction actually shows up.
+Kernel browsers can navigate to most websites, including popular ones with a reputation for aggressive automation defenses (LinkedIn, Facebook, Instagram, X, Amazon, Reddit, and similar). Loading and interacting with a page is a different problem from staying undetected at scale — which is where friction tends to show up.
 
 Where you're most likely to hit resistance:
 
-- **Login and account-creation flows** — repeated logins, especially from new IPs, are a common trigger for challenges and account locks. Use [Managed Auth](/auth/overview) to keep sessions persistently logged in rather than re-authenticating each run.
 - **High-volume or high-concurrency scraping** — many requests from the same exit IP raise the block rate. Spread load across [proxies](/proxies/overview) and reuse [Profiles](/auth/profiles).
 - **Sites running aggressive vendors** (Cloudflare, DataDome, PerimeterX, Imperva, Akamai) — these can challenge even anonymous page loads. Enable [stealth mode](/browsers/bot-detection/stealth) and consider [computer controls](/browsers/computer-controls) for more human-like interaction.
+
+For workflows behind a login, [Managed Auth](/auth/overview) handles the login flow and keeps sessions persistently authenticated across runs.
 
 <Info>
   Before automating a target site, test it manually first — see the [bot detection guide](/browsers/bot-detection/overview) for the recommended approach and mitigations.
