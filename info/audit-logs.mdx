@@ -5,16 +5,16 @@ description: "Search and export audit logs for API requests across your organiza
 
 Audit logs record authenticated API requests across your entire organization. Use them to review who called Kernel, which endpoint they called, when the request happened, and how the request completed.
 
-Choose the workflow that matches the amount of data you need:
+Choose the endpoint that matches the amount of data you need:
 
-| Workflow | Best for | Output |
+| Endpoint | Best for | Output |
 |----------|----------|--------|
-| Search | Interactive investigation and recent activity | Paginated JSON events |
-| Export | Archival, compliance, and offline analysis | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+| [Search](#search-audit-logs) | Interactive investigation and recent activity | Paginated JSON events |
+| [Export](#export-audit-logs) | Archival, compliance, and offline analysis | Gzip-compressed JSON Lines (`.jsonl.gz`) |
 
 Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
 
-Both workflows are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
+Both endpoints are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
 
 ## Filter audit logs
 
