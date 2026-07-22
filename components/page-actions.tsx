@@ -14,12 +14,13 @@ import { cn } from "@/lib/cn";
  * Replaces fumadocs' ViewOptionsPopover, which hardcodes Scira/Cursor/GitHub
  * entries. Matches the Mintlify contextual config: ChatGPT and Claude only.
  */
+// canonical docs origin, resolved identically on server and client so the
+// prompt href doesn't shift between SSR and hydration
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://docs.kernel.sh";
+
 export function OpenInDropdown() {
   const pathname = usePathname();
-  const pageUrl =
-    typeof window === "undefined"
-      ? pathname
-      : new URL(pathname, window.location.origin);
+  const pageUrl = new URL(pathname, SITE_URL).toString();
   const q = `Read ${pageUrl}, I want to ask questions about it.`;
 
   const items = [

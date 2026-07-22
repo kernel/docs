@@ -15,13 +15,17 @@ export function remarkMintlifyCode() {
     visit(tree, "mdxJsxFlowElement", (node, index, parent) => {
       if (node.name !== "CodeGroup" || !parent || index === undefined) return;
 
-      for (const child of node.children) {
-        if (child.type !== "code") continue;
-        const code = child as Code;
+      // keep only the code fences: blank lines between them parse to
+      // paragraph/text nodes, and any node between fences stops fumadocs'
+      // remarkCodeTab from merging them into a tab group
+      const fences = node.children.filter(
+        (child): child is Code => child.type === "code",
+      );
+      for (const code of fences) {
         const label = code.meta?.trim() || code.lang || "Code";
         code.meta = `tab="${label.replace(/"/g, "'")}"`;
       }
-      parent.children.splice(index, 1, ...node.children);
+      parent.children.splice(index, 1, ...fences);
     });
 
     visit(tree, "code", (node) => {

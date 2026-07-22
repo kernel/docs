@@ -31,12 +31,16 @@ body,
   text-transform: lowercase !important;
 }
 
-/* preserve code formatting - exclude code blocks and inline code */
+/* preserve code formatting - exclude code blocks and inline code, and
+   form fields so user-typed text (search, Ask AI) isn't forced lowercase */
 code,
 pre,
 pre *,
 code *,
-kbd {
+kbd,
+input,
+textarea,
+[contenteditable] {
   text-transform: none !important;
 }
 
