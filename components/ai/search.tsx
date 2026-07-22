@@ -259,11 +259,6 @@ function Input(props: ComponentProps<'textarea'>) {
   );
 }
 
-const roleName: Record<string, string> = {
-  user: 'you',
-  assistant: 'fumadocs',
-};
-
 function Message({ message, ...props }: { message: ChatUIMessage } & ComponentProps<'div'>) {
   let markdown = '';
   const searchCalls: UIToolInvocation<SearchTool>[] = [];
@@ -283,17 +278,18 @@ function Message({ message, ...props }: { message: ChatUIMessage } & ComponentPr
     }
   }
 
+  const isUser = message.role === 'user';
+
   return (
     <div onClick={(e) => e.stopPropagation()} {...props}>
-      <p
+      {/* no role labels; the user turn is a right-aligned bubble, the
+          assistant reply is plain text */}
+      <div
         className={cn(
-          'mb-1 text-sm font-medium text-fd-muted-foreground',
-          message.role === 'assistant' && 'text-fd-primary',
+          'prose text-sm',
+          isUser && 'prose-no-margin ms-auto w-fit max-w-[85%] bg-fd-secondary px-3 py-2',
         )}
       >
-        {roleName[message.role] ?? 'unknown'}
-      </p>
-      <div className="prose text-sm">
         <Markdown text={markdown} />
       </div>
 
