@@ -74,7 +74,7 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   const reqJson = await req.json();
 
   const result = streamText({
-    model: anthropic(process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5"),
+    model: anthropic(process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001"),
     stopWhen: stepCountIs(5),
     tools: {
       search: searchTool,
