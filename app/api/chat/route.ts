@@ -154,14 +154,24 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
+  // the AI SDK sends trigger: "regenerate-message" when the user hits retry
+  const isRetry = reqJson.trigger === "regenerate-message";
+  const metadata: Record<string, unknown> = {
+    ip,
+    model: CHAT_MODEL,
+    trigger: reqJson.trigger ?? "submit-message",
+  };
+  if (isRetry) metadata.regenerated_message_id = reqJson.messageId;
+
   // one Braintrust trace per conversation (see conversationParent); each turn
   // is a span under it, and the AI SDK call is auto-instrumented as a child
-  // (output, tokens, cost). No-ops when BRAINTRUST_API_KEY is unset.
+  // (output, tokens, cost). A retry is a fresh span tagged trigger=regenerate,
+  // so both answers stay visible in the thread. No-ops without BRAINTRUST_API_KEY.
   return traced(
     async (span) => {
       span.log({
         input: lastUserText(reqJson.messages),
-        metadata: { ip, model: CHAT_MODEL },
+        metadata,
       });
 
       const result = streamText({
@@ -193,7 +203,7 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
       });
     },
     {
-      name: "docs-chat",
+      name: isRetry ? "docs-chat (retry)" : "docs-chat",
       type: "function",
       parent: conversationParent(reqJson.messages),
     },
