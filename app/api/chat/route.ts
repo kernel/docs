@@ -90,14 +90,16 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
     model: anthropic(
       process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",
     ),
+    // AI SDK v7: the system prompt goes here, not as a role:"system" message
+    instructions: systemPrompt,
     maxOutputTokens: 2048,
     stopWhen: stepCountIs(5),
     tools: {
       search: searchTool,
     },
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...(await convertToModelMessages<ChatUIMessage>(reqJson.messages ?? [], {
+    messages: await convertToModelMessages<ChatUIMessage>(
+      reqJson.messages ?? [],
+      {
         convertDataPart(part) {
           if (part.type === "data-client")
             return {
@@ -105,8 +107,8 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
               text: `[Client Context: ${JSON.stringify(part.data)}]`,
             };
         },
-      })),
-    ],
+      },
+    ),
     toolChoice: "auto",
   });
 
