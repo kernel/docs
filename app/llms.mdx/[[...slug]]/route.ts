@@ -8,7 +8,11 @@ export async function GET(
   { params }: RouteContext<"/llms.mdx/[[...slug]]">,
 ) {
   const { slug } = await params;
-  const page = source.getPage(slug?.slice(0, -1));
+  const slugs = slug?.slice(0, -1) ?? [];
+  // /index.md rewrites here as ["index"], but the home page lives at []
+  const page = source.getPage(
+    slugs.length === 1 && slugs[0] === "index" ? [] : slugs,
+  );
   if (!page) notFound();
 
   return new Response(await getLLMText(page), {

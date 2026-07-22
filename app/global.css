@@ -2,15 +2,202 @@
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
 
-/* Kernel brand (ported from Mintlify docs.json colors) */
+/* Kernel brand (ported from Mintlify docs.json colors + style.css) */
 :root {
   --color-fd-background: hsl(240 10% 95%); /* #F0F0F3 */
   --color-fd-primary: hsl(228 6% 14%); /* #212225 */
+  /* pricing calculator button styling */
+  --btn-selected-bg: #cab168;
+  --btn-border: #000;
 }
 
 .dark {
   --color-fd-background: hsl(228 6% 14%); /* #212225 */
   --color-fd-primary: hsl(48 47% 60%); /* #CAB168 */
+  --btn-border: #edeef0;
+}
+
+/* global lowercase text styling */
+* {
+  text-transform: lowercase !important;
+}
+
+/* preserve code formatting - exclude code blocks and inline code */
+code,
+pre,
+pre *,
+code *,
+kbd {
+  text-transform: none !important;
+}
+
+/* remove all rounded corners site-wide */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* sidebar section headings — recede to a quiet "eyebrow" so they read as
+   structure, distinct from the clickable page links below them */
+#nd-sidebar p.inline-flex {
+  font-weight: 300; /* Inter Light */
+  font-size: 11px;
+}
+
+.dark #nd-sidebar p.inline-flex {
+  color: rgba(237, 238, 240, 0.55);
+}
+
+#nd-sidebar p.inline-flex:not(:first-child) {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(33, 34, 37, 0.1);
+}
+
+.dark #nd-sidebar p.inline-flex:not(:first-child) {
+  border-top-color: rgba(237, 238, 240, 0.1);
+}
+
+/* enhanced table styling - matches code group design */
+.prose table,
+article table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: rgb(249, 250, 251);
+  margin: 0;
+  display: table;
+}
+
+.prose table thead th,
+article table thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-width: 0;
+}
+
+.prose table tbody tr,
+article table tbody tr {
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.prose table tbody tr:last-child,
+article table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.prose table tbody tr:hover,
+article table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.prose table tbody td,
+article table tbody td {
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-width: 0;
+  min-width: 130px;
+}
+
+.prose table code,
+article table code {
+  font-size: 0.8125rem;
+  padding: 2px 6px;
+}
+
+/* first column bold for reference tables */
+.prose table tbody td:first-child,
+article table tbody td:first-child {
+  font-weight: 500;
+}
+
+/* tinker box responsive layout */
+.tinker-box {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.tinker-box-row {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.tinker-box-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tinker-box-content button {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .tinker-box {
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .tinker-box-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+    width: 100%;
+  }
+
+  .tinker-box-content {
+    width: 100%;
+  }
+}
+
+/* dark mode overrides */
+.dark .prose table,
+.dark article table {
+  border-color: rgba(237, 238, 240, 0.1);
+  background-color: rgba(237, 238, 240, 0.02);
+}
+
+.dark .prose table thead th,
+.dark article table thead th {
+  background-color: rgba(237, 238, 240, 0.04);
+  border-bottom-color: rgba(237, 238, 240, 0.1);
+}
+
+.dark .prose table tbody tr,
+.dark article table tbody tr {
+  border-bottom-color: rgba(237, 238, 240, 0.08);
+}
+
+.dark .prose table tbody tr:hover,
+.dark article table tbody tr:hover {
+  background-color: rgba(237, 238, 240, 0.04);
+}
+
+.dark .tinker-box {
+  border-color: rgba(237, 238, 240, 0.14);
 }
 
 html {
@@ -18,6 +205,6 @@ html {
 }
 
 html > body[data-scroll-locked] {
-  margin-right: 0px;
-  --removed-body-scroll-bar-size: 0px;
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
 }

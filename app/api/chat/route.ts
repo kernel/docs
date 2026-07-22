@@ -33,12 +33,17 @@ async function createSearchServer() {
     source.getPages().map(async (page) => {
       if (!("getText" in page.data)) return null;
 
-      return {
-        title: page.data.title,
-        description: page.data.description,
-        url: page.url,
-        content: await page.data.getText("processed"),
-      } as CustomDocument;
+      try {
+        return {
+          title: page.data.title,
+          description: page.data.description,
+          url: page.url,
+          content: await page.data.getText("processed"),
+        } as CustomDocument;
+      } catch (err) {
+        console.error(`[chat] failed to index ${page.url}:`, err);
+        return null;
+      }
     }),
   );
 
@@ -71,10 +76,21 @@ const systemPrompt = [
 ].join("\n");
 
 export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
+  // block cross-site callers from burning the API key; same-origin browser
+  // requests always carry a matching Origin header
+  const origin = req.headers.get("origin");
+  const host = req.headers.get("host");
+  if (!origin || !host || new URL(origin).host !== host) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   const reqJson = await req.json();
 
   const result = streamText({
-    model: anthropic(process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001"),
+    model: anthropic(
+      process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",
+    ),
+    maxOutputTokens: 2048,
     stopWhen: stepCountIs(5),
     tools: {
       search: searchTool,

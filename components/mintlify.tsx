@@ -40,23 +40,33 @@ interface MintCardProps {
   title: string;
   href?: string;
   icon?: ReactNode;
+  img?: string;
   horizontal?: boolean;
   children?: ReactNode;
 }
 
-export function Card({ title, href, children }: MintCardProps) {
+export function Card({ title, href, img, children }: MintCardProps) {
   // Mintlify icons are Font Awesome names; fumadocs expects React nodes, so
   // string icons are dropped
   return (
     <FumaCard title={title} href={href}>
+      {img ? (
+        // biome-ignore lint/performance/noImgElement: content-supplied art, unoptimized svg
+        <img src={img} alt="" className="mb-3 w-full" />
+      ) : null}
       {children}
     </FumaCard>
   );
 }
 
-export function CardGroup(props: { cols?: number; children: ReactNode }) {
+export function CardGroup(props: {
+  cols?: number;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <Cards
+      className={props.className}
       style={
         props.cols ? ({ "--cols": props.cols } as CSSProperties) : undefined
       }

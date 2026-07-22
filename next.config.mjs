@@ -8,8 +8,14 @@ const config = {
   async rewrites() {
     // agents can fetch raw markdown by appending .md/.mdx to any page URL
     return [
-      { source: "/:path(.+)\\.md", destination: "/llms.mdx/:path/content.md" },
-      { source: "/:path(.+)\\.mdx", destination: "/llms.mdx/:path/content.md" },
+      {
+        source: "/:path((?!llms\\.|api/|_next/).+)\\.md",
+        destination: "/llms.mdx/:path/content.md",
+      },
+      {
+        source: "/:path((?!llms\\.|api/|_next/).+)\\.mdx",
+        destination: "/llms.mdx/:path/content.md",
+      },
     ];
   },
   async redirects() {

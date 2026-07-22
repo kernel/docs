@@ -9,6 +9,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ??
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "https://docs.kernel.sh"),
+  ),
   title: {
     template: "%s - Kernel",
     default: "Kernel Documentation",
