@@ -1,4 +1,9 @@
-import { DocsBody, DocsPage } from "fumadocs-ui/layouts/notebook/page";
+import {
+  DocsBody,
+  DocsDescription,
+  DocsPage,
+  DocsTitle,
+} from "fumadocs-ui/layouts/notebook/page";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OpenAPIPage } from "@/components/api-page";
@@ -14,6 +19,14 @@ export default async function Page(
 
   return (
     <DocsPage toc={page.data.toc} footer={{ children: <SocialFooter /> }}>
+      <DocsTitle className="text-3xl tracking-tight sm:text-4xl">
+        {page.data.title}
+      </DocsTitle>
+      {page.data.description ? (
+        <DocsDescription className="mb-0">
+          {page.data.description}
+        </DocsDescription>
+      ) : null}
       <DocsBody>
         <OpenAPIPage {...page.data.getOpenAPIPageProps()} />
       </DocsBody>
