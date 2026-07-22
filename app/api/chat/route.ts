@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { checkRateLimit } from "@vercel/firewall";
 import {
@@ -9,7 +10,7 @@ import {
   toUIMessageStream,
 } from "ai";
 import { checkBotId } from "botid/server";
-import { traced } from "braintrust";
+import { extractTraceContextFromHeaders, traced } from "braintrust";
 import { Document, type DocumentData } from "flexsearch";
 import { z } from "zod";
 import { source } from "@/lib/source";
@@ -89,6 +90,27 @@ function lastUserText(
   return text || undefined;
 }
 
+// Group every turn of one conversation into a single Braintrust trace. The
+// chat is stateless (full history re-sent each turn), so we key on the first
+// message's id — stable across a conversation, and reset when the user clears
+// the chat (new first message → new trace). Encoded as a deterministic W3C
+// traceparent so all turns share one root span.
+function conversationParent(messages: ChatUIMessage[] | undefined) {
+  const conversationId = messages?.[0]?.id;
+  if (!conversationId) return undefined;
+  const traceId = createHash("sha256")
+    .update(conversationId)
+    .digest("hex")
+    .slice(0, 32);
+  const spanId = createHash("sha256")
+    .update(`${conversationId}:root`)
+    .digest("hex")
+    .slice(0, 16);
+  return extractTraceContextFromHeaders({
+    traceparent: `00-${traceId}-${spanId}-01`,
+  });
+}
+
 /** System prompt, you can update it to provide more specific information */
 const systemPrompt = [
   "You are an AI assistant for the Kernel documentation site (Kernel provides sandboxed cloud browsers for automations and web agents).",
@@ -132,8 +154,9 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
-  // Braintrust span for this chat turn; the AI SDK call is auto-instrumented
-  // as a child (output, tokens, cost). No-ops when BRAINTRUST_API_KEY is unset.
+  // one Braintrust trace per conversation (see conversationParent); each turn
+  // is a span under it, and the AI SDK call is auto-instrumented as a child
+  // (output, tokens, cost). No-ops when BRAINTRUST_API_KEY is unset.
   return traced(
     async (span) => {
       span.log({
@@ -169,7 +192,11 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
         stream: toUIMessageStream({ stream: result.stream }),
       });
     },
-    { name: "docs-chat", type: "function" },
+    {
+      name: "docs-chat",
+      type: "function",
+      parent: conversationParent(reqJson.messages),
+    },
   );
 }
 
