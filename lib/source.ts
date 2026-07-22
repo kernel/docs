@@ -40,6 +40,12 @@ ${processed}`;
 
 export const apiSource = loader({
   baseUrl: "/api-reference",
-  source: await openapi.staticSource({ meta: true }),
+  // groupBy: "tag" buckets endpoints under their OpenAPI tag (Browsers,
+  // Profiles, ...) like the Mintlify site; separator folders render each tag
+  // as a section heading with its endpoints listed beneath.
+  source: await openapi.staticSource({
+    groupBy: "tag",
+    meta: { folderStyle: "separator" },
+  }),
   plugins: [openapiPlugin()],
 });

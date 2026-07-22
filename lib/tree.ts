@@ -1,4 +1,5 @@
 import type * as PageTree from "fumadocs-core/page-tree";
+import type { ReactNode } from "react";
 import docsJson from "../docs.json";
 import { apiSource, source } from "./source";
 
@@ -106,12 +107,30 @@ export function getEyebrow(slugs: string[]): string | undefined {
   return eyebrowMap.get(slugs.length === 0 ? "index" : slugs.join("/"));
 }
 
+// fumadocs-openapi derives tag section labels via idToTitle(), which splits
+// runs of capitals — the "API Keys" tag renders as "A P I Keys". Rejoin any
+// run of single capital letters (also covers future acronyms like URL/SDK).
+function fixAcronymSpacing(name: ReactNode): ReactNode {
+  if (typeof name !== "string") return name;
+  return name.replace(/\b[A-Z](?: [A-Z])+\b/g, (run) => run.replace(/ /g, ""));
+}
+
+function fixNames(nodes: PageTree.Node[]): PageTree.Node[] {
+  return nodes.map((node) => {
+    const fixed = { ...node, name: fixAcronymSpacing(node.name) };
+    if ("children" in fixed && fixed.children) {
+      fixed.children = fixNames(fixed.children);
+    }
+    return fixed;
+  });
+}
+
 function apiReferenceTab(): PageTree.Folder | undefined {
   const native = apiSource.getPageTree();
   return {
     type: "folder",
     name: "API Reference",
     root: true,
-    children: native.children,
+    children: fixNames(native.children),
   };
 }
