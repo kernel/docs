@@ -1,5 +1,5 @@
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
-import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import { DocsLayout } from "fumadocs-ui/layouts/notebook";
 import { MessageCircleIcon } from "lucide-react";
 import {
   AISearch,
@@ -12,7 +12,7 @@ import { buildTree } from "@/lib/tree";
 
 export default function Layout({ children }: LayoutProps<"/">) {
   return (
-    <DocsLayout tree={buildTree()} {...baseOptions()}>
+    <DocsLayout tree={buildTree()} tabMode="navbar" {...baseOptions()}>
       <AISearch>
         <AISearchPanel />
         <AISearchTrigger

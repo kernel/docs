@@ -4,7 +4,21 @@ import { appName } from "./shared";
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: appName,
+      title: (
+        <>
+          {/* docs.json logo config: black on light, white on dark */}
+          <img
+            src="/logo/black.svg"
+            alt={appName}
+            className="h-5 dark:hidden"
+          />
+          <img
+            src="/logo/white.svg"
+            alt={appName}
+            className="hidden h-5 dark:block"
+          />
+        </>
+      ),
     },
     links: [
       { text: "Dashboard", url: "https://dashboard.onkernel.com" },
