@@ -1,0 +1,93 @@
+---
+title: "Audit Logs"
+---
+
+Search and download [organization audit logs](/info/audit-logs) from the CLI.
+
+Time values can be dates (`2026-06-01`) or timestamps (`2026-06-01T15:04:05Z`). Dates begin at midnight UTC.
+
+## `kernel audit-logs search`
+
+Search audit logs within a time window. Results are ordered newest first.
+
+```bash
+kernel audit-logs search \
+  --start 2026-06-01 \
+  --end 2026-06-08 \
+  --search /browsers \
+  --limit 500 \
+  --output json
+```
+
+If you omit the time flags, the command searches from 24 hours ago through now. The start is inclusive and the end is exclusive. Each time window can cover up to 30 days.
+
+| Flag | Description |
+|------|-------------|
+| `--start <time>` | Inclusive start. Defaults to 24 hours ago. |
+| `--end <time>` | Exclusive end. Defaults to now. |
+| `--search <text>` | Search path, user ID, email, client IP, and status. |
+| `--method <method>` | Return only requests that use this HTTP method. |
+| `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
+| `--include-get` | Remove the default GET exclusion when `--method` is not set. |
+| `--service <service>` | Filter by service. |
+| `--auth-strategy <strategy>` | Filter by authentication strategy. |
+| `--user-id <id>` | Add a user ID to the search. Repeat the flag for multiple IDs. |
+| `--limit <n>` | Maximum total number of results. Defaults to `100`. |
+| `--output json`, `-o json` | Output raw JSON array. |
+
+<Note>
+  `--limit` controls the total number of CLI results. The CLI automatically requests API pages of up to 100 records until it reaches that limit or runs out of results.
+</Note>
+
+### Include GET requests
+
+By default, the CLI returns matching requests for every HTTP method except GET. `--include-get` removes that default exclusion. `--method` selects exactly one method, so `--method GET` returns only GET requests.
+
+```bash
+# Return all matching methods, including GET
+kernel audit-logs search --include-get
+
+# Return only GET requests
+kernel audit-logs search --method GET
+```
+
+## `kernel audit-logs download`
+
+Download matching audit logs in a time window as one gzip-compressed JSONL file.
+
+```bash
+kernel audit-logs download \
+  --start 2026-06-01 \
+  --end 2026-07-01 \
+  --to audit-june.jsonl.gz
+```
+
+`--start` and `--end` are required. The start is inclusive and the end is exclusive, and the time window can cover up to 30 days.
+
+| Flag | Description |
+|------|-------------|
+| `--start <time>` | Inclusive start. Required. |
+| `--end <time>` | Exclusive end. Required. |
+| `--search <text>` | Search path, user ID, email, client IP, and status. |
+| `--method <method>` | Return only requests that use this HTTP method. |
+| `--exclude-method <method>` | Exclude requests that use this HTTP method. GET remains excluded unless you pass `--include-get`. |
+| `--include-get` | Remove the default GET exclusion when `--method` is not set. |
+| `--service <service>` | Filter by service. |
+| `--auth-strategy <strategy>` | Filter by authentication strategy. |
+| `--user-id <id>` | Add a user ID to the search. Repeat the flag for multiple IDs. |
+| `--to <path>` | Output `.jsonl.gz` path. For the example above, the default is `audit-logs-20260601-20260701.jsonl.gz`. |
+| `--force` | Replace an existing output file. |
+
+For example, `--start 2026-06-01 --end 2026-07-01` covers all of June in UTC.
+
+### Download behavior
+
+The CLI downloads up to 50,000 records per batch, verifies each batch's SHA-256 checksum, and automatically retries transient failures.
+
+The requested output appears only after the full download succeeds. Failed downloads are removed, though a completed download may remain at `<output>.partial` if it can't be moved to the requested path.
+
+Downloads don't resume: rerunning the command starts over. Existing files are replaced only when you pass `--force`.
+
+## Aliases
+
+You can also use `kernel audit-log`, `kernel auditlogs`, or `kernel auditlog`.

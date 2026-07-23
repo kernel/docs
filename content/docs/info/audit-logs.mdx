@@ -1,0 +1,183 @@
+---
+title: "Audit Logs"
+description: "Search and export audit logs for API requests across your organization"
+---
+
+Audit logs record authenticated API requests across your entire organization. Use them to review who called Kernel, which endpoint they called, when the request happened, and how the request completed.
+
+Choose the endpoint that matches the amount of data you need:
+
+| Endpoint | Best for | Output |
+|----------|----------|--------|
+| [Search](#search-audit-logs) | Interactive investigation and recent activity | Paginated JSON events |
+| [Export](#export-audit-logs) | Archival, compliance, and offline analysis | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+
+Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
+
+Both endpoints are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
+
+## Filter audit logs
+
+The API and SDKs use the same filters for search and export:
+
+- `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
+- `service` filters by the service that emitted the audit event.
+- `method` returns only requests that use the specified HTTP method.
+- `exclude_method` omits requests that use any of the specified HTTP methods.
+- `search` matches path, user ID, email, client IP, or status.
+- `search_user_id` matches requests from the specified user IDs in addition to any free-text matches.
+
+## Search audit logs
+
+Each API page contains up to 100 events. The SDK pagination helpers request older pages as you iterate.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+for await (const event of kernel.auditLogs.list({
+  start: '2026-06-01T00:00:00Z',
+  end: '2026-06-02T00:00:00Z',
+  method: 'POST',
+})) {
+  console.log(event.timestamp, event.method, event.path, event.status);
+}
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+for event in client.audit_logs.list(
+    start="2026-06-01T00:00:00Z",
+    end="2026-06-02T00:00:00Z",
+    method="POST",
+):
+    print(event.timestamp, event.method, event.path, event.status)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pager := client.AuditLogs.ListAutoPaging(ctx, kernel.AuditLogListParams{
+		Start:  time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
+		End:    time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
+		Method: kernel.String("POST"),
+	})
+	for pager.Next() {
+		event := pager.Current()
+		fmt.Println(event.Timestamp, event.Method, event.Path, event.Status)
+	}
+	if err := pager.Err(); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the full request and response schema.
+
+## Export audit logs
+
+The SDK download helpers default to `jsonl.gz` and write a complete export to a destination you provide. They:
+
+- request every chunk until the export is complete
+- validate pagination metadata and each chunk's SHA-256 checksum before writing
+- retry transient HTTP and transfer failures
+- append verified chunks in order
+
+The helpers don't close the destination. Python provides equivalent sync and async methods; both accept a synchronous binary destination.
+
+<CodeGroup>
+```typescript TypeScript
+import { open } from 'node:fs/promises';
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+const file = await open('audit-logs.jsonl.gz', 'w');
+try {
+  await kernel.auditLogs.download(
+    {
+      start: '2026-06-01T00:00:00Z',
+      end: '2026-06-02T00:00:00Z',
+      exclude_method: ['GET'],
+    },
+    file,
+  );
+} finally {
+  await file.close();
+}
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+with open("audit-logs.jsonl.gz", "wb") as file:
+    client.audit_logs.download(
+        to=file,
+        start="2026-06-01T00:00:00Z",
+        end="2026-06-02T00:00:00Z",
+        exclude_method=["GET"],
+    )
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"os"
+	"time"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	file, err := os.Create("audit-logs.jsonl.gz")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, err = client.AuditLogs.Download(ctx, kernel.AuditLogDownloadParams{
+		Start:         time.Date(2026, time.June, 1, 0, 0, 0, 0, time.UTC),
+		End:           time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC),
+		ExcludeMethod: []string{"GET"},
+	}, file)
+	if err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`.
+
+For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for pagination headers, formats, and the full request and response schema.
