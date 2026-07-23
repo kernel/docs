@@ -54,12 +54,15 @@ html.dark #navigation-items div[class*="mt-"] > .sidebar-group-header {
   border-top-color: rgba(237, 238, 240, 0.1);
 }
 
-/* move nested nav arrows to the right */
+/* move nested nav arrows to the right, and inset them from the edge so they
+   clear the collapse-sidebar button (sticky in the top-right corner), which
+   otherwise crowds the toggle chevron of whatever row scrolls beneath it */
 #navigation-items li[data-title] > button.group,
 #navigation-items li[data-title] > div.group {
   width: 100% !important;
   flex-direction: row-reverse !important;
   justify-content: space-between !important;
+  padding-right: 1.75rem !important;
 }
 
 #navigation-items li[data-title] > button.group > svg,
