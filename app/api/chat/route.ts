@@ -36,6 +36,8 @@ async function createSearchServer() {
   const docs = await chunkedAll(
     source.getPages().map(async (page) => {
       if (!("getText" in page.data)) return null;
+      // skip external-link stubs (frontmatter `url`, no real body to index)
+      if ("url" in page.data && page.data.url) return null;
 
       try {
         return {
@@ -151,18 +153,15 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
     return new Response("Too Many Requests", { status: 429 });
   }
 
-  // reject an oversized body before parsing it, so a huge payload isn't fully
-  // materialized just to be rejected below
-  if (Number(req.headers.get("content-length")) > MAX_INPUT_CHARS) {
+  // bound the payload before the model call. Read the raw body and check its
+  // size before parsing, so an oversized body is rejected without being
+  // JSON-parsed — and without relying on a Content-Length header (absent on
+  // chunked requests), which the size cap must not depend on.
+  const rawBody = await req.text();
+  if (rawBody.length > MAX_INPUT_CHARS) {
     return new Response("Payload Too Large", { status: 413 });
   }
-
-  const reqJson = await req.json();
-
-  // reject oversized payloads before the model call — bounds per-request cost
-  if (JSON.stringify(reqJson.messages ?? []).length > MAX_INPUT_CHARS) {
-    return new Response("Payload Too Large", { status: 413 });
-  }
+  const reqJson = JSON.parse(rawBody);
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
