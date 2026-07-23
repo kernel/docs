@@ -26,7 +26,8 @@ When you add Go examples:
 To run the docs locally, you can use the following command:
 
 ```bash
-mintlify dev
+bun install
+bun dev
 ```
 
 ## Contributing

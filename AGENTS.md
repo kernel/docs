@@ -17,8 +17,8 @@
 
 ## Cursor Cloud specific instructions
 
-This is a Mintlify documentation site (no `package.json`). The only service is the docs preview server.
+This is a fumadocs (Next.js) documentation site. Content lives in `content/docs/` as MDX.
 
-- **Run the docs site:** `mintlify dev` (serves on `http://localhost:3000` by default; auto-increments if the port is busy)
-- **Lint/build:** Mintlify handles rendering; there's no separate lint or build step. Validate by running `mintlify dev` and checking pages load.
-- **Config:** `docs.json` is the main Mintlify config (navigation, theme, OpenAPI spec URL, redirects).
+- **Run the docs site:** `bun dev` (serves on `http://localhost:3000`)
+- **Lint/build:** `bun run build` compiles every page; `bun run lint` runs Biome. Validate changes with a build.
+- **Config:** `docs.json` remains the navigation source of truth (tabs/groups/redirects); `lib/tree.ts` converts it to the sidebar at build time. Mintlify components (`<Info>`, `<CodeGroup>`, `<Steps>`, ...) still work — they're aliased in `components/mdx.tsx`.
