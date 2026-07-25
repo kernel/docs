@@ -161,7 +161,16 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
   if (rawBody.length > MAX_INPUT_CHARS) {
     return new Response("Payload Too Large", { status: 413 });
   }
-  const reqJson = JSON.parse(rawBody);
+  let reqJson: {
+    messages?: ChatUIMessage[];
+    trigger?: string;
+    messageId?: string;
+  };
+  try {
+    reqJson = JSON.parse(rawBody);
+  } catch {
+    return new Response("Bad Request", { status: 400 });
+  }
 
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";

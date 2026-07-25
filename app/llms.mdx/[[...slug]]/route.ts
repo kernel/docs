@@ -14,6 +14,9 @@ export async function GET(
     slugs.length === 1 && slugs[0] === "index" ? [] : slugs,
   );
   if (!page) notFound();
+  // external-link stubs (frontmatter `url`) have no markdown body; send agents
+  // to the real resource, matching the HTML page's redirect
+  if (page.data.url) return Response.redirect(page.data.url, 308);
 
   return new Response(await getLLMText(page), {
     headers: {
@@ -23,8 +26,12 @@ export async function GET(
 }
 
 export function generateStaticParams() {
-  return source.getPages().map((page) => ({
-    lang: page.locale,
-    slug: getPageMarkdownUrl(page).segments,
-  }));
+  // don't prerender markdown for external-link stubs; they redirect at runtime
+  return source
+    .getPages()
+    .filter((page) => !page.data.url)
+    .map((page) => ({
+      lang: page.locale,
+      slug: getPageMarkdownUrl(page).segments,
+    }));
 }
