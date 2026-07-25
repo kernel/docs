@@ -8,8 +8,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OpenAPIPage } from "@/components/api-page";
 import { SocialFooter } from "@/components/social-footer";
-import { defaultOgImage, siteOpenGraph } from "@/lib/shared";
-import { apiSource } from "@/lib/source";
+import { siteOpenGraph } from "@/lib/shared";
+import { apiSource, getApiPageImage } from "@/lib/source";
 
 export default async function Page(
   props: PageProps<"/api-reference/[[...slug]]">,
@@ -53,7 +53,7 @@ export async function generateMetadata(
     openGraph: {
       ...siteOpenGraph,
       url: page.url,
-      images: defaultOgImage,
+      images: getApiPageImage(page).url,
     },
   };
 }

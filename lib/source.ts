@@ -21,6 +21,17 @@ export function getPageImage(page: (typeof source)["$inferPage"]) {
   };
 }
 
+// OG image URL for an API-reference page. Prefixed with "api-reference" so it
+// mirrors the page URL and the /og route can route it back to apiSource.
+export function getApiPageImage(page: (typeof apiSource)["$inferPage"]) {
+  const segments = ["api-reference", ...page.slugs, "image.png"];
+
+  return {
+    segments,
+    url: `${docsImageRoute}/${segments.join("/")}`,
+  };
+}
+
 export function getPageMarkdownUrl(page: (typeof source)["$inferPage"]) {
   const segments = [...page.slugs, "content.md"];
 
