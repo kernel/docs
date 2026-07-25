@@ -45,5 +45,10 @@ export async function generateMetadata(
   const page = apiSource.getPage(params.slug);
   if (!page) notFound();
 
-  return { title: page.data.title, description: page.data.description };
+  return {
+    title: page.data.title,
+    description: page.data.description,
+    alternates: { canonical: page.url },
+    openGraph: { url: page.url },
+  };
 }

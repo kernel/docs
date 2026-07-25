@@ -20,17 +20,25 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // pin to the canonical domain so canonical links and OG/Twitter image URLs
+  // always resolve to docs.kernel.sh — not a per-deploy *.vercel.app host
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ??
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://docs.kernel.sh"),
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://docs.kernel.sh",
   ),
   title: {
     template: "%s - Kernel",
     default: "Kernel Documentation",
   },
   icons: { icon: "/favicon.svg" },
+  openGraph: {
+    type: "website",
+    siteName: "Kernel",
+    // site-wide fallback share image; content pages override with their own
+    images: "/og/image.png",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function Layout({ children }: LayoutProps<"/">) {
