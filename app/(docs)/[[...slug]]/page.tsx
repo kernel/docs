@@ -11,6 +11,7 @@ import { notFound, redirect } from "next/navigation";
 import { getMDXComponents } from "@/components/mdx";
 import { OpenInDropdown } from "@/components/page-actions";
 import { SocialFooter } from "@/components/social-footer";
+import { siteOpenGraph } from "@/lib/shared";
 import { getPageImage, getPageMarkdownUrl, source } from "@/lib/source";
 import { getEyebrow } from "@/lib/tree";
 
@@ -79,6 +80,7 @@ export async function generateMetadata(
     description: page.data.description,
     alternates: { canonical: page.url },
     openGraph: {
+      ...siteOpenGraph,
       url: page.url,
       images: getPageImage(page).url,
     },

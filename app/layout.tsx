@@ -4,6 +4,7 @@ import "./global.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { defaultOgImage, siteOpenGraph } from "@/lib/shared";
 
 // paths whose requests carry a BotID challenge token, verified in the route.
 // checkLevel must match the server's checkBotId() call exactly.
@@ -31,10 +32,9 @@ export const metadata: Metadata = {
   },
   icons: { icon: "/favicon.svg" },
   openGraph: {
-    type: "website",
-    siteName: "Kernel",
+    ...siteOpenGraph,
     // site-wide fallback share image; content pages override with their own
-    images: "/og/image.png",
+    images: defaultOgImage,
   },
   twitter: {
     card: "summary_large_image",

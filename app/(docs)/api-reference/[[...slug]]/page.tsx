@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OpenAPIPage } from "@/components/api-page";
 import { SocialFooter } from "@/components/social-footer";
+import { defaultOgImage, siteOpenGraph } from "@/lib/shared";
 import { apiSource } from "@/lib/source";
 
 export default async function Page(
@@ -49,6 +50,10 @@ export async function generateMetadata(
     title: page.data.title,
     description: page.data.description,
     alternates: { canonical: page.url },
-    openGraph: { url: page.url },
+    openGraph: {
+      ...siteOpenGraph,
+      url: page.url,
+      images: defaultOgImage,
+    },
   };
 }
