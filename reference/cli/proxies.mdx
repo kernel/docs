@@ -50,11 +50,24 @@ kernel proxies create --type custom --host proxy.example.com --port 8080 --usern
 kernel proxies create --type residential --country US --city sanfrancisco --state CA
 ```
 
+## `kernel proxies update <id>`
+Rename a proxy configuration. To change its type or connection settings, recreate the proxy.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New proxy name. Required. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel proxies update prx_01k3m8v2c9w4n7q6 --name us-checkout-proxy
+```
+
 ## `kernel proxies check <id>`
 Run a health check on a proxy to verify it's working and update its status.
 
 | Flag | Description |
 |------|-------------|
+| `--url <url>` | Public HTTP or HTTPS URL to test reachability against. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ## `kernel proxies delete <id>`

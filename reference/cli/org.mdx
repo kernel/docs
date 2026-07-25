@@ -1,0 +1,38 @@
+---
+title: "Organization Limits"
+---
+
+Manage organization-wide concurrency limits and the default cap applied to projects without an explicit override.
+
+## `kernel org limits get`
+
+Show the organization's maximum concurrent browser sessions and the default per-project cap.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel org limits get --output json
+```
+
+## `kernel org limits set`
+
+Set the default per-project concurrency cap. This default applies only to projects that don't have an explicit [project limit override](/reference/cli/projects#project-limits).
+
+| Flag | Description |
+|------|-------------|
+| `--default-project-max-concurrent-sessions <n>` | Default maximum concurrent browsers for projects without an explicit override. Pass `0` to remove the default. Required. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+# Give projects without an override a default cap of 20 sessions
+kernel org limits set --default-project-max-concurrent-sessions 20
+
+# Remove the default cap
+kernel org limits set --default-project-max-concurrent-sessions 0
+```
+
+<Info>
+  A project's explicit limit overrides this default. The organization's maximum concurrent sessions remains the upper bound.
+</Info>
