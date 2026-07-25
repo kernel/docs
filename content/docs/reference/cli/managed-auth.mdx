@@ -24,6 +24,7 @@ Create a managed auth connection for a profile and domain.
 | `--credential-path <path>` | Provider-specific path (e.g. `VaultName/ItemName`). |
 | `--credential-auto` | Look up the credential by domain from the provider (defaults to true when `--credential-provider` is set without `--credential-path`). |
 | `--no-save-credentials` | Don't save credentials after a successful login. |
+| `--telemetry <spec>` | Set default browser telemetry for this connection: `all`, `off`, or a comma-separated category list like `console,network`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel auth connections list`
@@ -51,6 +52,7 @@ Start a login flow and return a hosted URL for authentication.
 |------|-------------|
 | `--proxy-id <id>` | Proxy ID to use for this login. |
 | `--proxy-name <name>` | Proxy name to use for this login. |
+| `--telemetry <spec>` | Override telemetry for this login only, merged with the connection's config. Pass `all`, `off`, or a comma-separated category list like `console,network`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel auth connections submit <id>`
@@ -58,7 +60,9 @@ Submit field values to an in-progress login flow. Poll the connection (or use `f
 
 | Flag | Description |
 |------|-------------|
-| `--field <name=value>` | Field name/value pair (repeatable). |
+| `--field-value <id=value>` | Canonical field ID/value pair from the connection's `fields` list (repeatable). Prefer this over `--field`. |
+| `--choice-id <id>` | Canonical choice ID from the connection's `choices` list. |
+| `--field <name=value>` | Legacy field name/value pair (repeatable). Prefer `--field-value`. |
 | `--mfa-option-id <id>` | MFA option ID when an MFA method was selected. |
 | `--sign-in-option-id <id>` | Sign-in option ID when the flow returned non-MFA choices. |
 | `--sso-button-selector <xpath>` | XPath selector when choosing an SSO button. |
@@ -80,6 +84,20 @@ Stream real-time login flow state updates over SSE.
 |------|-------------|
 | `--output json`, `-o json` | Output raw JSON events. |
 
+### `kernel auth connections timeline <id>`
+List the connection's login, reauthentication, and health-check events, most recent first.
+
+| Flag | Description |
+|------|-------------|
+| `--type <type>` | Filter to `login`, `reauth`, or `health_check`. |
+| `--page <n>` | Page number, 1-based (default: `1`). |
+| `--per-page <n>` | Items per page (default: `20`). |
+| `--output json`, `-o json` | Output a JSON object containing `events`, `page`, `per_page`, and `has_more`. |
+
+```bash
+kernel auth connections timeline auth_01k3m8v2c9w4n7q6 --type reauth --page 1 --per-page 20
+```
+
 ### `kernel auth connections update <id>`
 Update connection settings such as login URL, health checks, credential source, and proxy.
 
@@ -96,6 +114,7 @@ Update connection settings such as login URL, health checks, credential source, 
 | `--credential-auto` | Look up the credential by domain from the provider. |
 | `--save-credentials` | Save credentials after a successful login. |
 | `--no-save-credentials` | Don't save credentials after a successful login. |
+| `--telemetry <spec>` | Update telemetry for future browser sessions: `all`, `off`, or a comma-separated category list like `console,network`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel auth connections delete <id>`

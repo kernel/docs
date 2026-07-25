@@ -46,6 +46,20 @@ kernel projects create staging
 
 Show details for a project by ID or name.
 
+### `kernel projects update <id-or-name>`
+
+Update a project's name or status. You must provide at least one update flag.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New project name, from 1 to 255 characters. |
+| `--status <status>` | New project status: `active` or `archived`. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel projects update staging --name staging-us-east --status active
+```
+
 ### `kernel projects delete <id-or-name>`
 
 Delete a project. The project must be empty, and it can't be the last active project in the org.

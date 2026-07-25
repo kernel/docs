@@ -51,6 +51,7 @@ kernel api-keys get key_01jwv4tn5m8k3q2v7x9p0a1bc2
 
 | Flag | Description |
 |------|-------------|
+| `--include-deleted` | Include soft-deleted API keys in the lookup. |
 | `--output json`, `-o json` | Output the raw JSON object. |
 
 ## `kernel api-keys update <id>`
@@ -65,6 +66,29 @@ kernel api-keys update key_01jwv4tn5m8k3q2v7x9p0a1bc2 --name staging-ci-rotated
 |------|-------------|
 | `--name <name>` | New API key name. Required. |
 | `--output json`, `-o json` | Output the raw JSON object. |
+
+## `kernel api-keys rotate <id>`
+
+Issue a replacement API key. The rotated key keeps working for a grace period so you can migrate callers without downtime.
+
+```bash
+kernel api-keys rotate key_01jwv4tn5m8k3q2v7x9p0a1bc2 \
+  --days-to-expire 90 \
+  --expire-in-days 7 \
+  --yes \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--days-to-expire <days>` | Lifetime of the new key, from `1` to `3650` days. Omit to reuse the rotated key's lifetime. |
+| `--expire-in-days <days>` | Grace period before the rotated key expires. Pass `0` to expire it immediately; omit for the default of 7 days. |
+| `--yes`, `-y` | Skip the confirmation prompt. |
+| `--output json`, `-o json` | Output the raw JSON object, including the new one-time plaintext key. |
+
+<Warning>
+  Save the new plaintext key when you rotate it. Kernel won't return it again.
+</Warning>
 
 ## `kernel api-keys delete <id>`
 

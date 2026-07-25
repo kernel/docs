@@ -180,6 +180,12 @@ fmt.Println("Live view:", kernelBrowser2.BrowserLiveViewURL)
 
 By default, Profiles restore existing tabs saved in the profile. Pass `start_url` with the profile to clear those restored tabs and open a specific page when the new browser starts.
 
+<Note>
+Managed Auth controls the tab state of profiles attached to auth connections. Each login or automatic re-authentication starts in a single tab at the configured login URL, or at the domain homepage when no login URL is configured. After a successful authentication, Kernel saves the resulting tab state with the updated authentication data. Failed and canceled sessions leave the saved profile unchanged.
+
+Don't depend on previous tabs or windows remaining in a Managed Auth profile. Set `start_url` when you create a browser if your automation requires a specific first page.
+</Note>
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 const browser = await kernel.browsers.create({

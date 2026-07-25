@@ -29,15 +29,28 @@ Create a new browser profile.
 | `--name <name>` | Optional unique profile name. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
+## `kernel profiles update <id-or-name>`
+Rename a profile.
+
+| Flag | Description |
+|------|-------------|
+| `--name <name>` | New unique profile name. Required. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel profiles update checkout-session --name checkout-session-v2
+```
+
 ## `kernel profiles download <id-or-name>`
 Download a profile and extract its user-data archive into the directory given by `--to`. The directory is created if it doesn't exist.
 
 | Flag | Description |
 |------|-------------|
 | `--to <dir>` | Directory to extract the profile into. Required. |
+| `--format <format>` | Archive format: `tar.zst` (compressed, default) or `tar` (decompressed server-side). |
 
 ```bash
-kernel profiles download my-profile --to ./profile-data
+kernel profiles download checkout-session --to ./profile-data --format tar.zst
 ```
 
 ## `kernel profiles delete <id-or-name>`

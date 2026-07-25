@@ -59,6 +59,7 @@ Update a running browser session — change or remove its proxy, load a profile,
 | `--viewport <WxH@fps>` | Set viewport size (e.g. `1920x1080@25`). |
 | `--force` | Force a viewport resize even during an active live view or recording. |
 | `--telemetry <spec>` | Update [telemetry](/browsers/telemetry/overview): `all` resets to the default set, `off` disables, or a comma-separated list like `console,network` to merge those categories into the current selection. |
+| `--disable-default-proxy` | Disable the default stealth proxy so the browser connects directly. Pass `--disable-default-proxy=false` to re-enable it. |
 | `--output json`, `-o json` | Output raw API response as JSON. |
 
 ### `kernel browsers curl <session-id> <url>`
@@ -156,6 +157,7 @@ Execute a command synchronously inside the browser VM.
 | `--timeout <seconds>` | Execution timeout. |
 | `--as-user <user>` | Run as a specific user. |
 | `--as-root` | Run as root. |
+| `--env <KEY=VALUE>` | Set an environment variable for the process (repeatable). |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel browsers process spawn <session-id> [--] [command...]`
@@ -169,6 +171,10 @@ Execute a command asynchronously in the browser VM.
 | `--timeout <seconds>` | Execution timeout. |
 | `--as-user <user>` | Run as a specific user. |
 | `--as-root` | Run as root. |
+| `--env <KEY=VALUE>` | Set an environment variable for the process (repeatable). |
+| `--allocate-tty` | Allocate a pseudo-terminal (PTY) for interactive shells. |
+| `--cols <n>` | Set the initial terminal columns. Requires `--allocate-tty`. |
+| `--rows <n>` | Set the initial terminal rows. Requires `--allocate-tty`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel browsers process kill <session-id> <process-id>`
