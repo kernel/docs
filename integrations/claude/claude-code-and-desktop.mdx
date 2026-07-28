@@ -5,30 +5,29 @@ description: "Give Claude Code and Claude Desktop a Kernel cloud browser"
 
 Connect the Claude apps you already use to Kernel. There are two ways to bring Kernel into [Claude Code](https://www.claude.com/product/claude-code):
 
-- **Marketplace plugin** — load Kernel's CLI and SDK skills directly into Claude Code so it knows how to manage cloud browsers, write automations, and generate videos.
-- **Remote MCP server** — connect Claude Code to Kernel's [MCP server](/reference/mcp-server/overview) to create and manage cloud browsers from chat.
+- **Marketplace plugin** — load Kernel's skills directly into Claude Code so it knows how to manage cloud browsers, write automations, and generate videos.
+- **Remote MCP server** — connect Claude Code to Kernel's [MCP server](/reference/mcp-server) to create and manage cloud browsers from chat.
 
 ## Marketplace plugin (Claude Code)
 
-Kernel publishes an [official skills marketplace](https://github.com/kernel/skills) for Claude Code. Installing it loads best-practice skills for the Kernel CLI, the TypeScript and Python SDKs, and more into your coding agent.
+Kernel publishes an [official skills marketplace](https://github.com/kernel/skills) for Claude Code. Installing a plugin from it loads Kernel's best-practice skills into your coding agent.
 
-Paste these commands into the Claude Code REPL:
+Run these in the Claude Code REPL, one line at a time:
 
 ```bash
-# Add the Kernel skills marketplace
 /plugin marketplace add kernel/skills
-
-# Install the CLI skill (includes kernel-auth)
 /plugin install kernel-cli
-
-# Install the SDK skills (TypeScript & Python)
 /plugin install kernel-sdks
-
-# Install the video generation skill
 /plugin install generate-video
 ```
 
-See the [skills repo](https://github.com/kernel/skills#claude-code) for the full list of available plugins.
+Each plugin bundles a set of skills:
+
+- **`kernel-cli`** — managing browsers, apps, profiles, and proxies from the CLI, plus managed auth, session debugging, and bot-detection profiling.
+- **`kernel-sdks`** — building browser automation with the TypeScript and Python SDKs.
+- **`generate-video`** — rendering smooth MP4s from a browser session with CDP frame-stepping and ffmpeg.
+
+See the [skills repo](https://github.com/kernel/skills#claude-code) for the current list.
 
 ## Remote MCP server (Claude Code)
 
@@ -50,8 +49,6 @@ claude mcp add --transport http kernel https://mcp.onkernel.com/mcp
 /mcp
 ```
 
-For the full MCP setup — including Claude.ai and Claude Desktop — see the [MCP server client guide for Claude](/reference/mcp-server/clients/claude).
-
 ## Claude Desktop
 
-Connect Claude Desktop to Kernel's remote MCP server by following the [Claude client guide](/reference/mcp-server/clients/claude).
+Claude Desktop reaches Kernel through the same remote MCP server, added as a custom connector under **Settings → Connectors**. The [Claude client guide](/reference/mcp-server/clients/claude) has the steps, and covers Claude.ai as well.
