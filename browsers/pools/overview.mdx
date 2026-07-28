@@ -1,11 +1,15 @@
 ---
 title: "Overview"
-description: "Pre-configure pools of reserved browsers"
+description: "Pre-configure pools of warm, ready-to-use browsers"
 ---
 
-Browser pools let you maintain a set of reserved, identical browsers ready for immediate use. Use them to set your preferred browser configuration in advance (such as stealth, proxies, extensions, and profiles), allowing you to minimize browser start-up latency and scale your workloads in production. 
+Browser pools let you maintain a set of identically-configured browsers ready for immediate use. Use them to set your preferred browser configuration in advance (such as stealth, proxies, extensions, and profiles), allowing you to minimize browser start-up latency and scale your workloads in production.
 
-Acquiring a browser from a pool is faster than creating a browser directly. Reserved browsers and on-demand browsers share the same concurrency limit, and reserved browsers aren't billed until they're used. See [Scale](/introduction/scale) for how pools fit into best practices for production architecture.
+Acquiring a browser from a pool is faster than creating a browser directly. Pooled browsers and on-demand browsers share the same concurrency limit, and browsers sitting idle in a pool aren't billed until they're used. See [Scale](/introduction/scale) for how pools fit into best practices for production architecture.
+
+<Info>
+New to pools? The [Quickstart](/browsers/pools/quickstart) walks through creating a pool and acquiring your first browser from it. This page is the full API surface.
+</Info>
 
 ## How browser pools work
 
@@ -38,7 +42,7 @@ Browser pools are a way to pre-configure a fixed set of browsers without being c
 </Steps>
 
 
-## Create a pool of reserved browsers
+## Create a pool
 
 Create a browser pool with a specified size and configuration. All browsers in the pool share the same settings.
 
@@ -268,7 +272,7 @@ You have three ways to get an in-use browser onto the new configuration:
 
 ## Per-user profiles with pools
 
-A profile attached to the pool config is [read-only](#create-a-pool-of-reserved-browsers) and shared by every browser, so it can't hold per-user login state across many users in a single pool. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
+A profile attached to the pool config is [read-only](#create-a-pool) and shared by every browser, so it can't hold per-user login state across many users in a single pool. To use a pool's pre-warmed browsers to load many different per-user profiles **and** persist each user's state, attach the profile to the browser *after* you acquire it, then destroy the browser on release:
 
 1. **Create the pool with no profile.** A profile can only be loaded into a browser that was created without one, so the pool must be profile-free.
 2. **Acquire a browser** from the pool.

@@ -1,13 +1,13 @@
 ---
 title: "Custom Chrome Policies"
-description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
+description: "Customize Chrome behavior in browser pools using Chrome policies"
 ---
 
 Browser pools accept an optional [`chrome_policy`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) object that lets you apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, bookmarks, and other browser-level settings.
 
 ## Setting chrome policies
 
-Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool. Keys are Chrome policy names and values are the corresponding settings.
+Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool) or [updating](/browsers/pools/overview#update-a-pool) a pool. Keys are Chrome policy names and values are the corresponding settings.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -176,7 +176,7 @@ The example above demonstrates setting a default homepage and managed bookmarks.
 
 ## Common use cases
 
-`chrome_policy` is also accepted directly on `browsers.create()` when you don't need a reserved pool. The examples below use that path.
+`chrome_policy` is also accepted directly on `browsers.create()` when you don't need a pool. The examples below use that path.
 
 ### Allow pop-ups
 
