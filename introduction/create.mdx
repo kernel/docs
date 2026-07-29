@@ -89,7 +89,7 @@ Most of what you'll tune at creation time falls into four buckets:
 
 `browsers.create()` boots a browser for you on the spot. That's the right call while you're building, and for workloads that run occasionally.
 
-Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools/overview) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/info/pricing#rate-limiting) on browser creation that you'll otherwise hit at volume.
+Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/info/pricing#rate-limiting) on browser creation that you'll otherwise hit at volume.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -260,4 +260,4 @@ func main() {
 
 Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the four primitives Kernel exposes — computer use, playwright execution, CDP, and WebDriver BiDi — and when to reach for each.
 
-When you're ready to run this in production, the [Browser Pools overview](/browsers/pools/overview) shows how to serve your workload from warm, pre-configured browsers instead of creating one per task.
+When you're ready to run this in production, the [Browser Pools overview](/browsers/pools) shows how to serve your workload from warm, pre-configured browsers instead of creating one per task.
