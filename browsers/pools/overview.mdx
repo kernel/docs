@@ -7,6 +7,8 @@ Browser pools let you maintain a set of identically-configured browsers ready fo
 
 Acquiring a browser from a pool is faster than creating a browser directly. Pooled browsers and on-demand browsers share the same concurrency limit, and browsers sitting idle in a pool aren't billed until they're used. See [Scale](/introduction/scale) for how pools fit into best practices for production architecture.
 
+Two things make acquisition faster than `browsers.create()`. The browser is already booted with your configuration applied — including [configurations that restart Chromium](/browsers/performance#troubleshooting-latency) when applied to a fresh browser, such as custom viewports, extensions, and kiosk-mode live view. And acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation that high-volume workloads otherwise hit.
+
 <Info>
 New to pools? The [Quickstart](/browsers/pools/quickstart) walks through creating a pool and acquiring your first browser from it. This page is the full API surface.
 </Info>
@@ -129,7 +131,7 @@ func main() {
 
 Pools can be pre-configured with options like start url, custom extensions, supported viewports, residential proxies, profiles, and more. See the [API reference](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool) for more details.
 
-A profile attached to a pool is loaded read-only: pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools (it is silently ignored if sent). To capture profile state, use a single browser session with `save_changes` instead — see [Profiles](/auth/profiles).
+A profile attached to a pool is loaded read-only: pooled browsers never persist changes back to the profile, so `save_changes` does not apply to pools (it is silently ignored if sent). This doesn't block per-user persistence — to load and save per-user profiles through a pool's warm browsers, attach the profile *after* you acquire, following [Per-user profiles with pools](#per-user-profiles-with-pools). For a standalone session, use [Profiles](/auth/profiles) with `save_changes`.
 
 When a pool has a profile attached, `refresh_on_profile_update` is automatically enabled — the pool flushes idle browsers whenever the profile's contents are updated, so it always picks up the latest profile data. See [Refresh on profile update](#refresh-on-profile-update) below.
 
@@ -179,6 +181,15 @@ Browsers remain in the pool indefinitely until acquired. Once acquired, the pool
 ## Release a browser
 
 When you're done with a browser, release it back to the pool. By default, the browser instance is reused. Set `reuse: false` to destroy it and create a fresh one.
+
+Reuse controls whether browser state carries across acquisitions:
+
+- **`reuse: true`** (default) returns the same browser instance to the pool without resetting it. Cookies, local storage, logged-in sessions, and open tabs persist, and the next caller to acquire it inherits that state. Fast, but not isolated between acquirers.
+- **`reuse: false`** destroys the browser and refills the pool with a fresh one. Isolated and clean, at the cost of a rebuild at the pool's [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
+
+<Warning>
+If you acquire pooled browsers on behalf of different end users, releasing with `reuse: true` leaks one user's session to the next. Use `reuse: false` for per-user work — see [Per-user profiles with pools](#per-user-profiles-with-pools).
+</Warning>
 
 <CodeGroup>
 ```typescript Typescript/Javascript
