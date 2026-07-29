@@ -14,6 +14,7 @@ Specify the host, port, and optional authentication credentials for your proxy s
 
 <CodeGroup>
 ```typescript Typescript/Javascript
+import { readFileSync } from 'node:fs';
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
@@ -27,6 +28,7 @@ const proxy = await kernel.proxies.create({
     port: 443,
     username: 'user123',
     password: 'secure_password',
+    ca_bundle: readFileSync('./mitm-ca-bundle.pem', 'utf8'),
   },
 });
 
@@ -36,6 +38,8 @@ const browser = await kernel.browsers.create({
 ```
 
 ```python Python
+from pathlib import Path
+
 from kernel import Kernel
 
 kernel = Kernel()
@@ -49,6 +53,7 @@ proxy = kernel.proxies.create(
         "port": 443,
         "username": "user123",
         "password": "secure_password",
+        "ca_bundle": Path("mitm-ca-bundle.pem").read_text(),
     }
 )
 
@@ -60,6 +65,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"github.com/kernel/kernel-go-sdk"
 )
@@ -67,6 +73,10 @@ import (
 func main() {
 	ctx := context.Background()
 	client := kernel.NewClient()
+	caBundle, err := os.ReadFile("mitm-ca-bundle.pem")
+	if err != nil {
+		panic(err)
+	}
 
 	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
 		Type:     kernel.ProxyNewParamsTypeCustom,
@@ -78,6 +88,7 @@ func main() {
 				Port:     443,
 				Username: kernel.String("user123"),
 				Password: kernel.String("secure_password"),
+				CaBundle: kernel.String(string(caBundle)),
 			},
 		},
 	})
@@ -102,11 +113,18 @@ func main() {
 - **`port`** (required) - Proxy server port (1-65535)
 - **`username`** - Username for proxy authentication
 - **`password`** - Password for proxy authentication (minimum 5 characters)
+- **`ca_bundle`** (optional) - PEM-encoded CA certificate bundle to trust when the proxy terminates and re-signs upstream TLS (MITM). May contain multiple certificates and is limited to 64 KiB.
 - **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
 <Info>
 When creating a proxy with authentication, provide the password. The API response will only indicate if a password exists (`has_password: true`) but won't return the actual password for security reasons.
 </Info>
+
+## MITM TLS
+
+If your custom proxy terminates TLS and re-signs upstream connections, provide its CA certificate bundle in `config.ca_bundle` when you create the proxy. Kernel validates the bundle and installs it in the browser's trust store when you create a browser with that proxy.
+
+The bundle must contain one or more PEM-encoded CA certificates. It is write-only: proxy responses return `has_ca_bundle: true` instead of the certificate contents. You must bind a proxy with a CA bundle when creating the browser; you can't hot-swap it onto a running browser.
 
 ## Bypass hosts
 
