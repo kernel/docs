@@ -240,6 +240,36 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Block DevTools and page source
+
+DevTools hands anyone who can reach a browser a console on the page, plus network logs, cookies, and local storage. When you expose a session through live view, or run agent code you don't fully trust, block the URLs DevTools loads from:
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "URLBlocklist": ["devtools://*", "chrome://inspect", "view-source:*"],
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    URLBlocklist: ["devtools://*", "chrome://inspect", "view-source:*"],
+  },
+});
+```
+</CodeGroup>
+
 ## Available policies
 
 Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
