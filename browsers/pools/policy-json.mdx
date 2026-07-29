@@ -1,9 +1,9 @@
 ---
 title: "Custom Chrome Policies"
-description: "Customize Chrome behavior on individual browsers and reserved browser pools using Chrome policies"
+description: "Customize Chrome behavior on individual browsers and browser pools using Chrome policies"
 ---
 
-`chrome_policy` is an optional object that applies [Chrome enterprise policies](https://chromeenterprise.google/policies/) to a browser. It works on both individual on-demand browsers (`browsers.create()`) and [reserved pools](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy), where it applies to every browser in the pool. Use it to control startup behavior, default homepages, bookmarks, and other browser-level settings.
+`chrome_policy` is an optional object that applies [Chrome enterprise policies](https://chromeenterprise.google/policies/) to a browser. It works on both individual on-demand browsers (`browsers.create()`) and [browser pools](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy), where it applies to every browser in the pool. Use it to control startup behavior, default homepages, bookmarks, and other browser-level settings.
 
 Keys are Chrome policy names and values are the corresponding settings. The same policies and value types apply on both paths. Kernel-managed policies (extensions, proxy, and CDP/automation) are rejected, and the serialized payload is capped at 5 MiB.
 
