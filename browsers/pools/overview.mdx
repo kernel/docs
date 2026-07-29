@@ -9,10 +9,6 @@ Acquiring a browser from a pool is faster than creating a browser directly. Pool
 
 Two things make acquisition faster than `browsers.create()`. The browser is already booted with your configuration applied — including [configurations that restart Chromium](/browsers/performance#troubleshooting-latency) when applied to a fresh browser, such as custom viewports, extensions, and kiosk-mode live view. And acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation that high-volume workloads otherwise hit.
 
-<Info>
-New to pools? The [Quickstart](/browsers/pools/quickstart) walks through creating a pool and acquiring your first browser from it. This page is the full API surface.
-</Info>
-
 ## How browser pools work
 
 Browser pools are a way to pre-configure a fixed set of browsers without being charged for them until they are used (i.e. `acquired`). All browsers in the pool share the same settings upon instantiation.
