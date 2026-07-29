@@ -157,9 +157,9 @@ func main() {
 
 Browser curl concurrency is constrained by Chromium's internal networking limits:
 
-- **HTTP/1.x (direct)** — About 6 sockets per host group and up to 256 active sockets per pool.
+- **HTTP/1.x (direct)** — About 6 sockets per host group and up to 256 active sockets per connection pool.
 - **Proxied chains** — On the order of tens of sockets per proxy chain (Chromium clamps configured values into a bounded range).
 - **HTTP stream pool** — Similar per-group and per-pool behavior to HTTP/1.x direct connections.
 - **HTTP/2** — Roughly 100 concurrent streams per session initially, updated from the server's `SETTINGS_MAX_CONCURRENT_STREAMS`, with an upper cap in Chromium (on the order of 256).
 
-If you're issuing many parallel curls from one browser, you're sharing those pools with navigation, XHR, and other session traffic. Latency may vary, as Chromium may queue requests when it reaches its limits.
+If you're issuing many parallel curls from one browser, you're sharing those connection pools with navigation, XHR, and other session traffic. Latency may vary, as Chromium may queue requests when it reaches its limits.
