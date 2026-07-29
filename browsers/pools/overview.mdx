@@ -483,6 +483,16 @@ if err := client.BrowserPools.Delete(ctx, "my-pool", kernel.BrowserPoolDeletePar
 ```
 </CodeGroup>
 
+## Sizing a browser pool
+
+`retrieve` returns `available_count` (browsers ready to acquire right now) and `acquired_count` (browsers in use). Watch `available_count` to size the pool:
+
+- If it regularly hits **0**, tasks are queueing behind `acquire` — the pool is too small.
+- If it stays above **30–40%** of the pool size under normal load, you're over-provisioned and can shrink the pool to free up concurrency.
+- Target **10–20%** available during typical load.
+
+Resize at any time with `update` — no need to tear the pool down and rebuild it. Added capacity warms up at the pool's [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute), so raise the size before a traffic peak rather than during it. As a rough starting point, a browser pool earns its keep once you're running many browsers concurrently (roughly 50+); below that, on-demand `browsers.create()` is usually enough.
+
 ## Full example
 
 This example assumes you've already created a pool named "my-pool". In practice, you'd create pools once (via the SDK, CLI, or dashboard) and then acquire from them repeatedly.
