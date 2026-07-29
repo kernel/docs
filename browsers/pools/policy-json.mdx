@@ -240,6 +240,40 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Block DevTools and page source
+
+DevTools hands anyone who can reach a browser a console on the page, plus network logs, cookies, and local storage. When you expose a session through live view, or run agent code you don't fully trust, block the URLs DevTools loads from:
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "URLBlocklist": ["devtools://*", "chrome://inspect", "view-source:*"],
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    URLBlocklist: ["devtools://*", "chrome://inspect", "view-source:*"],
+  },
+});
+```
+</CodeGroup>
+
+Pressing **F12** or choosing **Inspect** now shows "Your organization has blocked the use of DevTools on this page", and navigating to a blocked URL fails with `ERR_BLOCKED_BY_ADMINISTRATOR`. Other `chrome://` pages keep working, so add `chrome://net-export` and `chrome://net-internals` to the list if you also want to close off network capture.
+
+Chrome's dedicated policies for this — `DeveloperToolsAvailability`, `DeveloperToolsDisabled`, and `RemoteDebuggingAllowed` — are rejected by the API, because Kernel drives your browser over the same DevTools protocol they turn off. `URLBlocklist` only blocks navigation to the DevTools front-end, so your automation keeps working: CDP and Playwright still connect, and `page.content()` still returns page HTML even though `view-source:` is blocked. Treat this as a guardrail on the interactive surface, not as a way to hide page contents from code running in the session.
+
 ## Available policies
 
 Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
