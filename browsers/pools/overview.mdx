@@ -1,13 +1,13 @@
 ---
 title: "Overview"
-description: "Pre-configure pools of warm, ready-to-use browsers"
+description: "Pre-configure browser pools of warm, ready-to-use browsers"
 ---
 
 Browser pools let you maintain a set of identically-configured browsers ready for immediate use. Use them to set your preferred browser configuration in advance (such as stealth, proxies, extensions, and profiles), allowing you to minimize browser start-up latency and scale your workloads in production.
 
-Acquiring a browser from a pool is faster than creating a browser directly. Pooled browsers and on-demand browsers share the same concurrency limit, and browsers sitting idle in a pool aren't billed until they're used. See [Scale](/introduction/scale) for how pools fit into best practices for production architecture.
+Acquiring a browser from a browser pool is faster than creating a browser directly. Pooled browsers and on-demand browsers share the same concurrency limit, and browsers sitting idle in a browser pool aren't billed until they're used. See [Scale](/introduction/scale) for how browser pools fit into best practices for production architecture.
 
-Two things make acquisition faster than `browsers.create()`. The browser is already booted with your configuration applied — including [configurations that restart Chromium](/browsers/performance#troubleshooting-latency) when applied to a fresh browser, such as custom viewports, extensions, and kiosk-mode live view. And acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation that high-volume workloads otherwise hit.
+Two things make acquisition faster than `browsers.create()`. The browser is already booted with your configuration applied — including [configurations that restart Chromium](/browsers/performance#troubleshooting-latency) when applied to a fresh browser, such as custom viewports, extensions, and kiosk-mode live view. And acquiring from a browser pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation that high-volume workloads otherwise hit.
 
 ## How browser pools work
 

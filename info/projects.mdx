@@ -3,7 +3,7 @@ title: "Projects"
 description: "Organize resources and isolate access within your Kernel organization"
 ---
 
-A **Project** is a named container for Kernel resources inside an organization. Use projects to separate environments (like `production` and `staging`), split resources between teams, or isolate customer workloads — each project has its own browsers, profiles, credentials, proxies, extensions, deployments, and pools.
+A **Project** is a named container for Kernel resources inside an organization. Use projects to separate environments (like `production` and `staging`), split resources between teams, or isolate customer workloads — each project has its own browsers, profiles, credentials, proxies, extensions, deployments, and browser pools.
 
 ## Why Projects?
 
@@ -322,7 +322,7 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
 
 Kernel caps how many browsers can run at once, at two levels. A single limit covers both on-demand browsers (`browsers.create()`) and [browser pools](/browsers/pools/overview) — standalone sessions and pool capacity count against the same cap.
 
-- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. Every browser session and every browser in a pool counts against it.
+- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. Every browser session and every browser in a browser pool counts against it.
 - **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
 
 Per-project caps come from two places:

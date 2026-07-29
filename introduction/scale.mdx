@@ -17,12 +17,12 @@ Before selecting an architecture, assess your workload's characteristics:
 **Concurrency**: How many browsers need to run simultaneously?
 - Low (1-50): On-demand browser creation is sufficient
 - Medium (50-100): Pre-configuring browser pools provides significant benefits
-- High (100+): Use multiple pools with queuing
+- High (100+): Use multiple browser pools with queuing
 
 **Request Patterns**: How do tasks arrive?
-- Steady state: Size your pool to match average load
+- Steady state: Size your browser pool to match average load
 - Bursty traffic: Size for burst capacity or implement queuing
-- Scheduled batches: Pre-configure pools to match batch processing size
+- Scheduled batches: Pre-configure browser pools to match batch processing size
 
 **Throughput**: How quickly do you need to create and tear down browsers?
 - Flexible (a few per hour or day): On-demand creation may suffice
@@ -140,15 +140,15 @@ async function processTask(taskData: any) {
 
 **Key considerations:**
 - Pool size should match your typical concurrency
-- Always release browsers in a `finally` block to prevent pool exhaustion
+- Always release browsers in a `finally` block to prevent browser pool exhaustion
 - Set `acquire_timeout_seconds` based on your SLA requirements
 
 ### Queue-based processing (high scale)
 
-For systems exceeding pool capacity or with unpredictable bursts, implement a task queue to manage workloads gracefully.
+For systems exceeding browser pool capacity or with unpredictable bursts, implement a task queue to manage workloads gracefully.
 
 **When to use:**
-- Request volume exceeds maximum pool capacity (100+ concurrent)
+- Request volume exceeds maximum browser pool capacity (100+ concurrent)
 - Highly variable traffic patterns
 - Need to prioritize certain tasks
 - Want to decouple request ingestion from processing
@@ -225,7 +225,7 @@ async function submitTask(taskData: any, priority?: number) {
 </Accordion>
 
 **Queue-specific considerations:**
-- Set worker concurrency to match or slightly exceed pool size
+- Set worker concurrency to match or slightly exceed browser pool size
 - Implement proper retry logic for transient failures
-- Monitor queue depth to scale pools dynamically
+- Monitor queue depth to scale browser pools dynamically
 - Use priority queues for different SLAs
