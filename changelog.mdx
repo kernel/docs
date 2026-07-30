@@ -9,6 +9,43 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="July 30" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added customer-supplied CA bundles to [custom proxies](/proxies/custom) for BYO TLS-terminating (MITM) proxies. The bundle is stored encrypted per proxy and installed into the browser's trust store at session time, so a proxy that re-signs upstream certificates with its own root CA no longer fails every HTTPS page with `ERR_CERT_AUTHORITY_INVALID`. Configurable via the API, the dashboard, and a `--ca-bundle` flag on `kernel proxies create` in the [CLI](https://github.com/kernel/cli).
+- Added support for solving PerimeterX / HUMAN "Press & Hold" challenges in [stealth-mode browsers](/browsers/bot-detection/stealth).
+- Improved stealth egress fingerprint parity with Chrome, including Chrome-identical TLS (JA4) and HTTP/2 fingerprints. Rolling out gradually.
+- Proxy swaps via `PATCH /browsers/{id}` now take effect on live sessions regardless of which egress path the browser was provisioned on. Established tunnels through the old upstream are severed, so the browser re-dials through the new proxy instead of continuing to egress through the old one.
+- Expanded [managed auth](/auth/overview): [browser telemetry](/browsers/telemetry/overview) is now configurable per connection and captured on timeline events, the health-check interval is adjustable from the dashboard, and health checks and their replays now appear on the connection timeline alongside logins and re-auths.
+- Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua) with Claude Opus 5 and Moonshot Kimi K3 computer-use providers, semantic browser waits (`waitFor` conditions instead of fixed sleeps), verified browser action plans, and gated Anthropic's native `computer_20260701` / `browser_20260701` tools by model.
+- Added named markers to browser [replay recordings](/browsers/replays), exposed as MP4 chapters so playback jumps directly to key moments.
+- Added a `get_telemetry` action to the [MCP server](/reference/mcp-server)'s `manage_browsers` tool for reading archived [browser telemetry](/browsers/telemetry/overview) — including for deleted sessions and events captured before telemetry was turned off — with category filters, time windows, and pagination.
+- Added a complete audit log download helper to the Go, Node, and Python SDKs.
+- Extended the [CLI](https://github.com/kernel/cli) `browser-pools` commands with telemetry configuration, matching the flags already on `browsers create`/`update`.
+- Improved `kernel upgrade` in the [CLI](https://github.com/kernel/cli) to refresh the Homebrew tap before upgrading, so it always picks up the latest published version, and made CLI commands fail fast on interactive prompts in non-interactive shells to avoid hanging scripts.
+- Improved `kernel audit-logs search` output to show user IDs as a separate column.
+- Released [`@onkernel/eve-extension`](https://github.com/kernel/eve-extension) v0.1.3, a Kernel-powered browser extension for Vercel's Eve agent, with `manage_replays` now in the default browser toolset.
+- Shipped inline text editing and document bookmarks (with a public bookmarks agent API) in [just-html](https://github.com/kernel/just-html).
+- Published a [Codex plugin](https://github.com/kernel/skills) packaging for the Kernel [skills](https://github.com/kernel/skills) repo, so Codex users can install the full Kernel skill set the same way Claude Code and Cursor users can.
+- Published [`eve-connect-kernel`](https://github.com/kernel/eve-connect-kernel), a cookbook that wires Eve, Vercel Connect, and Kernel together so an agent can do work on authenticated websites.
+
+## Documentation updates
+
+- Added a new [Claude Code + Desktop integration guide](/integrations/claude/claude-code-and-desktop).
+- Added a new [Claude Agent SDK integration guide](/integrations/claude/claude-agent-sdk).
+- Added a new [Vercel Eve extension integration guide](/integrations/vercel/eve-extension).
+- Added a new [Bots and agents overview page](/bots).
+- Documented [custom proxy CA bundles](/proxies/custom) for BYO MITM setups.
+- Documented [audit log search and export](/info/audit-logs).
+- Documented [per-user profile persistence through browser pools](/browsers/pools/overview).
+- Documented [MCP server passthrough for `execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) and the new [`manage_replays`](/reference/mcp-server/tools/manage-replays) tool.
+- Documented [managed auth tab ownership](/auth/profiles).
+- Added a Chrome policy use case for blocking DevTools and reorganized [Chrome Policies](/browsers/chrome-policies) into an Advanced section.
+- Reframed the "Unsupported Websites" FAQ entry as bot-detection education.
+- Added [browser telemetry to the pricing feature matrix](/info/pricing).
+- Synced the [CLI reference](/reference/cli) with the current command set.
+</Update>
+
 <Update label="July 17" tags={["Product", "Docs"]}>
 ## Product updates
 
