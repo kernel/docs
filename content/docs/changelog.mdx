@@ -8,6 +8,32 @@ description: Updates and improvements
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="July 31" tags={["Product", "Docs"]}>
+## Product updates
+
+- Released [`@onkernel/eve-extension`](https://github.com/kernel/eve-extension) v0.1.3, a Kernel-powered browser extension for Vercel's Eve agent.
+- Published a [Codex plugin](https://github.com/kernel/skills) packaging for the Kernel [skills](https://github.com/kernel/skills) repo, so Codex users can install the full Kernel skill set the same way Claude Code and Cursor users can.
+- Added a `get_telemetry` action to the [MCP server](/reference/mcp-server)'s `manage_browsers` tool for reading archived [browser telemetry](/browsers/telemetry/overview) — including for deleted sessions and events captured before telemetry was turned off — with category filters, time windows, and pagination.
+- Expanded [managed auth](/auth/overview): [browser telemetry](/browsers/telemetry/overview) is now configurable per connection and captured on timeline events, the health-check interval is adjustable from the dashboard, and health checks and their replays now appear on the connection timeline alongside logins and re-auths.
+- Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua) with Claude Opus 5 and Moonshot Kimi K3 computer-use providers, semantic browser waits (`waitFor` conditions instead of fixed sleeps), verified browser action plans, and gated Anthropic's native `computer_20260701` / `browser_20260701` tools by model.
+- Added named markers to browser [replay recordings](/browsers/replays), exposed as MP4 chapters so playback jumps directly to key moments.
+- Extended the [CLI](https://github.com/kernel/cli) `browser-pools` commands with telemetry configuration, matching `browsers create`/`update`.
+- Improved `kernel upgrade` in the [CLI](https://github.com/kernel/cli) to refresh the Homebrew tap before upgrading to pick up latest version, and made CLI commands fail fast on interactive prompts in non-interactive shells to avoid hanging scripts.
+- Added a complete audit log download helper to the Go, Node, and Python SDKs.
+- Added support for solving PerimeterX / HUMAN "Press & Hold" challenges in [stealth-mode browsers](/browsers/bot-detection/stealth).
+- Added customer-supplied CA bundles to [custom proxies](/proxies/custom) for BYO TLS-terminating (MITM) proxies.
+- Improved `kernel audit-logs search` output to show user IDs as a separate column.
+- Shipped inline text editing and document bookmarks (with a public bookmarks agent API) in [just-html](https://github.com/kernel/just-html).
+
+## Documentation updates
+
+- Published new integration guides for [Claude Code + Desktop](/integrations/claude/claude-code-and-desktop), the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), and the [Vercel Eve extension](/integrations/vercel/eve-extension).
+- Documented [custom proxy CA bundles](/proxies/custom) for BYO MITM setups, [audit log search and export](/info/audit-logs), [per-user profile persistence through browser pools](/browsers/pools/overview), and [managed auth tab ownership](/auth/profiles).
+- Added a [bots and agents overview](/bots) and reframed the "Unsupported Websites" FAQ entry as bot-detection education.
+- Refreshed the reference docs with [`execute_playwright_code` passthrough](/reference/mcp-server/tools/execute-playwright-code) and the new [`manage_replays`](/reference/mcp-server/tools/manage-replays) MCP tool, plus a [CLI reference](/reference/cli) sync with the current command set.
+- Added a Chrome policy use case for blocking DevTools, reorganized [Chrome Policies](/browsers/chrome-policies) into an Advanced section, and added [browser telemetry to the pricing feature matrix](/info/pricing).
+</Update>
+
 <Update label="July 17" tags={["Product", "Docs"]}>
 ## Product updates
 
@@ -89,7 +115,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="June 12" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Released the [Kernel × Claude Managed Agents cookbook](https://github.com/kernel/claude-managed-agents-kernel), a public recipe for running parallel computer-use agent swarms with [Claude Managed Agents](/integrations/claude-managed-agents) on Kernel cloud browsers, with API keys secured via Vaults.
+- Released the [Kernel × Claude Managed Agents cookbook](https://github.com/kernel/claude-managed-agents-kernel), a public recipe for running parallel computer-use agent swarms with [Claude Managed Agents](/integrations/claude/claude-managed-agents) on Kernel cloud browsers, with API keys secured via Vaults.
 - Shipped a `kernel-browser-harness` [skill](https://github.com/kernel/skills) for setting up Kernel browser sessions inside Claude Code with persistent session IDs across calls.
 - Extended `kernel browsers acquire` in the [CLI](https://github.com/kernel/cli) with `name` and `tags` parameters, so pooled browsers can be labeled at acquisition time alongside `browsers create`.
 - Made browser [telemetry](/browsers/telemetry) categories opt-in. The `--telemetry` flag (and `telemetry` request config) now records only the categories you list; enabling telemetry without specifying categories ships a small default set instead of every category.
@@ -97,7 +123,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Documentation updates
 
 - Published a new [browser telemetry](/browsers/telemetry) guide covering categories, the stream API, and event shapes.
-- Wrote a [Claude Managed Agents](/integrations/claude-managed-agents) integration guide with a link to the public cookbook.
+- Wrote a [Claude Managed Agents](/integrations/claude/claude-managed-agents) integration guide with a link to the public cookbook.
 - Documented the org-wide default [per-project concurrency cap](/info/projects) on the Projects page.
 - Expanded the [CLI reference](/reference/cli) to include several previously missing subcommands.
 </Update>
@@ -437,7 +463,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Introduced a new [Hobbyist plan](https://www.kernel.sh/#pricing), which provides affordable access to features like session replays, uploading and downloading files, and using custom Chrome extensions.
 - Updated the Gemini [Computer Use template](/integrations/computer-use/gemini) to [use](https://github.com/kernel/cli) Stagehand V3, resolving compatibility issues.
 - Added support for Actor and Thinker [OpenAGI models](https://github.com/kernel/kernel-oagi), with guidance on when to use each approach.
-- Added new [Claude Agent SDK templates](/integrations/claude-agent-sdk) for TypeScript and Python that demonstrate browser automation using Kernel's Playwright execution API.
+- Added new [Claude Agent SDK templates](/integrations/claude/claude-agent-sdk) for TypeScript and Python that demonstrate browser automation using Kernel's Playwright execution API.
 
 ## Documentation updates
 - Added documentation for the OpenAGI Lux [integration](/integrations/computer-use/openagi) using the `kernel create` method, including examples for both `AsyncDefaultAgent` and `TaskerAgent`.

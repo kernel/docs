@@ -1,13 +1,15 @@
 ---
 title: "Custom Chrome Policies"
-description: "Customize Chrome behavior in reserved browser pools using Chrome policies"
+description: "Customize Chrome behavior on individual browsers and browser pools using Chrome policies"
 ---
 
-Browser pools accept an optional [`chrome_policy`](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy) object that lets you apply [Chrome enterprise policies](https://chromeenterprise.google/policies/) to every browser in the pool. Use this to control startup behavior, default homepages, bookmarks, and other browser-level settings.
+`chrome_policy` is an optional object that applies [Chrome enterprise policies](https://chromeenterprise.google/policies/) to a browser. It works on both individual on-demand browsers (`browsers.create()`) and [browser pools](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-chrome-policy), where it applies to every browser in the pool. Use it to control startup behavior, default homepages, bookmarks, and other browser-level settings.
 
-## Setting chrome policies
+Keys are Chrome policy names and values are the corresponding settings. The same policies and value types apply on both paths. Kernel-managed policies (extensions, proxy, and CDP/automation) are rejected, and the serialized payload is capped at 5 MiB.
 
-Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool. Keys are Chrome policy names and values are the corresponding settings.
+## Setting chrome policies on a pool
+
+Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -176,7 +178,7 @@ The example above demonstrates setting a default homepage and managed bookmarks.
 
 ## Common use cases
 
-`chrome_policy` is also accepted directly on `browsers.create()` when you don't need a reserved pool. The examples below use that path.
+The examples below use `browsers.create()`, but the same policies apply when set on a pool.
 
 ### Allow pop-ups
 
@@ -235,6 +237,36 @@ const browser = await kernel.browsers.create({
   chrome_policy: {
     DefaultPopupsSetting: 1,
     DownloadRestrictions: 0,
+  },
+});
+```
+</CodeGroup>
+
+### Block DevTools and page source
+
+DevTools hands anyone who can reach a browser a console on the page, plus network logs, cookies, and local storage. When you expose a session through live view, or run agent code you don't fully trust, block the URLs DevTools loads from:
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "URLBlocklist": ["devtools://*", "chrome://inspect", "view-source:*"],
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    URLBlocklist: ["devtools://*", "chrome://inspect", "view-source:*"],
   },
 });
 ```
