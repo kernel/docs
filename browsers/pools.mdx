@@ -25,10 +25,10 @@ Acquiring from a pool is faster than `browsers.create()` for two reasons. The br
 
 A few constraints to weigh before moving a workload onto a browser pool:
 
-- **No GPU browsers.** GPU-accelerated browsers are on-demand only — a pool can't serve them. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
-- **One fixed configuration per pool.** Every browser in a pool shares the same stealth, proxy, extension, viewport, and headless settings, plus a single profile. `start_url` is the only setting you can override per acquisition.
-- **Profiles load read-only.** A profile attached to the pool is never written back — `save_changes` is silently ignored. To persist per-user state, attach the profile after acquiring and release with `reuse: false` (see [Per-user profiles with pools](#per-user-profiles-with-pools)).
-- **Pool capacity counts against your concurrency limit** whether or not its browsers are acquired. A pool sized to 40 uses 40 of your organization's [concurrent browser limit](/info/pricing#concurrency-limits), and on-demand `browsers.create()` calls draw from your remaining available concurrency. Idle pooled browsers aren't billed, but they still hold those slots.
+- **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
+- **One fixed configuration per pool**, with `start_url` the only setting you can override per acquisition — see [Create a pool](#create-a-pool).
+- **Profiles load read-only**, and a pool holds one at a time — see [Profiles with browser pools](#profiles-with-browser-pools) for how to persist state per user.
+- **Pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
 - **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
 
 ## Create a pool
@@ -198,6 +198,28 @@ Browsers wait in the pool indefinitely until acquired — a pool's `timeout_seco
 
 Always release a browser when you're done with it. Releasing returns it to the pool immediately, and `reuse` decides whether it's kept or rebuilt. The timeout is only a backstop for browsers that are never released.
 
+## Profiles with browser pools
+
+A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser. Use [Managed Auth](/auth/overview) to fill and maintain one: it handles the login and re-authenticates when the session expires, so you don't manage that state yourself. Put the profile on the pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with pools](#per-user-profiles-with-pools)).
+
+A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
+
+### Refresh on profile update
+
+Each browser loads the profile's data at the moment it's created, so re-saving that profile later doesn't reach browsers that are already running. With `refresh_on_profile_update` enabled, saving the profile — after a [Managed Auth](/auth/overview) login, for example — flushes every idle browser in the pool and replaces it with one that loads the updated data. Browsers that are currently acquired keep the data they started with.
+
+It's enabled automatically when a pool is created with a profile or has its profile changed, and forced to `false` when the profile is removed (by passing `{ "id": "" }`). Set it to `false` to opt out.
+
+<Info>
+`refresh_on_profile_update` requires a profile on the pool. Setting it to `true` without one returns a validation error.
+</Info>
+
+### Per-user profiles with pools
+
+The pool's own profile is read-only and shared by every browser, so it can't hold per-user login state for many users at once. To serve many users from one pool, create the pool with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it both persists that user's profile changes and keeps their state from reaching the next acquirer.
+
+A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free. The [Quickstart](/quickstart) walks through this pattern with code.
+
 ## Sizing a browser pool
 
 `retrieve` returns `available_count` (browsers ready to acquire right now) and `acquired_count` (browsers in use). Watch `available_count` to size the pool:
@@ -254,28 +276,6 @@ You have two ways to get an in-use browser onto the new configuration:
 - **Prevent it on release:** release with `reuse: false`. The browser is destroyed and rebuilt with the current pool configuration instead of the old one returning to the pool.
 - **Clean it up after the fact:** [`flush()`](#managing-a-pool) the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released.
 </Warning>
-
-## Profiles with browser pools
-
-A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser. Use [Managed Auth](/auth/overview) to fill and maintain one: it handles the login and re-authenticates when the session expires, so you don't manage that state yourself. Put the profile on the pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with pools](#per-user-profiles-with-pools)).
-
-A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
-
-### Refresh on profile update
-
-Each browser loads the profile's data at the moment it's created, so re-saving that profile later doesn't reach browsers that are already running. With `refresh_on_profile_update` enabled, saving the profile — after a [Managed Auth](/auth/overview) login, for example — flushes every idle browser in the pool and replaces it with one that loads the updated data. Browsers that are currently acquired keep the data they started with.
-
-It's enabled automatically when a pool is created with a profile or has its profile changed, and forced to `false` when the profile is removed (by passing `{ "id": "" }`). Set it to `false` to opt out.
-
-<Info>
-`refresh_on_profile_update` requires a profile on the pool. Setting it to `true` without one returns a validation error.
-</Info>
-
-### Per-user profiles with pools
-
-The pool's own profile is read-only and shared by every browser, so it can't hold per-user login state for many users at once. To serve many users from one pool, create the pool with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it both persists that user's profile changes and keeps their state from reaching the next acquirer.
-
-A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free. The [Quickstart](/quickstart) walks through this pattern with code.
 
 ## Managing a pool
 
