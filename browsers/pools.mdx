@@ -3,7 +3,7 @@ title: "Browser Pools"
 description: "Pre-configure a pool of ready-to-use browsers for instant acquisition"
 ---
 
-Browser pools let you configure a set of identical browsers ready for immediate use. Set your configuration once — stealth, proxies, extensions, profiles, viewport — and acquire a ready browser whenever a task needs one instead of configuring one per task.
+Browser pools let you configure a set of identical browsers ready for immediate use. Set your configuration once — stealth, proxies, extensions, viewport — and acquire a ready browser whenever a task needs one instead of configuring one per task. A pool can carry a [profile](#profiles-with-browser-pools) too, with two constraints the other settings don't have: one profile per pool, shared read-only by every browser in it.
 
 Acquiring from a browser pool is faster than `browsers.create()` for two reasons: the browser is already booted with your configuration applied, including [settings that restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser (custom viewports, extensions, kiosk-mode live view), and acquiring isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation. Browsers sitting idle in a pool aren't billed, though pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
 
