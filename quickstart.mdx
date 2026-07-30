@@ -1,0 +1,287 @@
+---
+title: "Quickstart"
+description: "Drive your first Kernel browser, then take it to production"
+---
+
+This guide walks the whole path end to end: install the SDK, create a cloud browser and drive it, watch what it's doing, and then serve a real workload from a [browser pool](/browsers/pools). Each step builds on the one before it, so work top to bottom the first time through.
+
+## Install and authenticate
+
+Install the CLI and log in:
+
+```bash
+# Using brew
+brew install kernel/tap/kernel
+
+# or using npm
+npm install -g @onkernel/cli
+
+kernel login
+```
+
+Create an API key for your code to use, and export it as `KERNEL_API_KEY` — the SDKs read it automatically:
+
+```bash
+kernel api-keys create --name quickstart
+export KERNEL_API_KEY="<your-api-key>"
+```
+
+Then install the SDK for your language:
+
+<CodeGroup>
+```bash Typescript/Javascript
+npm install @onkernel/sdk
+```
+
+```bash Python
+pip install kernel
+```
+
+```bash Go
+go get github.com/kernel/kernel-go-sdk
+```
+</CodeGroup>
+
+## Create and drive a browser
+
+`browsers.create()` boots a sandboxed Chromium instance in the cloud. The response carries everything you need to drive it — a CDP URL for Playwright or any CDP client, and a live view URL you can open in your own browser.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+
+const response = await kernel.browsers.playwright.execute(kernelBrowser.session_id, {
+  code: `
+    await page.goto('https://www.onkernel.com');
+    return await page.title();
+  `,
+});
+
+console.log(response.result);
+console.log(kernelBrowser.browser_live_view_url);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+
+response = kernel.browsers.playwright.execute(
+    id=kernel_browser.session_id,
+    code="""
+      await page.goto('https://www.onkernel.com')
+      return await page.title()
+    """,
+)
+
+print(response.result)
+print(kernel_browser.browser_live_view_url)
+```
+
+```go Go
+ctx := context.Background()
+client := kernel.NewClient()
+
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+
+response, err := client.Browsers.Playwright.Execute(ctx, kernelBrowser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://www.onkernel.com');
+		return await page.title();
+	`,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(response.Result)
+fmt.Println(kernelBrowser.BrowserLiveViewURL)
+```
+
+```bash CLI
+kernel browsers create --start-url https://www.onkernel.com
+```
+</CodeGroup>
+
+You can also connect Playwright directly over CDP with `kernelBrowser.cdp_ws_url` instead of running code server-side — see [Control](/introduction/control) for every way to drive a browser.
+
+<Info>
+Browsers aren't free-running: after five seconds with nothing driving it, a browser enters [standby](/browsers/standby) and billing stops. Delete it explicitly with `browsers.delete_by_id()` when you're done — see [Termination & timeouts](/browsers/termination).
+</Info>
+
+## Watch what it's doing
+
+Open the `browser_live_view_url` from the response in your own browser to watch the session in real time, and interact with it directly if you need to.
+
+For sessions that already finished, [replays](/browsers/replays) record them as MP4s, and [browser telemetry](/browsers/telemetry/overview) streams network and console events. See [Observe](/introduction/observe) for the full picture.
+
+## Add stealth, proxies, or auth
+
+Most real targets need at least one of these, and all of them are set at creation time:
+
+<Columns cols={3}>
+  <Card title="Stealth & bot detection" href="/browsers/bot-detection/overview">
+    Anti-detection defaults are always on; stealth mode adds a managed proxy and CAPTCHA solving.
+  </Card>
+  <Card title="Proxies" href="/proxies/overview">
+    Route through datacenter, ISP, residential, or mobile IPs — or bring your own.
+  </Card>
+  <Card title="Auth" href="/auth/overview">
+    Persist logins with a profile, or hand auth off to Kernel with managed auth.
+  </Card>
+</Columns>
+
+## Serve a workload from a browser pool
+
+`browsers.create()` is the right call while you're building. Once you're running the same task repeatedly — or need acquisition to be fast and predictable — switch to a [browser pool](/browsers/pools): a fixed set of identical browsers, already booted with your configuration, that you acquire from and release back.
+
+The shape is **create the pool once, then acquire per task**:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Once, at deploy time or on startup — not in your request path
+await kernel.browserPools.create({
+  name: 'checkout-pool',
+  size: 20,
+  stealth: true,
+});
+```
+
+```python Python
+# Once, at deploy time or on startup — not in your request path
+kernel.browser_pools.create(
+    name="checkout-pool",
+    size=20,
+    stealth=True,
+)
+```
+
+```go Go
+// Once, at deploy time or on startup — not in your request path
+if _, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+	Name:    kernel.String("checkout-pool"),
+	Size:    20,
+	Stealth: kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
+```
+
+```bash CLI
+kernel browser-pools create checkout-pool --size 20 --stealth
+```
+</CodeGroup>
+
+Then, per task, acquire a browser, drive it, and release it in a `finally` block so it always goes back to the pool:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browserPools.acquire('checkout-pool', {});
+
+try {
+  const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+  const context = browser.contexts()[0];
+  const page = context.pages()[0];
+
+  await page.goto('https://example.com');
+  console.log(await page.title());
+} finally {
+  await kernel.browserPools.release('checkout-pool', {
+    session_id: kernelBrowser.session_id,
+  });
+}
+```
+
+```python Python
+import asyncio
+from kernel import Kernel
+from playwright.async_api import async_playwright
+
+kernel = Kernel()
+
+async def main():
+    kernel_browser = kernel.browser_pools.acquire("checkout-pool")
+
+    async with async_playwright() as playwright:
+        try:
+            browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+            context = browser.contexts[0]
+            page = context.pages[0]
+
+            await page.goto('https://example.com')
+            print(await page.title())
+        finally:
+            kernel.browser_pools.release(
+                "checkout-pool",
+                session_id=kernel_browser.session_id,
+            )
+
+asyncio.run(main())
+```
+
+```go Go
+kernelBrowser, err := client.BrowserPools.Acquire(ctx, "checkout-pool", kernel.BrowserPoolAcquireParams{})
+if err != nil {
+	panic(err)
+}
+
+defer func() {
+	if err := client.BrowserPools.Release(ctx, "checkout-pool", kernel.BrowserPoolReleaseParams{
+		SessionID: kernelBrowser.SessionID,
+	}); err != nil {
+		panic(err)
+	}
+}()
+
+response, err := client.Browsers.Playwright.Execute(ctx, kernelBrowser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://example.com');
+		return await page.title();
+	`,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(response.Result)
+```
+</CodeGroup>
+
+Three things to know before this goes to production:
+
+- **Failing to release is the most common mistake.** An unreleased browser stays `acquired` until it times out, so the pool drains. Always release in a `finally` block.
+- **`reuse: true` (the default) hands the *same* browser to the next caller**, cookies and logged-in sessions included. If you're acquiring on behalf of different end users, release with `reuse: false`.
+- **Idle browsers in a pool aren't billed**, but the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits) whether or not its browsers are acquired.
+
+Watch `available_count` to size the pool — see [Sizing a browser pool](/browsers/pools#sizing-a-browser-pool).
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Browser Pools" href="/browsers/pools">
+    The full pool API: configuration, profiles, updating, flushing, and limitations.
+  </Card>
+  <Card title="Scale" href="/introduction/scale">
+    Production architecture — when to use a pool, and how to wrap a queue around one.
+  </Card>
+  <Card title="Deploy on Kernel" href="/apps/develop">
+    Run your agent co-located with its browser on Kernel's app platform.
+  </Card>
+  <Card title="Bot detection" href="/browsers/bot-detection/overview">
+    Get through the sites that fight back.
+  </Card>
+</Columns>

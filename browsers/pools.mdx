@@ -7,6 +7,10 @@ Browser pools let you configure a set of identical browsers ready for immediate 
 
 Acquiring from a browser pool is faster than `browsers.create()` for two reasons: the browser is already booted with your configuration applied, including [settings that restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser (custom viewports, extensions, kiosk-mode live view), and acquiring isn't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation. Browsers sitting idle in a pool aren't billed, though pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
 
+<Info>
+New to browser pools? The [Quickstart](/quickstart) walks through creating one and serving a workload from it. This page is the full API surface.
+</Info>
+
 ## How browser pools work
 
 <Steps>
@@ -474,112 +478,6 @@ if err := client.BrowserPools.Delete(ctx, "my-pool", kernel.BrowserPoolDeletePar
 	Force: kernel.Bool(true),
 }); err != nil {
 	panic(err)
-}
-```
-</CodeGroup>
-
-## Full example
-
-This example assumes you've already created a pool named "my-pool". In practice, you'd create pools once (via the SDK, CLI, or dashboard) and then acquire from them repeatedly.
-
-<CodeGroup>
-```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
-import { chromium } from 'playwright';
-
-const kernel = new Kernel();
-
-// Acquire a browser from an existing pool
-const kernelBrowser = await kernel.browserPools.acquire("my-pool", {});
-
-try {
-  // Connect via CDP
-  const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
-  const context = browser.contexts()[0];
-  const page = context.pages()[0];
-
-  await page.goto('https://example.com');
-  const title = await page.title();
-  console.log(title);
-} finally {
-  // Release back to pool for reuse
-  await kernel.browserPools.release("my-pool", {
-    session_id: kernelBrowser.session_id,
-  });
-}
-```
-
-```python Python
-import asyncio
-from kernel import Kernel
-from playwright.async_api import async_playwright
-
-kernel = Kernel()
-
-async def main():
-    # Acquire a browser from an existing pool
-    kernel_browser = kernel.browser_pools.acquire("my-pool")
-
-    async with async_playwright() as playwright:
-        try:
-            # Connect via CDP
-            browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
-            context = browser.contexts[0]
-            page = context.pages[0]
-
-            await page.goto('https://example.com')
-            title = await page.title()
-            print(title)
-        finally:
-            # Release back to pool for reuse
-            kernel.browser_pools.release(
-                "my-pool",
-                session_id=kernel_browser.session_id,
-            )
-
-asyncio.run(main())
-```
-
-```go Go
-package main
-
-import (
-	"context"
-	"fmt"
-
-	"github.com/kernel/kernel-go-sdk"
-)
-
-func main() {
-	ctx := context.Background()
-	client := kernel.NewClient()
-
-	// Acquire a browser from an existing pool
-	kernelBrowser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
-	if err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		// Release back to pool for reuse
-		if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
-			SessionID: kernelBrowser.SessionID,
-		}); err != nil {
-			panic(err)
-		}
-	}()
-
-	response, err := client.Browsers.Playwright.Execute(ctx, kernelBrowser.SessionID, kernel.BrowserPlaywrightExecuteParams{
-		Code: `
-			await page.goto('https://example.com');
-			return await page.title();
-		`,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(response.Result)
 }
 ```
 </CodeGroup>
