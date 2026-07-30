@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { checkRateLimit } from "@vercel/firewall";
 import {
   convertToModelMessages,
@@ -69,16 +68,15 @@ async function chunkedAll<O>(promises: Promise<O>[]): Promise<O[]> {
   return out;
 }
 
-const anthropic = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Model is routed through the Vercel AI Gateway as a `provider/model` slug. The
+// AI SDK reads AI_GATEWAY_API_KEY from the env, so no provider client is created
+// here. Swap models without a code change via the CHAT_MODEL env var.
+const CHAT_MODEL = process.env.CHAT_MODEL ?? "openai/gpt-5.6-luna";
 
-const CHAT_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
-
-// coarse abuse ceiling on request size (~100k tokens, about half of Haiku's
-// 200k context) so a single caller can't fill the context every request. Sized
-// well above any real multi-turn docs conversation; cost is otherwise bounded
-// by the rate limit + the key's spend cap.
+// coarse abuse ceiling on request size (~100k tokens) so a single caller can't
+// fill the context every request. Sized well above any real multi-turn docs
+// conversation; cost is otherwise bounded by the rate limit + the gateway key's
+// spend cap.
 const MAX_INPUT_CHARS = 400_000;
 
 // last user message text, for the Braintrust span input
@@ -196,10 +194,14 @@ export async function POST(req: Request, _ctx: RouteContext<"/api/chat">) {
       });
 
       const result = streamText({
-        model: anthropic(CHAT_MODEL),
+        // bare `provider/model` string → routed through the AI Gateway
+        model: CHAT_MODEL,
         // AI SDK v7: the system prompt goes here, not as a role:"system" message
         instructions: systemPrompt,
-        maxOutputTokens: 2048,
+        // reasoning tokens count against maxOutputTokens, so keep it generous
+        // enough that a high-effort reasoning pass can't truncate the answer
+        providerOptions: { openai: { reasoningEffort: "high" } },
+        maxOutputTokens: 16000,
         stopWhen: stepCountIs(5),
         tools: {
           search: searchTool,
