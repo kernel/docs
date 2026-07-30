@@ -3,9 +3,9 @@ title: "Browser Pools"
 description: "Pre-configure a pool of ready-to-use browsers for instant acquisition"
 ---
 
-Browser pools let you configure a set of identical browsers ready for immediate use. Set your configuration once — stealth, proxies, extensions, viewport, and a [profile](#profiles-with-browser-pools) — and acquire a ready browser whenever a task needs one instead of configuring one per task.
+Browser pools let you configure a set of identical browsers ready for immediate use. Set your configuration once — stealth, proxies, extensions, viewport, and a [profile](#profiles-with-browser-pools) — instead of passing it to every `browsers.create()` call. Each task then acquires a browser that's already configured and running.
 
-Acquiring from a pool is faster than `browsers.create()` for two reasons. The browser is already running, so you skip start-up and the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger on a new browser. And `acquire` isn't [rate limited](/info/pricing#rate-limiting) the way browser creation is. Idle browsers in a pool aren't billed, but the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how pools fit into production architecture.
+Acquiring from a pool is faster than `browsers.create()` on two counts: a pooled browser is already running, so you skip start-up and the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger on a new browser, and `acquire` avoids the [rate limit](/info/pricing#rate-limiting) that applies to browser creation. Idle browsers in a pool aren't billed, though the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits); see [Scale](/introduction/scale) for how pools fit into production architecture.
 
 ## How browser pools work
 
@@ -196,13 +196,19 @@ if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseP
 
 Browsers wait in the pool indefinitely until acquired — a pool's `timeout_seconds` only starts running once a browser is acquired. From there it behaves like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout): if the browser sits idle, with no CDP or live view connection, for longer than the timeout, it's destroyed rather than returned to the pool, and the pool creates a replacement at its [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute).
 
-Always release a browser when you're done with it. Releasing returns it to the pool immediately, and `reuse` decides whether it's kept or rebuilt. The timeout is only a backstop for browsers that are never released.
+As a best practice, release each browser when you're done with it — that returns it to the pool right away. The timeout is there as a backstop for browsers that never get released.
 
 ## Profiles with browser pools
 
-A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser. Use [Managed Auth](/auth/overview) to fill and maintain one: it handles the login and re-authenticates when the session expires, so you don't manage that state yourself. Put the profile on the pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with pools](#per-user-profiles-with-pools)).
+A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser; use [Managed Auth](/auth/overview) to populate and maintain it. Put the profile on the pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with pools](#per-user-profiles-with-pools)).
 
 A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
+
+### Per-user profiles with pools
+
+The pool's own profile is read-only and shared by every browser, so it can't hold per-user login state for many users at once. To serve many users from one pool, create the pool with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it both persists that user's profile changes and keeps their state from reaching the next acquirer.
+
+A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free.
 
 ### Refresh on profile update
 
@@ -213,12 +219,6 @@ It's enabled automatically when a pool is created with a profile or has its prof
 <Info>
 `refresh_on_profile_update` requires a profile on the pool. Setting it to `true` without one returns a validation error.
 </Info>
-
-### Per-user profiles with pools
-
-The pool's own profile is read-only and shared by every browser, so it can't hold per-user login state for many users at once. To serve many users from one pool, create the pool with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it both persists that user's profile changes and keeps their state from reaching the next acquirer.
-
-A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free. The [Quickstart](/quickstart) walks through this pattern with code.
 
 ## Sizing a browser pool
 
@@ -269,23 +269,14 @@ The `size` parameter is always required when updating a pool, even if you only w
 </Info>
 
 <Warning>
-Reused browsers keep the configuration they were created with. A plain `update()` rebuilds nothing that already exists — it only changes the config used for future browsers. To rebuild the idle browsers too, pass `discard_all_idle: true` (or call [`flush()`](#managing-a-pool)). Either way, browsers that are acquired during an update are never touched: an in-use browser keeps its original configuration, and if you then release it with `reuse: true` (the default) it re-enters the pool still carrying that stale configuration and keeps getting handed out that way.
+Reused browsers keep the configuration they were created with. A plain `update()` rebuilds nothing that already exists — it only changes the config used for future browsers. To rebuild the idle browsers too, pass `discard_all_idle: true` (or call `flush()`). Either way, browsers that are acquired during an update are never touched: an in-use browser keeps its original configuration, and if you then release it with `reuse: true` (the default) it re-enters the pool still carrying that stale configuration and keeps getting handed out that way.
 
 You have two ways to get an in-use browser onto the new configuration:
 
 - **Prevent it on release:** release with `reuse: false`. The browser is destroyed and rebuilt with the current pool configuration instead of the old one returning to the pool.
-- **Clean it up after the fact:** [`flush()`](#managing-a-pool) the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released.
+- **Clean it up after the fact:** `flush()` the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released.
 </Warning>
 
-## Managing a pool
+## API reference
 
-These operations carry no behavior beyond what they say; see the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools) for parameters and response shapes.
-
-| Operation | Method | Notes |
-| --- | --- | --- |
-| Flush idle browsers | `browserPools.flush()` | Destroys every idle browser. Acquired browsers are untouched, and the pool refills to `size` with its current configuration. |
-| Get pool details | `browserPools.retrieve()` | Returns the pool's configuration plus `available_count` and `acquired_count`. See [Sizing a browser pool](#sizing-a-browser-pool). |
-| List pools | `browserPools.list()` | Every browser pool in the organization. |
-| Delete a pool | `browserPools.delete()` | Deletes the pool and its browsers. Blocked while any browser is acquired unless you pass `force: true`, which terminates them first. |
-
-Method names above are the Typescript form; the Python and Go SDKs follow their own conventions (`browser_pools.flush()`, `BrowserPools.Flush()`).
+`flush`, `retrieve`, `list`, and `delete` round out the browser pool API. See the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools) for every endpoint, its parameters, and response shapes.
