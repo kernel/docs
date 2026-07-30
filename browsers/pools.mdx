@@ -3,9 +3,11 @@ title: "Browser Pools"
 description: "Pre-configure a pool of ready-to-use browsers for instant acquisition"
 ---
 
-Browser pools let you configure a set of identical browsers ready for immediate use. Set your configuration once on the browser pool — stealth, proxies, extensions, viewport, and a [profile](#profiles-with-browser-pools) — instead of configuring each on-demand browser you create. Every browser it hands you is ready to drive with those settings already applied.
+A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
 
-Acquiring from a browser pool is faster than creating an on-demand browser: a pooled browser is already running, so you skip start-up and the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger on a new browser, and you avoid the [rate limit](/info/pricing#rate-limiting) that applies to on-demand browser creation. Idle browsers in a browser pool aren't billed, though its capacity counts against your [concurrency limit](/info/pricing#concurrency-limits); see [Scale](/introduction/scale) for how browser pools fit into production architecture.
+Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation.
+
+Idle browsers in a pool aren't billed, but the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
 
 ## How browser pools work
 
