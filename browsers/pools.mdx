@@ -503,7 +503,7 @@ if err := client.BrowserPools.Delete(ctx, "my-pool", kernel.BrowserPoolDeletePar
 
 Resize at any time with `update` — no need to tear the pool down and rebuild it. Added capacity warms up at the pool's [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute), so raise the size before a traffic peak rather than during it.
 
-Browser pools shine at higher concurrency, but a small pool is still worth it whenever acquisition latency matters and demand is steady enough to keep it utilized — for example a latency-sensitive, user-facing action where a cold start is unacceptable. Treat ~50 concurrent browsers as an illustrative point where pools clearly pay off, not a hard cutoff. On-demand `browsers.create()` remains the better fit for low-volume, bursty, or one-off work, for per-session varying configuration, and for GPU browsers.
+Browser pools shine at higher concurrency, but even a small pool is worth it whenever acquisition latency matters and demand is steady enough to keep it utilized — for example a latency-sensitive, user-facing action where a cold start is unacceptable. On-demand `browsers.create()` remains the better fit for low-volume, bursty, or one-off work, for per-session varying configuration, and for GPU browsers.
 
 ## Full example
 
