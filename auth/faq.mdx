@@ -20,7 +20,7 @@ Passkey-based authentication (e.g., Google accounts with passkeys enabled) is no
 
 ## What happens if login fails?
 
-Kernel retries with exponential backoff, then surfaces an error code (`credentials_invalid`, `bot_detected`, `captcha_blocked`, etc.). See [Connection Lifecycle](/auth/connection-lifecycle#when-a-login-fails) for the full list and recovery steps.
+Kernel surfaces an error code (`credentials_invalid`, `account_locked`, `bot_detected`, `captcha_blocked`, etc.). Transient site failures are retried; a conclusive rejection by the site isn't, so Kernel doesn't burn attempts against a locked account or resubmit credentials the site already refused. See [Connection Lifecycle](/auth/connection-lifecycle#when-a-login-fails) for the full list and recovery steps.
 
 ## Can I use Managed Auth with any website?
 
