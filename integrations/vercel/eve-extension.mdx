@@ -66,7 +66,8 @@ Once mounted, the agent has the following tools, namespaced under your mount (e.
 
 - **`manage_browsers`**: create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
 - **`execute_playwright_code`**: run Playwright against the live page to read, navigate, click, or type.
-- **`computer_action`**: human-like mouse, keyboard, and screenshot controls for the same session.
+- **`screenshot`**: capture what the session currently displays, so the agent can see the page.
+- **`computer_action`**: human-like mouse, keyboard, and clipboard input for the same session, for surfaces Playwright selectors can't reach.
 - **`manage_auth_connections`**: Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
 - **`manage_profiles`**: create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
 - **`manage_proxies`**: create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
@@ -168,6 +169,7 @@ export default defineMcpClientConnection({
     allow: [
       "manage_browsers",
       "execute_playwright_code",
+      "screenshot",
       "computer_action",
       "browser_curl", // high blast radius: raw HTTP through the session
       "manage_auth_connections",

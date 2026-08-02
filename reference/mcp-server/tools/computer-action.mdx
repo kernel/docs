@@ -1,11 +1,13 @@
 ---
 title: "computer_action"
-description: "Mouse, keyboard, and screenshot controls for browser sessions"
+description: "Mouse, keyboard, and clipboard input at screen coordinates"
 ---
 
-Execute computer actions on a browser session. Pass a single action for simple operations, or pass multiple actions to batch them into one request for lower latency.
+Drive a browser session with raw mouse and keyboard input at screen coordinates. Pass a single action for simple operations, or pass multiple actions to batch them into one request for lower latency.
 
-<Tip>Always include a `screenshot` as the last action so you can see the result. `screenshot` and `get_mouse_position` return data, so they must come last.</Tip>
+<Warning>Prefer [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) for anything a selector can reach. It's faster, deterministic, and doesn't depend on the model's ability to locate a target in an image. Reach for `computer_action` only when there's no selector to target: canvas apps, embedded PDFs, native dialogs, and drag interactions.</Warning>
+
+Coordinates come from a [`screenshot`](/reference/mcp-server/tools/screenshot) call, and are only as accurate as the calling model's pixel grounding — models vary widely here. Take a screenshot after acting to confirm the result.
 
 ## Parameters
 
@@ -26,8 +28,11 @@ Execute computer actions on a browser session. Pass a single action for simple o
 | `drag_mouse` | Drag along a `path` of `[x, y]` points. |
 | `set_cursor` | Show or hide the cursor (`hidden`). |
 | `sleep` | Wait `duration_ms` between steps when the page needs time to react. |
-| `screenshot` | Capture the page, optionally limited to a `region`. |
+| `write_clipboard` | Write `text` to the clipboard. |
+| `read_clipboard` | Return the current clipboard contents. |
 | `get_mouse_position` | Return the current cursor position. |
+
+<Note>`read_clipboard` and `get_mouse_position` return data, so they must come last. To capture the page, call the separate [`screenshot`](/reference/mcp-server/tools/screenshot) tool.</Note>
 
 ## Example
 
@@ -38,8 +43,9 @@ Execute computer actions on a browser session. Pass a single action for simple o
     { "type": "click_mouse", "click_mouse": { "x": 420, "y": 300 } },
     { "type": "type_text", "type_text": { "text": "kernel browsers" } },
     { "type": "press_key", "press_key": { "keys": ["Return"] } },
-    { "type": "sleep", "sleep": { "duration_ms": 1000 } },
-    { "type": "screenshot" }
+    { "type": "sleep", "sleep": { "duration_ms": 1000 } }
   ]
 }
 ```
+
+Then call `screenshot` to see the result.

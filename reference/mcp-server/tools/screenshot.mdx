@@ -1,0 +1,52 @@
+---
+title: "screenshot"
+description: "Capture what a browser session currently displays"
+---
+
+Capture a PNG screenshot of a browser session. This tool is read-only: it observes the session without changing it. Use it to see page state, confirm what an automation did, or diagnose a flow that's stuck.
+
+<Note>Your MCP client must pass image content from tool results through to the model. Most clients do, but a text-only model can't read the screenshot even though the call succeeds.</Note>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `session_id` | Browser session ID. Required. |
+| `region` | Crop to a screen region: `x`, `y`, `width`, `height`. Omit to capture the full screen. |
+
+## Response
+
+Two content blocks: a text block describing the coordinate space, and the PNG image.
+
+For a full-screen capture, image coordinates are screen coordinates, so you can pass them straight to [`computer_action`](/reference/mcp-server/tools/computer-action):
+
+```
+Full screen 1024x768. Image coordinates are screen coordinates.
+```
+
+For a cropped capture, the image starts at the crop, so add the offset before using a coordinate:
+
+```
+Cropped region 400x200 at screen offset (100, 50). Image coordinates start at the
+crop, so add the offset to get screen coordinates: screen_x = 100 + image_x,
+screen_y = 50 + image_y.
+```
+
+## Example
+
+```json
+{
+  "session_id": "browser_abc123"
+}
+```
+
+Crop to a region:
+
+```json
+{
+  "session_id": "browser_abc123",
+  "region": { "x": 100, "y": 50, "width": 400, "height": 200 }
+}
+```
+
+<Tip>To act on the page, prefer [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) — selectors are faster and more reliable than clicking at coordinates read off a screenshot.</Tip>

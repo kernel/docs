@@ -3,11 +3,11 @@ title: "execute_playwright_code"
 description: "Run Playwright/TypeScript code against a browser session"
 ---
 
-Execute Playwright/TypeScript automation code against an existing Kernel browser session. This tool is a thin passthrough: it runs your code in the browser's VM and returns the result. It does not manage browser lifecycle — create and delete sessions with [`manage_browsers`](/reference/mcp-server/tools/manage-browsers).
+Execute Playwright/TypeScript automation code against an existing Kernel browser session. This is the primary way to drive a browser: navigation, clicks, form fills, and extraction all belong here rather than in raw coordinate input. This tool is a thin passthrough: it runs your code in the browser's VM and returns the result. It does not manage browser lifecycle — create and delete sessions with [`manage_browsers`](/reference/mcp-server/tools/manage-browsers).
 
 <Note>`session_id` is required. Unlike earlier versions, this tool no longer creates a browser when `session_id` is omitted, and no longer deletes the browser after execution. Create a session with `manage_browsers` (action `create`), pass its `session_id` here, then delete it with `manage_browsers` when done.</Note>
 
-<Tip>Use `computer_action` with the `screenshot` action instead of `page.screenshot()` in your code. To read page state, return only what you need — prefer a targeted selector (e.g. `await page.locator('h1').innerText()`) or a region-scoped accessibility snapshot (e.g. `await page.locator('main').ariaSnapshot()`) rather than dumping the whole page.</Tip>
+<Tip>Use the [`screenshot`](/reference/mcp-server/tools/screenshot) tool instead of `page.screenshot()` in your code. To read page state, return only what you need — prefer a targeted selector (e.g. `await page.locator('h1').innerText()`) or a region-scoped accessibility snapshot (e.g. `await page.locator('main').ariaSnapshot()`) rather than dumping the whole page. An `ariaSnapshot()` gives you the accessibility tree, which is usually a better way to locate an element than reading pixels off a screenshot.</Tip>
 
 ## Parameters
 
