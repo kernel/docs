@@ -37,11 +37,11 @@ pnpm add @onkernel/eve-extension
 **2. Create and attach the Kernel connector** in Vercel Connect. Name it `eve-extension` so the mount snippet works unedited:
 
 ```bash
-vercel connect create mcp.onkernel.com --name eve-extension
-vercel connect attach mcp.onkernel.com/eve-extension
+vercel connect create kernel --name eve-extension
+vercel connect attach kernel/eve-extension
 ```
 
-You can also add it from the Vercel dashboard under **Connectors → Browse all → Kernel**. Confirm the UID with `vercel connect list`.
+`kernel` is Kernel's entry in Vercel's connector registry, so Vercel fills in the MCP URL, auth type, and branding, then opens your browser for the authorization step. You can also add it from the Vercel dashboard under **Connectors → Browse all → Kernel**. Confirm the UID with `vercel connect list`.
 
 **3. Mount the extension** in one line, passing the connector UID:
 
@@ -49,7 +49,7 @@ You can also add it from the Vercel dashboard under **Connectors → Browse all 
 // agent/extensions/kernel.ts
 import kernel from "@onkernel/eve-extension";
 
-export default kernel({ connect: "mcp.onkernel.com/eve-extension" });
+export default kernel({ connect: "kernel/eve-extension" });
 ```
 
 **4. Run it:**
@@ -59,6 +59,10 @@ npx eve dev     # or: npx eve deploy
 ```
 
 Leave `KERNEL_API_KEY` unset. The first time a user drives the browser, Eve surfaces a Connect consent prompt; they approve once and it's cached from then on, persisting across threads and sessions.
+
+<Note>
+  Connectors created before Kernel was in the registry keep working. Leave them as they are and point `connect` at the UID `vercel connect list` prints for them, e.g. `mcp.onkernel.com/eve-extension`.
+</Note>
 
 ## Included tools and skills
 
@@ -150,7 +154,7 @@ Mount the extension as a directory and name the connection file `browser.ts` to 
 
 ```
 agent/extensions/kernel/
-  extension.ts             # export default kernel({ connect: "mcp.onkernel.com/eve-extension" })
+  extension.ts             # export default kernel({ connect: "kernel/eve-extension" })
   connections/browser.ts   # shadows the extension's "browser" connection
 ```
 
@@ -163,7 +167,7 @@ import { always } from "eve/tools/approval";
 export default defineMcpClientConnection({
   url: "https://mcp.onkernel.com/mcp",
   description: "Kernel cloud browser.",
-  auth: connect("mcp.onkernel.com/eve-extension"), // or { getToken: async () => ({ token: process.env.KERNEL_API_KEY! }) }
+  auth: connect("kernel/eve-extension"), // or { getToken: async () => ({ token: process.env.KERNEL_API_KEY! }) }
   tools: {
     allow: [
       "manage_browsers",
