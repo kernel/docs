@@ -272,6 +272,38 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Restrict navigation to specific URLs
+
+To lock a browser to an approved set of URLs, block everything with `URLBlocklist` and then allow back only the URLs you want with `URLAllowlist`. Entries match a whole domain (`chatgpt.com`) or a specific path (`en.wikipedia.org/wiki/Cat`), and more specific entries take precedence. This gates top-level navigation, so any other URL returns `ERR_BLOCKED_BY_ADMINISTRATOR`; it does not block resources or API calls a permitted page loads from other origins.
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "URLBlocklist": ["*"],
+        "URLAllowlist": ["chatgpt.com", "en.wikipedia.org/wiki/Cat"],
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    URLBlocklist: ["*"],
+    URLAllowlist: ["chatgpt.com", "en.wikipedia.org/wiki/Cat"],
+  },
+});
+```
+</CodeGroup>
+
 ## Available policies
 
 Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
