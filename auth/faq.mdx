@@ -4,7 +4,7 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
+When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. Scheduled checks pause when the connection enters `NEEDS_AUTH` and resume after a successful login. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
 ## What are sign-in options?
 
@@ -16,6 +16,10 @@ Managed Auth supports username/password authentication and most SSO providers.
 
 <Warning>
 Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail with the `unsupported_auth_method` error code.
+</Warning>
+
+<Warning>
+For Google and other sensitive identity providers, use an established account and attach a stable ISP or custom proxy before login. Keep the default 1-hour health-check interval unless you need faster detection; repeated checks from a new account or changing IP addresses can trigger the provider's security controls. Google connections require stable egress when using 5-minute checks.
 </Warning>
 
 ## What happens if login fails?

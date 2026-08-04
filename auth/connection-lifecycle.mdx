@@ -18,7 +18,7 @@ After the initial login, every connection moves through this loop:
     If the check finds the session expired and the connection's `can_reauth` is `true`, Kernel runs the saved login flow with the stored credentials in the background. A successful login resets the loop.
   </Step>
   <Step title="NEEDS_AUTH (if not eligible, or auto-reauth fails)">
-    If auto-reauth isn't possible — credentials aren't linked, the saved flow requires human input, or the login keeps failing — the connection's `status` flips to `NEEDS_AUTH` and a new login session is required.
+    If auto-reauth isn't possible — credentials aren't linked, the saved flow requires human input, or the login keeps failing — the connection's `status` flips to `NEEDS_AUTH`. Scheduled health checks pause until a new login succeeds.
   </Step>
 </Steps>
 
