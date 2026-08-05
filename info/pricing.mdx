@@ -70,7 +70,10 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 | App invocations (per-app) | 5 | 10 | 20 | Custom |
 | Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
 | Managed auth connections | 3 | Unlimited | Unlimited | Unlimited |
-| Browser extensions per browser | 1 | 1 | 20 | Custom |
+| Stored custom extensions | 1 | 1 | Unlimited | Unlimited |
+| Extensions per browser session | 20 | 20 | 20 | 20 |
+
+> Note: `Stored custom extensions` is how many [extensions](/browsers/extensions) your org can keep uploaded at once; deleting a stored extension frees the slot. Loading extensions into a browser isn't plan-limited — every plan can load up to 20 per browser session.
 
 > Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on every plan, and your concurrency limit caps how large a pool you can create.
 

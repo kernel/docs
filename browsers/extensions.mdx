@@ -47,6 +47,10 @@ This name must be unique within your [project](/info/projects).
 To retrieve an extension's metadata without downloading the archive, call `GET /extensions/{id_or_name}/metadata`.
 The response includes the extension's ID, name, size, and timestamps.
 
+<Info>
+    The Developer (free) and Hobbyist plans can keep 1 uploaded extension per organization at a time; uploading a second returns an error. Deleting a stored extension frees the slot. Start-Up and Enterprise plans have no limit on stored extensions. See [Pricing & Limits](/info/pricing#concurrency-limits).
+</Info>
+
 ## Using extensions in a browser
 
 Passing the extension name or ID to the `create` method will load it into the browser.
@@ -54,7 +58,7 @@ Passing the extension name or ID to the `create` method will load it into the br
 <Info>
     Loading an extension into a browser triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access browsers with extensions faster.
 
-    The number of extensions you can load into a single browser depends on your plan — see [Pricing & Limits](/info/pricing#concurrency-limits).
+    Loading extensions into a browser isn't plan-limited — every plan can load up to 20 extensions per browser session. See [Pricing & Limits](/info/pricing#concurrency-limits).
 </Info>
 
 
