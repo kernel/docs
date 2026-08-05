@@ -2,7 +2,7 @@
 title: "Pricing & Limits"
 ---
 
-With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), idle browsers in a pool incur no disk charges, and you're never charged for proxies.
+With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), idle browsers in a browser pool incur no usage charges, and you're never charged for proxies.
 
 ## Pricing
 
@@ -45,9 +45,9 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 
 > Note: Included monthly credits apply to usage costs only.
 
-## Reserved browsers (browser pools)
+## Browser pools
 
-With Browser Pools, you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges — you only pay when a browser is actively in use.
+With [browser pools](/browsers/pools), you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a browser pool incur no usage charges — you only pay when a browser is actively in use, so an idle browser pool costs nothing between tasks.
 
 > Note: GPU acceleration is not available for browser pools.
 
@@ -59,7 +59,7 @@ Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session he
 
 ## Concurrency limits
 
-Kernel enforces a single concurrency limit covering all browsers you run at once — whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
+Kernel enforces a single concurrency limit covering all browsers you run at once — whether created on demand with `browsers.create()` or maintained in a [browser pool](/browsers/pools). Your full limit is available to either API in any mix.
 
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
@@ -68,7 +68,7 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 | App invocations (per-app) | 5 | 10 | 20 | Custom |
 | Managed auth health check interval | N/A | 1 hour minimum | 20 minutes minimum | Custom |
 
-> Note: Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired — a pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
+> Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
 
 > Note: Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
 

@@ -31,12 +31,12 @@ Every Kernel browser launches with anti-detection chrome configuration applied. 
 On top of the defaults, stealth mode adds a default ISP proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
 
 ### [Configurable Proxies](/proxies/overview)
-Bring your own proxy network or use Kernel's managed pool (selectable down to ZIP-code level). If needed, use the same IP to reduce detection and allow for regional testing or QA.
+Bring your own proxy network or use Kernel's managed proxy pool (selectable down to ZIP-code level). If needed, use the same IP to reduce detection and allow for regional testing or QA.
 
 ### [Profiles](/auth/profiles)
 Profiles persist cookies, local storage, and session data between runs. Combined with a fixed proxy, this mimics a returning user. We recommend using them to persist authenticated states and reduce CAPTCHAs.
 
-### [Browser Pools](/browsers/pools/overview)
+### [Browser Pools](/browsers/pools)
 Browser pools let you reuse browsers across multiple visits to the same website, which introduces consistency with respect to the IP address. Since IP addresses are one of the main components of fingerprinting used by modern bot detection systems, browser pools drastically increase your chances of avoiding detection.
 
 ### [Playwright Execution API](/browsers/playwright-execution)
@@ -92,7 +92,7 @@ Kernel's [stealth mode](/browsers/bot-detection/stealth) uses static ISP proxies
 
 [Residential proxies](/proxies/residential) route traffic through real consumer devices, making them the least detectable proxy type by ASN classification. However, exit IPs [rotate per connection](/proxies/residential#ip-rotation-behavior) since the underlying devices come online and offline dynamically — different tabs hitting different domains will likely show different public IPs.
 
-Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotating pool traffic patterns and penalize them, regardless of how clean the individual exit IPs are. On the other hand, residential proxies tend to be a stronger choice against fingerprint-heavy vendors where detection focuses on the browser and behavioral layer rather than the network layer. Residential proxies also offer richer geo-targeting (country, state, city, ZIP, ASN) compared to ISP.
+Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotating proxy-pool traffic patterns and penalize them, regardless of how clean the individual exit IPs are. On the other hand, residential proxies tend to be a stronger choice against fingerprint-heavy vendors where detection focuses on the browser and behavioral layer rather than the network layer. Residential proxies also offer richer geo-targeting (country, state, city, ZIP, ASN) compared to ISP.
 
 ### Datacenter proxies
 
