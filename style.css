@@ -16,6 +16,27 @@ kbd {
   text-transform: none !important;
 }
 
+/* inline code — the global Inter font family bleeds onto bare <code> spans, so
+   variables like `payload` render in a proportional font with no chip and read
+   as malformed prose rather than code. force a monospace stack and a subtle
+   background so inline code looks like code. code blocks live inside <pre> and
+   keep their own styling. */
+:not(pre) > code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace !important;
+  font-size: 0.875em !important;
+  padding: 0.1em 0.35em !important;
+  background-color: rgba(33, 34, 37, 0.06) !important;
+  border: 1px solid rgba(33, 34, 37, 0.1) !important;
+  letter-spacing: normal !important;
+  font-weight: 400 !important;
+}
+
+html.dark :not(pre) > code {
+  background-color: rgba(237, 238, 240, 0.06) !important;
+  border-color: rgba(237, 238, 240, 0.12) !important;
+}
+
 /* remove all rounded corners site-wide */
 *,
 *::before,
