@@ -31,7 +31,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 - **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
 - **Profiles load read-only**, and a browser pool holds one at a time — see [Profiles with browser pools](#profiles-with-browser-pools) for how to persist state per user.
 - **Browser pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
-- **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
+- **Bounded by your plan's concurrency.** Browser pools are available on every plan, but pool size counts against your [concurrency limit](/info/pricing#concurrency-limits), so your plan caps how large a pool you can create.
 
 ## Create a browser pool
 

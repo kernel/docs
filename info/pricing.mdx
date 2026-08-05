@@ -31,19 +31,21 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 | Configurable browser viewports | ✅ | ✅ | ✅ | ✅ |
 | Managed stealth mode | ✅ | ✅ | ✅ | ✅ |
 | Computer controls API | ✅ | ✅ | ✅ | ✅ |
-| Browser replays | ❌ | 7 days | 30 days | Custom |
-| Browser profiles | ❌ | ✅ | ✅ | ✅ |
-| Managed auth profiles | ❌ | ✅ | ✅ | ✅ |
-| File uploads & downloads | ❌ | ✅ | ✅ | ✅ |
-| Configurable browser extensions | ❌ | ❌ | ✅ | ✅ |
+| Browser replays | 1 day | 7 days | 30 days | Custom |
+| Browser profiles | ✅ | ✅ | ✅ | ✅ |
+| Managed auth profiles | ✅ | ✅ | ✅ | ✅ |
+| File uploads & downloads | ✅ | ✅ | ✅ | ✅ |
+| Configurable browser extensions | ✅ | ✅ | ✅ | ✅ |
 | Configurable & BYO proxies | ❌ | ❌ | ✅ | ✅ |
-| Browser pools | ❌ | ❌ | ✅ | ✅ |
+| Browser pools | ✅ | ✅ | ✅ | ✅ |
 | Support | Discord | Discord | Email | Shared Slack |
 | SOC2 compliance | ✅ | ✅ | ✅ | ✅ |
 | GPU acceleration | ❌ | ❌ | ✅ | ✅ |
 | HIPAA compliance (BAA) | ❌ | ❌ | ❌ | ✅ |
 
 > Note: Included monthly credits apply to usage costs only.
+
+> Note: Files written inside a browser (uploads and downloads) only live as long as that browser session on every plan — see [File I/O](/browsers/file-io).
 
 ## Browser pools
 
@@ -53,7 +55,7 @@ With [browser pools](/browsers/pools), you pay the standard usage-based price pe
 
 ## Managed Auth
 
-Managed Auth is included on all paid plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
+Managed Auth is included on every plan with no per-connection fees—the free Developer plan supports up to 3 connections, and paid plans are unlimited. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
 
 Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
 
@@ -64,11 +66,13 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
 | Concurrent browsers | 5 | 10 | 150 | Custom |
-| App invocations | 5 | 10 | 50 | Custom |
+| App invocations | 5 | 10 | 150 | Custom |
 | App invocations (per-app) | 5 | 10 | 20 | Custom |
-| Managed auth health check interval | N/A | 1 hour minimum | 20 minutes minimum | Custom |
+| Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
+| Managed auth connections | 3 | Unlimited | Unlimited | Unlimited |
+| Browser extensions per browser | 1 | 1 | 20 | Custom |
 
-> Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
+> Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on every plan, and your concurrency limit caps how large a pool you can create.
 
 > Note: Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
 
