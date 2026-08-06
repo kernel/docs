@@ -72,6 +72,25 @@ func main() {
 ```
 </CodeGroup>
 
+## Rename a proxy
+
+Rename a proxy without changing its type or connection settings. Proxy updates are addressed by ID, and proxy names are not unique, so use the proxy ID when a name could match more than one configuration.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.proxies.update(proxy.id, { name: 'checkout-proxy' });
+```
+
+```python Python
+kernel.proxies.update(proxy.id, name="checkout-proxy")
+```
+
+```go Go
+_, err := client.Proxies.Update(ctx, proxy.ID, kernel.ProxyUpdateParams{
+	Name: "checkout-proxy",
+})
+```
+</CodeGroup>
 
 ## List your proxies
 

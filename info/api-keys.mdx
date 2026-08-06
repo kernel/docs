@@ -154,6 +154,10 @@ func main() {
 
 Rename a key when the owner or purpose changes. Delete a key when the workload no longer needs access.
 
+<Warning>
+An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it.
+</Warning>
+
 <CodeGroup>
 ```typescript TypeScript
 await kernel.apiKeys.update('key_01jwv4tn5m8k3q2v7x9p0a1bc2', {
