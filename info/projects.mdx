@@ -18,14 +18,14 @@ Every organization has at least one project. Resources that existed before proje
 Your organization must always have **at least one active project**. The API returns `409 Conflict` if you try to delete the last remaining project:
 
 ```json
-{ "code": "conflict", "message": "organization must have at least one project" }
+{ "code": "last_active_project", "message": "organization must have at least one project" }
 ```
 
-A project must also be empty before it can be deleted — archive or remove its active resources first.
+A project must also be empty before it can be deleted. If active resources remain, the API returns `409 Conflict` with code `project_not_empty`; archive or remove those resources and retry. Organizations without Projects enabled receive `404 Not Found` with code `projects_disabled` from project-management endpoints.
 
 ## Scoping Requests to a Project
 
-Pass the `X-Kernel-Project-Id` header — a project ID or name — on any API request to scope it to a specific project. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
+Pass the `X-Kernel-Project-Id` header with a project ID on any API request to scope it to a specific project. Project names are not accepted in this header. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
 
 ```bash
 curl https://api.onkernel.com/browsers \
@@ -46,7 +46,7 @@ curl https://api.onkernel.com/browsers \
 
 ### SDK usage
 
-Set the header on the client so every request is scoped to the project. You can also override it per-request.
+Set the project ID on the client so every request is scoped to that project.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -54,16 +54,10 @@ import Kernel from '@onkernel/sdk';
 
 // Scope the whole client to a project
 const kernel = new Kernel({
-  defaultHeaders: { 'X-Kernel-Project-Id': 'proj_abc123' },
+  projectID: 'proj_abc123',
 });
 
 const browser = await kernel.browsers.create();
-
-// Or override per-request
-const other = await kernel.browsers.create(
-  {},
-  { headers: { 'X-Kernel-Project-Id': 'proj_def456' } },
-);
 ```
 
 ```python Python
@@ -71,15 +65,10 @@ from kernel import Kernel
 
 # Scope the whole client to a project
 kernel = Kernel(
-    default_headers={"X-Kernel-Project-Id": "proj_abc123"},
+    project_id="proj_abc123",
 )
 
 browser = kernel.browsers.create()
-
-# Or override per-request
-other = kernel.browsers.create(
-    extra_headers={"X-Kernel-Project-Id": "proj_def456"},
-)
 ```
 
 ```go Go
@@ -97,7 +86,7 @@ func main() {
 
 	// Scope the whole client to a project.
 	client := kernel.NewClient(
-		option.WithHeader("X-Kernel-Project-Id", "proj_abc123"),
+		option.WithProjectID("proj_abc123"),
 	)
 
 	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
@@ -105,17 +94,6 @@ func main() {
 		panic(err)
 	}
 	_ = browser
-
-	// Or override per-request.
-	other, err := client.Browsers.New(
-		ctx,
-		kernel.BrowserNewParams{},
-		option.WithHeader("X-Kernel-Project-Id", "proj_def456"),
-	)
-	if err != nil {
-		panic(err)
-	}
-	_ = other
 }
 ```
 </CodeGroup>
@@ -128,6 +106,7 @@ API keys can be **org-wide** or **project-scoped**.
 
 - **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
 - **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard, the [CLI](/reference/cli/api-keys), an SDK, or the [API keys guide](/info/api-keys), and pass the target `project_id` when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
+- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, or delete projects, or change project limits.
 
 ### OAuth
 
@@ -137,16 +116,16 @@ OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. Yo
 
 The Kernel [CLI](/reference/cli/projects) has first-class project support:
 
-- A global `--project <id-or-name>` flag scopes any command to a single project. Names are resolved case-insensitively, so `--project staging` works.
+- A global `--project <project-id>` flag scopes any command to a single project ID.
 - The `KERNEL_PROJECT` environment variable does the same, so you can set it once in your shell or CI.
 - A `kernel projects` command group lets you list, create, get, and delete projects, and manage per-project limit overrides.
 
 ```bash
 # Scope a single command
-kernel browsers list --project staging
+kernel browsers list --project proj_abc123
 
 # Scope every command in the shell
-export KERNEL_PROJECT=staging
+export KERNEL_PROJECT=proj_abc123
 kernel apps list
 
 # Manage projects
@@ -315,7 +294,7 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
 </CodeGroup>
 
 <Info>
-  You can't delete a project that still owns active resources, and you can't delete the last remaining active project in your org.
+  Project deletion is a soft delete. A project that still owns active resources returns `project_not_empty`; the final active project returns `last_active_project`.
 </Info>
 
 ## Concurrency Limits
