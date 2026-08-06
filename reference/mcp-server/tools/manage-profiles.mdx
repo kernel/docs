@@ -1,6 +1,6 @@
 ---
 title: "manage_profiles"
-description: "Set up, list, and delete browser profiles"
+description: "Set up, retrieve, rename, and delete browser profiles"
 ---
 
 Manage browser profiles that persist cookies, logins, and session data across browser sessions.
@@ -11,16 +11,23 @@ Manage browser profiles that persist cookies, logins, and session data across br
 |--------|-------------|
 | `setup` | Create or update a profile with a guided live browser session. |
 | `list` | List all profiles. |
+| `get` | Retrieve a profile by ID or exact name. |
+| `rename` | Change a profile's name. |
 | `delete` | Remove a profile. |
 
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `action` | Operation to perform: `setup`, `list`, or `delete`. Required. |
-| `profile_name` | (setup, delete) Profile name. For setup: 1–255 chars. For delete: name of the profile to remove. |
-| `profile_id` | (delete) Profile ID to delete. Alternative to `profile_name`. |
+| `action` | Operation to perform: `setup`, `list`, `get`, `rename`, or `delete`. Required. |
+| `profile_name` | (setup, get, rename, delete) Exact profile name. For setup: 1–255 chars. |
+| `profile_id` | (get, rename, delete) Profile ID. Alternative to `profile_name`. |
+| `new_name` | (rename) New profile name. |
 | `update_existing` | (setup) If true, update an existing profile. Default false. |
+
+Name-based setup uses an exact match. If more than one profile has the same name, rename or delete duplicate profiles by ID, then retry setup. With `update_existing: true`, setup fails instead of creating a profile when no exact match exists.
+
+Do not rename a profile while a browser is using it. The active session may no longer be able to save changes back to that profile.
 
 ## Example
 

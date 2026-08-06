@@ -10,6 +10,7 @@ Manage pools of pre-provisioned browser instances for fast acquisition.
 | Action | Description |
 |--------|-------------|
 | `create` | Set up a pool. |
+| `update` | Change a pool's configuration. |
 | `list` | List pools. |
 | `get` | Inspect a specific pool. |
 | `acquire` | Get a browser from a pool. |
@@ -22,19 +23,30 @@ Manage pools of pre-provisioned browser instances for fast acquisition.
 | Parameter | Description |
 |-----------|-------------|
 | `action` | Operation to perform. Required. |
-| `id_or_name` | Pool ID or name. Required for `get`, `delete`, `flush`, `acquire`, and `release`. |
-| `name` | (create) Unique pool name. |
-| `size` | (create) Number of browsers to maintain in the pool. |
-| `fill_rate_per_minute` | (create) Pool fill rate percentage per minute. Default 10%. |
-| `headless` | (create) Headless mode for pool browsers. |
-| `stealth` | (create) Stealth mode for pool browsers. |
-| `profile_name` | (create) Profile to load into pool browsers. |
-| `proxy_id` | (create) Proxy for pool browsers. |
-| `timeout_seconds` | (create) Idle timeout for acquired browsers. Default 600. |
+| `id_or_name` | Pool ID or name. Required for `get`, `update`, `delete`, `flush`, `acquire`, and `release`. |
+| `name` | (create, update) Unique pool name. |
+| `size` | (create, update) Number of browsers to maintain in the pool. |
+| `fill_rate_per_minute` | (create, update) Integer pool fill rate percentage per minute. Default 25; use `0` to pause filling. |
+| `headless` | (create, update) Headless mode for pool browsers. |
+| `stealth` | (create, update) Stealth mode for pool browsers. |
+| `profile_id` or `profile_name` | (create, update) Profile to load into pool browsers. |
+| `clear_profile` | (update) Remove the pool's profile. Cannot be combined with `profile_id` or `profile_name`. |
+| `proxy_id` | (create, update) Proxy for pool browsers. On update, pass an empty string to clear it. |
+| `start_url` | (create, update) URL to open when a browser is warmed into the pool. On update, pass an empty string to clear it. |
+| `extension_id` or `extension_name` | (create, update) Extension to load into pool browsers. |
+| `clear_extensions` | (update) Remove all pool extensions. Cannot be combined with `extension_id` or `extension_name`. |
+| `chrome_policy` | (create, update) Chrome enterprise policy overrides. On update, pass an empty object to clear it. |
+| `kiosk_mode` | (create, update) Hide the address bar and tabs in live view. |
+| `viewport_width` and `viewport_height` | (create, update) Window dimensions in pixels. Supply both together. |
+| `viewport_refresh_rate` | (create, update) Display refresh rate in Hz. |
+| `timeout_seconds` | (create, update) Idle timeout for acquired browsers. Must be between 10 and 259200 seconds. Default 600. |
+| `discard_all_idle` | (update) Discard all idle browsers after applying the configuration. |
 | `acquire_timeout_seconds` | (acquire) Max seconds to wait for a browser. |
 | `session_id` | (release) Session ID of the browser to release. |
 | `reuse` | (release) Reuse the browser instance or recreate it. Default true. |
 | `force` | (delete) Force delete even if browsers are leased. |
+
+`get`, `create`, and `update` responses report the authoritative `profile_id` and `extension_ids` stored on the pool.
 
 ## Example
 
