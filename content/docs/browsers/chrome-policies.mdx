@@ -9,7 +9,7 @@ Keys are Chrome policy names and values are the corresponding settings. The same
 
 ## Setting chrome policies on a pool
 
-Pass a `chrome_policy` object when [creating](/browsers/pools/overview#create-a-pool-of-reserved-browsers) or [updating](/browsers/pools/overview#update-a-pool) a pool.
+Pass a `chrome_policy` object when [creating](/browsers/pools#create-a-browser-pool) or [updating](/browsers/pools#update-a-browser-pool) a pool.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -267,6 +267,38 @@ const kernel = new Kernel();
 const browser = await kernel.browsers.create({
   chrome_policy: {
     URLBlocklist: ["devtools://*", "chrome://inspect", "view-source:*"],
+  },
+});
+```
+</CodeGroup>
+
+### Restrict navigation to specific URLs
+
+To lock a browser to an approved set of URLs, block everything with `URLBlocklist` and then allow back only the URLs you want with `URLAllowlist`. Entries match a whole domain (`chatgpt.com`) or a specific path (`en.wikipedia.org/wiki/Cat`), and more specific entries take precedence. This gates top-level navigation, so any other URL returns `ERR_BLOCKED_BY_ADMINISTRATOR`; it does not block resources or API calls a permitted page loads from other origins.
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "URLBlocklist": ["*"],
+        "URLAllowlist": ["chatgpt.com", "en.wikipedia.org/wiki/Cat"],
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    URLBlocklist: ["*"],
+    URLAllowlist: ["chatgpt.com", "en.wikipedia.org/wiki/Cat"],
   },
 });
 ```
