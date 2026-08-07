@@ -13,10 +13,17 @@ These categories report on the session itself rather than page content.
 
 | Category | Captures | Event types |
 | --- | --- | --- |
-| `control` | Computer-control API calls against the session | `api_call` |
+| `control` | Actions that drive the browser: computer-control calls, Playwright code execution, screenshots and clipboard access, plus browser-control commands sent over the CDP proxy | `api_call`, `cdp_command` |
+| `platform` | Calls that manage the VM rather than drive the browser: recording lifecycle, filesystem, process execution, log streaming, scale-to-zero, telemetry and browser configuration | `platform_api_call` |
 | `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
 | `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
 | `captcha` | Results of automated captcha solves | `captcha_solve_result` |
+
+`control` answers "what did my agent do." `platform` is mostly Kernel acting on the VM on your behalf - saving a profile, capturing a replay, polling a recorder - so it is off by default even though the rest of this group is on. Enable it when you are debugging a profile save, a replay, or a session-setup step rather than the agent itself.
+
+<Note>
+`control` reports the commands a client sends over the CDP proxy that drive the browser - input gestures, navigation, dialogs, file selection, screenshots. It does not report configuration commands or the DOM and Runtime traffic that Playwright and Puppeteer issue on your behalf, and it drops the phases that add nothing (`mouseMoved`, `keyUp`, `char`), so a click reads as a press and a release rather than three frames.
+</Note>
 
 ## Browser activity
 
@@ -42,7 +49,7 @@ It isn't directly settable. It flows automatically whenever any of the browser-a
 
 ## Data sensitivity
 
-Telemetry is off by default and the default set carries operational metadata only. The browser-activity categories are different: they capture what actually flows through the session, which is your own browser's data and can include credentials and personal information.
+Telemetry is off by default, and the default set carries session metadata with one exception: `control` records the source you submit for Playwright execution, because the code is the point of the event. The browser-activity categories are different again: they capture what actually flows through the session, which is your own browser's data and can include credentials and personal information.
 
 | Category | Can contain sensitive data |
 | --- | --- |
@@ -51,14 +58,17 @@ Telemetry is off by default and the default set carries operational metadata onl
 | `page` | Page URLs and titles, which can embed tokens or identifiers in query strings or fragments. |
 | `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
 | `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
-| `control`, `connection`, `system`, `captcha`, `monitor` | Session metadata only (control calls, connection and health events). No page content. |
+| `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB like every other captured string and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. Otherwise session metadata: operation, status, duration, and for `cdp_command` the method, coordinates, and the *length* of submitted text. Typed characters and navigation URLs are never captured; named keys such as `Enter` and `Tab` are. |
+| `platform`, `connection`, `system`, `captcha`, `monitor` | Session metadata only (VM-management calls, connection and health events). No page content. |
 
 Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
 
-Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text). Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
+Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text), and `cdp_command` reports how many characters a command submitted rather than the characters themselves (keys that command the page rather than type into it - `Enter`, `Tab`, arrows, function keys - are reported by name). Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
+
+If you capture `control` and run Playwright code, pass credentials in through variables your snippet reads rather than as literals in the submitted source, so the captured `code` doesn't carry them.
 
 <Warning>
-If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured.
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured. `control` stays available; keep regulated values out of the Playwright source you submit, since that source is captured.
 
 If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
