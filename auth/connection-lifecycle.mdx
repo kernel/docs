@@ -12,10 +12,14 @@ After the initial login, every connection moves through this loop:
 
 <Steps>
   <Step title="Health check">
-    On a configurable cadence, Kernel spins up a browser with the profile and verifies the session is still logged in. If it is, nothing else happens until the next check.
+    On a configurable cadence, Kernel spins up a browser with the profile and verifies the session. A check reaches one of three conclusions: still logged in, definitely logged out, or **inconclusive** — the page didn't prove either way.
+
+    A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
   </Step>
   <Step title="Auto-reauth (if eligible)">
-    If the check finds the session expired and the connection's `can_reauth` is `true`, Kernel runs the saved login flow with the stored credentials in the background. A successful login resets the loop.
+    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved login flow with the stored credentials in the background. A successful login resets the loop.
+
+    An inconclusive check never triggers reauth. Kernel would rather check again on the next cycle than log in again unnecessarily — a spurious login can trip risk checks on the site, prompt a device-verification email, or invalidate a working session.
   </Step>
   <Step title="NEEDS_AUTH (if not eligible, or auto-reauth fails)">
     If auto-reauth isn't possible — credentials aren't linked, the saved flow requires human input, or the login keeps failing — the connection's `status` flips to `NEEDS_AUTH` and a new login session is required.
@@ -127,24 +131,31 @@ if state.Status == kernel.ManagedAuthStatusNeedsAuth {
 
 ## When a login fails
 
-If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — Kernel retries with exponential backoff. After repeated failures the flow is marked failed and the connection surfaces an error code on `flow_status`.
+If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — the flow is marked failed and the connection surfaces an error code on `flow_status`.
+
+How much Kernel retries depends on the failure. A transient site problem (a 5xx page, a maintenance screen) is retried once against the login page before giving up. A conclusive rejection by the site — wrong credentials, a locked account, an unsupported method — is **not** retried, because retrying would burn attempts against a lockout or fail identically.
 
 Common codes:
 
-| Code | Meaning |
-|------|---------|
-| `credentials_invalid` | The stored or submitted credentials were rejected by the site. |
-| `bot_detected` | The login page blocked the session as automated. |
-| `captcha_blocked` | A CAPTCHA was presented and couldn't be solved. |
-| `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). |
+| Code | Meaning | Retried |
+|------|---------|---------|
+| `credentials_invalid` | The stored or submitted credentials were rejected by the site. | No |
+| `account_locked` | The site locked or suspended the account. | No |
+| `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). | No |
+| `rate_limited` | The site rate-limited the login attempt. | Yes, after a delay |
+| `website_error` | The site returned an error, maintenance, or unavailable page. | Once |
+| `bot_detected` | The login page blocked the session as automated. | No |
+| `captcha_blocked` | A CAPTCHA was presented and couldn't be solved. | No |
 
 See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list.
 
 ### Recovering
 
-- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow.
+- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. During an interactive login, Kernel asks for a corrected value in place rather than failing the whole flow — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`account_locked`** — Unlock the account with the site directly. Calling `.login()` again before that will not help and may extend the lockout.
 - **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).
 - **`unsupported_auth_method`** — Switch the account to a supported sign-in method (e.g. password + TOTP instead of a passkey) and re-link the credential.
+- **`website_error`** — Usually the site, not the connection. Retry later; if it persists, confirm the connection's `login_url` still points at a working login page.
 
 ## Debugging a flaky connection
 

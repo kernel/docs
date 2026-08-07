@@ -195,6 +195,36 @@ The `discovered_fields` array tells you what the login form needs:
 [{ name: 'otp', type: 'code' }]
 ```
 
+### Replacing a rejected credential
+
+If the site explicitly rejects a submitted value, the flow returns to `AWAITING_INPUT` with the affected field marked `replace_existing: true` instead of failing outright. Treat that as "this specific value was wrong, ask again" — don't resubmit the same value, and don't reuse a cached one:
+
+<CodeGroup>
+```typescript TypeScript
+if (state.flow_step === 'AWAITING_INPUT') {
+  const stale = state.discovered_fields?.filter(f => f.replace_existing);
+
+  if (stale?.length) {
+    // The site rejected these. Prompt the user again; a stored value will fail identically.
+    const corrected = await promptUser(stale);
+    await kernel.auth.connections.submit(auth.id, { fields: corrected });
+  }
+}
+```
+
+```python Python
+if state.flow_step == "AWAITING_INPUT":
+    stale = [f for f in (state.discovered_fields or []) if f.get("replace_existing")]
+
+    if stale:
+        # The site rejected these. Prompt the user again; a stored value will fail identically.
+        corrected = await prompt_user(stale)
+        await kernel.auth.connections.submit(auth.id, fields=corrected)
+```
+</CodeGroup>
+
+This only happens during an interactive login. An unattended re-authentication that hits a rejected credential fails with `credentials_invalid` rather than resubmitting — repeated bad submissions are what lock accounts.
+
 ## Complete Example
 
 <CodeGroup>
