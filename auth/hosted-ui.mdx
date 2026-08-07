@@ -92,57 +92,60 @@ The user will:
 2. Enter their credentials
 3. Complete 2FA if needed
 
-### 4. Poll for Completion
+### 4. Stream until completion
 
-On your backend, poll until authentication completes:
+On your backend, follow the connection's SSE stream until authentication completes:
 
 <CodeGroup>
 ```typescript TypeScript
-let state = await kernel.auth.connections.retrieve(auth.id);
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
 
-while (state.flow_status === 'IN_PROGRESS') {
-  await new Promise(r => setTimeout(r, 2000));
-  state = await kernel.auth.connections.retrieve(auth.id);
+for await (const event of events) {
+  if (event.event === 'managed_auth_state') {
+    finalState = event;
+  }
 }
 
-if (state.status === 'AUTHENTICATED') {
+if (finalState?.flow_status === 'SUCCESS') {
   console.log('Authentication successful!');
 }
 ```
 
 ```python Python
-state = await kernel.auth.connections.retrieve(auth.id)
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
 
-while state.flow_status == "IN_PROGRESS":
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
+async for event in events:
+    if event.event == "managed_auth_state":
+        final_state = event
 
-if state.status == "AUTHENTICATED":
+if final_state and final_state.flow_status == "SUCCESS":
     print("Authentication successful!")
 ```
 
 ```go Go
-state, err := client.Auth.Connections.Get(ctx, auth.ID)
-if err != nil {
+events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+authenticated := false
+
+for events.Next() {
+	event := events.Current()
+	if event.Event == "managed_auth_state" && event.FlowStatus == "SUCCESS" {
+		authenticated = true
+	}
+}
+if err := events.Err(); err != nil {
 	panic(err)
 }
 
-for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
-	time.Sleep(2 * time.Second)
-	state, err = client.Auth.Connections.Get(ctx, auth.ID)
-	if err != nil {
-		panic(err)
-	}
-}
-
-if state.Status == kernel.ManagedAuthStatusAuthenticated {
+if authenticated {
 	fmt.Println("Authentication successful!")
 }
 ```
 </CodeGroup>
 
 <Info>
-Poll every 2 seconds. The session expires after 20 minutes if not completed, and the flow times out after 10 minutes of waiting for user input.
+The SSE stream closes automatically when the flow succeeds, fails, expires, or is canceled. The session expires after 20 minutes if not completed, and the flow times out after 10 minutes of waiting for user input.
 </Info>
 
 ### 5. Use the Profile
@@ -216,14 +219,16 @@ const login = await kernel.auth.connections.login(auth.id);
 // Send user to hosted page
 console.log('Login URL:', login.hosted_url);
 
-// Poll for completion
-let state = await kernel.auth.connections.retrieve(auth.id);
-while (state.flow_status === 'IN_PROGRESS') {
-  await new Promise(r => setTimeout(r, 2000));
-  state = await kernel.auth.connections.retrieve(auth.id);
+// Stream state changes until the flow completes
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
+for await (const event of events) {
+  if (event.event === 'managed_auth_state') {
+    finalState = event;
+  }
 }
 
-if (state.status === 'AUTHENTICATED') {
+if (finalState?.flow_status === 'SUCCESS') {
   const browser = await kernel.browsers.create({
     profile: { name: 'doordash-user-123' },
     stealth: true,
@@ -235,10 +240,9 @@ if (state.status === 'AUTHENTICATED') {
 ```
 
 ```python Python
-from kernel import Kernel
-import asyncio
+from kernel import AsyncKernel
 
-kernel = Kernel()
+kernel = AsyncKernel()
 
 # Create connection
 auth = await kernel.auth.connections.create(
@@ -252,13 +256,14 @@ login = await kernel.auth.connections.login(auth.id)
 # Send user to hosted page
 print(f"Login URL: {login.hosted_url}")
 
-# Poll for completion
-state = await kernel.auth.connections.retrieve(auth.id)
-while state.flow_status == "IN_PROGRESS":
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
+# Stream state changes until the flow completes
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
+async for event in events:
+    if event.event == "managed_auth_state":
+        final_state = event
 
-if state.status == "AUTHENTICATED":
+if final_state and final_state.flow_status == "SUCCESS":
     browser = await kernel.browsers.create(
         profile={"name": "doordash-user-123"},
         stealth=True,
@@ -274,7 +279,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/kernel/kernel-go-sdk"
 	"github.com/kernel/kernel-go-sdk/shared"
@@ -304,20 +308,20 @@ func main() {
 	// Send user to hosted page
 	fmt.Println("Login URL:", login.HostedURL)
 
-	// Poll for completion
-	state, err := client.Auth.Connections.Get(ctx, auth.ID)
-	if err != nil {
-		panic(err)
-	}
-	for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
-		time.Sleep(2 * time.Second)
-		state, err = client.Auth.Connections.Get(ctx, auth.ID)
-		if err != nil {
-			panic(err)
+	// Stream state changes until the flow completes
+	events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+	authenticated := false
+	for events.Next() {
+		event := events.Current()
+		if event.Event == "managed_auth_state" && event.FlowStatus == "SUCCESS" {
+			authenticated = true
 		}
 	}
+	if err := events.Err(); err != nil {
+		panic(err)
+	}
 
-	if state.Status == kernel.ManagedAuthStatusAuthenticated {
+	if authenticated {
 		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
 			Profile: shared.BrowserProfileParam{
 				Name: kernel.String("doordash-user-123"),
