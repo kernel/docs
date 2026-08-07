@@ -42,12 +42,7 @@ vercel connect create kernel --name kernel-mcp --connection-method mcp
 vercel connect attach kernel/kernel-mcp
 ```
 
-`kernel` is Kernel's entry in Vercel's connector registry, so most of the setup is pre-filled:
-
-- Vercel supplies the MCP URL and branding, then opens your browser for the authorization step.
-- `--connection-method mcp` selects the per-user OAuth flow that this extension expects. The registry entry also offers `api-key`, and there is no default yet, so omitting the flag drops you into an interactive prompt.
-- To use the dashboard instead of the CLI, add the connector under **Connectors → Browse all → Kernel**.
-- Confirm the resulting UID with `vercel connect list`.
+You can also add it from the Vercel dashboard under [**Connectors → Browse all**](https://vercel.com/onkernel/~/connect/browse): look up "Kernel" and choose **MCP**. Confirm the UID with `vercel connect list`.
 
 **3. Mount the extension** in one line, passing the connector UID:
 
