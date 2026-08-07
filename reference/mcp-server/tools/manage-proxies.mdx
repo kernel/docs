@@ -1,6 +1,6 @@
 ---
 title: "manage_proxies"
-description: "Create, list, and delete proxy configurations"
+description: "Create, retrieve, rename, check, and delete proxy configurations"
 ---
 
 Manage proxy configurations for routing browser traffic. Proxy quality for bot detection avoidance, best to worst: mobile > residential > ISP > datacenter.
@@ -11,15 +11,20 @@ Manage proxy configurations for routing browser traffic. Proxy quality for bot d
 |--------|-------------|
 | `create` | Add a proxy. |
 | `list` | List all proxies. |
+| `get` | Retrieve a proxy by ID. |
+| `rename` | Change a proxy's name. |
+| `check` | Test proxy connectivity. |
 | `delete` | Remove a proxy. |
 
 ## Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `action` | Operation to perform: `create`, `list`, or `delete`. Required. |
+| `action` | Operation to perform: `create`, `list`, `get`, `rename`, `check`, or `delete`. Required. |
+| `limit` | (list) Maximum results per page. Must be between 1 and 100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
 | `type` | (create) Proxy type: `datacenter`, `isp`, `residential`, `mobile`, or `custom`. |
-| `name` | (create) Readable name for the proxy. |
+| `name` | (create, rename) Readable name for the proxy. |
 | `country` | (create) ISO 3166 country code (e.g., `US`). |
 | `state` | (create) Two-letter state code. |
 | `city` | (create) City name without spaces (e.g., `sanfrancisco`). Requires `country`. |
@@ -27,7 +32,8 @@ Manage proxy configurations for routing browser traffic. Proxy quality for bot d
 | `custom_port` | (create, custom type) Proxy port. |
 | `custom_username` | (create, custom type) Auth username. |
 | `custom_password` | (create, custom type) Auth password. |
-| `proxy_id` | (delete) Proxy ID to delete. |
+| `proxy_id` | (get, rename, check, delete) Proxy ID. |
+| `check_url` | (check) Optional HTTP or HTTPS URL to test through the proxy instead of Kernel's default check target. |
 
 ## Example
 
