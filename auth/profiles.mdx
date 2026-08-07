@@ -69,6 +69,26 @@ func main() {
 ```
 </CodeGroup>
 
+## Rename a profile
+
+Profiles can be renamed without recreating their stored browser state. The new name must be unique within the project.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.profiles.update('profiles-demo', { name: 'checkout-session' });
+```
+
+```python Python
+kernel.profiles.update("profiles-demo", name="checkout-session")
+```
+
+```go Go
+_, err := client.Profiles.Update(ctx, "profiles-demo", kernel.ProfileUpdateParams{
+	Name: "checkout-session",
+})
+```
+</CodeGroup>
+
 ## 2. Start a browser session using the profile and save changes
 
 After creating the profile, reference it by its `name` or `id` when creating a browser.
