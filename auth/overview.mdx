@@ -52,14 +52,17 @@ const login = await kernel.auth.connections.login(auth.id);
 // Send user to login page
 console.log('Login URL:', login.hosted_url);
 
-// Poll until complete
-let state = await kernel.auth.connections.retrieve(auth.id);
-while (state.flow_status === 'IN_PROGRESS') {
-  await new Promise(r => setTimeout(r, 2000));
-  state = await kernel.auth.connections.retrieve(auth.id);
+// Stream state changes until the flow completes
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
+
+for await (const event of events) {
+  if (event.event === 'managed_auth_state') {
+    finalState = event;
+  }
 }
 
-if (state.status === 'AUTHENTICATED') {
+if (finalState?.flow_status === 'SUCCESS') {
   console.log('Authenticated!');
 }
 ```
@@ -70,13 +73,15 @@ login = await kernel.auth.connections.login(auth.id)
 # Send user to login page
 print(f"Login URL: {login.hosted_url}")
 
-# Poll until complete
-state = await kernel.auth.connections.retrieve(auth.id)
-while state.flow_status == "IN_PROGRESS":
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
+# Stream state changes until the flow completes
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
 
-if state.status == "AUTHENTICATED":
+async for event in events:
+    if event.event == "managed_auth_state":
+        final_state = event
+
+if final_state and final_state.flow_status == "SUCCESS":
     print("Authenticated!")
 ```
 
@@ -89,20 +94,21 @@ if err != nil {
 // Send user to login page
 fmt.Println("Login URL:", login.HostedURL)
 
-// Poll until complete
-state, err := client.Auth.Connections.Get(ctx, auth.ID)
-if err != nil {
-	panic(err)
-}
-for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
-	time.Sleep(2 * time.Second)
-	state, err = client.Auth.Connections.Get(ctx, auth.ID)
-	if err != nil {
-		panic(err)
+// Stream state changes until the flow completes
+events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+authenticated := false
+
+for events.Next() {
+	event := events.Current()
+	if event.Event == "managed_auth_state" && event.FlowStatus == "SUCCESS" {
+		authenticated = true
 	}
 }
+if err := events.Err(); err != nil {
+	panic(err)
+}
 
-if state.Status == kernel.ManagedAuthStatusAuthenticated {
+if authenticated {
 	fmt.Println("Authenticated!")
 }
 ```
