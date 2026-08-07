@@ -20,10 +20,15 @@ Manage browser profiles that persist cookies, logins, and session data across br
 | Parameter | Description |
 |-----------|-------------|
 | `action` | Operation to perform: `setup`, `list`, `get`, `rename`, or `delete`. Required. |
-| `profile_name` | (setup, get, rename, delete) Exact profile name. For setup: 1–255 chars. |
+| `profile_name` | (setup, get, rename, delete) Exact profile name. Names used for setup follow the rules below. |
 | `profile_id` | (get, rename, delete) Profile ID. Alternative to `profile_name`. |
-| `new_name` | (rename) New profile name. Must be 1–255 characters using ASCII letters, numbers, dots, underscores, or hyphens. |
+| `new_name` | (rename) New profile name. Follows the rules below. |
 | `update_existing` | (setup) If true, update an existing profile. Default false. |
+| `query` | (list) Search profiles by name or ID. |
+| `limit` | (list) Maximum results per page. Must be between 1 and 100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
+
+`profile_name` for setup and `new_name` for rename share the same rules: 1–255 characters using ASCII letters, numbers, dots, underscores, or hyphens; unique within the project; and not exactly 24 lowercase alphanumeric characters, which would be ambiguous with a profile ID.
 
 Name-based setup uses an exact match. If more than one profile has the same name, rename or delete duplicate profiles by ID, then retry setup. With `update_existing: true`, setup fails instead of creating a profile when no exact match exists.
 

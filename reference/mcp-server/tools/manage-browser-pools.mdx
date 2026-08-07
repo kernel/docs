@@ -24,9 +24,11 @@ Manage pools of pre-provisioned browser instances for fast acquisition.
 |-----------|-------------|
 | `action` | Operation to perform. Required. |
 | `id_or_name` | Pool ID or name. Required for `get`, `update`, `delete`, `flush`, `acquire`, and `release`. |
+| `limit` | (list) Maximum results per page. Must be between 1 and 100. |
+| `offset` | (list) Pagination offset. Must be 0 or greater. |
 | `name` | (create, update) Unique pool name. |
 | `size` | (create, update) Number of browsers to maintain in the pool. |
-| `fill_rate_per_minute` | (create, update) Integer pool fill rate percentage per minute. Default 25; use `0` to pause filling. |
+| `fill_rate_per_minute` | (create, update) Integer pool fill rate percentage per minute. On create, defaults to 25; on update, omit to leave unchanged. Use `0` to pause filling. |
 | `headless` | (create, update) Headless mode for pool browsers. |
 | `stealth` | (create, update) Stealth mode for pool browsers. |
 | `profile_id` or `profile_name` | (create, update) Profile to load into pool browsers. |
@@ -39,7 +41,7 @@ Manage pools of pre-provisioned browser instances for fast acquisition.
 | `kiosk_mode` | (create, update) Hide the address bar and tabs in live view. |
 | `viewport_width` and `viewport_height` | (create, update) Window dimensions in pixels. Supply both together. |
 | `viewport_refresh_rate` | (create, update) Display refresh rate in Hz. Requires `viewport_width` and `viewport_height`. |
-| `timeout_seconds` | (create, update) Idle timeout for acquired browsers. Must be between 10 and 259200 seconds. Default 600. |
+| `timeout_seconds` | (create, update) Idle timeout for acquired browsers. Must be between 10 and 259200 seconds. On create, defaults to 600; on update, omit to leave unchanged. |
 | `discard_all_idle` | (update) Discard all idle browsers after applying the configuration. |
 | `acquire_timeout_seconds` | (acquire) Max seconds to wait for a browser. |
 | `session_id` | (release) Session ID of the browser to release. |
@@ -47,6 +49,8 @@ Manage pools of pre-provisioned browser instances for fast acquisition.
 | `force` | (delete) Force delete even if browsers are leased. |
 
 `get`, `create`, and `update` responses report the authoritative `profile_id` and `extension_ids` stored on the pool.
+
+`discard_all_idle` affects only browsers that are idle when the update runs. Acquired browsers retain their old configuration, and releasing one with the default `reuse: true` returns that old configuration to the pool. See [Update a browser pool](/browsers/pools#update-a-browser-pool) for `reuse: false` and later flush or discard recovery options.
 
 ## Example
 
