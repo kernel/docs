@@ -141,7 +141,27 @@ The `viewport` parameter sets the dimensions of the browser **window**, not the 
 
 If your automation expects an exact page viewport, either:
 
-- **Set the page viewport through your automation framework**, which controls the rendered page size directly regardless of the window dimensions:
+- **Use kiosk mode** to remove the browser UI, so the window dimensions match the page viewport exactly:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  kiosk_mode: true,
+  viewport: { width: 1920, height: 1080 }
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    kiosk_mode=True,
+    viewport={"width": 1920, "height": 1080}
+)
+```
+
+</CodeGroup>
+
+- **Set the page viewport through your automation framework.** This will update the rendered page size, but will not be reflected in the live view or computer controls:
 
 <CodeGroup>
 
