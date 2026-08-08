@@ -44,6 +44,93 @@ components:
             $ref: '#/components/schemas/ErrorDetail'
         inner_error:
           $ref: '#/components/schemas/ErrorDetail'
+    AuthContext:
+      type: object
+      description: The identity and authorization context resolved for the current request.
+      required:
+        - authentication
+        - principal
+        - organization
+        - authorization
+      properties:
+        authentication:
+          $ref: '#/components/schemas/AuthContextAuthentication'
+        principal:
+          $ref: '#/components/schemas/AuthContextPrincipal'
+        organization:
+          $ref: '#/components/schemas/AuthContextOrganization'
+        authorization:
+          $ref: '#/components/schemas/AuthContextAuthorization'
+    AuthContextAuthentication:
+      type: object
+      required:
+        - method
+        - source
+        - credential_id
+      properties:
+        method:
+          type: string
+          description: The credential format used to authenticate the request.
+          enum:
+            - api_key
+            - jwt
+        source:
+          type: string
+          description: The source classification resolved by authentication middleware.
+          enum:
+            - api_key
+            - oauth
+            - dashboard
+        credential_id:
+          type:
+            - string
+            - "null"
+          description: The API key ID when authenticated with an API key; null for session credentials.
+    AuthContextPrincipal:
+      type: object
+      required:
+        - type
+        - id
+      properties:
+        type:
+          type: string
+          description: The kind of principal authenticated for the request.
+          enum:
+            - api_key
+            - user
+        id:
+          type: string
+          description: The API key ID for API-key principals or user ID for user principals.
+    AuthContextOrganization:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: The authenticated Kernel organization ID.
+    AuthContextScope:
+      type: object
+      description: A scope within the authenticated organization. A null project_id represents organization-wide scope.
+      required:
+        - project_id
+      properties:
+        project_id:
+          type:
+            - string
+            - "null"
+          description: The Kernel project ID, or null when the scope is organization-wide.
+    AuthContextAuthorization:
+      type: object
+      description: The credential's maximum scope and the effective scope selected for this request. Future permission data can be added without changing scope semantics.
+      required:
+        - credential_scope
+        - effective_scope
+      properties:
+        credential_scope:
+          $ref: '#/components/schemas/AuthContextScope'
+        effective_scope:
+          $ref: '#/components/schemas/AuthContextScope'
     ManagedAuthError:
       type: object
       description: Extended error response for managed auth operations with recovery context
@@ -250,9 +337,17 @@ components:
           description: The number of seconds of inactivity before the browser session is terminated.
         profile:
           $ref: '#/components/schemas/Profile'
+        profile_save_changes:
+          type: boolean
+          description: Whether changes made during this browser session are saved back to its profile when the session ends. Omitted when no profile is attached.
         proxy_id:
           type: string
-          description: ID of the proxy associated with this browser session, if any.
+          deprecated: true
+          x-deprecated-reason: Use proxy instead.
+          description: ID of the proxy associated with this browser session, if any. Deprecated in favor of proxy.
+        proxy:
+          $ref: '#/components/schemas/BrowserProxy'
+          description: Resolved proxy configuration for this browser session.
         pool:
           $ref: '#/components/schemas/BrowserPoolRef'
         viewport:
@@ -314,7 +409,10 @@ components:
             Optional user-defined key-value tags for the browser session, used to find and group sessions later. Can be changed later via PATCH /browsers/{id_or_name}. Up to 50 pairs.
         stealth:
           type: boolean
-          description: If true, launches the browser in stealth mode to reduce detection by anti-bot mechanisms.
+          description: |
+            If true, launches the browser in stealth mode and enables the CAPTCHA solver. Defaults to false.
+            When proxy is omitted, stealth browsers use Kernel's default stealth proxy and non-stealth browsers use direct egress.
+            An explicit proxy configuration changes only egress; it does not enable or disable stealth or the CAPTCHA solver.
           example: true
         headless:
           type: boolean
@@ -339,7 +437,16 @@ components:
             $ref: '#/components/schemas/BrowserExtension'
         proxy_id:
           type: string
-          description: Optional proxy to associate to the browser session. Must reference a proxy in the same project as the browser session.
+          deprecated: true
+          x-deprecated-reason: Use proxy instead.
+          description: Optional proxy to associate to the browser session. Must reference a proxy in the same project as the browser session. Deprecated in favor of proxy.
+        proxy:
+          $ref: '#/components/schemas/BrowserProxyConfig'
+          description: |
+            Proxy configuration for the browser session. Cannot be combined with proxy_id.
+            Omit to use the browser default: stealth browsers use Kernel's default stealth proxy, while non-stealth browsers use direct egress.
+            Set mode to direct to force direct egress regardless of stealth. Set mode to default to explicitly use the browser default: Kernel's default stealth proxy when stealth=true, or direct egress when stealth=false.
+            Select id or name to use that proxy regardless of stealth. Proxy selection does not change stealth or CAPTCHA solver behavior.
         viewport:
           $ref: '#/components/schemas/BrowserViewport'
         kiosk_mode:
@@ -403,10 +510,20 @@ components:
         proxy_id:
           type: string
           nullable: true
-          description: ID of the proxy to use. Omit to leave unchanged, set to empty string to remove proxy.
+          deprecated: true
+          x-deprecated-reason: Use proxy instead.
+          description: ID of the proxy to use. Omit to leave unchanged, set to empty string to remove proxy. Deprecated in favor of proxy.
         disable_default_proxy:
           type: boolean
-          description: If true, stealth browsers connect directly instead of using the default stealth proxy.
+          deprecated: true
+          x-deprecated-reason: Use proxy.mode instead.
+          description: If true, stealth browsers connect directly instead of using the default stealth proxy. Deprecated in favor of proxy.mode.
+        proxy:
+          $ref: '#/components/schemas/BrowserProxyConfig'
+          description: |
+            Proxy configuration to apply. Omit to leave the current configuration unchanged. Cannot be combined with proxy_id or disable_default_proxy.
+            Set mode to direct to switch to direct egress regardless of stealth. Set mode to default to restore the browser default after using a selected proxy: Kernel's default stealth proxy for a stealth browser, or direct egress for a non-stealth browser.
+            Updating proxy does not change stealth or CAPTCHA solver behavior.
         profile:
           $ref: '#/components/schemas/BrowserProfile'
           description: Profile to load into the browser session. Only allowed if the session does not already have a profile loaded.
@@ -2093,6 +2210,63 @@ components:
           type: string
           description: Proxy name
       oneOf:
+        - required:
+            - id
+        - required:
+            - name
+    BrowserProxyMode:
+      type: string
+      enum:
+        - direct
+        - default
+      description: |
+        Proxy egress mode. direct forces no proxy regardless of stealth. default uses the browser's stealth-derived default: Kernel's default stealth proxy when stealth=true, or direct egress when stealth=false.
+        default is primarily useful on browser update to restore the browser default after selected-proxy egress.
+    BrowserProxyConfig:
+      type: object
+      additionalProperties: false
+      description: |
+        Browser proxy configuration. Provide exactly one of mode, id, or name; an empty object is invalid.
+        Set mode to direct for no proxy regardless of stealth. Set mode to default to use the browser's stealth-derived default: Kernel's default stealth proxy when stealth=true, or direct egress when stealth=false.
+        Select id or name to use that proxy regardless of stealth. The selected proxy must be in the same project as the browser. Names must match exactly one active proxy; use id for stable references.
+        Proxy configuration changes only egress and does not change stealth or CAPTCHA solver behavior. A stealth browser using mode=direct still runs in stealth mode with the CAPTCHA solver enabled.
+        When proxy is omitted on browser creation, stealth browsers use Kernel's default stealth proxy and non-stealth browsers use direct egress. When omitted on update, the current configuration is unchanged.
+      properties:
+        mode:
+          $ref: '#/components/schemas/BrowserProxyMode'
+        id:
+          type: string
+          minLength: 1
+          description: Proxy ID.
+        name:
+          type: string
+          minLength: 1
+          description: Proxy name. Must match exactly one active proxy in the project.
+      oneOf:
+        - required:
+            - mode
+        - required:
+            - id
+        - required:
+            - name
+    BrowserProxy:
+      type: object
+      additionalProperties: false
+      description: Resolved proxy configuration for a browser session. Selected proxies are returned by stable ID.
+      properties:
+        mode:
+          $ref: '#/components/schemas/BrowserProxyMode'
+        id:
+          type: string
+          minLength: 1
+          description: Selected proxy ID.
+        name:
+          type: string
+          minLength: 1
+          description: Selected proxy name.
+      oneOf:
+        - required:
+            - mode
         - required:
             - id
         - required:
@@ -5897,6 +6071,8 @@ tags:
     description: Create, list, retrieve, and delete browser extensions.
   - name: Browser Pools
     description: Create and manage browser pools for acquiring and releasing browsers.
+  - name: Authentication
+    description: Inspect the identity and authorization context for the current request.
   - name: Managed Auth
     description: Create and manage auth connections for automated credential capture and login.
   - name: Credentials
@@ -5921,6 +6097,75 @@ tags:
   - name: Audit Logs
     description: Read audit log records for the authenticated organization.
 paths:
+  /auth/context:
+    get:
+      operationId: getAuthContext
+      tags:
+        - Authentication
+      summary: Get authentication context
+      description: Returns the authenticated principal, organization, credential scope, and effective request scope. The response is derived from the verified request context and does not expose credential secrets.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Authentication context for the current request
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: private, no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthContext'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            const authContext = await client.auth.context.retrieve();
+
+            console.log(authContext.authentication);
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            auth_context = client.auth.context.retrieve()
+            print(auth_context.authentication)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	authContext, err := client.Auth.Context.Get(context.TODO())
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", authContext.Authentication)
+            }
   /browsers:
     post:
       operationId: postBrowsers
@@ -13275,7 +13520,7 @@ paths:
       tags:
         - Managed Auth
       summary: Submit field values
-      description: Submits field values for the login form. Follow the connection's SSE stream to track progress and get results.
+      description: Submits field values for the login form. Poll the auth connection to track progress and get results.
       security:
         - bearerAuth: []
       parameters:
@@ -17658,12 +17903,11 @@ paths:
     post:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: postAuditLogExportDestinations
       tags:
         - Audit Logs
       summary: Create an audit log export destination
-      description: Creates a paused destination. Activate it with a status update once the destination test passes.
+      description: Create a paused destination. Activate it with a status update once the destination test passes. Requires an active Enterprise plan.
       security:
         - bearerAuth: []
       requestBody:
@@ -17689,14 +17933,81 @@ paths:
           $ref: '#/components/responses/Conflict'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            const auditLogExportDestination = await client.auditLogs.exportDestinations.create({
+              bucket: 'xxx',
+              format: 'jsonl.gz',
+              prefix: 'prefix',
+              region: 'x',
+              role_arn: 'x',
+              type: 's3',
+            });
+
+            console.log(auditLogExportDestination.id);
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            audit_log_export_destination = client.audit_logs.export_destinations.create(
+                bucket="xxx",
+                format="jsonl.gz",
+                prefix="prefix",
+                region="x",
+                role_arn="x",
+                type="s3",
+            )
+            print(audit_log_export_destination.id)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	auditLogExportDestination, err := client.AuditLogs.ExportDestinations.New(context.TODO(), kernel.AuditLogExportDestinationNewParams{
+            		CreateAuditLogExportDestinationRequest: kernel.CreateAuditLogExportDestinationRequestParam{
+            			Bucket:  "xxx",
+            			Format:  kernel.CreateAuditLogExportDestinationRequestFormatJSONLGz,
+            			Prefix:  "prefix",
+            			Region:  "x",
+            			RoleArn: "x",
+            			Type:    kernel.CreateAuditLogExportDestinationRequestTypeS3,
+            		},
+            	})
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", auditLogExportDestination.ID)
+            }
     get:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: getAuditLogExportDestinations
       tags:
         - Audit Logs
       summary: List audit log export destinations
+      description: List audit log export destinations for the organization with pagination support.
       security:
         - bearerAuth: []
       parameters:
@@ -17756,6 +18067,52 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            // Automatically fetches more pages as needed.
+            for await (const auditLogExportDestination of client.auditLogs.exportDestinations.list()) {
+              console.log(auditLogExportDestination.id);
+            }
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            page = client.audit_logs.export_destinations.list()
+            page = page.items[0]
+            print(page.id)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	page, err := client.AuditLogs.ExportDestinations.List(context.TODO(), kernel.AuditLogExportDestinationListParams{})
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", page)
+            }
   /audit-logs/export/destinations/{id}:
     parameters:
       - name: id
@@ -17767,11 +18124,11 @@ paths:
     get:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: getAuditLogExportDestinationsById
       tags:
         - Audit Logs
       summary: Retrieve an audit log export destination
+      description: Retrieve details for a single audit log export destination by its ID.
       security:
         - bearerAuth: []
       responses:
@@ -17789,15 +18146,60 @@ paths:
           $ref: '#/components/responses/NotFound'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            const auditLogExportDestination = await client.auditLogs.exportDestinations.retrieve('id');
+
+            console.log(auditLogExportDestination.id);
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            audit_log_export_destination = client.audit_logs.export_destinations.retrieve(
+                "id",
+            )
+            print(audit_log_export_destination.id)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	auditLogExportDestination, err := client.AuditLogs.ExportDestinations.Get(context.TODO(), "id")
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", auditLogExportDestination.ID)
+            }
     patch:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: patchAuditLogExportDestinationsById
       tags:
         - Audit Logs
       summary: Update an audit log export destination
-      description: Applies a partial update. Returns 409 when the destination was changed concurrently, because the merged configuration this request validated is no longer the one that would be stored; retry against fresh state. Pausing prevents new delivery attempts, but an S3 upload already in progress may complete after the response.
+      description: Apply a partial update to a destination. Requires an active Enterprise plan. Returns 409 when the destination was changed concurrently, because the merged configuration this request validated is no longer the one that would be stored; retry against fresh state. Pausing prevents new delivery attempts, but an S3 upload already in progress may complete after the response.
       security:
         - bearerAuth: []
       requestBody:
@@ -17825,15 +18227,66 @@ paths:
           $ref: '#/components/responses/Conflict'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            const auditLogExportDestination = await client.auditLogs.exportDestinations.update('id');
+
+            console.log(auditLogExportDestination.id);
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            audit_log_export_destination = client.audit_logs.export_destinations.update(
+                id="id",
+            )
+            print(audit_log_export_destination.id)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	auditLogExportDestination, err := client.AuditLogs.ExportDestinations.Update(
+            		context.TODO(),
+            		"id",
+            		kernel.AuditLogExportDestinationUpdateParams{
+            			UpdateAuditLogExportDestinationRequest: kernel.UpdateAuditLogExportDestinationRequestParam{},
+            		},
+            	)
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", auditLogExportDestination.ID)
+            }
     delete:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: deleteAuditLogExportDestinationsById
       tags:
         - Audit Logs
       summary: Delete an audit log export destination
-      description: Soft-deletes the destination and prevents new delivery attempts. An S3 upload already in progress may complete after the response.
+      description: Soft delete the destination and prevent new delivery attempts. An S3 upload already in progress may complete after the response.
       security:
         - bearerAuth: []
       responses:
@@ -17847,15 +18300,56 @@ paths:
           $ref: '#/components/responses/NotFound'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            await client.auditLogs.exportDestinations.delete('id');
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            client.audit_logs.export_destinations.delete(
+                "id",
+            )
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	err := client.AuditLogs.ExportDestinations.Delete(context.TODO(), "id")
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            }
   /audit-logs/export/destinations/{id}/test:
     post:
       x-hidden: true
       x-cli-skip: true
-      x-stainless-skip: true
       operationId: testAuditLogExportDestinationById
       tags:
         - Audit Logs
       summary: Test an audit log export destination
+      description: Verify the destination is writable by assuming the configured role and uploading a temporary probe object with the same request metadata as a real delivery. Requires an active Enterprise plan.
       security:
         - bearerAuth: []
       parameters:
@@ -17880,6 +18374,52 @@ paths:
           $ref: '#/components/responses/NotFound'
         "500":
           $ref: '#/components/responses/InternalError'
+      x-codeSamples:
+        - lang: JavaScript
+          source: |-
+            import Kernel from '@onkernel/sdk';
+
+            const client = new Kernel({
+              apiKey: process.env['KERNEL_API_KEY'], // This is the default and can be omitted
+            });
+
+            const auditLogExportDestinationTestResult = await client.auditLogs.exportDestinations.test('id');
+
+            console.log(auditLogExportDestinationTestResult.stage);
+        - lang: Python
+          source: |-
+            import os
+            from kernel import Kernel
+
+            client = Kernel(
+                api_key=os.environ.get("KERNEL_API_KEY"),  # This is the default and can be omitted
+            )
+            audit_log_export_destination_test_result = client.audit_logs.export_destinations.test(
+                "id",
+            )
+            print(audit_log_export_destination_test_result.stage)
+        - lang: Go
+          source: |
+            package main
+
+            import (
+            	"context"
+            	"fmt"
+
+            	"github.com/kernel/kernel-go-sdk"
+            	"github.com/kernel/kernel-go-sdk/option"
+            )
+
+            func main() {
+            	client := kernel.NewClient(
+            		option.WithAPIKey("My API Key"),
+            	)
+            	auditLogExportDestinationTestResult, err := client.AuditLogs.ExportDestinations.Test(context.TODO(), "id")
+            	if err != nil {
+            		panic(err.Error())
+            	}
+            	fmt.Printf("%+v\n", auditLogExportDestinationTestResult.Stage)
+            }
   /audit-logs:
     get:
       operationId: getAuditLogs
@@ -17996,6 +18536,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         "401":
           $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/InternalError'
       x-codeSamples:
@@ -18185,6 +18727,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         "401":
           $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/InternalError'
       x-codeSamples:
