@@ -2,9 +2,13 @@
 title: "Audit Logs"
 ---
 
-Search and download [organization audit logs](/info/audit-logs) from the CLI.
+Search, download, and manage [organization audit logs](/info/audit-logs) from the CLI.
 
 Time values can be dates (`2026-06-01`) or timestamps (`2026-06-01T15:04:05Z`). Dates begin at midnight UTC.
+
+<Note>
+  The `kernel audit-logs export` group follows the current CLI implementation. Install a CLI release that includes this command group; availability depends on the release you have installed.
+</Note>
 
 ## `kernel audit-logs search`
 
@@ -87,6 +91,170 @@ The CLI downloads up to 50,000 records per batch, verifies each batch's SHA-256 
 The requested output appears only after the full download succeeds. Failed downloads are removed, though a completed download may remain at `<output>.partial` if it can't be moved to the requested path.
 
 Downloads don't resume: rerunning the command starts over. Existing files are replaced only when you pass `--force`.
+
+## `kernel audit-logs export`
+
+Manage S3 destinations that receive a continuous export of your organization's audit logs. The group is also available as `kernel audit-logs exports` and `kernel audit-logs export-destinations`.
+
+Objects use the layout `<prefix>/destination_id=<destination>/org_id=<org>/date=<YYYY-MM-DD>/hour=<HH>/<window>-<chunk>.jsonl.gz`. Delivery is at-least-once, so downstream consumers must deduplicate on `event_id`.
+
+Create a destination paused, configure the IAM trust and permissions, run `test`, and then run `resume`. The create response includes the `kernel_role_arn` and `external_id` values needed for the trust policy. The destination must use an organization-level credential; project-scoped API keys are refused.
+
+### `kernel audit-logs export create`
+
+Create an S3 audit log export destination. The destination is created paused.
+
+```bash
+kernel audit-logs export create \
+  --region us-east-1 \
+  --bucket customer-audit-logs \
+  --prefix audit-logs \
+  --role-arn arn:aws:iam::123456789012:role/customer-audit-log-export \
+  --output json
+```
+
+Use `--kms-key-id` when the destination should use SSE-KMS. The command always creates the destination with the `s3` type and `jsonl.gz` format.
+
+| Flag | Description |
+|------|-------------|
+| `--region <region>` | AWS region of the destination bucket. Required. |
+| `--bucket <name>` | Destination S3 bucket name. Required. |
+| `--prefix <prefix>` | Key prefix for exported objects; may be empty. Required. |
+| `--role-arn <arn>` | IAM role ARN Kernel assumes to deliver logs. Required. |
+| `--kms-key-id <id\|alias\|arn>` | KMS key ID, alias, or ARN for server-side encryption. |
+| `--output json`, `-o json` | Output the raw JSON destination object. |
+
+The human-readable output prints the destination details and the activation steps. Use JSON output when a script needs to capture `id`, `kernel_role_arn`, and `external_id`.
+
+### `kernel audit-logs export list`
+
+List audit log export destinations. Human-readable output includes the destination ID, bucket, prefix, region, status, last success, failure count, and last error.
+
+```bash
+kernel audit-logs export list \
+  --limit 20 \
+  --offset 0 \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--limit <n>` | Maximum number of destinations to return, from `1` to `100`. Defaults to `20`. |
+| `--offset <n>` | Number of destinations to skip for pagination. Defaults to `0`. |
+| `--output json`, `-o json` | Output a JSON object with `destinations` and `next_offset` when another page exists. |
+
+When more destinations are available, rerun the command with the returned `next_offset` as `--offset`.
+
+### `kernel audit-logs export get <id>`
+
+Get details for one audit log export destination.
+
+```bash
+kernel audit-logs export get dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw JSON destination object. |
+
+Without `--output json`, the command prints configuration, status, and delivery health fields such as `last_exported_cursor`, `last_success_at`, `last_error`, `last_error_at`, `consecutive_failures`, and `next_attempt_at`.
+
+### `kernel audit-logs export update <id>`
+
+Update one or more destination fields. Pass at least one update flag. The API validates the merged destination configuration, so a KMS key ARN must match the destination region.
+
+```bash
+kernel audit-logs export update dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --prefix audit-logs-v2 \
+  --output json
+```
+
+To remove a configured KMS key and use bucket-default encryption:
+
+```bash
+kernel audit-logs export update dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --clear-kms-key
+```
+
+| Flag | Description |
+|------|-------------|
+| `--region <region>` | Update the AWS region of the destination bucket. |
+| `--bucket <name>` | Update the destination S3 bucket name. |
+| `--prefix <prefix>` | Update the key prefix for exported objects. |
+| `--role-arn <arn>` | Update the IAM role ARN Kernel assumes to deliver logs. |
+| `--kms-key-id <id\|alias\|arn>` | Update the KMS key ID, alias, or ARN for server-side encryption. |
+| `--clear-kms-key` | Remove the configured KMS key. Mutually exclusive with `--kms-key-id`. |
+| `--output json`, `-o json` | Output the raw JSON destination object. |
+
+A successful update prints the updated destination. A `409 Conflict` means the destination changed concurrently; retrieve fresh state and retry with the intended fields.
+
+### `kernel audit-logs export pause <id>`
+
+Pause a destination so new delivery attempts stop.
+
+```bash
+kernel audit-logs export pause dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw JSON destination object. |
+
+An S3 upload already in progress may still complete after the pause. Events recorded while paused are not exported.
+
+### `kernel audit-logs export resume <id>`
+
+Resume a destination. Delivery starts from the time of the resume; events recorded while paused are not exported.
+
+```bash
+kernel audit-logs export resume dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw JSON destination object. |
+
+Use `resume` only after the destination's trust policy and permissions are configured and `test` succeeds.
+
+### `kernel audit-logs export delete <id>`
+
+Delete a destination and stop new delivery attempts.
+
+```bash
+kernel audit-logs export delete dest_01hxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+This command has no flags and does not support JSON output. An S3 upload already in progress may complete after the delete.
+
+### `kernel audit-logs export test <id>`
+
+Test a destination by assuming its role and writing a temporary probe object. The command exits non-zero when the test fails.
+
+```bash
+kernel audit-logs export test dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+  --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw JSON test result. |
+
+The result has `success` and `stage` fields. The stages are `assume_role`, `put_object`, and `complete`; customer-fixable failures use `assume_role_failed` or `put_object_failed`. A successful test reaches `complete`. The probe is deleted after the write when the role has `s3:DeleteObject`; grant that permission so test objects are cleaned up.
+
+### Activation sequence
+
+Use this sequence for every new destination:
+
+1. Run `create`. Save the returned destination ID, `kernel_role_arn`, and `external_id`.
+2. Update the customer role's trust policy to allow the returned Kernel role ARN with the returned `sts:ExternalId`.
+3. Grant `s3:PutObject` and, preferably, `s3:DeleteObject` on the configured prefix. If KMS is configured, grant `kms:GenerateDataKey` and key-policy access.
+4. Run `test <id>` and fix any `assume_role` or `put_object` failure.
+5. Run `resume <id>` to start delivery from that point. There is no backfill.
+
+After a plan downgrade, `list`, `get`, and `delete` remain available for cleanup, while delivery stops and `create`, `update`, and `test` require Enterprise.
 
 ## Aliases
 
