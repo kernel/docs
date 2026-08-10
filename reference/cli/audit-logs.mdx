@@ -135,17 +135,13 @@ List audit log export destinations. Human-readable output includes the destinati
 ```bash
 kernel audit-logs export list \
   --limit 20 \
-  --offset 0 \
   --output json
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--limit <n>` | Maximum number of destinations to return, from `1` to `100`. Defaults to `20`. |
-| `--offset <n>` | Number of destinations to skip for pagination. Defaults to `0`. |
 | `--output json`, `-o json` | Output a JSON object with `destinations` and `next_offset` when another page exists. |
-
-When more destinations are available, rerun the command with the returned `next_offset` as `--offset`.
 
 ### `kernel audit-logs export get <id>`
 
