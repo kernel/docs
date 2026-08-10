@@ -209,7 +209,7 @@ Continuous export writes new audit log events to an S3 bucket that you control. 
 
 ### Set up a destination
 
-You can use the CLI, the SDK resource (`kernel.auditLogs.exportDestinations` in TypeScript or `client.audit_logs.export_destinations` in Python), or the HTTP endpoints below. All destination requests require an organization-level credential.
+You can use the SDK resource (`kernel.auditLogs.exportDestinations` in TypeScript, `client.audit_logs.export_destinations` in Python, or `client.AuditLogs.ExportDestinations` in Go), the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP endpoints below. All destination requests require an organization-level credential.
 
 | Operation | HTTP endpoint |
 |-----------|---------------|
@@ -222,22 +222,13 @@ You can use the CLI, the SDK resource (`kernel.auditLogs.exportDestinations` in 
 
 For HTTP, send `type: "s3"`, `format: "jsonl.gz"`, `region`, `bucket`, `prefix`, and `role_arn` in the create body; add `kms_key_id` only when using SSE-KMS. After testing, activate with `PATCH /audit-logs/export/destinations/{id}` and `{"status":"active"}`.
 
-The CLI is the primary walkthrough. The equivalent SDK create and activation calls are shown in the setup steps.
+The setup steps below use the SDKs. For the CLI walkthrough, see the [CLI reference](/reference/cli/audit-logs#kernel-audit-logs-export).
 
 #### 1. Create a paused destination
 
 Create the destination with the customer role ARN. The create response contains the destination `id`, the Kernel role ARN that must be trusted (`kernel_role_arn`), and the unique STS external ID (`external_id`). Save all three values. The `external_id` is not your organization ID and is not interchangeable with an external ID from another destination.
 
-```bash
-kernel audit-logs export create \
-  --region us-east-1 \
-  --bucket customer-audit-logs \
-  --prefix audit-logs \
-  --role-arn arn:aws:iam::123456789012:role/customer-audit-log-export \
-  --output json
-```
-
-The command always creates an S3 destination in `jsonl.gz` format with `status: "paused"`. If you use KMS, add `--kms-key-id` with a key ID, alias, or ARN in the destination region.
+Every destination is an S3 destination in `jsonl.gz` format and starts with `status: "paused"`. If you use KMS, set `kms_key_id` to a key ID, alias, or ARN in the destination region.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -281,6 +272,41 @@ destination = client.audit_logs.export_destinations.create(
 print(destination.id)
 print(destination.kernel_role_arn)
 print(destination.external_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	destination, err := client.AuditLogs.ExportDestinations.New(ctx, kernel.AuditLogExportDestinationNewParams{
+		CreateAuditLogExportDestinationRequest: kernel.CreateAuditLogExportDestinationRequestParam{
+			Type:    kernel.CreateAuditLogExportDestinationRequestTypeS3,
+			Format:  kernel.CreateAuditLogExportDestinationRequestFormatJSONLGz,
+			Region:  "us-east-1",
+			Bucket:  "customer-audit-logs",
+			Prefix:  "audit-logs",
+			RoleArn: "arn:aws:iam::123456789012:role/customer-audit-log-export",
+			// KmsKeyID: kernel.String("arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(destination.ID)
+	fmt.Println(destination.KernelRoleArn)
+	fmt.Println(destination.ExternalID)
+}
 ```
 </CodeGroup>
 
@@ -344,15 +370,9 @@ When KMS is configured, the KMS key policy must also allow the customer role to 
 
 #### 4. Test and activate
 
-The test endpoint assumes the customer role, writes a temporary gzip probe, and attempts to delete it. The probe uses the same request metadata as a real delivery: a SHA-256 checksum, `Content-Type: application/gzip`, and SSE-KMS when configured. Run the test before changing the destination to active:
+The test endpoint assumes the customer role, writes a temporary gzip probe, and attempts to delete it. The probe uses the same request metadata as a real delivery: a SHA-256 checksum, `Content-Type: application/gzip`, and SSE-KMS when configured. Run the test before changing the destination to active.
 
-```bash
-set -e
-kernel audit-logs export test dest_01hxxxxxxxxxxxxxxxxxxxxxxxx --output json
-kernel audit-logs export resume dest_01hxxxxxxxxxxxxxxxxxxxxxxxx --output json
-```
-
-A successful test returns `stage: "complete"`. A failed test identifies `assume_role` or `put_object` and returns `assume_role_failed` or `put_object_failed`. Do not resume until the test succeeds.
+A successful test returns `stage: "complete"`. A failed test identifies `assume_role` or `put_object` and returns `assume_role_failed` or `put_object_failed`. Do not activate the destination until the test succeeds.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -378,6 +398,26 @@ active = client.audit_logs.export_destinations.update(
 )
 print(active.status)  # active
 ```
+
+```go Go
+test, err := client.AuditLogs.ExportDestinations.Test(ctx, destination.ID)
+if err != nil {
+	panic(err)
+}
+if !test.Success {
+	panic(fmt.Sprintf("export test failed at %s", test.Stage))
+}
+
+active, err := client.AuditLogs.ExportDestinations.Update(ctx, destination.ID, kernel.AuditLogExportDestinationUpdateParams{
+	UpdateAuditLogExportDestinationRequest: kernel.UpdateAuditLogExportDestinationRequestParam{
+		Status: kernel.UpdateAuditLogExportDestinationRequestStatusActive,
+	},
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println(active.Status) // active
+```
 </CodeGroup>
 
 Activation starts delivery at the activation time. It does not backfill events recorded before activation.
@@ -402,7 +442,7 @@ For example, a destination with prefix `audit-logs` writes under `audit-logs/des
 
 ### Monitor delivery
 
-Use `kernel audit-logs export get <id>` or `list`, the SDK retrieve/list methods, or the HTTP GET endpoints to inspect the destination and its delivery health. The health fields are:
+Use the SDK retrieve and list methods, the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP GET endpoints to inspect the destination and its delivery health. The health fields are:
 
 | Field | Meaning |
 |-------|---------|
