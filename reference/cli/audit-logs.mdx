@@ -148,7 +148,7 @@ kernel audit-logs export list \
 Get details for one audit log export destination.
 
 ```bash
-kernel audit-logs export get dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export get y2kkbpcz1lg0h3q6yr8x4m7d \
   --output json
 ```
 
@@ -163,7 +163,7 @@ Without `--output json`, the command prints configuration, status, and delivery 
 Update one or more destination fields. Pass at least one update flag. The API validates the merged destination configuration, so a KMS key ARN must match the destination region.
 
 ```bash
-kernel audit-logs export update dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export update y2kkbpcz1lg0h3q6yr8x4m7d \
   --prefix audit-logs-v2 \
   --output json
 ```
@@ -171,7 +171,7 @@ kernel audit-logs export update dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
 To remove a configured KMS key and use bucket-default encryption:
 
 ```bash
-kernel audit-logs export update dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export update y2kkbpcz1lg0h3q6yr8x4m7d \
   --clear-kms-key
 ```
 
@@ -192,7 +192,7 @@ A successful update prints the updated destination. A `409 Conflict` means the d
 Pause a destination so new delivery attempts stop.
 
 ```bash
-kernel audit-logs export pause dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export pause y2kkbpcz1lg0h3q6yr8x4m7d \
   --output json
 ```
 
@@ -207,7 +207,7 @@ An S3 upload already in progress may still complete after the pause. Events reco
 Resume a destination. Delivery starts from the time of the resume; events recorded while paused are not exported.
 
 ```bash
-kernel audit-logs export resume dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export resume y2kkbpcz1lg0h3q6yr8x4m7d \
   --output json
 ```
 
@@ -222,7 +222,7 @@ Use `resume` only after the destination's trust policy and permissions are confi
 Delete a destination and stop new delivery attempts.
 
 ```bash
-kernel audit-logs export delete dest_01hxxxxxxxxxxxxxxxxxxxxxxxx
+kernel audit-logs export delete y2kkbpcz1lg0h3q6yr8x4m7d
 ```
 
 This command has no flags and does not support JSON output. An S3 upload already in progress may complete after the delete.
@@ -232,7 +232,7 @@ This command has no flags and does not support JSON output. An S3 upload already
 Test a destination by assuming its role and writing a temporary probe object. The command exits non-zero when the test fails.
 
 ```bash
-kernel audit-logs export test dest_01hxxxxxxxxxxxxxxxxxxxxxxxx \
+kernel audit-logs export test y2kkbpcz1lg0h3q6yr8x4m7d \
   --output json
 ```
 
