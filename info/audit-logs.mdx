@@ -1,6 +1,6 @@
 ---
 title: "Audit Logs"
-description: "Search, download, and continuously export audit logs for API requests across your organization"
+description: "Audit logs for API requests across your organization"
 ---
 
 Audit logs record authenticated API requests across your entire organization. Use them to review who called Kernel, which endpoint they called, when the request happened, and how the request completed.
@@ -15,9 +15,7 @@ Choose the endpoint that matches the amount of data you need:
 
 Search and download are available on **Start-Up** and **Enterprise** plans. Continuous S3 export is available on **Enterprise**.
 
-Search and download use an inclusive `start` and exclusive `end`: `[start, end)`. Each request can cover up to 30 days. Split longer periods into multiple time windows. Continuous S3 export starts delivering when you activate a destination and does not backfill earlier events.
-
-You can also search, download, and manage continuous export destinations from the [CLI](/reference/cli/audit-logs). For the underlying search and download HTTP APIs, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [download](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
+Audit logs are also available from the [CLI](/reference/cli/audit-logs).
 
 ## Filter audit logs
 
@@ -100,12 +98,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-aud
 
 ## Download audit logs
 
-A download covers a bounded time window. The SDK download helpers default to `jsonl.gz` and write the result to a destination you provide. They:
-
-- request every chunk until the download is complete
-- validate pagination metadata and each chunk's SHA-256 checksum before writing
-- retry transient HTTP and transfer failures
-- append verified chunks in order
+A download covers a time window of up to 30 days. The SDK download helpers default to `jsonl.gz` and write the result to a destination you provide.
 
 The helpers don't close the destination. Python provides equivalent sync and async methods; both accept a synchronous binary destination.
 
@@ -188,24 +181,6 @@ For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api
 ## Continuous S3 export
 
 Continuous export writes new audit log events to an S3 bucket that you control. A destination is an organization-level resource: Kernel assumes an IAM role in your AWS account and writes `jsonl.gz` objects to the configured bucket. The destination is created paused so you can configure and verify IAM before delivery starts.
-
-### Choose download or continuous export
-
-| If you need to... | Use |
-|-------------------|-----|
-| Investigate recent requests interactively | Search audit logs |
-| Produce a bounded file for an archive or an offline job | SDK or HTTP download |
-| Keep a data lake, SIEM, or compliance bucket updated | Continuous S3 export |
-
-### Requirements and limits
-
-- An active **Enterprise** plan is required to create, update, or test a destination.
-- Destinations are organization-scoped. Project-scoped API keys are refused for destination operations; use an organization-level API key or an organization-level CLI login.
-- An organization can have at most **five live destinations**. Deleted destinations no longer count toward the limit.
-- The destination region must be a commercial AWS region. The configured customer role must use the commercial `aws` IAM partition.
-- The only supported format is `jsonl.gz`.
-- If `kms_key_id` is empty, S3 uses the bucket's default encryption. If it is set, objects use SSE-KMS. A KMS key ARN must be in the commercial `aws` partition, and its region must match the destination region.
-- After an organization leaves Enterprise, it can still list, retrieve, and delete existing destinations. Delivery stops for non-Enterprise organizations, and create, update, and test remain unavailable.
 
 ### Set up a destination
 
