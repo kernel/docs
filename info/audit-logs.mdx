@@ -10,7 +10,7 @@ Choose the endpoint that matches the amount of data you need:
 | Endpoint | Best for | Output |
 |----------|----------|--------|
 | [Search](#search-audit-logs) | Interactive investigation and recent activity | Paginated JSON events |
-| [Download](#export-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+| [Download](#download-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
 | [Continuous S3 export](#continuous-s3-export) | Ongoing delivery to your data lake or compliance bucket | Partitioned `jsonl.gz` objects in your S3 bucket |
 
 Search and download use an inclusive `start` and exclusive `end`: `[start, end)`. Each request can cover up to 30 days. Split longer periods into multiple time windows. Continuous S3 export starts delivering when you activate a destination and does not backfill earlier events.
@@ -96,7 +96,7 @@ func main() {
 
 See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the full request and response schema.
 
-## Export audit logs
+## Download audit logs
 
 A download covers a bounded time window. The SDK download helpers default to `jsonl.gz` and write the result to a destination you provide. They:
 
