@@ -10,16 +10,16 @@ Choose the endpoint that matches the amount of data you need:
 | Endpoint | Best for | Output |
 |----------|----------|--------|
 | [Search](#search-audit-logs) | Interactive investigation and recent activity | Paginated JSON events |
-| [One-time export](#export-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+| [Download](#export-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
 | [Continuous S3 export](#continuous-s3-export) | Ongoing delivery to your data lake or compliance bucket | Partitioned `jsonl.gz` objects in your S3 bucket |
 
-Search and one-time export use an inclusive `start` and exclusive `end`: `[start, end)`. Each request can cover up to 30 days. Split longer periods into multiple time windows. Continuous S3 export starts delivering when you activate a destination and does not backfill earlier events.
+Search and download use an inclusive `start` and exclusive `end`: `[start, end)`. Each request can cover up to 30 days. Split longer periods into multiple time windows. Continuous S3 export starts delivering when you activate a destination and does not backfill earlier events.
 
-Search, one-time export, and continuous export destinations are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API for search and one-time export, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
+You can also search, download, and manage continuous export destinations from the [CLI](/reference/cli/audit-logs). For the underlying search and download HTTP APIs, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [download](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
 
 ## Filter audit logs
 
-The API and SDKs use the same filters for search and one-time export:
+The API and SDKs use the same filters for search and downloads:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
@@ -98,9 +98,9 @@ See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-aud
 
 ## Export audit logs
 
-This is a one-time export for a bounded time window. The SDK download helpers default to `jsonl.gz` and write a complete export to a destination you provide. They:
+A download covers a bounded time window. The SDK download helpers default to `jsonl.gz` and write the result to a destination you provide. They:
 
-- request every chunk until the export is complete
+- request every chunk until the download is complete
 - validate pagination metadata and each chunk's SHA-256 checksum before writing
 - retry transient HTTP and transfer failures
 - append verified chunks in order
@@ -187,12 +187,12 @@ For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api
 
 Continuous export writes new audit log events to an S3 bucket that you control. A destination is an organization-level resource: Kernel assumes an IAM role in your AWS account and writes `jsonl.gz` objects to the configured bucket. The destination is created paused so you can configure and verify IAM before delivery starts.
 
-### Choose one-time or continuous export
+### Choose download or continuous export
 
 | If you need to... | Use |
 |-------------------|-----|
 | Investigate recent requests interactively | Search audit logs |
-| Produce a bounded file for an archive or an offline job | One-time SDK or HTTP export |
+| Produce a bounded file for an archive or an offline job | SDK or HTTP download |
 | Keep a data lake, SIEM, or compliance bucket updated | Continuous S3 export |
 
 ### Requirements and limits
