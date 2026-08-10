@@ -1,4 +1,6 @@
-# Profile Loading Performance Testing Guide
+---
+title: "Profile Loading Performance Testing Guide"
+---
 
 ## Overview
 
