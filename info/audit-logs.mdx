@@ -209,18 +209,7 @@ Continuous export writes new audit log events to an S3 bucket that you control. 
 
 ### Set up a destination
 
-You can use the SDK resource (`kernel.auditLogs.exportDestinations` in TypeScript, `client.audit_logs.export_destinations` in Python, or `client.AuditLogs.ExportDestinations` in Go), the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP endpoints below. All destination requests require an organization-level credential.
-
-| Operation | HTTP endpoint |
-|-----------|---------------|
-| Create | `POST /audit-logs/export/destinations` |
-| List | `GET /audit-logs/export/destinations` |
-| Retrieve | `GET /audit-logs/export/destinations/{id}` |
-| Update | `PATCH /audit-logs/export/destinations/{id}` |
-| Delete | `DELETE /audit-logs/export/destinations/{id}` |
-| Test | `POST /audit-logs/export/destinations/{id}/test` |
-
-For HTTP, send `type: "s3"`, `format: "jsonl.gz"`, `region`, `bucket`, `prefix`, and `role_arn` in the create body; add `kms_key_id` only when using SSE-KMS. After testing, activate with `PATCH /audit-logs/export/destinations/{id}` and `{"status":"active"}`.
+You can use the SDKs, the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP API. All destination requests require an organization-level credential.
 
 The setup steps below use the SDKs. For the CLI walkthrough, see the [CLI reference](/reference/cli/audit-logs#kernel-audit-logs-export).
 
