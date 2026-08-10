@@ -3,7 +3,7 @@ title: "Programmatic Flow"
 description: "Build your own credential collection UI with full control"
 ---
 
-Build your own credential collection UI instead of using the hosted page. Poll for login fields, then submit credentials via the API.
+Build your own credential collection UI instead of using the hosted page. Stream login events, then submit credentials via the API.
 
 Use the Programmatic flow when:
 - You need a custom credential collection UI that matches your app's design
@@ -16,8 +16,8 @@ Use the Programmatic flow when:
   <Step title="Create Connection and Start Session">
     Same as [Hosted UI](/auth/hosted-ui)
   </Step>
-  <Step title="Poll and Submit">
-    Poll until `flow_step` becomes `AWAITING_INPUT`, then submit credentials
+  <Step title="Stream and Submit">
+    Follow the connection's SSE stream and submit credentials when `flow_step` becomes `AWAITING_INPUT`
   </Step>
   <Step title="Handle 2FA">
     If more fields appear (2FA code), submit again—same loop handles it
@@ -81,59 +81,68 @@ _ = login
 
 Credentials are saved automatically on successful login, enabling automatic re-authentication when the session expires.
 
-### 3. Poll and Submit Credentials
+### 3. Stream and submit credentials
 
-A single loop handles everything—initial login, 2FA, and completion:
+A single SSE stream handles everything—initial login, 2FA, and completion:
 
 <CodeGroup>
 ```typescript TypeScript
-let state = await kernel.auth.connections.retrieve(auth.id);
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
 
-while (state.flow_status === 'IN_PROGRESS') {
+for await (const event of events) {
+  if (event.event !== 'managed_auth_state') continue;
+  finalState = event;
+
   // Submit when fields are ready (login or 2FA)
-  if (state.flow_step === 'AWAITING_INPUT' && state.discovered_fields?.length) {
-    const fieldValues = getCredentialsForFields(state.discovered_fields);
+  if (event.flow_step === 'AWAITING_INPUT' && event.discovered_fields?.length) {
+    const fieldValues = getCredentialsForFields(event.discovered_fields);
     await kernel.auth.connections.submit(auth.id, { fields: fieldValues });
   }
-  
-  await new Promise(r => setTimeout(r, 2000));
-  state = await kernel.auth.connections.retrieve(auth.id);
 }
 
-if (state.status === 'AUTHENTICATED') {
+if (finalState?.flow_status === 'SUCCESS') {
   console.log('Authentication successful!');
 }
 ```
 
 ```python Python
-state = await kernel.auth.connections.retrieve(auth.id)
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
 
-while state.flow_status == "IN_PROGRESS":
+async for event in events:
+    if event.event != "managed_auth_state":
+        continue
+    final_state = event
+
     # Submit when fields are ready (login or 2FA)
-    if state.flow_step == "AWAITING_INPUT" and state.discovered_fields:
-        field_values = get_credentials_for_fields(state.discovered_fields)
+    if event.flow_step == "AWAITING_INPUT" and event.discovered_fields:
+        field_values = get_credentials_for_fields(event.discovered_fields)
         await kernel.auth.connections.submit(auth.id, fields=field_values)
-    
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
 
-if state.status == "AUTHENTICATED":
+if final_state and final_state.flow_status == "SUCCESS":
     print("Authentication successful!")
 ```
 
 ```go Go
-state, err := client.Auth.Connections.Get(ctx, auth.ID)
-if err != nil {
-	panic(err)
-}
+events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+authenticated := false
 
-for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
+for events.Next() {
+	event := events.Current()
+	if event.Event != "managed_auth_state" {
+		continue
+	}
+	if event.FlowStatus == "SUCCESS" {
+		authenticated = true
+	}
+
 	// Submit when fields are ready (login or 2FA)
-	if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingInput && len(state.DiscoveredFields) > 0 {
+	if event.FlowStep == "AWAITING_INPUT" && len(event.DiscoveredFields) > 0 {
 		fieldValues := map[string]string{}
 		missingFields := []string{}
 
-		for _, field := range state.DiscoveredFields {
+		for _, field := range event.DiscoveredFields {
 			switch field.Name {
 			case "username":
 				fieldValues[field.Name] = "dev-user"
@@ -171,15 +180,12 @@ for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
 			panic(err)
 		}
 	}
-
-	time.Sleep(2 * time.Second)
-	state, err = client.Auth.Connections.Get(ctx, auth.ID)
-	if err != nil {
-		panic(err)
-	}
+}
+if err := events.Err(); err != nil {
+	panic(err)
 }
 
-if state.Status == kernel.ManagedAuthStatusAuthenticated {
+if authenticated {
 	fmt.Println("Authentication successful!")
 }
 ```
@@ -211,14 +217,18 @@ const auth = await kernel.auth.connections.create({
 
 const login = await kernel.auth.connections.login(auth.id);
 
-// Single polling loop handles login + 2FA
-let state = await kernel.auth.connections.retrieve(auth.id);
+// One SSE stream handles login + 2FA
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
 
-while (state.flow_status === 'IN_PROGRESS') {
-  if (state.flow_step === 'AWAITING_INPUT' && state.discovered_fields?.length) {
+for await (const event of events) {
+  if (event.event !== 'managed_auth_state') continue;
+  finalState = event;
+
+  if (event.flow_step === 'AWAITING_INPUT' && event.discovered_fields?.length) {
     // Check what fields are needed
-    const fieldNames = state.discovered_fields.map(f => f.name);
-    
+    const fieldNames = event.discovered_fields.map(f => f.name);
+
     if (fieldNames.includes('username')) {
       // Initial login
       await kernel.auth.connections.submit(auth.id, {
@@ -228,16 +238,13 @@ while (state.flow_status === 'IN_PROGRESS') {
       // 2FA or additional fields
       const code = await promptUserForCode();
       await kernel.auth.connections.submit(auth.id, {
-        fields: { [state.discovered_fields[0].name]: code }
+        fields: { [event.discovered_fields[0].name]: code }
       });
     }
   }
-
-  await new Promise(r => setTimeout(r, 2000));
-  state = await kernel.auth.connections.retrieve(auth.id);
 }
 
-if (state.status === 'AUTHENTICATED') {
+if (finalState?.flow_status === 'SUCCESS') {
   console.log('Authentication successful!');
   
   const browser = await kernel.browsers.create({
@@ -251,10 +258,9 @@ if (state.status === 'AUTHENTICATED') {
 ```
 
 ```python Python
-from kernel import Kernel
-import asyncio
+from kernel import AsyncKernel
 
-kernel = Kernel()
+kernel = AsyncKernel()
 
 # Create connection
 auth = await kernel.auth.connections.create(
@@ -264,14 +270,19 @@ auth = await kernel.auth.connections.create(
 
 login = await kernel.auth.connections.login(auth.id)
 
-# Single polling loop handles login + 2FA
-state = await kernel.auth.connections.retrieve(auth.id)
+# One SSE stream handles login + 2FA
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
 
-while state.flow_status == "IN_PROGRESS":
-    if state.flow_step == "AWAITING_INPUT" and state.discovered_fields:
+async for event in events:
+    if event.event != "managed_auth_state":
+        continue
+    final_state = event
+
+    if event.flow_step == "AWAITING_INPUT" and event.discovered_fields:
         # Check what fields are needed
-        field_names = [f["name"] for f in state.discovered_fields]
-        
+        field_names = [field.name for field in event.discovered_fields]
+
         if "username" in field_names:
             # Initial login
             await kernel.auth.connections.submit(
@@ -283,13 +294,10 @@ while state.flow_status == "IN_PROGRESS":
             code = input("Enter code: ")
             await kernel.auth.connections.submit(
                 auth.id,
-                fields={state.discovered_fields[0]["name"]: code},
+                fields={event.discovered_fields[0].name: code},
             )
 
-    await asyncio.sleep(2)
-    state = await kernel.auth.connections.retrieve(auth.id)
-
-if state.status == "AUTHENTICATED":
+if final_state and final_state.flow_status == "SUCCESS":
     print("Authentication successful!")
     
     browser = await kernel.browsers.create(
@@ -307,7 +315,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/kernel/kernel-go-sdk"
 	"github.com/kernel/kernel-go-sdk/shared"
@@ -338,17 +345,23 @@ func main() {
 	}
 	_ = login
 
-	// Single polling loop handles login + 2FA
-	state, err := client.Auth.Connections.Get(ctx, auth.ID)
-	if err != nil {
-		panic(err)
-	}
+	// One SSE stream handles login + 2FA
+	events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+	authenticated := false
 
-	for state.FlowStatus == kernel.ManagedAuthFlowStatusInProgress {
-		if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingInput && len(state.DiscoveredFields) > 0 {
+	for events.Next() {
+		event := events.Current()
+		if event.Event != "managed_auth_state" {
+			continue
+		}
+		if event.FlowStatus == "SUCCESS" {
+			authenticated = true
+		}
+
+		if event.FlowStep == "AWAITING_INPUT" && len(event.DiscoveredFields) > 0 {
 			// Check what fields are needed
 			fieldNames := map[string]bool{}
-			for _, field := range state.DiscoveredFields {
+			for _, field := range event.DiscoveredFields {
 				fieldNames[field.Name] = true
 			}
 
@@ -371,7 +384,7 @@ func main() {
 				_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
 					SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
 						Fields: map[string]string{
-							state.DiscoveredFields[0].Name: code,
+							event.DiscoveredFields[0].Name: code,
 						},
 					},
 				})
@@ -380,15 +393,12 @@ func main() {
 				}
 			}
 		}
-
-		time.Sleep(2 * time.Second)
-		state, err = client.Auth.Connections.Get(ctx, auth.ID)
-		if err != nil {
-			panic(err)
-		}
+	}
+	if err := events.Err(); err != nil {
+		panic(err)
 	}
 
-	if state.Status == kernel.ManagedAuthStatusAuthenticated {
+	if authenticated {
 		fmt.Println("Authentication successful!")
 
 		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
@@ -423,7 +433,7 @@ Every programmatic login session also has a `hosted_url`. If your flow encounter
 
 ## Handling Different Input Types
 
-The basic polling loop handles `discovered_fields`, but login pages can require other input types too.
+The SSE event loop handles `discovered_fields`, but login pages can require other input types too. In the examples below, `state` is the current `managed_auth_state` event from the stream.
 
 ### SSO Buttons
 
@@ -575,7 +585,7 @@ if len(state.MfaOptions) > 0 {
 ```
 </CodeGroup>
 
-After selecting an MFA method, the flow continues. Poll for `discovered_fields` to submit the code, or handle external actions for push/security key.
+After selecting an MFA method, keep listening for `discovered_fields` to submit the code, or handle external actions for push/security key.
 
 <Info>
 The `switch` type represents generic method-switcher links like "Use another method" or "Try another way" that don't name a specific factor. Submit it the same way as any other MFA option to reveal the underlying alternatives on the next page.
@@ -662,7 +672,7 @@ if (state.flow_step === 'AWAITING_EXTERNAL_ACTION') {
     });
   }
 
-  // Otherwise keep polling—the flow resumes automatically when the user completes the action
+  // Otherwise keep listening—the flow resumes automatically when the user completes the action
 }
 ```
 
@@ -680,7 +690,7 @@ if state.flow_step == "AWAITING_EXTERNAL_ACTION":
             mfa_option_id=state.mfa_options[0]["type"],
         )
 
-    # Otherwise keep polling—the flow resumes automatically when the user completes the action
+    # Otherwise keep listening—the flow resumes automatically when the user completes the action
 ```
 
 ```go Go
@@ -702,13 +712,13 @@ if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingExternalAction {
 		}
 	}
 
-	// Otherwise keep polling—the flow resumes automatically when the user completes the action
+	// Otherwise keep listening—the flow resumes automatically when the user completes the action
 }
 ```
 </CodeGroup>
 
 <Info>
-`mfa_options`, `pending_sso_buttons`, and `sign_in_options` may be populated during `AWAITING_EXTERNAL_ACTION` when the site exposes fallback methods alongside the external action (for example, "Try another way" on a push prompt). Submit one of them to switch verification methods, or keep polling to let the user complete the external action.
+`mfa_options`, `pending_sso_buttons`, and `sign_in_options` may be populated during `AWAITING_EXTERNAL_ACTION` when the site exposes fallback methods alongside the external action (for example, "Try another way" on a push prompt). Submit one of them to switch verification methods, or keep listening to let the user complete the external action.
 </Info>
 
 ## Step Reference
@@ -729,7 +739,7 @@ The `flow_status` field indicates the current flow state:
 
 | Status | Description |
 |--------|-------------|
-| `IN_PROGRESS` | Authentication is ongoing—keep polling |
+| `IN_PROGRESS` | Authentication is ongoing—keep listening |
 | `SUCCESS` | Login completed, profile saved |
 | `FAILED` | Login failed (check `error_message`) |
 | `EXPIRED` | Flow timed out (10 minutes for user input, 20 minutes overall) |
@@ -746,16 +756,16 @@ The `status` field indicates the overall connection state:
 
 Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — apply equally to all integration flows and are documented in [Connection Configuration](/auth/configuration).
 
-## Real-Time Updates with SSE
+## SSE stream behavior
 
-For real-time UIs, you can stream login flow events via Server-Sent Events instead of polling:
+`auth.connections.follow()` opens the Server-Sent Events stream at:
 
 ```
 GET /auth/connections/{id}/events
 ```
 
-The stream delivers `managed_auth_state` events with the same fields as polling (`flow_status`, `flow_step`, `discovered_fields`, etc.) and terminates automatically when the flow reaches a terminal state.
+The stream delivers `managed_auth_state` events containing `flow_status`, `flow_step`, `discovered_fields`, and the other login-flow fields used throughout this guide. It closes automatically when the flow succeeds, fails, expires, or is canceled.
 
 <Note>
-Polling is recommended for most integrations. SSE is useful when building real-time UIs that need instant updates without polling delays.
+Use the SSE stream for login flows. It delivers state changes immediately and avoids repeated status requests.
 </Note>
