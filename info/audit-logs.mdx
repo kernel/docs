@@ -423,7 +423,7 @@ For example, a destination with prefix `audit-logs` writes under `audit-logs/des
 
 ### Delivery semantics
 
-- Delivery is **at least once**. A retry can rewrite the same object, and the same `event_id` can occur in more than one object. Deduplicate downstream on `event_id`.
+- Delivery is **at least once**. A retry can rewrite the same object.
 - Each event-time window is held for about 10 minutes before it commits. A row that becomes visible after its window has committed may not be delivered.
 - Delivery begins at activation time; events before activation are not backfilled.
 - Pausing stops new delivery attempts. Resuming starts from the resume time; events recorded while paused are never exported. Pausing is not a way to defer delivery.

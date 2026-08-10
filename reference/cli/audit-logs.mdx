@@ -98,7 +98,7 @@ Downloads don't resume: rerunning the command starts over. Existing files are re
 
 Manage S3 destinations that receive a continuous export of your organization's audit logs. The group is also available as `kernel audit-logs exports` and `kernel audit-logs export-destinations`.
 
-Objects use the layout `<prefix>/destination_id=<destination>/org_id=<org>/date=<YYYY-MM-DD>/hour=<HH>/<window>-<chunk>.jsonl.gz`. Delivery is at-least-once, so downstream consumers must deduplicate on `event_id`.
+Objects use the layout `<prefix>/destination_id=<destination>/org_id=<org>/date=<YYYY-MM-DD>/hour=<HH>/<window>-<chunk>.jsonl.gz`. Delivery is at-least-once.
 
 Create a destination paused, configure the IAM trust and permissions, run `test`, and then run `resume`. The create response includes the `kernel_role_arn` and `external_id` values needed for the trust policy. The destination must use an organization-level credential; project-scoped API keys are refused.
 
