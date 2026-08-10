@@ -13,6 +13,8 @@ Choose the endpoint that matches the amount of data you need:
 | [Download](#download-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
 | [Continuous S3 export](#continuous-s3-export) | Ongoing delivery to your data lake or compliance bucket | Partitioned `jsonl.gz` objects in your S3 bucket |
 
+Search and download are available on **Start-Up** and **Enterprise** plans. Continuous S3 export is available on **Enterprise**.
+
 Search and download use an inclusive `start` and exclusive `end`: `[start, end)`. Each request can cover up to 30 days. Split longer periods into multiple time windows. Continuous S3 export starts delivering when you activate a destination and does not backfill earlier events.
 
 You can also search, download, and manage continuous export destinations from the [CLI](/reference/cli/audit-logs). For the underlying search and download HTTP APIs, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [download](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
