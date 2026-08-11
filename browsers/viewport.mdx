@@ -37,7 +37,7 @@ _ = defaultViewport
 You can configure the viewport when creating a browser by specifying the `viewport` parameter with `width` and `height`. The `refresh_rate` is optional and will be automatically determined from the dimensions if they match a supported configuration:
 
 <Info>
-    Setting a custom viewport configuration triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools/overview) to access browsers with custom viewport configurations faster.
+    Setting a custom viewport configuration triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access browsers with custom viewport configurations faster.
 </Info>
 
 <CodeGroup>
@@ -134,6 +134,52 @@ func main() {
 <Info>
 The `refresh_rate` parameter only applies to live view sessions and is ignored for [headless](/browsers/headless) browsers.
 </Info>
+
+## Window size vs. page viewport
+
+The `viewport` parameter sets the dimensions of the browser **window**, not the visible page area. On headful browsers, Chromium's UI (tab strip and toolbar) occupies part of the window height, so the page renders in a slightly shorter area than the configured height. For example, with a 1280x800 viewport, `window.innerHeight` will be less than 800 and content near the bottom of the page may not be visible in screenshots or live view.
+
+If your automation expects an exact page viewport, either:
+
+- **Use kiosk mode** to remove the browser UI, so the window dimensions match the page viewport exactly:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  kiosk_mode: true,
+  viewport: { width: 1920, height: 1080 }
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    kiosk_mode=True,
+    viewport={"width": 1920, "height": 1080}
+)
+```
+
+</CodeGroup>
+
+- **Set the page viewport through your automation framework.** This will update the rendered page size, but will not be reflected in the live view or computer controls:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+// Playwright
+await page.setViewportSize({ width: 1280, height: 800 });
+```
+
+```python Python
+# Playwright
+await page.set_viewport_size({"width": 1280, "height": 800})
+```
+
+</CodeGroup>
+
+- **Account for the browser UI when choosing dimensions** by adding its height to the `height` you pass to Kernel, so the remaining page area matches your target size.
+
+On [headless](/browsers/headless) browsers there is no browser UI, so the page viewport matches the configured dimensions exactly.
 
 ## Supported viewport configurations
 
@@ -414,4 +460,4 @@ if err != nil {
 - The viewport configuration is set when the browser is created and applies to the initial browser window
 - Higher resolutions (like 2560x1440) may impact the performance and responsiveness of live view sessions
 - The viewport size affects how websites render, especially those with responsive designs
-- Screenshots taken from the browser will match the configured viewport dimensions
+- Screenshots taken through your automation framework capture the page viewport, which on headful browsers is shorter than the configured dimensions due to the browser UI (see [Window size vs. page viewport](#window-size-vs-page-viewport))

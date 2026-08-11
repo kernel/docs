@@ -2,30 +2,40 @@
 title: "Scale"
 description: "Recommended practices for scaling in production"
 ---
-## Introduction
+## Overview
 
-This guide explains how to architect production-scale browser automation systems using Kernel, how to handle high-concurrency workloads, and best practices for building resilient systems.
+This guide covers how to run Kernel in production at scale — which architecture to build around browser creation, and when to reach for a browser pool. It assumes you're comfortable [creating](/introduction/create) and [controlling](/introduction/control) browsers; for the mechanics of standing up a pool and acquiring from it, see [Browser Pools](/browsers/pools).
 
-After understanding the basics of [creating](/introduction/create) and [controlling](/introduction/control) our browsers, you should understand how to create and connect to individual browsers on-demand. This guide builds on that foundation to help you design systems using browser pools that can handle hundreds or thousands of concurrent browser tasks reliably.
+## Why a browser pool
 
-## Understanding your requirements
+A [browser pool](/browsers/pools) keeps a set of identically-configured browsers ready for immediate use. Compared to creating browsers on demand, it gives you:
 
-Before selecting an architecture, assess your workload's characteristics:
+- **Low-latency acquisition** — the browser is already booted with your configuration applied (including settings like custom viewports, extensions, and kiosk-mode live view that otherwise [restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser), so `acquire` hands you one that's ready to drive.
+- **Reserved, pre-configured capacity** — a fixed set of browsers on your exact configuration, ready before traffic arrives.
+- **Higher creation throughput** — acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on `browsers.create()` that high-volume workloads hit.
 
-**Concurrency**: How many browsers need to run simultaneously?
-- Low (1-50): On-demand browser creation is sufficient
-- Medium (50-100): Pre-configuring browser pools provides significant benefits
-- High (100+): Use multiple pools with queuing
+The tradeoff: a browser pool counts against your concurrency limit whether or not its browsers are currently acquired — a pool sized to 40 holds 40 of your limit. Idle pooled browsers aren't billed, but they hold the slot.
 
-**Request Patterns**: How do tasks arrive?
-- Steady state: Size your pool to match average load
-- Bursty traffic: Size for burst capacity or implement queuing
-- Scheduled batches: Pre-configure pools to match batch processing size
+## When to use a pool vs on-demand
 
-**Throughput**: How quickly do you need to create and tear down browsers?
-- Flexible (a few per hour or day): On-demand creation may suffice
-- Moderate (a few per minute): Pools provide noticeable improvement
-- High (many per second): Browser pools are essential
+Reach for a **browser pool** when:
+
+- you're running the same workload repeatedly, in production
+- acquisition latency matters — a cold start is unacceptable (for example, a synchronous, user-facing action)
+- traffic is steady or high-frequency enough to keep the browser pool utilized
+- you're hitting the `browsers.create()` rate limit at volume
+
+Stick with **on-demand `browsers.create()`** when:
+
+- volume is low, bursty, one-off, or you're still developing
+- each session needs a different configuration (a pool is one fixed config)
+- you need a GPU browser (not available in pools)
+
+Concurrency and request patterns are how you *size* a pool once you've decided to use one — not a threshold that gates whether pools are worth it. Even a small pool pays off when acquisition latency matters and demand is steady.
+
+## Sizing
+
+Watch `available_count` and target 10–20% available under normal load, resizing before traffic peaks rather than during them. See [Sizing a browser pool](/browsers/pools#sizing-a-browser-pool) for the full guidance.
 
 ## Architecture patterns
 
@@ -34,8 +44,8 @@ Before selecting an architecture, assess your workload's characteristics:
 For proof-of-concept work and early production systems with modest concurrency needs, creating browsers on-demand is the simplest approach.
 
 **When to use:**
-- Processing fewer than 50 concurrent tasks
-- Infrequent, unpredictable workloads
+- Low or unpredictable volume
+- Infrequent or one-off workloads
 - Early development and testing
 
 <Accordion title="Example">
@@ -79,8 +89,8 @@ async function processTask(taskData: any) {
 For production systems with consistent, high-frequency workloads, a browser pool allows you to access higher concurrency plus predictable performance.
 
 **When to use:**
-- 50-100+ concurrent tasks with consistent configuration
-- Steady request patterns
+- Consistent, high-frequency workloads on a fixed configuration
+- Steady request patterns, or latency-sensitive acquisition
 
 <Accordion title="Example">
 
@@ -138,15 +148,15 @@ async function processTask(taskData: any) {
 
 **Key considerations:**
 - Pool size should match your typical concurrency
-- Always release browsers in a `finally` block to prevent pool exhaustion
+- Always release browsers in a `finally` block to prevent browser pool exhaustion
 - Set `acquire_timeout_seconds` based on your SLA requirements
 
 ### Queue-based processing (high scale)
 
-For systems exceeding pool capacity or with unpredictable bursts, implement a task queue to manage workloads gracefully.
+For systems exceeding browser pool capacity or with unpredictable bursts, implement a task queue to manage workloads gracefully.
 
 **When to use:**
-- Request volume exceeds maximum pool capacity (100+ concurrent)
+- Request volume exceeds a single browser pool's capacity
 - Highly variable traffic patterns
 - Need to prioritize certain tasks
 - Want to decouple request ingestion from processing
@@ -223,7 +233,7 @@ async function submitTask(taskData: any, priority?: number) {
 </Accordion>
 
 **Queue-specific considerations:**
-- Set worker concurrency to match or slightly exceed pool size
+- Set worker concurrency to match or slightly exceed browser pool size
 - Implement proper retry logic for transient failures
-- Monitor queue depth to scale pools dynamically
+- Monitor queue depth to scale browser pools dynamically
 - Use priority queues for different SLAs
