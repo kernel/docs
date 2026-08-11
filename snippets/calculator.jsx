@@ -67,9 +67,6 @@ export const PricingCalculator = () => {
     const labelStyle = { fontWeight: 600, fontSize: '0.875rem', minWidth: '10rem', flexShrink: 0, maxWidth: '10rem' };
     const rowStyle = { display: 'flex', alignItems: 'center', gap: '0.5rem', minHeight: '2.25rem' };
     const inputStyle = { minWidth: 0, flex: 1, maxWidth: '100%', boxSizing: 'border-box', background: 'transparent' };
-    const numberInputStyle = {
-        borderBottom: '1px solid #81b300', textAlign: 'right'
-    };
     const selectStyle = {
         ...inputStyle,
         appearance: 'none',
@@ -82,7 +79,7 @@ export const PricingCalculator = () => {
     const btnStyle = (active) => ({
         padding: '0.25rem 0.5rem',
         borderRadius: '0.375rem',
-        border: `1px solid ${active ? '#81b300' : 'var(--btn-border)'}`,
+        border: '1px solid var(--btn-border)',
         fontSize: '0.875rem',
         background: active ? 'var(--btn-selected-bg)' : undefined,
     });
@@ -99,11 +96,11 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={rowStyle}>
                     <label style={labelStyle}>Session length (seconds)</label>
-                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={avgSessionLength} onChange={(e) => { hasInteracted.current = true; setAvgSessionLength(parseInt(e.target.value)); }} />
+                    <input type="number" style={{...inputStyle}} value={avgSessionLength} onChange={(e) => { hasInteracted.current = true; setAvgSessionLength(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
                     <label style={labelStyle}>Number of sessions</label>
-                    <input type="number" style={{...inputStyle, ...numberInputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
+                    <input type="number" style={{...inputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
@@ -113,15 +110,15 @@ export const PricingCalculator = () => {
                 <div style={rowStyle}>
                     <span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>
                         ${(usagePrices * multiplier).toFixed(8)}/second
-                        {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem', color: '#81b300' }}>(Startup tier required)</span>}
+                        {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem' }}>(Startup tier required)</span>}
                     </span>
                 </div>
             </Card>
             <Card title="Price" icon="circle-dollar">
-                <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#81b300' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
+                <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
             </Card>
         </Columns>
     );
