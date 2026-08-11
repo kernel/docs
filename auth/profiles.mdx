@@ -69,6 +69,26 @@ func main() {
 ```
 </CodeGroup>
 
+## Rename a profile
+
+Profiles can be renamed without recreating their stored browser state. The new name must be unique within the project.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.profiles.update('profiles-demo', { name: 'checkout-session' });
+```
+
+```python Python
+kernel.profiles.update("profiles-demo", name="checkout-session")
+```
+
+```go Go
+_, err := client.Profiles.Update(ctx, "profiles-demo", kernel.ProfileUpdateParams{
+	Name: "checkout-session",
+})
+```
+</CodeGroup>
+
 ## 2. Start a browser session using the profile and save changes
 
 After creating the profile, reference it by its `name` or `id` when creating a browser.
@@ -106,6 +126,68 @@ if err != nil {
 _ = kernelBrowser
 ```
 </CodeGroup>
+
+### Prevent concurrent profile writes
+
+Saving replaces the profile's entire stored browser state; it doesn't merge cookies or local storage from multiple sessions. If more than one browser uses the same profile with `save_changes: true`, the browser that ends last overwrites the profile with its state.
+
+Before starting a writer, call `GET /browsers?status=active&query=<profileId>` and check `profile_save_changes` to find active sessions that can save to that profile. The `query` parameter can match fields other than the profile ID, so filter the results by the exact `profile.id` too.
+
+<CodeGroup>
+```typescript TypeScript
+const profileId = kernelBrowser.profile!.id;
+const activeWriters = [];
+
+for await (const browser of kernel.browsers.list({
+  status: 'active',
+  query: profileId,
+})) {
+  if (browser.profile?.id === profileId && browser.profile_save_changes) {
+    activeWriters.push(browser);
+  }
+}
+
+if (activeWriters.length > 0) {
+  throw new Error(`Profile already has an active writer: ${activeWriters[0].session_id}`);
+}
+```
+
+```python Python
+profile_id = kernel_browser.profile.id
+active_writers = [
+    browser
+    for browser in kernel.browsers.list(status="active", query=profile_id)
+    if browser.profile
+    and browser.profile.id == profile_id
+    and browser.profile_save_changes
+]
+
+if active_writers:
+    raise RuntimeError(
+        f"Profile already has an active writer: {active_writers[0].session_id}"
+    )
+```
+
+```go Go
+profileID := kernelBrowser.Profile.ID
+pager := client.Browsers.ListAutoPaging(ctx, kernel.BrowserListParams{
+	Status: kernel.BrowserListParamsStatusActive,
+	Query:  kernel.String(profileID),
+})
+
+for pager.Next() {
+	browser := pager.Current()
+	if browser.Profile.ID == profileID && browser.ProfileSaveChanges {
+		panic(fmt.Sprintf("profile already has an active writer: %s", browser.SessionID))
+	}
+}
+if err := pager.Err(); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+This check and browser creation are separate requests. If multiple workers can start sessions concurrently, use your own lock or lease around both operations so two workers can't pass the check at the same time.
 
 ## 3. Use the browser, then close it to persist the state
 
@@ -493,6 +575,6 @@ _ = browser
 - A profile's `name` must be unique within your [project](/info/projects). The same name can be reused across different projects in the same org.
 - Profiles store cookies and local storage. Start the session with `save_changes: true` to write changes back when the browser is closed.
 - To keep a profile immutable for a run, omit `save_changes` (default) when creating the browser.
-- Multiple browsers in parallel can use the same profile, but only one browser should write (`save_changes: true`) to it at a time. Parallel browsers with `save_changes: true` may cause profile corruption and unpredictable behavior.
-- `save_changes` applies to a profile attached to a single browser — either at creation (`kernel.browsers.create()`) or loaded afterward with `kernel.browsers.update()`. A profile set on a [browser pool's](/browsers/pools) config is loaded read-only and never persisted; `save_changes` sent on a pool's profile is silently ignored. To persist per-user state through a pool, attach the profile after acquiring the browser and release with `reuse: false` — see [Per-user profiles with pools](/browsers/pools#per-user-profiles-with-browser-pools).
+- Multiple browsers in parallel can use the same profile, but only one browser can safely write (`save_changes: true`) to it at a time. Each save overwrites the whole profile, so the browser that ends last wins.
+- `save_changes` applies to a profile attached to a single browser — either at creation (`kernel.browsers.create()`) or loaded afterward with `kernel.browsers.update()`. A profile set on a [browser pool's](/browsers/pools) config is loaded read-only and never persisted; `save_changes` sent on a pool's profile is silently ignored. To persist per-user state through a pool, attach the profile with `save_changes: true` after acquiring the browser and release with `reuse: false` — see [Per-user profiles with pools](/browsers/pools#per-user-profiles-with-browser-pools).
 - Profile data is encrypted end to end using a per-organization key.

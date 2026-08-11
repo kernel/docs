@@ -1,0 +1,39 @@
+---
+title: "Terraform"
+description: "Manage durable Kernel infrastructure with Terraform"
+---
+
+Use the official Kernel Terraform provider to manage durable infrastructure such as projects and browser pools.
+
+## Install the provider
+
+Add `kernel/kernel` to your Terraform configuration:
+
+```hcl
+terraform {
+  required_providers {
+    kernel = {
+      source = "kernel/kernel"
+    }
+  }
+}
+
+provider "kernel" {}
+```
+
+Set `KERNEL_API_KEY` and, when needed, `KERNEL_PROJECT_ID` in the environment where Terraform runs. You can then manage Kernel projects and browser pools, read existing projects, profiles, proxies, and extensions, and import existing projects or browser pools by ID.
+
+<Note>
+The provider manages durable desired configuration. Use the Kernel SDKs or API for runtime browser operations such as creating sessions, acquiring browsers, releasing browsers, and viewing logs.
+</Note>
+
+## Provider documentation
+
+<CardGroup cols={2}>
+  <Card title="Terraform Registry" icon="cube" href="https://registry.terraform.io/providers/kernel/kernel/latest">
+    Browse installation instructions and the generated resource and data source reference.
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/kernel/terraform-provider-kernel">
+    View examples, release notes, source code, and contribution guidance.
+  </Card>
+</CardGroup>
