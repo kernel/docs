@@ -25,19 +25,20 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
 | Included credits / mo | $5 | $10 | $50 | Custom |
-| Extended browser timeouts | ✅ | ✅ | ✅ | ✅ |
 | Browser live view | ✅ | ✅ | ✅ | ✅ |
+| Extended browser timeouts | ✅ | ✅ | ✅ | ✅ |
 | Browser telemetry | ✅ | ✅ | ✅ | ✅ |
 | Configurable browser viewports | ✅ | ✅ | ✅ | ✅ |
-| Managed stealth mode | ✅ | ✅ | ✅ | ✅ |
+| Stealth mode | ✅ | ✅ | ✅ | ✅ |
+| Browser profiles | ✅ | ✅ | ✅ | ✅ |
+| File i/o | ✅ | ✅ | ✅ | ✅ |
 | Computer controls API | ✅ | ✅ | ✅ | ✅ |
-| Browser replays | ❌ | 7 days | 30 days | Custom |
-| Browser profiles | ❌ | ✅ | ✅ | ✅ |
-| Managed auth profiles | ❌ | ✅ | ✅ | ✅ |
-| File uploads & downloads | ❌ | ✅ | ✅ | ✅ |
-| Configurable browser extensions | ❌ | ❌ | ✅ | ✅ |
+| Browser replays | 1 day | 7 days | 30 days | Custom |
+| Managed auth connections | 3 | unlimited | unlimited | unlimited |
+| Custom browser extensions | 1 | 1 | unlimited | unlimited |
 | Configurable & BYO proxies | ❌ | ❌ | ✅ | ✅ |
-| Browser pools | ❌ | ❌ | ✅ | ✅ |
+| Browser pools | ✅ | ✅ | ✅ | ✅ |
+| Projects | 1 | 1 | unlimited | unlimited |
 | Support | Discord | Discord | Email | Shared Slack |
 | SOC2 compliance | ✅ | ✅ | ✅ | ✅ |
 | Audit log search & export | ❌ | ❌ | ✅ | ✅ |
@@ -47,36 +48,35 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 
 > Note: Included monthly credits apply to usage costs only.
 
-> Note: [Audit logs](/info/audit-logs) are retained for 1 year. See the audit logs page for search, download, and continuous S3 export details.
-
-## Browser pools
-
-With [browser pools](/browsers/pools), you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a browser pool incur no usage charges — you only pay when a browser is actively in use, so an idle browser pool costs nothing between tasks.
-
-> Note: GPU acceleration is not available for browser pools.
-
-## Managed Auth
-
-Managed Auth is included on all paid plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
-
-Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
-
 ## Concurrency limits
 
-Kernel enforces a single concurrency limit covering all browsers you run at once — whether created on demand with `browsers.create()` or maintained in a [browser pool](/browsers/pools). Your full limit is available to either API in any mix.
+Kernel enforces a single concurrency limit covering all browsers you run at once—whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
 
 | Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
 | --- | --- | --- | --- | --- |
 | Concurrent browsers | 5 | 10 | 150 | Custom |
 | App invocations | 5 | 10 | 50 | Custom |
 | App invocations (per-app) | 5 | 10 | 20 | Custom |
-| Managed auth health check interval | N/A | 1 hour minimum | 20 minutes minimum | Custom |
+| Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
 
+#### Notes
+- Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired—a pool sized to 40 browsers uses 40 of your limit.
+- Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
+- Limits are org-wide by default unless stated otherwise. `Managed auth connections` refer to profiles with active auth connections that Kernel maintains using your stored [Credentials](/auth/credentials) or [1Password connection](/integrations/1password). A single profile can have multiple auth connections (one per domain)—see [Profiles](/auth/profiles#multiple-auth-connections-per-profile) for details.
+
+## Browser pools
+
+With Browser Pools, you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
+
+GPU acceleration is not available for browser pools.
 > Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
 
-> Note: Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
+## Managed Auth
 
-> Note: Limits are org-wide by default unless stated otherwise. `Managed auth profiles` refer to profiles with active auth connections that Kernel maintains using your stored [Credentials](/auth/credentials) or [1Password connection](/integrations/1password). A single profile can have multiple auth connections (one per domain) — see [Profiles](/auth/profiles#multiple-auth-connections-per-profile) for details.
+Managed Auth is included on all plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
+
+Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
+
 
 ## Rate limiting
 
