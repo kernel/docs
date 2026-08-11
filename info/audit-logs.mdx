@@ -1,6 +1,6 @@
 ---
 title: "Audit Logs"
-description: "Search and export audit logs for API requests across your organization"
+description: "Audit logs for API requests across your organization"
 ---
 
 Audit logs record authenticated API requests across your entire organization. Use them to review who called Kernel, which endpoint they called, when the request happened, and how the request completed.
@@ -10,15 +10,16 @@ Choose the endpoint that matches the amount of data you need:
 | Endpoint | Best for | Output |
 |----------|----------|--------|
 | [Search](#search-audit-logs) | Interactive investigation and recent activity | Paginated JSON events |
-| [Export](#export-audit-logs) | Archival, compliance, and offline analysis | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+| [Download](#download-audit-logs) | Archival, compliance, and offline analysis of a bounded time window | Gzip-compressed JSON Lines (`.jsonl.gz`) |
+| [Continuous S3 export](#continuous-s3-export) | Ongoing delivery to your data lake or compliance bucket | Partitioned `jsonl.gz` objects in your S3 bucket |
 
-Audit logs are ordered newest first. Time windows use an inclusive `start` and exclusive `end`: `[start, end)`. A search or export can cover up to 30 days. Split longer periods into multiple time windows.
+Search and download are available on **Start-Up** and **Enterprise** plans. Continuous S3 export is available on **Enterprise**.
 
-Both endpoints are also available from the [CLI](/reference/cli/audit-logs). For the underlying HTTP API, see [search](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) and [export](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) in the API reference.
+Audit logs are also available from the [CLI](/reference/cli/audit-logs).
 
 ## Filter audit logs
 
-The API and SDKs use the same filters for search and export:
+The API and SDKs use the same filters for search and downloads:
 
 - `auth_strategy` filters by authentication method, such as `api_key`, `dashboard`, or `oauth`.
 - `service` filters by the service that emitted the audit event.
@@ -95,14 +96,9 @@ func main() {
 
 See the [API reference](https://kernel.sh/docs/api-reference/audit-logs/list-audit-logs) for the full request and response schema.
 
-## Export audit logs
+## Download audit logs
 
-The SDK download helpers default to `jsonl.gz` and write a complete export to a destination you provide. They:
-
-- request every chunk until the export is complete
-- validate pagination metadata and each chunk's SHA-256 checksum before writing
-- retry transient HTTP and transfer failures
-- append verified chunks in order
+A download covers a time window of up to 30 days. The SDK download helpers default to `jsonl.gz` and write the result to a destination you provide.
 
 The helpers don't close the destination. Python provides equivalent sync and async methods; both accept a synchronous binary destination.
 
@@ -178,6 +174,257 @@ func main() {
 ```
 </CodeGroup>
 
-Export chunks contain one JSON object per line. They use the same fields as search results and add `event_id`.
+Downloaded chunks contain one JSON object per line. They use the same fields as search results and add `event_id`.
 
 For direct HTTP integrations, see the [API reference](https://kernel.sh/docs/api-reference/audit-logs/download-an-audit-log-export-chunk) for pagination headers, formats, and the full request and response schema.
+
+## Continuous S3 export
+
+Continuous export writes new audit log events to an S3 bucket that you control. A destination is an organization-level resource: Kernel assumes an IAM role in your AWS account and writes `jsonl.gz` objects to the configured bucket. The destination is created paused so you can configure and verify IAM before delivery starts.
+
+### Set up a destination
+
+You can use the SDKs, the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP API. All destination requests require an organization-level credential.
+
+The setup steps below use the SDKs. For the CLI walkthrough, see the [CLI reference](/reference/cli/audit-logs#kernel-audit-logs-export).
+
+#### 1. Create a paused destination
+
+Create the destination with the customer role ARN. The create response contains the destination `id`, the Kernel role ARN that must be trusted (`kernel_role_arn`), and the unique STS external ID (`external_id`). Save all three values. The `external_id` is not your organization ID and is not interchangeable with an external ID from another destination.
+
+Every destination is an S3 destination in `jsonl.gz` format and starts with `status: "paused"`. If you use KMS, set `kms_key_id` to a key ID, alias, or ARN in the destination region.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+const destination = await kernel.auditLogs.exportDestinations.create({
+  type: 's3',
+  format: 'jsonl.gz',
+  region: 'us-east-1',
+  bucket: 'customer-audit-logs',
+  prefix: 'audit-logs',
+  role_arn: 'arn:aws:iam::123456789012:role/customer-audit-log-export',
+  // kms_key_id: 'arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555',
+});
+
+console.log(destination.id);
+console.log(destination.kernel_role_arn);
+console.log(destination.external_id);
+```
+
+```python Python
+import os
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+destination = client.audit_logs.export_destinations.create(
+    type="s3",
+    format="jsonl.gz",
+    region="us-east-1",
+    bucket="customer-audit-logs",
+    prefix="audit-logs",
+    role_arn="arn:aws:iam::123456789012:role/customer-audit-log-export",
+    # kms_key_id="arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555",
+)
+
+print(destination.id)
+print(destination.kernel_role_arn)
+print(destination.external_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	destination, err := client.AuditLogs.ExportDestinations.New(ctx, kernel.AuditLogExportDestinationNewParams{
+		CreateAuditLogExportDestinationRequest: kernel.CreateAuditLogExportDestinationRequestParam{
+			Type:    kernel.CreateAuditLogExportDestinationRequestTypeS3,
+			Format:  kernel.CreateAuditLogExportDestinationRequestFormatJSONLGz,
+			Region:  "us-east-1",
+			Bucket:  "customer-audit-logs",
+			Prefix:  "audit-logs",
+			RoleArn: "arn:aws:iam::123456789012:role/customer-audit-log-export",
+			// KmsKeyID: kernel.String("arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(destination.ID)
+	fmt.Println(destination.KernelRoleArn)
+	fmt.Println(destination.ExternalID)
+}
+```
+</CodeGroup>
+
+#### 2. Configure the IAM trust policy
+
+Update the trust policy on the customer role supplied as `role_arn`. Use the `kernel_role_arn` and `external_id` returned by the create call. The values below are placeholders; replace both of them with the values from your response.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowKernelAuditLogExport",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::123456789012:role/kernel-audit-log-export"
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "StringEquals": {
+          "sts:ExternalId": "external-id-from-create-response"
+        }
+      }
+    }
+  ]
+}
+```
+
+`Principal.AWS` must be the returned `kernel_role_arn`, not the customer role's own ARN. The `sts:ExternalId` condition must be the returned `external_id`. Recreating a destination generates a new external ID, so update this trust policy again if you recreate it.
+
+#### 3. Grant S3 and KMS permissions
+
+Attach an identity policy to the customer role. Grant `s3:PutObject` for real delivery and the test probe. Granting `s3:DeleteObject` is recommended so Kernel can remove the temporary probe after a successful test.
+
+The resource should match the configured prefix. If you use a different prefix, replace `audit-logs/*` below. Omit the KMS statement when `kms_key_id` is empty.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteAuditLogObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::customer-audit-logs/audit-logs/*"
+    },
+    {
+      "Sid": "UseAuditLogKMSKey",
+      "Effect": "Allow",
+      "Action": "kms:GenerateDataKey",
+      "Resource": "arn:aws:kms:us-east-1:123456789012:key/11111111-2222-3333-4444-555555555555"
+    }
+  ]
+}
+```
+
+When KMS is configured, the KMS key policy must also allow the customer role to use `kms:GenerateDataKey` (unless the key policy delegates access to IAM policies). The test and real uploads use the same encryption request: SSE-KMS with the configured key. Without a configured KMS key, the bucket's default encryption applies.
+
+#### 4. Test and activate
+
+The test endpoint assumes the customer role, writes a temporary gzip probe, and attempts to delete it. The probe uses the same request metadata as a real delivery: a SHA-256 checksum, `Content-Type: application/gzip`, and SSE-KMS when configured. Run the test before changing the destination to active.
+
+A successful test returns `stage: "complete"`. A failed test identifies `assume_role` or `put_object` and returns `assume_role_failed` or `put_object_failed`. Do not activate the destination until the test succeeds.
+
+<CodeGroup>
+```typescript TypeScript
+const test = await kernel.auditLogs.exportDestinations.test(destination.id);
+if (!test.success) {
+  throw new Error(`export test failed at ${test.stage}`);
+}
+
+const active = await kernel.auditLogs.exportDestinations.update(destination.id, {
+  status: 'active',
+});
+console.log(active.status); // active
+```
+
+```python Python
+test = client.audit_logs.export_destinations.test(destination.id)
+if not test.success:
+    raise RuntimeError(f"export test failed at {test.stage}")
+
+active = client.audit_logs.export_destinations.update(
+    destination.id,
+    status="active",
+)
+print(active.status)  # active
+```
+
+```go Go
+test, err := client.AuditLogs.ExportDestinations.Test(ctx, destination.ID)
+if err != nil {
+	panic(err)
+}
+if !test.Success {
+	panic(fmt.Sprintf("export test failed at %s", test.Stage))
+}
+
+active, err := client.AuditLogs.ExportDestinations.Update(ctx, destination.ID, kernel.AuditLogExportDestinationUpdateParams{
+	UpdateAuditLogExportDestinationRequest: kernel.UpdateAuditLogExportDestinationRequestParam{
+		Status: kernel.UpdateAuditLogExportDestinationRequestStatusActive,
+	},
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println(active.Status) // active
+```
+</CodeGroup>
+
+Activation starts delivery at the activation time. It does not backfill events recorded before activation.
+
+### Object layout
+
+Every continuous export object uses this exact key layout:
+
+```
+<prefix>/destination_id=<destination>/org_id=<org>/date=<YYYY-MM-DD>/hour=<HH>/<window>-<chunk>.jsonl.gz
+```
+
+For example, a destination with prefix `audit-logs` writes under `audit-logs/destination_id=...`. If the prefix is empty, the key starts with `destination_id=...` and has no leading slash. The `date` and `hour` partitions are UTC and identify the calendar hour that fully contains every row in the object. This makes the layout safe for Hive-style partitioning. The format is always `jsonl.gz`: each decompressed line is one JSON event, including `event_id`.
+
+### Delivery semantics
+
+- Delivery is **at least once**. A retry can rewrite the same object.
+- Each event-time window is held for about 10 minutes before it commits. A row that becomes visible after its window has committed may not be delivered.
+- Delivery begins at activation time; events before activation are not backfilled.
+- Pausing stops new delivery attempts. Resuming starts from the resume time; events recorded while paused are never exported. Pausing is not a way to defer delivery.
+- An S3 upload already in progress may complete after a pause or delete. Its rows can appear again after the destination is resumed.
+
+### Monitor delivery
+
+Use the SDK retrieve and list methods, the [CLI](/reference/cli/audit-logs#kernel-audit-logs-export), or the HTTP GET endpoints to inspect the destination and its delivery health. The health fields are:
+
+| Field | Meaning |
+|-------|---------|
+| `status` | `active` or `paused`. |
+| `last_exported_cursor` | Opaque forward-only checkpoint for continuous delivery. It is not an audit-log list page token. |
+| `last_success_at` | Time of the most recent successful export upload. |
+| `last_error` | Sanitized description of the most recent delivery failure. |
+| `last_error_at` | Time of the most recent delivery failure. |
+| `consecutive_failures` | Number of consecutive failed delivery attempts. |
+| `next_attempt_at` | Scheduled time for the next delivery attempt after a failure. |
+
+The cursor and timestamp/error fields can be absent until the destination has attempted delivery. Use `last_error`, `last_error_at`, and `consecutive_failures` together when investigating a destination that is active but not progressing.
+
+### Troubleshoot delivery
+
+- **`assume_role` / `assume_role_failed`:** Check the customer role's trust policy. The principal must be the current `kernel_role_arn` from the destination response, and `sts:ExternalId` must equal the current `external_id`. Recreating a destination issues a new external ID; update the trust policy after recreation.
+- **`put_object` / `put_object_failed`:** Confirm that the customer role can write to the configured bucket and prefix with `s3:PutObject`, and that the bucket is in the configured commercial AWS region. Grant `s3:DeleteObject` as well so the test probe can be cleaned up.
+- **KMS failures:** Confirm that the KMS key is in the commercial `aws` partition, that an ARN's region matches the destination region, and that both the role policy and key policy allow `kms:GenerateDataKey`. If you do not need a customer-managed key, clear it and use bucket-default encryption.
+- **A probe remains after a successful test:** Probe cleanup is best effort. Add `s3:DeleteObject` for the configured prefix and remove any leftover `.kernel-audit-log-export-test-*.jsonl.gz` object yourself.
+- **A `PATCH` returns `409 Conflict`:** The destination changed concurrently. Retrieve fresh state, merge your intended fields with that state, and retry the update. Do not retry a stale read-modify-write payload unchanged.
+- **No objects after a pause or downgrade:** Check `status` and the plan. Pausing and non-Enterprise status stop new delivery; restore Enterprise and follow the normal activation/resume path if the destination is paused. Events recorded while paused are not backfilled.
