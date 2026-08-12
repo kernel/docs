@@ -1,0 +1,174 @@
+---
+title: "Private Networking"
+description: "Route browser traffic to private services through a VPN or tunnel in the browser session"
+---
+
+Use `network.private_hosts` when a browser session joins a VPN or tunnel and must reach private services through that connection. Matching destinations bypass Kernel-managed egress and use the session's network routes and DNS instead.
+
+This is useful for services reachable through Tailscale, a corporate VPN, or another tunnel running inside the browser session.
+
+<Info>
+`network.private_hosts` is different from a proxy's [`bypass_hosts`](/proxies/overview#bypass-hosts). Proxy bypass rules choose between your upstream proxy and Kernel-managed direct egress. Private hosts bypass Kernel-managed egress so traffic can follow routes inside the browser session, including VPN and tunnel routes.
+</Info>
+
+## Configure a browser
+
+Set private hosts when you create the browser. You can't change the network configuration after creation.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  network: {
+    private_hosts: [
+      '*.services.example.ts.net',
+      '100.64.0.0/10',
+    ],
+  },
+});
+
+console.log(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    network={
+        "private_hosts": [
+            "*.services.example.ts.net",
+            "100.64.0.0/10",
+        ]
+    }
+)
+
+print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+    client := kernel.NewClient()
+
+    browser, err := client.Browsers.New(context.Background(), kernel.BrowserNewParams{
+        Network: kernel.BrowserNetworkConfigParam{
+            PrivateHosts: []string{
+                "*.services.example.ts.net",
+                "100.64.0.0/10",
+            },
+        },
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println(browser.SessionID)
+}
+```
+
+```bash CLI
+kernel browsers create \
+  --private-host '*.services.example.ts.net' \
+  --private-host '100.64.0.0/10'
+```
+</CodeGroup>
+
+## Default private routes
+
+When you omit `network.private_hosts`, Kernel routes these private IP ranges through the session network by default:
+
+- RFC1918: `10.0.0.0/8`, `172.16.0.0/12`, and `192.168.0.0/16`
+- CGNAT and Tailscale: `100.64.0.0/10`
+- IPv6 unique local addresses: `fc00::/7`
+
+These CIDR rules only match URLs that use literal IP addresses. They don't match a hostname after DNS resolution. Add private DNS names explicitly, even when they resolve to an address in a default range:
+
+```json
+{
+  "network": {
+    "private_hosts": ["api.services.example.ts.net"]
+  }
+}
+```
+
+<Warning>
+Providing `private_hosts` replaces the default list; it doesn't add to it. Include any default CIDRs you still need alongside your hostname rules.
+</Warning>
+
+To disable direct private routing and send all traffic through Kernel-managed egress, provide an explicit empty list:
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  network: { private_hosts: [] },
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    network={"private_hosts": []}
+)
+```
+</CodeGroup>
+
+## Supported entries
+
+You can provide up to 32 entries, each no longer than 255 characters:
+
+- Exact hostnames: `api.services.example.ts.net`
+- A single leading wildcard: `*.services.example.ts.net`
+- Private IPv4 addresses: `10.1.30.63`
+- Bracketed private IPv6 addresses: `[fd00::1]`
+- Canonical private CIDRs: `100.64.0.0/10` or `fd00::/8`
+- Hostnames or exact IP addresses with ports: `api.services.example.ts.net:8443`
+
+Kernel rejects public IP ranges, loopback and link-local ranges, URL schemes, paths, catch-all wildcards, ports on CIDRs, and non-canonical CIDRs. Hostnames aren't resolved during validation, so only add names that identify private destinations.
+
+## Configure a browser pool
+
+Put the network configuration on a browser pool when every browser in the pool needs the same private routes.
+
+<CodeGroup>
+```typescript TypeScript
+const pool = await kernel.browserPools.create({
+  name: 'private-services',
+  size: 5,
+  network: {
+    private_hosts: ['*.services.example.ts.net'],
+  },
+});
+```
+
+```python Python
+pool = kernel.browser_pools.create(
+    name="private-services",
+    size=5,
+    network={
+        "private_hosts": ["*.services.example.ts.net"],
+    },
+)
+```
+
+```bash CLI
+kernel browser-pools create private-services \
+  --size 5 \
+  --private-host '*.services.example.ts.net'
+```
+</CodeGroup>
+
+A browser-pool update applies only to browsers created after the update. Pass `discard_all_idle: true` in an SDK request, or `--discard-all-idle` in the CLI, to immediately replace idle browsers with the new configuration. Acquired browsers keep their original configuration until you release them with reuse disabled.
+
+Use `kernel browser-pools update private-services --clear-private-hosts --discard-all-idle` to remove a pool override and restore the default private IP ranges. To configure an explicit empty list, use an SDK request with `network.private_hosts: []`.
