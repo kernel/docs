@@ -122,10 +122,6 @@ browser = kernel.browsers.create(
     network={"private_hosts": []}
 )
 ```
-
-```bash CLI
-kernel browsers create --disable-private-hosts
-```
 </CodeGroup>
 
 ## Supported entries
@@ -175,4 +171,4 @@ kernel browser-pools create private-services \
 
 A browser-pool update applies only to browsers created after the update. Pass `discard_all_idle: true` in an SDK request, or `--discard-all-idle` in the CLI, to immediately replace idle browsers with the new configuration. Acquired browsers keep their original configuration until you release them with reuse disabled.
 
-Use `kernel browser-pools update private-services --clear-private-hosts --discard-all-idle` to remove a pool override and restore the default private IP ranges. Use `--disable-private-hosts` instead when you want an explicit empty list that sends all traffic through Kernel-managed egress.
+Use `kernel browser-pools update private-services --clear-private-hosts --discard-all-idle` to remove a pool override and restore the default private IP ranges. To configure an explicit empty list, use an SDK request with `network.private_hosts: []`.
