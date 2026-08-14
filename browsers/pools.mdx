@@ -1,0 +1,341 @@
+---
+title: "Browser Pools"
+description: "Configure a pool of ready-to-use browsers for instant acquisition"
+---
+
+A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, [private networking](/browsers/private-networking), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
+
+Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation.
+
+Idle browsers in a pool aren't billed, but the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
+
+## How browser pools work
+
+<Steps>
+  <Step title="Declare a browser pool">
+    Create a browser pool with your configuration and a fixed size. It takes a few minutes to fill, so declare it at deploy time or on startup rather than in the path that serves your workload.
+  </Step>
+  <Step title="Acquire a browser">
+    `acquire` returns a ready browser immediately, or waits until one frees up. A browser pool holds a fixed number of browsers and doesn't add extras to cover the ones in use: acquiring lowers its available count, releasing raises it again.
+  </Step>
+  <Step title="Release a browser">
+    Release the browser when you're done. Until you do — or until it [times out](#timeout-behavior) — it stays `acquired` and out of the pool.
+  </Step>
+</Steps>
+
+## Limitations
+
+A few constraints to weigh before moving a workload onto a browser pool:
+
+- **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
+- **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
+- **A profile set on the browser pool loads read-only**, and a browser pool holds one at a time — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools) for how to persist state per user.
+- **Browser pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
+- **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
+
+## Create a browser pool
+
+Create a browser pool with a size and the configuration every browser in it should use.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const pool = await kernel.browserPools.create({
+  name: "my-pool",
+  size: 10,
+  stealth: true,
+  headless: false,
+  timeout_seconds: 600,
+  start_url: "https://example.com",
+  viewport: {
+    width: 1920,
+    height: 1080
+  }
+});
+
+console.log(pool.id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+pool = kernel.browser_pools.create(
+    name="my-pool",
+    size=10,
+    stealth=True,
+    headless=False,
+    timeout_seconds=600,
+    start_url="https://example.com",
+    viewport={
+        "width": 1920,
+        "height": 1080
+    }
+)
+
+print(pool.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+		Name:           kernel.String("my-pool"),
+		Size:           10,
+		Stealth:        kernel.Bool(true),
+		Headless:       kernel.Bool(false),
+		TimeoutSeconds: kernel.Int(600),
+		StartURL:       kernel.String("https://example.com"),
+		Viewport: shared.BrowserViewportParam{
+			Width:  1920,
+			Height: 1080,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(pool.ID)
+}
+```
+</CodeGroup>
+
+## Acquire a browser
+
+Acquire a browser from the browser pool. The request returns immediately if a browser is available, or waits until one becomes available. Use `acquire_timeout_seconds` to bound that wait.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browserPools.acquire("my-pool", {
+  acquire_timeout_seconds: 30,
+});
+
+console.log(browser.session_id);
+console.log(browser.cdp_ws_url);
+```
+
+```python Python
+browser = kernel.browser_pools.acquire(
+    "my-pool",
+    acquire_timeout_seconds=30,
+)
+
+print(browser.session_id)
+print(browser.cdp_ws_url)
+```
+
+```go Go
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{
+	AcquireTimeoutSeconds: kernel.Int(30),
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(browser.SessionID)
+fmt.Println(browser.CdpWsURL)
+```
+</CodeGroup>
+
+The acquired browser exposes the same properties as an on-demand browser, including `cdp_ws_url` for CDP connections and `browser_live_view_url` for live viewing.
+
+## Release a browser
+
+When you're done with a browser, release it back to the browser pool. By default, the browser instance is reused. Set `reuse: false` to destroy it and create a fresh one.
+
+Reuse controls whether browser state carries across acquisitions:
+
+- **`reuse: true`** (default) returns the same browser instance to the pool without resetting it. Cookies, local storage, logged-in sessions, and open tabs persist, and the next caller to acquire it inherits that state. Fast, but not isolated between acquirers.
+- **`reuse: false`** destroys the browser and refills the pool with a fresh one. Isolated and clean, at the cost of a rebuild.
+
+<Warning>
+If you acquire pooled browsers on behalf of different end users, releasing with `reuse: true` leaks one user's session to the next. Use `reuse: false` for per-user work — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools).
+</Warning>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browserPools.release("my-pool", {
+  session_id: browser.session_id,
+  reuse: true,
+});
+```
+
+```python Python
+kernel.browser_pools.release(
+    "my-pool",
+    session_id=browser.session_id,
+    reuse=True,
+)
+```
+
+```go Go
+if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+	SessionID: browser.SessionID,
+	Reuse:     kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+### Timeout behavior
+
+Browsers wait in the browser pool indefinitely until acquired — a browser pool's `timeout_seconds` only starts running once a browser is acquired. From there it behaves like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout): if the browser sits idle, with no CDP or live view connection, for longer than the timeout, it's destroyed rather than returned to the pool, and the pool creates a replacement.
+
+As a best practice, release each browser when you're done with it — that returns it to the pool right away. The timeout is there as a backstop for browsers that never get released.
+
+## Profiles with browser pools
+
+A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser; use [Managed Auth](/auth/overview) to populate and maintain it. Put the profile on the browser pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools)).
+
+A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
+
+### Per-user profiles with browser pools
+
+Because that profile is shared and read-only, it can't hold per-user login state for many users at once. To serve many users from one browser pool, create it with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it keeps that user's state from reaching the next acquirer.
+
+The read-only rule covers the pool's own profile, not one attached after acquiring: that profile belongs to the browser, so `save_changes` applies as it does on any other browser. Pass `save_changes: true` when you attach it — it defaults to `false`, and without it the browser is destroyed on release without writing the user's session back.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browserPools.acquire("my-pool");
+
+await kernel.browsers.update(browser.session_id, {
+  profile: { name: "user-8f21c3", save_changes: true }
+});
+
+// ... drive the browser as that user ...
+
+await kernel.browserPools.release("my-pool", {
+  session_id: browser.session_id,
+  reuse: false,
+});
+```
+
+```python Python
+browser = kernel.browser_pools.acquire("my-pool")
+
+kernel.browsers.update(
+    browser.session_id,
+    profile={"name": "user-8f21c3", "save_changes": True},
+)
+
+# ... drive the browser as that user ...
+
+kernel.browser_pools.release(
+    "my-pool",
+    session_id=browser.session_id,
+    reuse=False,
+)
+```
+
+```go Go
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
+if err != nil {
+	panic(err)
+}
+
+if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String("user-8f21c3"),
+		SaveChanges: kernel.Bool(true),
+	},
+}); err != nil {
+	panic(err)
+}
+
+// ... drive the browser as that user ...
+
+if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
+	SessionID: browser.SessionID,
+	Reuse:     kernel.Bool(false),
+}); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free.
+
+### Refresh on profile update
+
+Each browser loads the profile's data at the moment it's created, so re-saving that profile later doesn't reach browsers that are already running. With `refresh_on_profile_update` enabled, saving the profile — after a [Managed Auth](/auth/overview) login, for example — flushes every idle browser in the pool and replaces it with one that loads the updated data. Browsers that are currently acquired keep the data they started with.
+
+It's enabled automatically when a browser pool is created with a profile or has its profile changed, and forced to `false` when the profile is removed (by passing `{ "id": "" }`). Set it to `false` to opt out.
+
+<Info>
+`refresh_on_profile_update` requires a profile on the pool. Setting it to `true` without one returns a validation error.
+</Info>
+
+## Sizing a browser pool
+
+`retrieve` reports how many browsers are ready to acquire right now (`available_count`) and how many are in use (`acquired_count`). Watch the available count under normal load:
+
+- **Regularly at zero.** Tasks are queueing behind `acquire` — the pool is too small.
+- **Steady at 10–20%.** The target: enough headroom to absorb a spike without reserving capacity you don't use.
+- **Consistently above 30–40%.** You're holding concurrency for browsers you never acquire, so shrink the pool.
+
+Resize at any time — no need to tear the pool down and rebuild it. Added capacity fills at the pool's [fill rate](https://kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute), so raise the size before a traffic peak rather than during it.
+
+Browser pools shine at higher concurrency, but even a small one is worth it when acquisition latency matters and demand is steady enough to keep it utilized — for example, a user-facing action where a cold start is unacceptable. On-demand browsers remain the better fit for low-volume, bursty, or one-off work, for configuration that varies per session, and for GPU browsers.
+
+## Update a browser pool
+
+Update the browser pool's configuration. By default, existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const updatedPool = await kernel.browserPools.update("my-pool", {
+  size: 20,
+  stealth: true,
+});
+```
+
+```python Python
+updated_pool = kernel.browser_pools.update(
+    "my-pool",
+    size=20,
+    stealth=True,
+)
+```
+
+```go Go
+updatedPool, err := client.BrowserPools.Update(ctx, "my-pool", kernel.BrowserPoolUpdateParams{
+	Size:    kernel.Int(20),
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = updatedPool
+```
+</CodeGroup>
+
+<Warning>
+Browsers that are acquired during an update are never touched, even with `discard_all_idle: true`. An in-use browser keeps its original configuration, and if you release it with `reuse: true` (the default) it re-enters the pool still carrying that configuration and keeps getting handed out that way.
+
+You have two ways to get an in-use browser onto the new configuration:
+
+- **Prevent it on release:** release with `reuse: false`. The browser is destroyed and rebuilt with the browser pool's current configuration instead of the old one returning to the pool.
+- **Clean it up after the fact:** `flush()` the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released. Both destroy every idle browser and let the pool refill on the current configuration; neither touches a browser that's currently acquired, so both are safe to call under load.
+</Warning>
+
+## API reference
+
+See the [Browser Pools API reference](https://kernel.sh/docs/api-reference/browser-pools/list-browser-pools) for `retrieve`, `list`, `flush`, `delete`, and the full parameters and response shapes of every endpoint.

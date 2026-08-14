@@ -72,6 +72,25 @@ func main() {
 ```
 </CodeGroup>
 
+## Rename a proxy
+
+Rename a proxy without changing its type or connection settings. Proxy updates are addressed by ID, and proxy names are not unique, so use the proxy ID when a name could match more than one configuration.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.proxies.update(proxy.id, { name: 'checkout-proxy' });
+```
+
+```python Python
+kernel.proxies.update(proxy.id, name="checkout-proxy")
+```
+
+```go Go
+_, err := client.Proxies.Update(ctx, proxy.ID, kernel.ProxyUpdateParams{
+	Name: "checkout-proxy",
+})
+```
+</CodeGroup>
 
 ## List your proxies
 
@@ -222,7 +241,11 @@ For ISP and datacenter proxies the exit IP is stable, so a successful check agai
 
 ## Bypass hosts
 
-Configure specific hostnames to bypass the proxy and connect directly. This is useful for accessing internal services, metadata endpoints, or reducing latency for trusted domains.
+Configure specific hostnames to bypass the proxy and connect through Kernel-managed direct egress. This is useful for metadata endpoints or reducing latency for trusted domains.
+
+<Note>
+To reach a private service through a VPN or tunnel inside the browser session, use [`network.private_hosts`](/browsers/private-networking) instead. Proxy bypass rules don't route traffic into the session's private network.
+</Note>
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -462,7 +485,7 @@ func main() {
 The update is synchronous — when the call returns, the proxy swap is fully applied and all new browser traffic routes through the updated proxy. The swap typically completes in 2–3 seconds.
 
 <Info>
-If you swap the proxy on a browser acquired from a pool, the browser will be reset back to the pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the pool default.
+If you swap the proxy on a browser acquired from a browser pool, the browser will be reset back to the browser pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the browser pool default.
 </Info>
 
 ### Bring your own proxy
