@@ -246,32 +246,34 @@ if __name__ == "__main__":
 
 </CodeGroup>
 
-### Stagehand v3
+### Stagehand
 
-When using Stagehand with Kernel browsers, you need to configure the download behavior in the `localBrowserLaunchOptions`:
-
-```typescript
-const stagehand = new Stagehand({
-  env: "LOCAL",
-  verbose: 1,
-  localBrowserLaunchOptions: {
-    cdpUrl: kernelBrowser.cdp_ws_url,
-    downloadsPath: DOWNLOAD_DIR, // Specify where downloads should be saved
-    acceptDownloads: true, // Enable downloads
-  },
-});
-```
+Stagehand v4 connects to the running Kernel browser (see the [Stagehand integration guide](/integrations/stagehand) for the full setup). A user-initiated download — e.g. clicking a download link — is saved to the browser's default download directory, `/home/kernel/Downloads`, which you retrieve with Kernel's File I/O APIs. No download-specific launch configuration is required.
 
 Here's a complete example:
 
 ```typescript
-import { Stagehand } from "@browserbasehq/stagehand";
+import { Stagehand, localBrowser } from "@browserbasehq/stagehand";
 import Kernel from "@onkernel/sdk";
 import fs from "fs";
+import { createReadStream } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DOWNLOAD_DIR = "/tmp/downloads";
+// Kernel browsers save user-initiated downloads here by default.
+const DOWNLOAD_DIR = "/home/kernel/Downloads";
 
-// Poll listFiles until any file appears in the directory
+// Stagehand v4 runs as a Chrome extension; mirror it onto the running browser
+// so `localBrowser.connect` (no `extensionId`) can load it over CDP.
+const stagehandDist = dirname(fileURLToPath(import.meta.resolve("@browserbasehq/stagehand")));
+async function loadStagehandExtension(kernel: Kernel, sessionId: string) {
+    await kernel.browsers.fs.uploadZip(sessionId, {
+        dest_path: join(stagehandDist, "extension"),
+        zip_file: createReadStream(join(stagehandDist, "assets/stagehand-extension.zip")),
+    });
+}
+
+// Poll listFiles until a completed file appears (skip in-progress .crdownload files).
 async function waitForFile(
     kernel: Kernel,
     sessionId: string,
@@ -281,8 +283,9 @@ async function waitForFile(
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
         const files = await kernel.browsers.fs.listFiles(sessionId, { path: dir });
-        if (files.length > 0) {
-            return files[0];
+        const done = files.find((f) => !f.name.endsWith(".crdownload"));
+        if (done) {
+            return done;
         }
         await new Promise((r) => setTimeout(r, 500));
     }
@@ -293,62 +296,68 @@ async function main() {
     const kernel = new Kernel();
 
     console.log("Creating browser via Kernel...");
-    const kernelBrowser = await kernel.browsers.create({
-        stealth: true,
-    });
+    const kernelBrowser = await kernel.browsers.create({ stealth: true });
 
     console.log(`Kernel Browser Session Started`);
     console.log(`Session ID: ${kernelBrowser.session_id}`);
     console.log(`Watch live: ${kernelBrowser.browser_live_view_url}`);
 
-    // Initialize Stagehand with Kernel's CDP URL and download configuration
-    const stagehand = new Stagehand({
-        env: "LOCAL",
-        verbose: 1,
-        localBrowserLaunchOptions: {
-            cdpUrl: kernelBrowser.cdp_ws_url,
-            downloadsPath: DOWNLOAD_DIR,
-            acceptDownloads: true,
-        },
-    });
+    let stagehand: Awaited<ReturnType<typeof Stagehand.create>> | undefined;
+    let browser: Awaited<ReturnType<typeof localBrowser.connect>> | undefined;
+    try {
+        await loadStagehandExtension(kernel, kernelBrowser.session_id);
+        browser = await localBrowser.connect({ cdpUrl: kernelBrowser.cdp_ws_url });
+        stagehand = await Stagehand.create({
+            browser,
+            model: {
+                modelName: "anthropic/claude-sonnet-4-5",
+                apiKey: process.env.MODEL_API_KEY,
+            },
+        });
 
-    await stagehand.init();
+        const page = await browser.context.activePage();
+        if (!page) throw new Error("No active page in the Kernel browser");
+        await page.goto("https://browser-tests-alpha.vercel.app/api/download-test");
 
-    const page = stagehand.context.pages()[0];
+        // Use Stagehand to click the download button
+        await stagehand.act("Click the download file link");
+        console.log("Download triggered");
 
-    await page.goto("https://browser-tests-alpha.vercel.app/api/download-test");
+        // Wait for the file to be fully available via Kernel's File I/O APIs
+        console.log("Waiting for file to appear...");
+        const downloadedFile = await waitForFile(
+            kernel,
+            kernelBrowser.session_id,
+            DOWNLOAD_DIR
+        );
+        console.log(`File found: ${downloadedFile.name}`);
 
-    // Use Stagehand to click the download button
-    await stagehand.act("Click the download file link");
-    console.log("Download triggered");
+        const remotePath = `${DOWNLOAD_DIR}/${downloadedFile.name}`;
+        console.log(`Reading file from: ${remotePath}`);
 
-    // Wait for the file to be fully available via Kernel's File I/O APIs
-    console.log("Waiting for file to appear...");
-    const downloadedFile = await waitForFile(
-        kernel,
-        kernelBrowser.session_id,
-        DOWNLOAD_DIR
-    );
-    console.log(`File found: ${downloadedFile.name}`);
+        // Read the file from the Kernel browser's filesystem
+        const resp = await kernel.browsers.fs.readFile(kernelBrowser.session_id, {
+            path: remotePath,
+        });
 
-    const remotePath = `${DOWNLOAD_DIR}/${downloadedFile.name}`;
-    console.log(`Reading file from: ${remotePath}`);
-
-    // Read the file from Kernel browser's filesystem
-    const resp = await kernel.browsers.fs.readFile(kernelBrowser.session_id, {
-        path: remotePath,
-    });
-
-    // Save to local filesystem
-    const bytes = await resp.bytes();
-    fs.mkdirSync("downloads", { recursive: true });
-    const localPath = `downloads/${downloadedFile.name}`;
-    fs.writeFileSync(localPath, bytes);
-    console.log(`Saved to ${localPath}`);
-
-    // Clean up
-    await stagehand.close();
-    await kernel.browsers.deleteByID(kernelBrowser.session_id);
+        // Save to local filesystem
+        const bytes = await resp.bytes();
+        fs.mkdirSync("downloads", { recursive: true });
+        const localPath = `downloads/${downloadedFile.name}`;
+        fs.writeFileSync(localPath, bytes);
+        console.log(`Saved to ${localPath}`);
+    } finally {
+        // Nested so a rejected close() never skips deleting the Kernel browser.
+        try {
+            await stagehand?.close();
+        } finally {
+            try {
+                await browser?.close();
+            } finally {
+                await kernel.browsers.deleteByID(kernelBrowser.session_id);
+            }
+        }
+    }
     console.log("Browser session closed");
 }
 
