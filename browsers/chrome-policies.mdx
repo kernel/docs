@@ -304,6 +304,38 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Print to PDF
+
+`PrintingEnabled` must stay `true` (the default) for the browser's print-to-PDF path — including CDP's `Page.printToPDF` and Playwright's `page.pdf()` — to work. Add `PrintPdfAsImageDefault: true` to render each page as an image before conversion, which produces more consistent output on pages with complex CSS or canvas content.
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "PrintingEnabled": True,
+        "PrintPdfAsImageDefault": True,
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    PrintingEnabled: true,
+    PrintPdfAsImageDefault: true,
+  },
+});
+```
+</CodeGroup>
+
 ## Available policies
 
 Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
