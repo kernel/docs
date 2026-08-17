@@ -5,7 +5,7 @@ title: "Stagehand"
 [Stagehand](https://github.com/browserbase/stagehand) is an open source AI browser automation framework. It lets developers choose what to write in code vs. natural language. By integrating with Kernel, you can run Stagehand automations with cloud-hosted browsers.
 
 <Note>
-This guide targets Stagehand SDK v4. Stagehand v4 runs as a Chrome extension alongside the browser rather than driving it purely over CDP, so a remote Kernel browser needs the extension loaded into it (covered below). If you're on an earlier version, see the [Stagehand migration guide](https://docs.stagehand.dev).
+This guide covers both Stagehand SDK v4 and v3. v4 runs as a Chrome extension alongside the browser rather than driving it purely over CDP, so a remote Kernel browser needs the extension loaded into it — the version tabs below show each setup. To move between versions, see the [Stagehand migration guide](https://docs.stagehand.dev). The CLI template uses v4.
 </Note>
 
 ## Quick start with the Stagehand template
@@ -39,11 +39,14 @@ kernel invoke ts-stagehand teamsize-task --payload '{"company": "kernel"}'
 
 See the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides for more.
 
-## Adding Kernel to an existing Stagehand v4 project
+## Adding Kernel to an existing Stagehand project
 
-If you already have a Stagehand v4 implementation, switch it to Kernel's cloud browsers with the steps below.
+If you already have a Stagehand implementation, switch it to Kernel's cloud browsers by updating your browser setup. The steps differ between v4 and v3 — pick your version below.
 
-### 1. Install the Kernel SDK
+<Tabs>
+  <Tab title="Stagehand v4">
+
+**1. Install the Kernel SDK**
 
 ```bash
 npm install @onkernel/sdk
@@ -51,7 +54,7 @@ npm install @onkernel/sdk
 
 Stagehand v4 requires `zod` v4 for its schema types (it pins `zod@4.4.3`). If your project is on zod v3, upgrade it.
 
-### 2. Load the Stagehand extension onto the Kernel browser
+**2. Load the Stagehand extension onto the Kernel browser**
 
 Stagehand v4 runs as a Chrome extension. When `localBrowser.connect` is called without an `extensionId`, Stagehand loads the extension into the running browser over CDP (`Extensions.loadUnpacked`), reading it from a path on the **browser's** filesystem. Mirror the extension — shipped inside the `@browserbasehq/stagehand` package — onto the running Kernel browser at that exact path first:
 
@@ -73,7 +76,7 @@ async function loadStagehandExtension(kernel: Kernel, sessionId: string): Promis
 }
 ```
 
-### 3. Create a browser and connect
+**3. Create a browser and connect**
 
 Create a Kernel browser, load the extension, then connect Stagehand to its CDP URL:
 
@@ -100,7 +103,7 @@ const stagehand = await Stagehand.create({
 });
 ```
 
-### 4. Use your Stagehand automation
+**4. Use your Stagehand automation**
 
 Drive the page with Stagehand's primitives. Note the v4 API: page access is async (`activePage()`), and `extract` returns its result under `data`:
 
@@ -122,7 +125,7 @@ const { data } = await stagehand.extract(
 console.log("Team size:", data.teamSize);
 ```
 
-### 5. Clean up
+**5. Clean up**
 
 Stagehand v4 only closes browsers it launched, so close the connection and delete the Kernel browser yourself. Nest the cleanup so a failed `close()` never skips deleting the browser:
 
@@ -137,6 +140,74 @@ try {
   }
 }
 ```
+
+  </Tab>
+  <Tab title="Stagehand v3">
+
+**1. Install the Kernel SDK**
+
+```bash
+npm install @onkernel/sdk
+```
+
+**2. Initialize Kernel and create a browser**
+
+Import the libraries and create a cloud browser session:
+
+```typescript
+import { Stagehand } from "@browserbasehq/stagehand";
+import Kernel from "@onkernel/sdk";
+import { z } from "zod";
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({ stealth: true });
+
+console.log("Live view url: ", kernelBrowser.browser_live_view_url);
+```
+
+**3. Update your browser configuration**
+
+Replace your existing browser setup to use Kernel's CDP URL:
+
+```typescript
+const stagehand = new Stagehand({
+  env: "LOCAL",
+  localBrowserLaunchOptions: {
+    cdpUrl: kernelBrowser.cdp_ws_url,
+  },
+  model: "openai/gpt-4.1",
+  apiKey: process.env.OPENAI_API_KEY,
+  verbose: 1,
+  domSettleTimeout: 30_000
+});
+
+await stagehand.init();
+```
+
+**4. Use your Stagehand automation**
+
+Use Stagehand's page methods with the Kernel-powered browser:
+
+```typescript
+const page = stagehand.context.pages()[0];
+await page.goto("https://onkernel.com");
+await stagehand.act("Click on Blog in the navbar");
+await stagehand.act("Click on the newest blog post");
+const output = await stagehand.extract(
+  "Extract a summary of the blog post",
+  z.object({ summary: z.string() })
+);
+
+console.log("Newest blog post summary: ", output.summary);
+
+// Clean up
+await stagehand.close();
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+  </Tab>
+</Tabs>
 
 ## Benefits of using Kernel with Stagehand
 
