@@ -263,8 +263,7 @@ import { fileURLToPath } from "node:url";
 // Kernel browsers save user-initiated downloads here by default.
 const DOWNLOAD_DIR = "/home/kernel/Downloads";
 
-// Stagehand v4 runs as a Chrome extension; mirror it onto the running browser
-// so `localBrowser.connect` (no `extensionId`) can load it over CDP.
+// Mirror the Stagehand extension onto the running browser so localBrowser.connect can load it.
 const stagehandDist = dirname(fileURLToPath(import.meta.resolve("@browserbasehq/stagehand")));
 async function loadStagehandExtension(kernel: Kernel, sessionId: string) {
     await kernel.browsers.fs.uploadZip(sessionId, {
