@@ -69,10 +69,12 @@ kernel deploy my_app.py --env-file .env
 
 Kernel injects a few environment variables into every deployment and its invocations. These names are **reserved** — if you set them via `--env` or `--env-file`, Kernel overrides your value, so setting them has no effect:
 
-- `KERNEL_API_KEY` — each deployment is given its own deployment-scoped API key at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read this from the environment by default, so your app is already authenticated as itself. Passing your own `KERNEL_API_KEY` does **not** replace it.
+- `KERNEL_API_KEY` — a per-deployment API key Kernel mints at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
 - `ENTRYPOINT_RELPATH` — set by the platform to locate your entrypoint.
 
-If your app needs a different, long-lived key (for example an org- or project-scoped key), pass it under a **non-reserved** name and read it explicitly:
+#### Using a different key for your app's calls
+
+You can't change `KERNEL_API_KEY` itself, but you can have your app authenticate with a different key — say a long-lived org- or project-scoped key that outlives any single deployment. Put it in a **non-reserved** variable and pass it to the client explicitly:
 
 <CodeGroup>
 ```python Python
@@ -90,7 +92,7 @@ const client = new Kernel({ apiKey: process.env.MY_KERNEL_API_KEY });
 ```
 </CodeGroup>
 
-This only changes the key **your own API calls** authenticate as. Kernel still injects the deployment key and uses it to run the invocation and report its result, so you can't replace the deployment key — you're only choosing the credential for the calls your app makes.
+Now the API calls your app makes go out as your key. The deployment key stays in place for Kernel's own use — running the invocation and reporting its result — so your key only needs permissions for the calls you actually make.
 
 ## Deployment notes
 
