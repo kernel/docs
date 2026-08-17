@@ -90,6 +90,8 @@ const client = new Kernel({ apiKey: process.env.MY_KERNEL_API_KEY });
 ```
 </CodeGroup>
 
+This only changes the key **your own API calls** authenticate as. Kernel still injects the deployment key and uses it to run the invocation and report its result, so you can't replace the deployment key — you're only choosing the credential for the calls your app makes.
+
 ## Deployment notes
 
 - **The dependency manifest (`package.json` for JS/TS, `pyproject.toml` for Python) must be present in the root directory of your project.**
