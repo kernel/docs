@@ -52,8 +52,6 @@ If you already have a Stagehand implementation, switch it to Kernel's cloud brow
 npm install @onkernel/sdk
 ```
 
-Stagehand v4 requires `zod` v4 for its schema types (it pins `zod@4.4.3`). If your project is on zod v3, upgrade it.
-
 **2. Load the Stagehand extension onto the Kernel browser**
 
 Stagehand v4 runs as a Chrome extension. When `localBrowser.connect` is called without an `extensionId`, Stagehand loads the extension into the running browser over CDP (`Extensions.loadUnpacked`), reading it from a path on the **browser's** filesystem. Mirror the extension — shipped inside the `@browserbasehq/stagehand` package — onto the running Kernel browser at that exact path first:
