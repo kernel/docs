@@ -304,6 +304,43 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Print to PDF
+
+`PrintingEnabled` must stay `true` (the default) for the browser's print-to-PDF path — including CDP's `Page.printToPDF` and Playwright's `page.pdf()` — to work.
+
+`PrintPdfAsImageDefault` controls whether each page is rasterized to an image before being placed in the PDF, rather than kept as native vector text and graphics:
+
+- `false` (shown explicitly below, and Chrome's default) — keeps text selectable and extractable in the output PDF. Use this if automation will read the PDF's contents afterward (text extraction, parsing, LLM ingestion) — image-based PDFs need OCR to get text back out.
+- `true` — rasterizes every page, which can look more consistent on pages with complex CSS or canvas content, at the cost of searchable text and a larger file.
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    chrome_policy={
+        "PrintingEnabled": True,
+        "PrintPdfAsImageDefault": False,
+    }
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  chrome_policy: {
+    PrintingEnabled: true,
+    PrintPdfAsImageDefault: false,
+  },
+});
+```
+</CodeGroup>
+
 ## Available policies
 
 Any policy listed in the [Chrome Enterprise policy documentation](https://chromeenterprise.google/policies/) can be used in the `chrome_policy` object. Refer to the official docs for the full list of supported policy names, types, and values.
