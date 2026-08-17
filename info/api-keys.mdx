@@ -88,6 +88,18 @@ func main() {
 ```
 </CodeGroup>
 
+## Deployment API keys
+
+When you deploy an app, Kernel mints a **deployment-scoped API key** for that deployment and injects it into the deployment (and every invocation it runs) as the `KERNEL_API_KEY` environment variable. Because the SDKs read `KERNEL_API_KEY` from the environment by default, your app can call the Kernel API as itself without you managing a key.
+
+Key points about deployment keys:
+
+- **One key per deployment.** Each deploy (including a redeploy of the same app) mints a fresh deployment key. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables) — a value you supply at deploy time is overridden by the injected key. To use your own long-lived key, pass it under a non-reserved name.
+- **Lifecycle tied to the deployment.** A deployment key stays valid while its deployment is active. When you redeploy, the new deployment supersedes the old one, and the old deployment's key is released once it is no longer needed — that is, once the superseded deployment is stopped **and** no invocation is still running on it.
+- **In-flight invocations are drained, not cut off.** If an invocation is still running on a deployment that gets superseded, its key is kept valid until that invocation completes; the key is released right after. An idle redeploy (nothing in flight) releases the old key immediately. In the rare case where an invocation's workflow terminates without releasing the key, a background sweep releases it after a grace period (~95 minutes). You do not need to manage any of this — it is automatic.
+
+If you need a credential whose lifetime you control (for CI, a persistent backend, or a resource that should outlive any single deployment), create an org- or project-scoped key as described below and pass it explicitly to the client. This only affects the calls your app makes — the platform still injects the deployment key and uses it to run the invocation and report its result, so you're choosing the credential for your own calls, not replacing the deployment key.
+
 ## List and inspect API keys
 
 List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, and expiry metadata, but they don't include the plaintext key.
