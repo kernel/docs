@@ -65,6 +65,35 @@ kernel deploy my_app.py --env-file .env
 ```
 </CodeGroup>
 
+### Reserved environment variables
+
+Kernel injects a few environment variables into every deployment and its invocations. These names are **reserved** — if you set them via `--env` or `--env-file`, Kernel overrides your value, so setting them has no effect:
+
+- `KERNEL_API_KEY` — a per-deployment API key Kernel mints at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
+- `ENTRYPOINT_RELPATH` — set by the platform to locate your entrypoint.
+
+#### Using a different key for your app's calls
+
+You can't change `KERNEL_API_KEY` itself, but you can have your app authenticate with a different key — say a long-lived org- or project-scoped key that outlives any single deployment. Put it in a **non-reserved** variable and pass it to the client explicitly:
+
+<CodeGroup>
+```python Python
+import os
+from kernel import Kernel
+
+# Use your own key from a non-reserved var instead of the injected deployment key.
+client = Kernel(api_key=os.environ["MY_KERNEL_API_KEY"])
+```
+
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const client = new Kernel({ apiKey: process.env.MY_KERNEL_API_KEY });
+```
+</CodeGroup>
+
+Now the API calls your app makes go out as your key. The deployment key stays in place for Kernel's own use — running the invocation and reporting its result — so your key only needs permissions for the calls you actually make.
+
 ## Deployment notes
 
 - **The dependency manifest (`package.json` for JS/TS, `pyproject.toml` for Python) must be present in the root directory of your project.**
