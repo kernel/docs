@@ -1,8 +1,27 @@
 ---
-title: "Organization Limits"
+title: "Organization"
 ---
 
-Manage organization-wide concurrency limits and the default cap applied to projects without an explicit override.
+Inspect your organization's effective entitlements and manage its configurable concurrency limits.
+
+## `kernel org entitlements`
+
+Show the effective plan, feature access, and limits for the authenticated organization. These values already account for the organization's plan, trial, billing status, and overrides, so use them instead of inferring access from the plan name.
+
+```bash
+kernel org entitlements
+
+# Return the API response for scripts and agents
+kernel org entitlements --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw entitlement response. Nullable limits remain `null`, which means unlimited. |
+
+<Info>
+  This command is read-only. Use `kernel org limits set` to change the configurable default project concurrency cap.
+</Info>
 
 ## `kernel org limits get`
 
