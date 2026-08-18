@@ -6,11 +6,20 @@ With Kernel, you only pay for what you use and nothing more. You don't pay for i
 
 ## Pricing
 
-| Browser type | Price ($/sec) |
+Kernel bills browser usage by the memory a session uses and its compute type—standard or GPU-accelerated—per GB-hour. The rate is the same on the Developer, Hobbyist, and Start-Up plans.
+
+| Compute type | Price |
 | --- | --- |
-| Headless | 0.0000166667 |
-| Headful | 0.0001333336 |
-| Headful + GPU acceleration | 0.0008000016 |
+| Standard | $0.06 / GB-hour ($0.0000166667 / GB-second) |
+| GPU-accelerated | $0.48 / GB-hour ($0.0001333336 / GB-second)—8x the standard rate |
+
+Each browser type has a fixed memory allocation, so you can estimate a session's cost as memory x the rate above:
+
+| Browser type | Memory | Example cost |
+| --- | --- | --- |
+| Headless | 1 GB | ~$0.06 / hour |
+| Headful | 8 GB | ~$0.48 / hour |
+| Headful + GPU acceleration | 6 GB | ~$2.88 / hour |
 
 > Note: GPU acceleration is only available on headful, on-demand browsers. Standby mode is not supported for GPU-accelerated browsers.
 
@@ -66,7 +75,7 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 
 ## Browser pools
 
-With Browser Pools, you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
+With Browser Pools, you pay the standard rate above ($0.06 / GB-hour) while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
 
 GPU acceleration is not available for browser pools.
 > Note: A [browser pool](/browsers/pools) counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.

@@ -4,8 +4,9 @@ const { Card, Columns } = MintlifyComponents;
 export const PricingCalculator = () => {
     const defaults = { plan: 'free', browserType: 'headless', avgSessionLength: 30, numSessions: 100 };
     const planPrices = { free: 0, hobbyist: 30, startup: 200 };
-    const usagePrices = 0.0000166667;
-    const browserMultipliers = { headless: 1, headful: 8, gpu: 48 };
+    const standardRatePerGBSecond = 0.0000166667; // $0.06/GB-hour
+    const gpuRatePerGBSecond = standardRatePerGBSecond * 8; // $0.48/GB-hour
+    const browserMemoryGiB = { headless: 1, headful: 8, gpu: 6 };
 
     const [plan, setPlan] = useState(defaults.plan);
     const [browserType, setBrowserType] = useState(defaults.browserType);
@@ -43,8 +44,9 @@ export const PricingCalculator = () => {
     };
 
     var price = planPrices[plan];
-    var multiplier = browserMultipliers[browserType];
-    var usageCost = usagePrices * multiplier * numSessions * avgSessionLength;
+    var ratePerGBSecond = browserType === 'gpu' ? gpuRatePerGBSecond : standardRatePerGBSecond;
+    var pricePerSecond = ratePerGBSecond * browserMemoryGiB[browserType];
+    var usageCost = pricePerSecond * numSessions * avgSessionLength;
 
     var includedUsageCredits = 5;
     if (plan === 'hobbyist') {
@@ -109,7 +111,7 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={rowStyle}>
                     <span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>
-                        ${(usagePrices * multiplier).toFixed(8)}/second
+                        {browserMemoryGiB[browserType]} GB x ${ratePerGBSecond.toFixed(8)}/GB-sec = ${pricePerSecond.toFixed(8)}/second
                         {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem' }}>(Startup tier required)</span>}
                     </span>
                 </div>
