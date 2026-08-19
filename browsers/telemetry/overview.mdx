@@ -108,6 +108,10 @@ kernel browsers update <session-id> --telemetry=off
 On update, a category list patches the current selection - categories you don't include keep their current state. To reset the selection instead, send `enabled: true` (it replaces the selection with the categories you provide, or the default set if you provide none); send `enabled: false` to turn telemetry off.
 </Info>
 
+## Retention
+
+Captured events are retained for 30 days, then expired. You can [stream](/browsers/telemetry/streaming) events live or pull them later for analysis within that window; after 30 days the events are no longer available. If your org has [Zero Data Retention](/info/zero-data-retention) enabled, telemetry isn't persisted at all.
+
 ## What's next
 
 - [Categories](/browsers/telemetry/categories) - every category, what it captures, the default set, and cost characteristics.
