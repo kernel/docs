@@ -237,3 +237,30 @@ func main() {
 }
 ```
 </CodeGroup>
+
+## Embedding a replay
+
+Set an iframe's `src` to the `replay_view_url` returned when you start or list a replay. Give the iframe an explicit aspect ratio so the player keeps its shape while loading, and enable fullscreen playback. Merge the example's `frame-src` sources into your existing Content Security Policy.
+
+Replace `REPLAY_VIEW_URL` with the URL returned by the API:
+
+```html
+<meta
+  http-equiv="Content-Security-Policy"
+  content="frame-src https://*.kernel.sh:8443 https://*.onkernel.com:8443 https://kernel-api-prod.s3.us-east-1.amazonaws.com;"
+>
+
+<div style="width: 100%; aspect-ratio: 16 / 10;">
+  <iframe
+    src="REPLAY_VIEW_URL"
+    title="Browser session replay"
+    loading="lazy"
+    referrerpolicy="no-referrer"
+    allow="fullscreen"
+    allowfullscreen
+    style="display: block; width: 100%; height: 100%; border: 0;"
+  ></iframe>
+</div>
+```
+
+Use the recorded browser's viewport ratio if it differs from `16 / 10`. Treat replay URLs as sensitive.
