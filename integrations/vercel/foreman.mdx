@@ -11,7 +11,11 @@ Foreman is built on [Vercel Eve](https://vercel.com/eve), so it mounts extension
 
 ### Foreman + Kernel
 
-Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Foreman's implementation agent a real cloud browser it can sign into, so it can reproduce bugs and verify fixes in flows that only break behind authentication — not just from reading code. Each teammate authenticates through their own Vercel Connect consent, so the browser acts as them rather than a shared credential, and Foreman parks its first browser action per session behind an approval gate for the person driving it.
+Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Foreman's implementation agent a real cloud browser, so it can go beyond reading code to reproduce bugs and verify fixes in flows that only break behind authentication:
+
+- **Sign-in, not just code review** — the agent drives an authenticated browser session to reproduce the bug the way a signed-in user would hit it.
+- **Per-user identity** — each teammate authenticates through their own Vercel Connect consent, so the browser acts as them rather than a shared credential.
+- **An approval gate** — Foreman parks its first browser action per session for the person driving it, before it acts inside a logged-in session.
 
 Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/recipes/add-the-kernel-browser) for the full recipe, including the shadowed connection and tool allowlist.
 
@@ -19,7 +23,7 @@ Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/r
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
-This is the exact prompt from [Foreman's recipe](https://ask-foreman.dev/recipes/add-the-kernel-browser) above, not a paraphrase. Paste it, unedited, into whatever's driving your Foreman repo (Cursor, Claude Code, etc.) and it works through the same steps in order: register the `@onkernel/eve-extension` mount, wire it to Vercel Connect instead of an API key, shadow the browser connection so it carries an approval gate, and hold the tool allowlist to the seven it ships with.
+This is the exact prompt from [Foreman's recipe](https://ask-foreman.dev/recipes/add-the-kernel-browser) above, not a paraphrase. Paste it, unedited, into whatever coding agent is driving your Foreman repo and it works through the same steps in order: register the `@onkernel/eve-extension` mount, wire it to Vercel Connect instead of an API key, shadow the browser connection so it carries an approval gate, and hold the tool allowlist to the seven it ships with.
 
 <CopyPromptButton
   label="copy Foreman's Kernel browser prompt"
