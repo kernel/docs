@@ -1,0 +1,78 @@
+---
+title: "Foreman"
+description: "Give your Foreman agent a Kernel cloud browser"
+---
+
+## Overview
+
+[Foreman](https://ask-foreman.dev) is a free, open-source software factory: specialized AI agents classify, plan, implement, and review work pulled from GitHub issues, Linear, CI failures, and more, then push draft PRs for a human to approve. Nothing ships without you — Foreman stops at the draft PR.
+
+Foreman is built on [Vercel Eve](https://vercel.com/eve), so it mounts extensions the same way any Eve agent does.
+
+### Foreman + Kernel
+
+Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Foreman's implementation agent a real cloud browser, so it can go beyond reading code to reproduce bugs and verify fixes in flows that only break behind authentication:
+
+- **Sign-in, not just code review** — the agent drives an authenticated browser session to reproduce the bug the way a signed-in user would hit it.
+- **Per-user identity** — each teammate authenticates through their own Vercel Connect consent, so the browser acts as them rather than a shared credential.
+- **An approval gate** — Foreman parks its first browser action per session for the person driving it, before it acts inside a logged-in session.
+
+Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/recipes/add-the-kernel-browser) for the full recipe, including the shadowed connection and tool allowlist.
+
+## Quickstart prompt
+
+import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
+
+Paste this into your coding agent to add the Kernel browser to your Foreman repo. It registers the `@onkernel/eve-extension` mount, wires it to Vercel Connect instead of an API key, shadows the browser connection with an approval gate, and holds the tool allowlist to the seven tools it ships with.
+
+<div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+<CopyPromptButton
+  prompt={`Help me customize the eve Software Factory template. I want to add KERNEL so the agent can drive a cloud browser, including signing in to sites through KERNEL's managed auth.
+
+Ground truth first: read AGENTS.md in the repository root, read agent/extensions/github.ts as the in-repo example of an extension mount, and read https://www.kernel.sh/docs/integrations/vercel/eve-extension plus node_modules/eve/docs/extensions.md before writing code. Do not hand-write the mount if the registry provides it.
+
+1. Run: eve add extension/kernel
+ This installs @onkernel/eve-extension and writes a mount under agent/extensions/. The extension needs eve 0.25 or later and Node 24; the template ships both, but confirm in package.json rather than assuming. Show me the generated file before changing it.
+2. Configure the mount with Vercel Connect, not an API key: kernel({ connect: "kernel/kernel-mcp" }). Leave KERNEL_API_KEY unset everywhere, and tell me if you find it already set, because the extension falls back to it. If the generated file points at the older domain-based connector (mcp.onkernel.com/eve-extension), prefer the current registry form and say so.
+3. Convert the mount into a directory so the browser connection can carry an approval gate: agent/extensions/kernel/extension.ts holds the mount, and agent/extensions/kernel/connections/browser.ts shadows the extension's built-in browser connection. Use defineMcpClientConnection from eve/connections with url https://mcp.onkernel.com/mcp, auth connect("kernel/kernel-mcp") from @vercel/connect/eve, approval once() from eve/tools/approval, and tools.allow set to exactly the seven tools the extension mounts by default: manage_browsers, execute_playwright_code, computer_action, manage_auth_connections, manage_profiles, manage_proxies, manage_replays. Use allow, not block, so tools the server adds later stay undiscovered too.
+4. Do not add browser_curl, manage_credentials, exec_command, or manage_browser_pools to the allowlist. The extension ships them off to limit an autonomous agent's blast radius, and nothing in this factory needs them.
+5. Tell me the setup commands I need to run myself, and do not run them:
+ vercel link, vercel connect create kernel --name kernel-mcp --connection-method mcp, vercel connect attach kernel/kernel-mcp.
+ Tell me the --connection-method flag needs Vercel CLI 58.8.0 or later.
+6. Important: connect("kernel/kernel-mcp") is per-user consent, so each person authorizes in their own browser before their first tool call. Unattended factory runs (the factory label and the red-CI fix loop) have nobody to complete that flow. Confirm this in the eve connections docs, then tell me plainly which of Foreman's surfaces can and cannot use the browser.
+7. Do not mount this extension under agent/subagents/. Stations run in task mode and cannot park for a consent prompt, an approval card, or a sign-in hand-off. If I ask for it later, explain the failure mode before doing it.
+8. Explain the approval choice back to me instead of copying by reflex. once() parks the first browser action of a session for the person driving it, and agent/connections/linear.ts shows the predicate alternative. Say why a connection whose tools act inside logged-in sessions warrants a gate that this repo's read-oriented connections do not carry.
+
+Finish by running pnpm validate and confirming 0 errors and 0 warnings, then run npx eve info and show me the kernel mount in the discovered surface with only the seven allowed tools. Do not deploy.
+
+Full recipe, with the reasoning behind each step: https://ask-foreman.dev/recipes/add-the-kernel-browser`}
+/>
+<a
+  href="https://ask-foreman.dev/recipes/add-the-kernel-browser"
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    height: '56px',
+    padding: '0 24px',
+    fontSize: '0.9375rem',
+    fontWeight: 500,
+    letterSpacing: '0.01em',
+    color: 'inherit',
+    border: '1px solid currentColor',
+    opacity: 0.7,
+    textDecoration: 'none',
+    fontFamily: 'inherit',
+  }}
+>
+  view the recipe ↗
+</a>
+</div>
+
+## Related
+
+- [Eve Extension](/integrations/vercel/eve-extension)
+- [Vercel Marketplace Integration](/integrations/vercel/marketplace)
+- [Managed Auth](/auth/overview)
