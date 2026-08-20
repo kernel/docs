@@ -1,0 +1,44 @@
+---
+title: "Foreman"
+description: "Give your Foreman agent a Kernel cloud browser"
+---
+
+## Overview
+
+[Foreman](https://ask-foreman.dev) is a free, open-source software factory: specialized AI agents classify, plan, implement, and review work pulled from GitHub issues, Linear, CI failures, and more, then push draft PRs for a human to approve. Nothing ships without you — Foreman stops at the draft PR.
+
+Foreman is built on [Vercel Eve](https://vercel.com/eve), so it mounts extensions the same way any Eve agent does.
+
+### Foreman + Kernel
+
+Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Foreman's implementation agent a real cloud browser it can sign into, so it can reproduce bugs and verify fixes in flows that only break behind authentication — not just from reading code. Each teammate authenticates through their own Vercel Connect consent, so the browser acts as them rather than a shared credential, and Foreman parks its first browser action per session behind an approval gate for the person driving it.
+
+Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/recipes/add-the-kernel-browser) for the full recipe, including the shadowed connection and tool allowlist.
+
+## Quick start
+
+import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
+
+<div className="tinker-box">
+  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>fast setup</h3>
+  <div className="tinker-box-row">
+    <div style={{ flexShrink: 0 }}>
+      <img src="/images/tinker-bot.svg" alt="" className="block dark:hidden" style={{ width: '146px', height: 'auto' }} />
+      <img src="/images/tinker-bot-dark.svg" alt="" className="hidden dark:block" style={{ width: '146px', height: 'auto' }} />
+    </div>
+    <div className="tinker-box-content">
+      <p style={{ margin: 0, fontSize: '0.9375rem', lineHeight: 1.6, opacity: 0.8 }}>
+        copy and paste this into your AI coding agent (Cursor, Claude, Windsurf, etc.). it installs the Kernel CLI and skills, authenticates you, and opens a live browser session that you or your agent can interact with.
+      </p>
+      <div>
+        <CopyPromptButton />
+      </div>
+    </div>
+  </div>
+</div>
+
+## Related
+
+- [Eve Extension](/integrations/vercel/eve-extension)
+- [Vercel Marketplace Integration](/integrations/vercel/marketplace)
+- [Managed Auth](/auth/overview)
