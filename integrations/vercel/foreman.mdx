@@ -15,27 +15,34 @@ Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Fore
 
 Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/recipes/add-the-kernel-browser) for the full recipe, including the shadowed connection and tool allowlist.
 
-## Quick start
+## Copy-paste prompt
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
-<div className="tinker-box">
-  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>fast setup</h3>
-  <div className="tinker-box-row">
-    <div style={{ flexShrink: 0 }}>
-      <img src="/images/tinker-bot.svg" alt="" className="block dark:hidden" style={{ width: '146px', height: 'auto' }} />
-      <img src="/images/tinker-bot-dark.svg" alt="" className="hidden dark:block" style={{ width: '146px', height: 'auto' }} />
-    </div>
-    <div className="tinker-box-content">
-      <p style={{ margin: 0, fontSize: '0.9375rem', lineHeight: 1.6, opacity: 0.8 }}>
-        copy and paste this into your AI coding agent (Cursor, Claude, Windsurf, etc.). it installs the Kernel CLI and skills, authenticates you, and opens a live browser session that you or your agent can interact with.
-      </p>
-      <div>
-        <CopyPromptButton />
-      </div>
-    </div>
-  </div>
-</div>
+This is the exact prompt from [Foreman's recipe](https://ask-foreman.dev/recipes/add-the-kernel-browser) above, not a paraphrase. Paste it, unedited, into whatever's driving your Foreman repo (Cursor, Claude Code, etc.) and it works through the same steps in order: register the `@onkernel/eve-extension` mount, wire it to Vercel Connect instead of an API key, shadow the browser connection so it carries an approval gate, and hold the tool allowlist to the seven it ships with.
+
+<CopyPromptButton
+  label="copy Foreman's Kernel browser prompt"
+  prompt={`Help me customize the eve Software Factory template. I want to add KERNEL so the agent can drive a cloud browser, including signing in to sites through KERNEL's managed auth.
+
+Ground truth first: read AGENTS.md in the repository root, read agent/extensions/github.ts as the in-repo example of an extension mount, and read https://www.kernel.sh/docs/integrations/vercel/eve-extension plus node_modules/eve/docs/extensions.md before writing code. Do not hand-write the mount if the registry provides it.
+
+1. Run: eve add extension/kernel
+ This installs @onkernel/eve-extension and writes a mount under agent/extensions/. The extension needs eve 0.25 or later and Node 24; the template ships both, but confirm in package.json rather than assuming. Show me the generated file before changing it.
+2. Configure the mount with Vercel Connect, not an API key: kernel({ connect: "kernel/kernel-mcp" }). Leave KERNEL_API_KEY unset everywhere, and tell me if you find it already set, because the extension falls back to it. If the generated file points at the older domain-based connector (mcp.onkernel.com/eve-extension), prefer the current registry form and say so.
+3. Convert the mount into a directory so the browser connection can carry an approval gate: agent/extensions/kernel/extension.ts holds the mount, and agent/extensions/kernel/connections/browser.ts shadows the extension's built-in browser connection. Use defineMcpClientConnection from eve/connections with url https://mcp.onkernel.com/mcp, auth connect("kernel/kernel-mcp") from @vercel/connect/eve, approval once() from eve/tools/approval, and tools.allow set to exactly the seven tools the extension mounts by default: manage_browsers, execute_playwright_code, computer_action, manage_auth_connections, manage_profiles, manage_proxies, manage_replays. Use allow, not block, so tools the server adds later stay undiscovered too.
+4. Do not add browser_curl, manage_credentials, exec_command, or manage_browser_pools to the allowlist. The extension ships them off to limit an autonomous agent's blast radius, and nothing in this factory needs them.
+5. Tell me the setup commands I need to run myself, and do not run them:
+ vercel link, vercel connect create kernel --name kernel-mcp --connection-method mcp, vercel connect attach kernel/kernel-mcp.
+ Tell me the --connection-method flag needs Vercel CLI 58.8.0 or later.
+6. Important: connect("kernel/kernel-mcp") is per-user consent, so each person authorizes in their own browser before their first tool call. Unattended factory runs (the factory label and the red-CI fix loop) have nobody to complete that flow. Confirm this in the eve connections docs, then tell me plainly which of Foreman's surfaces can and cannot use the browser.
+7. Do not mount this extension under agent/subagents/. Stations run in task mode and cannot park for a consent prompt, an approval card, or a sign-in hand-off. If I ask for it later, explain the failure mode before doing it.
+8. Explain the approval choice back to me instead of copying by reflex. once() parks the first browser action of a session for the person driving it, and agent/connections/linear.ts shows the predicate alternative. Say why a connection whose tools act inside logged-in sessions warrants a gate that this repo's read-oriented connections do not carry.
+
+Finish by running pnpm validate and confirming 0 errors and 0 warnings, then run npx eve info and show me the kernel mount in the discovered surface with only the seven allowed tools. Do not deploy.
+
+Full recipe, with the reasoning behind each step: https://ask-foreman.dev/recipes/add-the-kernel-browser`}
+/>
 
 ## Related
 
