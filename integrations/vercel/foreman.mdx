@@ -19,14 +19,13 @@ Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Fore
 
 Follow [Foreman's guide for adding the Kernel browser](https://ask-foreman.dev/recipes/add-the-kernel-browser) for the full recipe, including the shadowed connection and tool allowlist.
 
-## Copy-paste prompt
+## Quickstart prompt
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
-This is the exact prompt from [Foreman's recipe](https://ask-foreman.dev/recipes/add-the-kernel-browser) above, not a paraphrase. Paste it, unedited, into whatever coding agent is driving your Foreman repo and it works through the same steps in order: register the `@onkernel/eve-extension` mount, wire it to Vercel Connect instead of an API key, shadow the browser connection so it carries an approval gate, and hold the tool allowlist to the seven it ships with.
+Paste this into your coding agent to add the Kernel browser to your Foreman repo. It registers the `@onkernel/eve-extension` mount, wires it to Vercel Connect instead of an API key, shadows the browser connection with an approval gate, and holds the tool allowlist to the seven tools it ships with.
 
 <CopyPromptButton
-  label="copy Foreman's Kernel browser prompt"
   prompt={`Help me customize the eve Software Factory template. I want to add KERNEL so the agent can drive a cloud browser, including signing in to sites through KERNEL's managed auth.
 
 Ground truth first: read AGENTS.md in the repository root, read agent/extensions/github.ts as the in-repo example of an extension mount, and read https://www.kernel.sh/docs/integrations/vercel/eve-extension plus node_modules/eve/docs/extensions.md before writing code. Do not hand-write the mount if the registry provides it.
