@@ -1,6 +1,10 @@
 const { useState, useCallback } = React;
 
-const DEFAULT_PROMPT = `# Setup Kernel
+export const CopyPromptButton = (props) => {
+  const { label = 'copy prompt' } = props || {};
+  const [copied, setCopied] = useState(false);
+
+  const prompt = (props && props.prompt) || `# Setup Kernel
 
 ## Prerequisites
 - Read the kernel-cli skill at https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-cli/SKILL.md for reference on commands and capabilities.
@@ -26,10 +30,6 @@ const DEFAULT_PROMPT = `# Setup Kernel
    - Open that URL in the user's browser.
    - Tell the user they can use the live view immediately.
    - If browser creation fails, stop and ask the user for help.`;
-
-export const CopyPromptButton = (props) => {
-  const { prompt = DEFAULT_PROMPT, label = 'copy prompt' } = props || {};
-  const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
     try {
