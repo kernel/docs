@@ -27,7 +27,8 @@ const DEFAULT_PROMPT = `# Setup Kernel
    - Tell the user they can use the live view immediately.
    - If browser creation fails, stop and ask the user for help.`;
 
-export const CopyPromptButton = ({ prompt = DEFAULT_PROMPT, label = 'copy prompt' } = {}) => {
+export const CopyPromptButton = (props) => {
+  const { prompt = DEFAULT_PROMPT, label = 'copy prompt' } = props || {};
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
