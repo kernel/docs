@@ -1,0 +1,121 @@
+---
+title: "Playwright"
+description: "Connect Playwright to a Kernel cloud browser over CDP"
+---
+
+[Playwright](https://playwright.dev) is a browser automation library from Microsoft. Kernel browsers speak the Chrome DevTools Protocol (CDP), so you can point an existing Playwright script at a cloud browser by swapping your launch call for a `connectOverCDP` to the session's `cdp_ws_url` — no other code changes.
+
+<Note>
+If you don't need a local Playwright install and want your code to run co-located with the browser, use [Playwright Execution](/browsers/playwright-execution) instead. It runs the same Playwright API inside the browser's VM and returns values back to your agent. This page covers connecting a Playwright client you run yourself.
+</Note>
+
+## Install
+
+```bash
+npm install playwright @onkernel/sdk
+```
+
+```bash
+pip install playwright kernel
+```
+
+## Create a browser and connect
+
+Create a Kernel browser, then connect Playwright to its `cdp_ws_url`. Kernel opens a context and page for you — grab them from the connected browser rather than calling `newContext`.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import { chromium } from 'playwright';
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+console.log('Live view:', kernelBrowser.browser_live_view_url);
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const context = browser.contexts()[0];
+const page = context.pages()[0];
+
+await page.goto('https://onkernel.com');
+console.log(await page.title());
+
+await browser.close();
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+import asyncio
+from kernel import Kernel
+from playwright.async_api import async_playwright
+
+kernel = Kernel()
+
+async def main():
+    kernel_browser = kernel.browsers.create()
+    print("Live view:", kernel_browser.browser_live_view_url)
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+        context = browser.contexts[0]
+        page = context.pages[0]
+
+        await page.goto("https://onkernel.com")
+        print(await page.title())
+
+        await browser.close()
+
+    kernel.browsers.delete_by_id(kernel_browser.session_id)
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+## Configure the viewport
+
+Set the viewport when you create the browser, not through Playwright. Playwright's `setViewportSize` is a no-op over a CDP connection — the window size is fixed at browser creation. See [Viewports](/browsers/viewport) for supported dimensions and refresh rates.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  viewport: { width: 1280, height: 720 },
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    viewport={"width": 1280, "height": 720},
+)
+```
+</CodeGroup>
+
+## Stealth mode
+
+Create the browser with `stealth: true` to harden it against bot detection. The connection is unchanged — you still connect Playwright to `cdp_ws_url`.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({ stealth: true });
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(stealth=True)
+```
+</CodeGroup>
+
+See [stealth mode](/browsers/bot-detection/stealth) for what it changes. For the strongest anti-detection posture, prefer [computer controls](/browsers/computer-controls) or [Playwright Execution](/browsers/playwright-execution) — a direct CDP connection carries a fingerprint that co-located control avoids.
+
+## Why run Playwright on Kernel
+
+- **No local browser management.** No Chromium download or version pinning on your machine — the browser runs in Kernel's cloud.
+- **Persistent state.** Keep cookies and login state across runs with [Profiles](/auth/profiles).
+- **Scale out.** Launch many sessions in parallel instead of contending for one local browser.
+- **Debuggable.** Watch any session in real time with [live view](/browsers/live-view).
+- **No code rewrite.** Existing Playwright scripts work as-is once you swap the launch for `connectOverCDP`.
+
+## Next steps
+
+- [Playwright Execution](/browsers/playwright-execution) — run Playwright inside the browser VM with no local install
+- [Live view](/browsers/live-view) — watch and debug your sessions
+- [Stealth mode](/browsers/bot-detection/stealth) — avoid bot detection
+- [Terminating sessions](/browsers/termination) — clean up browsers when you're done
