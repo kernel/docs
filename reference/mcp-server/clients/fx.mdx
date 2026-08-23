@@ -1,0 +1,44 @@
+---
+title: "fx"
+description: "Connect fx to the Kernel MCP server"
+---
+
+## Install with the Kernel CLI
+
+Run the following command:
+
+```bash
+kernel mcp install --target fx
+```
+
+## Configure manually
+
+Alternatively, add Kernel to the `mcp` map in `~/.fx/mcp.json`:
+
+```json
+{
+  "mcp": {
+    "kernel": {
+      "type": "http",
+      "url": "https://mcp.onkernel.com/mcp",
+      "oauth": {}
+    }
+  }
+}
+```
+
+## Connect
+
+Start fx, or reload the configuration in an existing session:
+
+```text
+/mcp reload
+```
+
+Then authenticate with Kernel:
+
+```text
+/mcp auth kernel --open
+```
+
+Authorize access in the browser window that opens. You can then run `/mcp list` to verify that Kernel is connected.
