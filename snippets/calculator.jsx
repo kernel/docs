@@ -94,9 +94,9 @@ export const PricingCalculator = () => {
         cursor: 'pointer',
     });
     const memStyle = (active) => ({
-        padding: '0.2rem 0.5rem',
-        border: 'none',
-        fontSize: '0.75rem',
+        padding: '0.375rem 0.5rem',
+        borderRadius: '0.25rem',
+        fontSize: '0.875rem',
         whiteSpace: 'nowrap',
         background: active ? 'var(--btn-selected-bg)' : 'transparent',
         cursor: 'pointer',
@@ -122,11 +122,12 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--btn-border)', borderRadius: '0.375rem', overflow: 'hidden' }}>
                         <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
-                        <div style={{ display: 'flex', border: '1px solid var(--btn-border)', borderRadius: '0.375rem', overflow: 'hidden' }}>
-                            <button class="btn btn-primary dark:text-white" style={memStyle(!headful16)} onClick={() => handleMemoryChange(false)}>8GB</button>
-                            <button class="btn btn-primary dark:text-white" style={memStyle(headful16)} onClick={() => handleMemoryChange(true)}>16GB</button>
+                        <span style={{ padding: '0 0.25rem', fontSize: '0.75rem', opacity: 0.6 }}>GB:</span>
+                        <div style={{ display: 'flex' }}>
+                            <button class="btn btn-primary dark:text-white" style={memStyle(!headful16)} onClick={() => handleMemoryChange(false)}>8</button>
+                            <button class="btn btn-primary dark:text-white" style={memStyle(headful16)} onClick={() => handleMemoryChange(true)}>16</button>
                         </div>
                     </div>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
