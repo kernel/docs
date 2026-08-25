@@ -92,13 +92,14 @@ export const PricingCalculator = () => {
         whiteSpace: 'nowrap',
         background: active ? 'var(--btn-selected-bg)' : undefined,
         cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.15rem',
     });
     const gbStyle = (active) => ({
-        padding: '0.375rem 0.25rem',
-        border: 'none',
+        padding: '0 0.3rem',
         background: 'transparent',
         fontSize: '0.875rem',
-        whiteSpace: 'nowrap',
         cursor: 'pointer',
         color: active ? 'inherit' : 'rgba(128,128,128,0.55)',
     });
@@ -123,9 +124,11 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
-                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
-                    <button class="btn btn-primary dark:text-white" style={gbStyle(!headful16)} onClick={() => handleMemoryChange(false)}>8gb</button>
-                    <button class="btn btn-primary dark:text-white" style={gbStyle(headful16)} onClick={() => handleMemoryChange(true)}>16gb</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>
+                        Headful
+                        <span style={gbStyle(!headful16)} onClick={(e) => { e.stopPropagation(); handleMemoryChange(false); }}>8gb</span>
+                        <span style={gbStyle(headful16)} onClick={(e) => { e.stopPropagation(); handleMemoryChange(true); }}>16gb</span>
+                    </button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
                 <div style={rowStyle}>
