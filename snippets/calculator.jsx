@@ -5,7 +5,7 @@ export const PricingCalculator = () => {
     const defaults = { plan: 'free', browserType: 'headless', avgSessionLength: 30, numSessions: 100 };
     const planPrices = { free: 0, hobbyist: 30, startup: 200 };
     const usagePrices = 0.0000166667;
-    const browserMultipliers = { headless: 1, headful: 8, gpu: 48 };
+    const browserMultipliers = { headless: 1, headful: 8, headful16: 16, gpu: 48 };
 
     const [plan, setPlan] = useState(defaults.plan);
     const [browserType, setBrowserType] = useState(defaults.browserType);
@@ -104,7 +104,10 @@ export const PricingCalculator = () => {
                 </div>
                 <div style={rowStyle}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
-                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful (8GB, default)</button>
+                </div>
+                <div style={rowStyle}>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful16')} onClick={() => handleBrowserTypeChange('headful16')}>Headful (16GB)</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
                 <div style={rowStyle}>
