@@ -5,10 +5,11 @@ export const PricingCalculator = () => {
     const defaults = { plan: 'free', browserType: 'headless', avgSessionLength: 30, numSessions: 100 };
     const planPrices = { free: 0, hobbyist: 30, startup: 200 };
     const usagePrices = 0.0000166667;
-    const browserMultipliers = { headless: 1, headful: 8, headful16: 16, gpu: 48 };
+    const browserMultipliers = { headless: 1, headful: 8, gpu: 48 };
 
     const [plan, setPlan] = useState(defaults.plan);
     const [browserType, setBrowserType] = useState(defaults.browserType);
+    const [headful16, setHeadful16] = useState(false);
     const [avgSessionLength, setAvgSessionLength] = useState(defaults.avgSessionLength);
     const [numSessions, setNumSessions] = useState(defaults.numSessions);
     const [flash, setFlash] = useState(false);
@@ -20,11 +21,12 @@ export const PricingCalculator = () => {
         var url = new URL(window.location);
         url.searchParams.set('plan', plan);
         url.searchParams.set('browserType', browserType);
+        url.searchParams.set('headful16', headful16);
         url.searchParams.set('duration', avgSessionLength);
         url.searchParams.set('sessions', numSessions);
         url.hash = 'pricing-calculator';
         window.history.replaceState(null, '', url);
-    }, [plan, browserType, avgSessionLength, numSessions]);
+    }, [plan, browserType, headful16, avgSessionLength, numSessions]);
 
     const handleBrowserTypeChange = (type) => {
         hasInteracted.current = true;
@@ -32,6 +34,12 @@ export const PricingCalculator = () => {
         if (type === 'gpu' && plan !== 'startup') {
             setPlan('startup');
         }
+    };
+
+    const handleMemoryChange = (is16) => {
+        hasInteracted.current = true;
+        setHeadful16(is16);
+        setBrowserType('headful');
     };
 
     const handlePlanChange = (newPlan) => {
@@ -43,7 +51,7 @@ export const PricingCalculator = () => {
     };
 
     var price = planPrices[plan];
-    var multiplier = browserMultipliers[browserType];
+    var multiplier = browserType === 'headful' ? 8 * (headful16 ? 2 : 1) : browserMultipliers[browserType];
     var usageCost = usagePrices * multiplier * numSessions * avgSessionLength;
 
     var includedUsageCredits = 5;
@@ -77,12 +85,21 @@ export const PricingCalculator = () => {
         paddingRight: '1.5rem',
     };
     const btnStyle = (active) => ({
-        padding: '0.375rem 0.5rem',
+        padding: '0.375rem 0.75rem',
         borderRadius: '0.375rem',
         border: '1px solid var(--btn-border)',
         fontSize: '0.875rem',
         whiteSpace: 'nowrap',
         background: active ? 'var(--btn-selected-bg)' : undefined,
+        cursor: 'pointer',
+    });
+    const memStyle = (active) => ({
+        padding: '0.2rem 0.5rem',
+        border: 'none',
+        fontSize: '0.75rem',
+        whiteSpace: 'nowrap',
+        background: active ? 'var(--btn-selected-bg)' : 'transparent',
+        cursor: 'pointer',
     });
     return (
         <Columns cols={2}>
@@ -103,15 +120,21 @@ export const PricingCalculator = () => {
                     <label style={labelStyle}>Number of sessions</label>
                     <input type="number" style={{...inputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
-                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful (8GB, default)</button>
-                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful16')} onClick={() => handleBrowserTypeChange('headful16')}>Headful (16GB)</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
+                        <div style={{ display: 'flex', border: '1px solid var(--btn-border)', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                            <button class="btn btn-primary dark:text-white" style={memStyle(!headful16)} onClick={() => handleMemoryChange(false)}>8GB</button>
+                            <button class="btn btn-primary dark:text-white" style={memStyle(headful16)} onClick={() => handleMemoryChange(true)}>16GB</button>
+                        </div>
+                    </div>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
                 <div style={rowStyle}>
                     <span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>
                         ${(usagePrices * multiplier).toFixed(8)}/second
+                        {browserType === 'headful' && <span style={{ marginLeft: '0.5rem' }}>({headful16 ? '16GB' : '8GB'})</span>}
                         {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem' }}>(Startup tier required)</span>}
                     </span>
                 </div>
