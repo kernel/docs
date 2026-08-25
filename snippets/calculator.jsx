@@ -77,10 +77,11 @@ export const PricingCalculator = () => {
         paddingRight: '1.5rem',
     };
     const btnStyle = (active) => ({
-        padding: '0.25rem 0.5rem',
+        padding: '0.375rem 0.5rem',
         borderRadius: '0.375rem',
         border: '1px solid var(--btn-border)',
         fontSize: '0.875rem',
+        whiteSpace: 'nowrap',
         background: active ? 'var(--btn-selected-bg)' : undefined,
     });
     return (
@@ -102,11 +103,9 @@ export const PricingCalculator = () => {
                     <label style={labelStyle}>Number of sessions</label>
                     <input type="number" style={{...inputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
-                <div style={rowStyle}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful (8GB, default)</button>
-                </div>
-                <div style={rowStyle}>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful16')} onClick={() => handleBrowserTypeChange('headful16')}>Headful (16GB)</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
