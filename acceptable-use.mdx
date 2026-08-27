@@ -1,0 +1,103 @@
+---
+title: "Acceptable Use Policy"
+description: "What is and isn't allowed on Kernel, including fair use rules for proxies"
+---
+
+Last Modified: September 1, 2026
+
+This Acceptable Use Policy ("AUP") governs your use of the Kernel platform and is incorporated into the [Terms of Service](/tos). It applies to everyone using Kernel, on every plan. If we say something here that conflicts with the Terms of Service, the Terms of Service control.
+
+## Our Principle
+
+**If a person may lawfully browse a site and take an action on it, their agent may too.**
+
+Kernel exists to let software do what people already do in a browser. We do not maintain a general list of approved use cases, and we do not require you to justify why your agent is visiting a site. What we prohibit is conduct that would be unlawful or abusive if a person did it by hand — automation does not make it acceptable, and it does not make it worse.
+
+Two limits sit on top of that principle:
+
+- **Third-party network policies.** Kernel's proxy networks are operated by upstream providers whose own policies restrict certain destinations. Those restrictions apply to you when you use a Kernel-provided proxy. See [Proxy Fair Use](#proxy-fair-use).
+- **Your own agreements.** You are responsible for your relationship with the sites you visit, including their terms of use, their `robots.txt`, and any contract you have with them. Kernel does not evaluate or adjudicate those agreements on your behalf.
+
+## Prohibited Uses
+
+You may not use Kernel to:
+
+- **Break the law.** Violate any applicable law or regulation, or infringe anyone's intellectual property, privacy, or other rights.
+- **Access accounts you are not authorized to use.** Credential stuffing, brute-forcing logins, session hijacking, or logging into accounts without the account holder's authorization. Using credentials you own, or that a user has authorized you to use on their behalf, is permitted.
+- **Attack or degrade infrastructure.** Denial-of-service attacks, traffic floods, port scanning, vulnerability exploitation against systems you do not own, or any request pattern designed to exhaust a target's resources rather than to use the site. Security testing against your own systems is permitted; testing against Kernel's is governed by our [Security Vulnerability Reporting Policy](/security-vulnerability-reporting).
+- **Commit fraud.** Payment fraud, carding, money laundering, ad or click fraud, fake engagement, mass creation of fake accounts, or impersonating a person or organization for deceptive purposes.
+- **Spam.** Bulk unsolicited messaging, posting, commenting, or form submission.
+- **Handle prohibited content.** Child sexual abuse material, non-consensual intimate imagery, content that promotes terrorism or violent extremism, or material that facilitates the sale of illegal goods.
+- **Resell the network.** Resell, sublicense, or relay Kernel's proxy capacity or browser infrastructure as a standalone proxy, VPN, or tunneling product. Building your own product on top of Kernel is expressly permitted; reselling the underlying network as a substitute for it is not.
+- **Evade enforcement.** Circumvent a suspension, rate limit, or restriction we have applied to your account, including by creating additional accounts or organizations.
+
+We also require compliance with U.S. export control and sanctions law. You may not use Kernel if you are located in, or acting on behalf of a party in, an embargoed jurisdiction or on a restricted-party list.
+
+## Proxy Fair Use
+
+Kernel includes datacenter, ISP, residential, and mobile proxies at no additional charge. Bandwidth is not metered and not billed.
+
+**"Unlimited" means uncapped pricing, not uncapped capacity.** The proxies are provided so that your browser sessions can reach the sites they need to reach. In exchange, we ask for the following.
+
+### Fair use
+
+- Proxy traffic must originate from your Kernel browser sessions and be incidental to using them. Do not route external traffic through Kernel's proxy credentials or use a Kernel session as a general-purpose tunnel for other systems.
+- Consumption should stay in a reasonable relationship to your browser usage. We may apply rate limits, or contact you to move to a [custom (BYO) proxy](/proxies/custom), where an organization's proxy bandwidth materially exceeds what its session activity would ordinarily require.
+- Do not use proxies to obtain bandwidth-heavy content unrelated to browser automation — for example bulk media downloads, video streaming at scale, or torrenting.
+
+We would rather talk to you than throttle you. If you expect unusual volume, tell us in advance at [support@kernel.sh](mailto:support@kernel.sh) and we will plan capacity with you.
+
+### Restricted destinations
+
+Kernel's proxy networks are provided by third-party network operators. Those operators block certain categories of destination across their networks, and we pass those restrictions through to you. Requests to a restricted destination fail at the proxy layer; this is not a Kernel outage.
+
+Categories restricted by our upstream providers currently include:
+
+| Category | Examples |
+|---|---|
+| Government | `.gov` and country-specific government domains |
+| Banking and financial services | Banks, brokerages, financial institutions |
+| Payment processors | Card networks and payment service providers |
+| National postal services | Country postal operators |
+| Adult content | NSFW sites and services |
+| Direct IP addresses | Requests to a bare IP rather than a hostname |
+| Select e-commerce platforms | Evaluated by the provider case by case |
+
+This table is indicative, not exhaustive. Our providers maintain blocklists of thousands of domains, update them daily, and do not publish them in full. Treat it as a guide to what is likely to fail, not as a definitive list.
+
+Two things this restriction is **not**:
+
+- It is not Kernel's judgment about whether your use case is legitimate. Accessing a public government records site is lawful and ordinary; our residential network simply will not carry it.
+- It is not a restriction on Kernel browsers. Restricted destinations are frequently reachable without a Kernel proxy — either directly or through a [custom proxy](/proxies/custom) you supply — and Kernel's browser-level anti-detection features work in both cases. If a destination is restricted, start there.
+
+### Custom (BYO) proxies
+
+When you supply your own proxy, your provider's policies apply instead of ours and you are responsible for complying with them. Everything in [Prohibited Uses](#prohibited-uses) still applies.
+
+## Anti-Detection Features
+
+Kernel provides [stealth and anti-detection](/browsers/bot-detection/overview) capabilities, including fingerprint hardening and CAPTCHA solving. These exist because bot defenses routinely block legitimate agents doing legitimate work, and because a site's inability to distinguish an agent from an attacker should not be your problem.
+
+They are not a license to do something otherwise prohibited. Do not use them to circumvent an access control that exists to keep unauthorized parties out — a paywall you have not paid for, a login you are not authorized to use, or a technical measure whose circumvention is unlawful in your jurisdiction. The distinction we draw is between *being blocked while doing something you are allowed to do* and *using automation to get access you are not allowed to have*.
+
+Where you want your agent to identify itself rather than blend in, we support [Web Bot Auth](/browsers/bot-detection/web-bot-auth).
+
+## Enforcement
+
+If we believe you are violating this policy, we may rate limit, suspend, or terminate access to affected features or to your account. Where circumstances allow, we will contact you first and give you a chance to fix the problem; for conduct that is illegal, actively harmful to a third party, or that threatens platform stability, we may act immediately. We may also act on a credible report or takedown request from a site operator, a network provider, or a regulator.
+
+We do not monitor the content of your browser sessions. Enforcement is based on aggregate traffic patterns, abuse reports, and the metadata described in our [Privacy Policy](/privacy).
+
+## Exceptions
+
+Restricted destinations are a constraint of our upstream networks, not a policy position, and we know they block work that is entirely lawful. If a restricted destination is central to your use case, contact us — for enterprise customers we will look at network-level exceptions, alternative routing, and provider allowlisting on a case-by-case basis, subject to verification and to the provider's own approval.
+
+## Reporting Abuse
+
+To report abuse of the Kernel platform, or to request that Kernel traffic be restricted from a domain you operate, email [support@kernel.sh](mailto:support@kernel.sh). Include the domain, the observed behavior, and timestamps where possible. We investigate every report and respond to the reporter.
+
+## Changes
+
+We may update this policy as our networks, providers, and platform change. Material changes will be announced in our [changelog](/changelog) and reflected in the Last Modified date above. Continued use of Kernel after a change constitutes acceptance of the updated policy.
+
+Questions about this policy: [support@kernel.sh](mailto:support@kernel.sh).
