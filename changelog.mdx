@@ -9,6 +9,50 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="August 21" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added **org entitlements**: a read-only `GET /org/entitlements` endpoint returning your organization's effective feature access and constraints after applying its plan, active trial treatment, plan status, and any organization-specific overrides. Null constraint values mean unlimited.
+- Added a **`memory` option** when creating a browser: request `16GiB` instead of the default `8GiB` for headful, non-GPU sessions. Every browser now reports its allocation on create, read, list, and pool acquire.
+- Added **customer-configurable OTLP export** for on-demand browser sessions. Create, list, update, and delete project-scoped OTLP/HTTP destinations through the API or [CLI](https://github.com/kernel/cli), then point a session at one with `telemetry.export.otlp.destination` when creating a browser. Destination headers are encrypted at rest and returned redacted. Browser pools do not support export.
+- Expanded [browser telemetry](/browsers/telemetry/overview) with two event types: proxy failures now arrive as first-class `proxy_error` events carrying a typed code instead of being buried in the raw network stream, and the CDP commands that drive the browser — input gestures, navigation, dialogs, file selection, screenshots — are reported as `cdp_command` under the `control` category.
+- [Proxy](/proxies/overview) configurations are now cleaned up automatically. Once an organization has more than 100 active configurations, those unused for 14 days are deleted; anything attached to a session, browser pool, instance, or managed auth connection is retained.
+- Extended the [CLI](https://github.com/kernel/cli) (v0.30.0–v0.31.0) with the `kernel telemetry destinations` command group, `--memory` on `browsers create`, `--proxy-name` / `--proxy-mode` and `--telemetry-export-otlp` across browser and managed auth commands, a new `kernel auth context` for inspecting the principal and scope behind your credentials, `--name` and `--query` filters on the list commands, and a Stagehand v4 project template. Note that `kernel browsers list` changed its column order, so scripts parsing that table positionally need updating.
+
+## Documentation updates
+
+- Added a [Foreman integration guide](/integrations/vercel/foreman) to the Vercel section.
+- Documented [replay iframe embedding](/browsers/replays) for embedding session replays inside your own dashboards.
+- Documented the 30-day retention window for browser telemetry events.
+- Documented automatic [proxy](/proxies/overview) cleanup behavior.
+- Added a print-to-PDF example to the Chrome policies doc.
+- Documented deployment API key lifecycle and the list of reserved env vars that cannot be overridden at deploy time.
+- Updated [Stagehand integration](/integrations/stagehand) docs to v4.
+</Update>
+
+<Update label="August 14" tags={["Product", "Docs"]}>
+## Product updates
+
+- Expanded the [MCP server](/reference/mcp-server) with a branded OAuth consent flow, project-scoped access tokens, and required PKCE for new clients. Tools now accept a project name or ID, and org-wide connections can pick a project at connect time.
+- Improved the [MCP server](/reference/mcp-server): app invocations return an invocation ID immediately instead of blocking, with a new `list_invocation_browsers` action for the live views they create. Long-running browser operations no longer retry on transient errors, and `manage_browsers get_telemetry` supports bounded raw page reads.
+- Kernel is now a connector in the [Vercel Connect](https://vercel.com/connect) registry: `vercel connect create kernel --connection-method mcp` pre-fills the MCP URL, auth type, and branding, and brokers per-user OAuth so no Kernel API key touches your app.
+- Added a nested `proxy` object to the browser API, taking exactly one of `mode`, `id`, or `name`. Egress and stealth are now independent: an explicit [proxy](/proxies/overview) changes only where traffic exits and never toggles stealth or the CAPTCHA solver. `proxy_id` and `disable_default_proxy` are deprecated.
+- Added [private browser networking](/browsers/private-networking): `network.private_hosts` names the hosts and CIDRs a browser or browser pool should reach directly through the session's own network — for a VPN or tunnel inside the VM — while everything else keeps using Kernel-managed egress.
+- Expanded [managed auth](/auth/overview) with a nested `browser` configuration on connections covering `stealth`, `proxy`, and `telemetry`, applied as the default for every browser a connection launches. Set `browser.stealth` to `false` to skip stealth mode and the CAPTCHA solver. The older `proxy`, `proxy_id`, and `browser_telemetry` fields are deprecated.
+- Improved fingerprint coherence in [stealth-mode browsers](/browsers/bot-detection/stealth): the WebGL renderer persona now applies on GPU hosts as well as software-rendered ones, and storage quota, network information, and speech voices report plausible per-host values.
+- Browser responses now include `profile_save_changes`, so you can tell which sessions loaded a [profile](/auth/profiles) read-write and coordinate a single writer.
+- Fixed egress reliability issues: large downloads no longer truncate mid-body under backpressure, WebSocket and TURN traffic pass through unchanged, and origins that omit their intermediate certificate now verify the way Chrome does.
+- Extended the [CLI](https://github.com/kernel/cli) (v0.27.0–v0.29.0) with `--private-host` network flags, extension checksums in output, explicit clear controls for browser-pool settings, and persistent OAuth project scope.
+
+## Documentation updates
+
+- Documented [private browser networking](/browsers/private-networking), including `private_hosts` semantics for browsers and browser pools.
+- Added [safe profile writes](/auth/profiles) and clarified the `save_changes` requirement for [per-user pool profiles](/browsers/pools).
+- Added a guide for [reading the static IP of an ISP proxy](/proxies/isp) via `ip_address`.
+- Switched managed auth examples to SSE, updated the [Eve extension guide](/integrations/vercel/eve-extension) to use the Kernel connector registry entry, and swapped the Claude Code integration to the official [Claude directory connector](/integrations/claude/claude-code-and-desktop).
+- Added kiosk mode as the first [viewport](/browsers/viewport) recommendation and clarified that viewport sets window size, not page viewport.
+</Update>
+
 <Update label="August 7" tags={["Product", "Docs"]}>
 ## Product updates
 

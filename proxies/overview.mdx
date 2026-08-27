@@ -28,6 +28,10 @@ Residential and mobile proxies use **rotating exit IPs** that may change per con
 
 Create a proxy configuration from the types above that can be reused across browser sessions:
 
+<Info>
+KERNEL automatically deletes proxy configurations that haven't been used for 14 days when your organization has more than 100 active configurations. Configurations attached to sessions, pools, instances, or managed auth connections are retained.
+</Info>
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 import Kernel from '@onkernel/sdk';
@@ -241,7 +245,11 @@ For ISP and datacenter proxies the exit IP is stable, so a successful check agai
 
 ## Bypass hosts
 
-Configure specific hostnames to bypass the proxy and connect directly. This is useful for accessing internal services, metadata endpoints, or reducing latency for trusted domains.
+Configure specific hostnames to bypass the proxy and connect through Kernel-managed direct egress. This is useful for metadata endpoints or reducing latency for trusted domains.
+
+<Note>
+To reach a private service through a VPN or tunnel inside the browser session, use [`network.private_hosts`](/browsers/private-networking) instead. Proxy bypass rules don't route traffic into the session's private network.
+</Note>
 
 <CodeGroup>
 ```typescript Typescript/Javascript

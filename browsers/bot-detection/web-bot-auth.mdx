@@ -145,44 +145,17 @@ The directory should contain your public keys in JWKS format:
 kernel extensions build-web-bot-auth \
   --to ./web-bot-auth-ext \
   --key ./my-key.jwk \
-  --url https://yourdomain.com \
   --signature-agent https://yourdomain.com \
   --upload my-web-bot-auth
 ```
 
-### 4. Kernel Search configuration
+### 4. Using Kernel's bot identities
 
-Kernel Search uses a distinct Web Bot Auth identity from Kernel's user-driven
-agent traffic:
-
-- User-Agent: `KernelSearchBot`
-- Signature-Agent: `https://search.bot.kernel.sh`
-- Key directory:
-  `https://search.bot.kernel.sh/.well-known/http-message-signatures-directory`
-
-To build a browser extension for Kernel Search, use the Kernel Search Ed25519
-private key (JWK) and upload it under a distinct extension name:
-
-```bash
-kernel extensions build-web-bot-auth \
-  --to ./web-bot-auth-search-ext \
-  --key ./kernel-search.jwk \
-  --url https://www.kernel.sh \
-  --signature-agent https://search.bot.kernel.sh \
-  --upload web-bot-auth-search
-```
-
-For host-proxy based signing, configure the Search crawler's host-proxy
-environment with:
-
-```bash
-HOST_PROXY_WEB_BOT_AUTH_ENABLED=true
-HOST_PROXY_WEB_BOT_AUTH_KEY_PATH=/path/to/kernel-search-private-key.pem
-HOST_PROXY_WEB_BOT_AUTH_DIRECTORY_URL=https://search.bot.kernel.sh
-```
-
-The signing key must correspond to the public key hosted by
-`search.bot.kernel.sh`.
+Kernel's own Web Bot Auth identities are already approved by Cloudflare, Vercel,
+Akamai, and other bot-verification providers. If you want to sign requests with
+one of Kernel's identities rather than your own, [contact Kernel support](https://www.kernel.sh/docs/info/support).
+See [Bots and agents](/bots) for the list of identities and their key
+directories.
 
 ### 5. Register with Vercel and other Web Bot Auth-aware directories (optional)
 
