@@ -13,15 +13,12 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 
 - Launched a [bug bounty program](/security-vulnerability-reporting) covering the Kernel API, dashboard, MCP server, and browser infrastructure. The published scope and policy define eligible targets, severity tiers, and safe-harbor terms for security researchers.
-- Rebranded **Site Configs** to **Config Registry** across the API, SDKs (v0.96.0), and dashboard. The prior route and field names are removed, so move integrations to the `/config-registry` resource path. The API is still pre-release: it requires a paid plan and access is granted per organization.
-- Added country-aware config discovery: config lookups now include the exit country so a cached configuration resolved through one country isn't returned to a customer whose proxy allow-list excludes it, and non-US proxies stop returning localized domains for US-scoped sessions.
 - Split browser telemetry into `control` (agent-driven browser actions) and a new opt-in `platform` category for VM-management calls like recording capture, profile save, and telemetry publish. The default capture set is now cleaner and cheaper, and `executePlaywrightCode` events include the submitted code (clipped to 8 KB).
 - Enabled **WebMCP by default** in Kernel browsers and consolidated the browser feature flags into a single feature list, giving agents Model Context Protocol access out of the box without extra configuration.
 - Improved [MCP server](/reference/mcp-server) support for the OpenAI Apps SDK with the required domain verification challenge, so Kernel MCP can be registered as an OpenAI App connector.
 - Added a `submit_feedback` tool to the [MCP server](/reference/mcp-server) for product, MCP, documentation, and general feedback, so agents can report a problem without leaving the session. Submissions are redacted of emails, URLs, and token-shaped values before capture.
-- Added **ap-southeast** as a placement region, served from a new Singapore metro, across the API, dashboard region pickers, and [CLI](https://github.com/kernel/cli). Regional placement is in preview and enabled per organization; contact us to try it.
 - Improved managed auth credential correction: [`@onkernel/managed-auth-react`](https://github.com/kernel/managed-auth-react) surfaces a notice when a field value is rejected, and submitting a corrected value now retries the login instead of failing the flow. Consent prompts are also gated until session initialization completes.
-- Extended the [CLI](https://github.com/kernel/cli) (v0.32.0–v0.33.0) with an `ap-southeast` region option on browser commands and an `fx` MCP install target for one-command setup of the fx MCP.
+- Extended the [CLI](https://github.com/kernel/cli) (v0.32.0–v0.33.0) with an `fx` MCP install target for one-command setup of the fx MCP.
 - Reduced Playwright per-frame overhead by memoizing page target IDs, cutting redundant CDP lookups during multi-step automations.
 - Upgraded [Hypeman](https://docs.hypeman.sh) to Firecracker v1.16.1, picking up upstream snapshot-restore and jailer fixes for the microVM runtime. New instances and snapshots use v1.16.1; existing snapshots keep restoring on the Firecracker version recorded in their metadata.
 
