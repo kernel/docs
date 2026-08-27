@@ -1,0 +1,151 @@
+---
+title: "Spending Caps"
+description: "Choose a monthly spending guardrail for your organization, a project, or both"
+---
+
+A retry loop, traffic spike, or long-running agent can raise usage faster than you expect. Spending caps let you decide how much new usage KERNEL can admit each month before it pauses the affected workload.
+
+KERNEL sends a warning when usage reaches 80% of a cap, then pauses new browser sessions and app invocations at 100%. Already-running work continues, and you can still inspect resources, clean them up, or raise the cap.
+
+<Note>
+  Project spending caps are in limited preview. [Contact support](/info/support) if you don't see the project option on your billing page. Organization caps are available to self-serve organizations with a payment method. Enterprise availability is limited.
+</Note>
+
+## Choose a cap
+
+<CardGroup cols={2}>
+  <Card title="Organization cap" icon="building">
+    Bound your organization's total out-of-pocket usage spend after monthly credits. When it is reached, new usage pauses across every project.
+
+    Use this as the final guardrail for your KERNEL bill.
+  </Card>
+  <Card title="Project cap" icon="folder">
+    Bound gross usage for one project before organization credits. When it is reached, that project pauses while sibling projects continue.
+
+    Use this to isolate teams, environments, customers, or experiments.
+  </Card>
+</CardGroup>
+
+For most multi-project production setups, use both: an organization cap for the total bill and lower project limits for workloads that need tighter control.
+
+| Behavior | Organization cap | Project cap |
+| --- | --- | --- |
+| Spend measured | Out-of-pocket usage after monthly credits | Gross usage before credits |
+| Scope paused at 100% | Every project in the organization | Only the selected project |
+| Best for | A final billing guardrail | Workload, team, or environment isolation |
+| Quantity | One per organization | One per project |
+
+Subscription fees don't count toward either cap. Spending caps apply to usage charges.
+
+## How spend is counted
+
+### Organization caps
+
+An organization cap measures usage after KERNEL applies your included monthly credits:
+
+```text
+out-of-pocket usage = gross usage - included monthly credits
+```
+
+For example, an organization with \$50 in monthly usage credits sets a \$100 organization cap:
+
+- KERNEL sends the 80% warning at \$130 in gross usage: \$50 in credits plus \$80 in out-of-pocket usage.
+- KERNEL pauses new usage at \$150 in gross usage: \$50 in credits plus the \$100 cap.
+- The plan's subscription fee remains separate.
+
+Choose an organization cap when your main requirement is a predictable maximum for monthly usage charges, regardless of which project creates the spend.
+
+### Project caps
+
+A project cap measures that project's gross usage. Organization credits aren't divided or assigned to individual projects.
+
+For example, a \$25 project cap warns at \$20 and pauses new usage for that project at \$25. Other projects can continue until they reach their own caps or the organization cap is reached.
+
+Requests without an explicit project resolve to your [default project](/info/projects#the-default-project) and count toward that project's cap.
+
+Choose project caps when one workload must not consume an open-ended share of the organization's budget. Common examples include staging, customer-specific automations, and experiments with uncertain retry behavior.
+
+## How enforcement works
+
+<Steps>
+  <Step title="Usage starts a new monthly period">
+    KERNEL evaluates each cap from the first day of the month at 00:00 utc. Organization and project usage accumulate independently.
+  </Step>
+  <Step title="KERNEL warns at 80%">
+    KERNEL sends a warning email for the cap that entered the warning range. Existing and new work continue.
+  </Step>
+  <Step title="New work pauses at 100%">
+    New browser sessions and app invocations return a `403` for the affected scope. An organization cap pauses every project; a project cap pauses only that project.
+  </Step>
+  <Step title="The cap resets next month">
+    New work resumes when the next monthly period starts. An organization admin can also increase or remove the cap from the billing page.
+  </Step>
+</Steps>
+
+When a cap is reached:
+
+- Already-running browser sessions and app invocations continue until they end.
+- Read and delete requests remain available, along with selected non-billable administrative operations such as managing projects, limits, and api keys.
+- Browser pools can maintain idle capacity, but you can't acquire a new browser for a capped scope.
+- Organization members can view cap status. Only organization admins can set, edit, or remove caps.
+
+<Warning>
+  A spending cap is an admission guardrail, not a transactional hard ceiling. Usage is evaluated through billing events, and already-running work can continue adding usage after the threshold is reached. Leave headroom below any budget that must not be exceeded.
+</Warning>
+
+## Layer organization and project caps
+
+Organization and project caps are independent. KERNEL doesn't allocate the organization cap among projects, and project caps don't have to add up to the organization cap.
+
+<Columns cols={3}>
+  <Card title="A project reaches its cap" icon="folder-closed">
+    KERNEL pauses new work for that project. Other projects continue.
+  </Card>
+  <Card title="The organization reaches its cap" icon="building-circle-xmark">
+    KERNEL pauses new work across every project, even if their individual caps have room left.
+  </Card>
+  <Card title="Both thresholds are reached" icon="layer-group">
+    The organization cap takes precedence because it applies to the full organization.
+  </Card>
+</Columns>
+
+If a project cap is higher than the organization cap plus monthly credits, the organization cap can trigger first. The dashboard warns you when you enter that configuration, but it still lets you save it because a later change to credits or the organization cap can change which threshold comes first.
+
+## Recommended setups
+
+### One production workload
+
+Set an organization cap above your normal monthly usage and below the point where an unexpected retry loop becomes expensive. Add a project cap only if you need a tighter boundary for a separate test or staging project.
+
+### Multiple teams or environments
+
+Set one organization cap for the total bill, then give staging, experiments, and each team their own project caps. A noisy project pauses without taking production down with it.
+
+### Customer-specific workloads
+
+Place each customer's resources in a [project](/info/projects), then set project caps according to the workload's expected usage. Keep an organization cap as the final boundary across all customers.
+
+### High-volume production
+
+Use a spending cap for cost and [concurrency limits](/info/pricing#concurrency-limits) for simultaneous capacity. A spending cap doesn't reserve throughput, and a concurrency limit doesn't bound monthly spend.
+
+## Set or update a cap
+
+<Steps>
+  <Step title="Open billing">
+    Go to the [KERNEL billing page](https://dashboard.onkernel.com/billing) as an organization admin.
+  </Step>
+  <Step title="Choose the scope">
+    In **Spending Cap**, select **Organization** or **Project**. For a project cap, select the project you want to control.
+  </Step>
+  <Step title="Set the monthly amount">
+    Enter the usage amount in usd and save. If current month-to-date usage already exceeds a new or reduced cap, the scope can enter the reached state as soon as billing data finishes evaluating.
+  </Step>
+  <Step title="Monitor or adjust it">
+    The card shows month-to-date progress and reached state. Increase, lower, or remove the cap at any time.
+  </Step>
+</Steps>
+
+<Card title="Open billing" icon="credit-card" href="https://dashboard.onkernel.com/billing">
+  Set an organization spending cap or manage the project caps available to your organization.
+</Card>
