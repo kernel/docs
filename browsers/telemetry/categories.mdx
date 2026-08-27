@@ -17,7 +17,7 @@ These categories report on the session itself rather than page content.
 | `platform` | Calls that manage the VM rather than drive the browser: recording lifecycle, filesystem, process execution, log streaming, scale-to-zero, telemetry, display and browser configuration, and extension uploads | `platform_api_call` |
 | `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
 | `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
-| `captcha` | Results of automated captcha solves | `captcha_solve_result` |
+| `captcha` | Solver task lifecycle and visible challenge outcomes | `captcha_solve_started`, `captcha_solve_result`, `captcha_challenge_result` |
 
 `control` answers "what did my agent do." `platform` is mostly Kernel acting on the VM on your behalf - saving a profile, capturing a replay, polling a recorder - so it is off by default even though the rest of this group is on. Enable it when you are debugging a profile save, a replay, or a session-setup step rather than the agent itself.
 
@@ -74,6 +74,27 @@ browser = kernel.browsers.create(
 
 Exclusion affects telemetry only; the commands still reach the browser. On `cdp_disconnect`, `telemetry_excluded` counts configured exclusions. Treat a nonzero `telemetry_dropped` as a telemetry-loss signal rather than using it to reconstruct the missing command sequence; the browser commands themselves still reach the browser.
 
+### Correlate captcha tasks and challenges
+
+A visible captcha challenge can require multiple solver tasks. When the identifiers are present, use `task_id` to pair a `captcha_solve_started` event with its terminal `captcha_solve_result`, and use `challenge_id` to group every task for the same visible challenge. A `challenge_id` can continue across a page reload when the same challenge episode continues; it doesn't indicate task order or completion.
+
+| Event type | Scope | Meaning |
+| --- | --- | --- |
+| `captcha_solve_started` | Solver task | The solver accepted a task. This doesn't mean a solve is currently in flight. |
+| `captcha_solve_result` | Solver task | A task ended with `success`, `failure`, `timeout`, or `abandoned`. A successful task means the solver returned a usable solution, not that the visible challenge cleared. |
+| `captcha_challenge_result` | Visible challenge | The challenge reached its overall `solved`, `failure`, `timeout`, or `abandoned` outcome. Wait for this event when you need the challenge result. |
+
+Task events are best-effort and aren't ordered: a start can arrive after its result, and either event can be absent. Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
+
+Challenge outcomes have these meanings:
+
+| Status | Meaning |
+| --- | --- |
+| `solved` | The page observed the challenge clear after a solver attempt. This doesn't prove the site accepted the solution or that the guarded action succeeded. |
+| `failure` | A terminal solver failure occurred, or all attempts ended while the challenge remained. |
+| `timeout` | The challenge-level wait budget expired while the challenge remained. |
+| `abandoned` | Observation ended without an attributable terminal challenge outcome. This includes a dismissed widget, a page unload, or a token appearing while multiple challenges from the same provider are open. In the last case, a task can report `success` while the challenge with the same `challenge_id` reports `abandoned`. |
+
 ## Browser activity
 
 These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces highly granular page-level events. Capturing them adds overhead, so enable only the ones you need.
@@ -108,7 +129,7 @@ Telemetry is off by default. The default set isn't limited to session metadata: 
 | `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
 | `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
 | `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. `cdp_command` carries sanitized arguments such as the method and phase, coordinates, counts, flags, and named keys such as `Enter` and `Tab`. Typed text, file paths, scripts, templates, dialog input, and autofill values aren't captured; navigation commands retain only the URL scheme, not the host, path, query, or fragment. |
-| `captcha` | Captcha type, solve outcome and duration. It can include the host and path of the page where the captcha was solved; the query string is excluded. Failed solves can include a solver-specific error code. |
+| `captcha` | Captcha type, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
 | `platform`, `connection`, `system`, `monitor` | Session and VM metadata only (VM-management calls, connection and health events). No page content. |
 
 Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Events are retained for 30 days, then expired (see [Retention](/browsers/telemetry/overview#retention)). Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
