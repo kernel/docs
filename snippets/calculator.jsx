@@ -2,7 +2,7 @@ const { useState, useEffect, useRef } = React;
 const { Card, Columns } = MintlifyComponents;
 
 export const PricingCalculator = () => {
-    const defaults = { plan: 'free', browserType: 'headless', avgSessionLength: 30, numSessions: 100 };
+    const defaults = { plan: 'free', browserType: 'headful', avgSessionLength: 30, numSessions: 100 };
     const planPrices = { free: 0, hobbyist: 30, startup: 200 };
     const usagePrices = 0.0000166667;
     const browserMultipliers = { headless: 1, headful: 8, gpu: 48 };
@@ -103,8 +103,8 @@ export const PricingCalculator = () => {
                     <input type="number" style={{...inputStyle}} value={numSessions} onChange={(e) => { hasInteracted.current = true; setNumSessions(parseInt(e.target.value)); }} />
                 </div>
                 <div style={rowStyle}>
-                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headful')} onClick={() => handleBrowserTypeChange('headful')}>Headful</button>
+                    <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'headless')} onClick={() => handleBrowserTypeChange('headless')}>Headless</button>
                     <button class="btn btn-primary dark:text-white" style={btnStyle(browserType === 'gpu')} onClick={() => handleBrowserTypeChange('gpu')}>Headful + GPU</button>
                 </div>
                 <div style={rowStyle}>
