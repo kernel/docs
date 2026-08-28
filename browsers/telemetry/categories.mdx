@@ -82,9 +82,11 @@ A visible captcha challenge can require multiple solver tasks. When the identifi
 | --- | --- | --- |
 | `captcha_solve_started` | Solver task | The solver accepted a task. This doesn't mean a solve is currently in flight. |
 | `captcha_solve_result` | Solver task | A task ended with `success`, `failure`, `timeout`, or `abandoned`. A successful task means the solver returned a usable solution, not that the visible challenge cleared. |
-| `captcha_challenge_result` | Visible challenge | The challenge reached its overall `solved`, `failure`, `timeout`, or `abandoned` outcome. Wait for this event when you need the challenge result. |
+| `captcha_challenge_result` | Visible challenge | When emitted, the challenge reached its overall `solved`, `failure`, `timeout`, or `abandoned` outcome. |
 
-Task events are best-effort and aren't ordered: a start can arrive after its result, and either event can be absent. Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
+Challenge results are currently emitted for visible reCAPTCHA v2, hCaptcha, and press-and-hold challenges. Other captcha types can emit task events without a challenge result. Telemetry delivery is best-effort and isn't ordered: a start can arrive after its result, and any event can be absent. When you need a challenge-level outcome, wait for a bounded interval and fall back to available task results and the current page state.
+
+Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
 
 Challenge outcomes have these meanings:
 
