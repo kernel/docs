@@ -75,9 +75,9 @@ If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter
 Check the `can_reauth` boolean on a connection. It's `true` only when **both** of these hold:
 
 1. **A credential is linked** — stored in Kernel or sourced via [1Password](/integrations/1password).
-2. **No unresolved human action is required** — the saved login flow doesn't need an sms/email code, push approval, external action, or ambiguous account/provider choice.
+2. **No known human-only requirement is recorded** — for example, an sms/email code, push approval, or other external action.
 
-If either fails, the connection will move to `NEEDS_AUTH` on the next expired session and wait for a fresh login.
+If either fails, the connection will move to `NEEDS_AUTH` on the next expired session and wait for a fresh login. A site can still present a new or conditional challenge during reauth; if Kernel can't resolve it safely, reauth stops and the connection moves to `NEEDS_AUTH`.
 
 ### External actions that block auto-reauth
 
@@ -151,7 +151,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-
 
 ### Recovering
 
-- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. During an interactive login, Kernel asks for a corrected value in place rather than failing the whole flow — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
 - **`account_locked`** — Unlock the account with the site directly. Calling `.login()` again before that will not help and may extend the lockout.
 - **`rate_limited`** — Wait for the site's retry window before starting another login.
 - **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).

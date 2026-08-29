@@ -100,7 +100,11 @@ Listen for `AWAITING_INPUT`. Submit fields or a selected choice, then keep liste
 const events = await kernel.auth.connections.follow(auth.id);
 
 for await (const event of events) {
-  if (event.flow_step !== 'AWAITING_INPUT' || !event.interaction_id) {
+  if (
+    event.event !== 'managed_auth_state' ||
+    event.flow_step !== 'AWAITING_INPUT' ||
+    !event.interaction_id
+  ) {
     continue;
   }
 
