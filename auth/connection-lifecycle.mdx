@@ -75,7 +75,7 @@ If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter
 Check the `can_reauth` boolean on a connection. It's `true` only when **both** of these hold:
 
 1. **A credential is linked** — stored in Kernel or sourced via [1Password](/integrations/1password).
-2. **No external action is required** — the saved login flow doesn't need a human (no SMS/email OTP, no push notification, no manual MFA selection).
+2. **No unresolved human action is required** — the saved login flow doesn't need an sms/email code, push approval, external action, or ambiguous account/provider choice.
 
 If either fails, the connection will move to `NEEDS_AUTH` on the next expired session and wait for a fresh login.
 
@@ -131,7 +131,7 @@ if state.Status == kernel.ManagedAuthStatusNeedsAuth {
 
 ## When a login fails
 
-If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — the flow is marked failed and the connection surfaces an error code on `flow_status`.
+If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — the flow is marked `FAILED` and the event includes `error_code` and `error_message`.
 
 How much Kernel retries depends on the failure. A transient site problem (a 5xx page, a maintenance screen) is retried once against the login page before giving up. A conclusive rejection by the site — wrong credentials, a locked account, an unsupported method — is **not** retried, because retrying would burn attempts against a lockout or fail identically.
 
@@ -142,7 +142,7 @@ Common codes:
 | `credentials_invalid` | The stored or submitted credentials were rejected by the site. | No |
 | `account_locked` | The site locked or suspended the account. | No |
 | `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). | No |
-| `rate_limited` | The site rate-limited the login attempt. | Yes, after a delay |
+| `rate_limited` | The site rate-limited the login attempt. | No; retry later |
 | `website_error` | The site returned an error, maintenance, or unavailable page. | Once |
 | `bot_detected` | The login page blocked the session as automated. | No |
 | `captcha_blocked` | A CAPTCHA was presented and couldn't be solved. | No |
@@ -153,6 +153,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-
 
 - **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. During an interactive login, Kernel asks for a corrected value in place rather than failing the whole flow — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
 - **`account_locked`** — Unlock the account with the site directly. Calling `.login()` again before that will not help and may extend the lockout.
+- **`rate_limited`** — Wait for the site's retry window before starting another login.
 - **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).
 - **`unsupported_auth_method`** — Switch the account to a supported sign-in method (e.g. password + TOTP instead of a passkey) and re-link the credential.
 - **`website_error`** — Usually the site, not the connection. Retry later; if it persists, confirm the connection's `login_url` still points at a working login page.

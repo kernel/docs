@@ -3,45 +3,58 @@ title: "Programmatic Flow"
 description: "Build your own credential collection UI with full control"
 ---
 
-Build your own credential collection UI instead of using the hosted page. Stream login events, then submit credentials via the API.
+build your own credential collection ui instead of using the hosted page. stream login events, render the canonical fields and choices, then submit the user's response with the current interaction id.
 
-Use the Programmatic flow when:
-- You need a custom credential collection UI that matches your app's design
-- You're building headless/automated authentication
-- You have credentials stored and want to authenticate without user interaction
+use the programmatic flow when:
 
-## How It Works
+- you need a custom credential collection ui
+- you're building headless authentication
+- you already store credentials and want to handle only the inputs KERNEL cannot resolve automatically
+
+## How it works
 
 <Steps>
-  <Step title="Create Connection and Start Session">
-    Same as [Hosted UI](/auth/hosted-ui)
+  <Step title="Create a connection and start a session">
+    Create a managed auth connection, then call `.login()`.
   </Step>
-  <Step title="Stream and Submit">
-    Follow the connection's SSE stream and submit credentials when `flow_step` becomes `AWAITING_INPUT`
+  <Step title="Stream the session state">
+    Follow the connection's sse stream. When `flow_step` becomes `AWAITING_INPUT`, render `fields` and `choices` from the event.
   </Step>
-  <Step title="Handle 2FA">
-    If more fields appear (2FA code), submit again—same loop handles it
+  <Step title="Submit one interaction">
+    Send the event's `interaction_id` with either `field_values` or `selected_choice_id`. Keep listening because the next page may produce another interaction.
   </Step>
 </Steps>
 
-## Getting started
+## Interaction contract
 
-### 1. Create a Connection
+Every paused interaction uses these properties together:
 
-A **Managed Auth Connection** attaches an authenticated domain to a [profile](/auth/profiles) so you can use the auth connection in future browsers. A single profile can hold multiple auth connections — create one connection for each domain you want to keep authenticated on that profile.
+| Property | Purpose |
+|---|---|
+| `interaction_id` | Opaque id for the current pause. It changes when the actionable screen changes. |
+| `fields` | Values the user must provide. |
+| `choices` | Visible routes the user may select, including mfa, sso, account, and organization choices. |
+
+Submit the current `interaction_id` with either `field_values` or `selected_choice_id`. Do not mix properties from different events. KERNEL rejects stale interaction ids so a delayed submission cannot act on a newer screen.
+
+## Get started
+
+### 1. Create a connection
+
+A managed auth connection attaches one authenticated domain to a [profile](/auth/profiles). A profile can hold multiple connections.
 
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'github.com',
-  profile_name: 'github-profile', // Name of the profile to associate with the connection
+  profile_name: 'github-profile',
 });
 ```
 
 ```python Python
 auth = await kernel.auth.connections.create(
     domain="github.com",
-    profile_name="github-profile", # Name of the profile to associate with the connection
+    profile_name="github-profile",
 )
 ```
 
@@ -49,753 +62,283 @@ auth = await kernel.auth.connections.create(
 auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
 	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
 		Domain:      "github.com",
-		ProfileName: "github-profile", // Name of the profile to associate with the connection
+		ProfileName: "github-profile",
 	},
 })
 if err != nil {
 	panic(err)
 }
-_ = auth
 ```
 </CodeGroup>
 
-### 2. Start a Login Session
+### 2. Start a login session
 
 <CodeGroup>
 ```typescript TypeScript
-const login = await kernel.auth.connections.login(auth.id);
+await kernel.auth.connections.login(auth.id);
 ```
 
 ```python Python
-login = await kernel.auth.connections.login(auth.id)
+await kernel.auth.connections.login(auth.id)
 ```
 
 ```go Go
-login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+_, err = client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
 if err != nil {
 	panic(err)
 }
-_ = login
 ```
 </CodeGroup>
 
-Credentials are saved automatically on successful login, enabling automatic re-authentication when the session expires.
+A successful interactive login can save submitted credentials for automatic re-authentication.
 
-### 3. Stream and submit credentials
+### 3. Stream and submit
 
-A single SSE stream handles everything—initial login, 2FA, and completion:
+Listen for `AWAITING_INPUT`. Submit fields or a selected choice, then keep listening for the next interaction.
+
+```typescript TypeScript
+const events = await kernel.auth.connections.follow(auth.id);
+
+for await (const event of events) {
+  if (event.flow_step !== 'AWAITING_INPUT' || !event.interaction_id) {
+    continue;
+  }
+
+  if (event.fields?.length) {
+    const fieldValues: Record<string, string> = {};
+
+    for (const field of event.fields) {
+      fieldValues[field.id] = await promptUser(field);
+    }
+
+    await kernel.auth.connections.submit(auth.id, {
+      interaction_id: event.interaction_id,
+      field_values: fieldValues,
+    });
+  } else if (event.choices?.length) {
+    const choice = await promptUserToChoose(event.choices);
+
+    await kernel.auth.connections.submit(auth.id, {
+      interaction_id: event.interaction_id,
+      selected_choice_id: choice.id,
+    });
+  }
+}
+```
+
+`promptUser` and `promptUserToChoose` represent your application's ui. The submission examples below show the same requests in each sdk.
+
+<Tip>
+every programmatic login session also has a `hosted_url`. redirect the user there if you want the hosted ui to finish an unexpected state.
+</Tip>
+
+In the examples below, `state` is the current `managed_auth_state` event.
+
+## Fields
+
+Each field includes:
+
+| Property | Meaning |
+|---|---|
+| `id` | Stable id used as the key in `field_values`. |
+| `ref` | Credential meaning, such as `email`, `password`, or `sms_code`. |
+| `type` | `identifier`, `password`, `code`, `totp_code`, `totp_secret`, or `text`. |
+| `label` | Text to show beside the input. |
+| `reason` | `missing` or `rejected`. |
+| `hint` | Optional context, including a masked code destination. |
+
+Submit values by **field id**, not by `ref`:
 
 <CodeGroup>
 ```typescript TypeScript
-const events = await kernel.auth.connections.follow(auth.id);
-let finalState;
-
-for await (const event of events) {
-  if (event.event !== 'managed_auth_state') continue;
-  finalState = event;
-
-  // Submit when fields are ready (login or 2FA)
-  if (event.flow_step === 'AWAITING_INPUT' && event.discovered_fields?.length) {
-    const fieldValues = getCredentialsForFields(event.discovered_fields);
-    await kernel.auth.connections.submit(auth.id, { fields: fieldValues });
-  }
-}
-
-if (finalState?.flow_status === 'SUCCESS') {
-  console.log('Authentication successful!');
-}
+await kernel.auth.connections.submit(auth.id, {
+  interaction_id: state.interaction_id,
+  field_values: {
+    [state.fields[0].id]: userValue,
+  },
+});
 ```
 
 ```python Python
-events = await kernel.auth.connections.follow(auth.id)
-final_state = None
-
-async for event in events:
-    if event.event != "managed_auth_state":
-        continue
-    final_state = event
-
-    # Submit when fields are ready (login or 2FA)
-    if event.flow_step == "AWAITING_INPUT" and event.discovered_fields:
-        field_values = get_credentials_for_fields(event.discovered_fields)
-        await kernel.auth.connections.submit(auth.id, fields=field_values)
-
-if final_state and final_state.flow_status == "SUCCESS":
-    print("Authentication successful!")
+await kernel.auth.connections.submit(
+    auth.id,
+    interaction_id=state.interaction_id,
+    field_values={state.fields[0].id: user_value},
+)
 ```
 
 ```go Go
-events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
-authenticated := false
-
-for events.Next() {
-	event := events.Current()
-	if event.Event != "managed_auth_state" {
-		continue
-	}
-	if event.FlowStatus == "SUCCESS" {
-		authenticated = true
-	}
-
-	// Submit when fields are ready (login or 2FA)
-	if event.FlowStep == "AWAITING_INPUT" && len(event.DiscoveredFields) > 0 {
-		fieldValues := map[string]string{}
-		missingFields := []string{}
-
-		for _, field := range event.DiscoveredFields {
-			switch field.Name {
-			case "username":
-				fieldValues[field.Name] = "dev-user"
-			case "email":
-				fieldValues[field.Name] = "dev@example.com"
-			case "password":
-				fieldValues[field.Name] = "correct-horse-battery-staple"
-			case "otp", "code", "totp":
-				fieldValues[field.Name] = "123456"
-			default:
-				switch field.Type {
-				case "email":
-					fieldValues[field.Name] = "dev@example.com"
-				case "password":
-					fieldValues[field.Name] = "correct-horse-battery-staple"
-				case "code", "totp":
-					fieldValues[field.Name] = "123456"
-				default:
-					missingFields = append(missingFields, field.Name)
-				}
-			}
-		}
-
-		if len(missingFields) > 0 {
-			fmt.Println("Collect values for fields:", missingFields)
-			break
-		}
-
-		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-				Fields: fieldValues,
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-if err := events.Err(); err != nil {
+_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+	SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+		InteractionID: kernel.String(state.InteractionID),
+		FieldValues: map[string]string{
+			state.Fields[0].ID: userValue,
+		},
+	},
+})
+if err != nil {
 	panic(err)
-}
-
-if authenticated {
-	fmt.Println("Authentication successful!")
 }
 ```
 </CodeGroup>
-
-The `discovered_fields` array tells you what the login form needs:
-
-```typescript
-// Example discovered_fields for login
-[{ name: 'username', type: 'text' }, { name: 'password', type: 'password' }]
-
-// Example discovered_fields for 2FA
-[{ name: 'otp', type: 'code' }]
-```
 
 ### Replacing a rejected credential
 
-If the site explicitly rejects a submitted value, the flow returns to `AWAITING_INPUT` with the affected field marked `replace_existing: true` instead of failing outright. Treat that as "this specific value was wrong, ask again" — don't resubmit the same value, and don't reuse a cached one:
+A field with `reason: 'rejected'` means the site explicitly refused the previous value. Prompt for a new value and submit it against the new interaction:
 
 <CodeGroup>
 ```typescript TypeScript
-if (state.flow_step === 'AWAITING_INPUT') {
-  const stale = state.discovered_fields?.filter(f => f.replace_existing);
+const rejected = state.fields?.filter(field => field.reason === 'rejected');
 
-  if (stale?.length) {
-    // The site rejected these. Prompt the user again; a stored value will fail identically.
-    const corrected = await promptUser(stale);
-    await kernel.auth.connections.submit(auth.id, { fields: corrected });
-  }
+if (state.interaction_id && rejected?.length) {
+  const corrected = await promptUser(rejected);
+  const fieldValues = Object.fromEntries(
+    rejected.map(field => [field.id, corrected[field.id]])
+  );
+
+  await kernel.auth.connections.submit(auth.id, {
+    interaction_id: state.interaction_id,
+    field_values: fieldValues,
+  });
 }
 ```
 
 ```python Python
-if state.flow_step == "AWAITING_INPUT":
-    stale = [f for f in (state.discovered_fields or []) if f.get("replace_existing")]
+rejected = [field for field in (state.fields or []) if field.reason == "rejected"]
 
-    if stale:
-        # The site rejected these. Prompt the user again; a stored value will fail identically.
-        corrected = await prompt_user(stale)
-        await kernel.auth.connections.submit(auth.id, fields=corrected)
-```
-</CodeGroup>
-
-This only happens during an interactive login. An unattended re-authentication that hits a rejected credential fails with `credentials_invalid` rather than resubmitting — repeated bad submissions are what lock accounts.
-
-## Complete Example
-
-<CodeGroup>
-```typescript TypeScript
-import Kernel from '@onkernel/sdk';
-
-const kernel = new Kernel();
-
-// Create connection
-const auth = await kernel.auth.connections.create({
-  domain: 'github.com',
-  profile_name: 'github-profile',
-});
-
-const login = await kernel.auth.connections.login(auth.id);
-
-// One SSE stream handles login + 2FA
-const events = await kernel.auth.connections.follow(auth.id);
-let finalState;
-
-for await (const event of events) {
-  if (event.event !== 'managed_auth_state') continue;
-  finalState = event;
-
-  if (event.flow_step === 'AWAITING_INPUT' && event.discovered_fields?.length) {
-    // Check what fields are needed
-    const fieldNames = event.discovered_fields.map(f => f.name);
-
-    if (fieldNames.includes('username')) {
-      // Initial login
-      await kernel.auth.connections.submit(auth.id, {
-        fields: { username: 'my-username', password: 'my-password' }
-      });
-    } else {
-      // 2FA or additional fields
-      const code = await promptUserForCode();
-      await kernel.auth.connections.submit(auth.id, {
-        fields: { [event.discovered_fields[0].name]: code }
-      });
+if state.interaction_id and rejected:
+    corrected = await prompt_user(rejected)
+    field_values = {
+        field.id: corrected[field.id]
+        for field in rejected
     }
-  }
-}
+    await kernel.auth.connections.submit(
+        auth.id,
+        interaction_id=state.interaction_id,
+        field_values=field_values,
+    )
+```
+</CodeGroup>
 
-if (finalState?.flow_status === 'SUCCESS') {
-  console.log('Authentication successful!');
-  
-  const browser = await kernel.browsers.create({
-    profile: { name: 'github-profile' },
-    stealth: true,
-  });
-  
-  // Navigate to the site—you're already logged in
-  await page.goto('https://github.com');
-}
+An unattended reauth run does not ask for a corrected credential. It fails with `credentials_invalid` rather than repeating a value the site already rejected.
+
+## Choices
+
+All selectable auth routes use the same shape. `choice.type` identifies the category:
+
+- `mfa_method`
+- `sso_provider`
+- `sign_in_method`
+- `auth_method`
+- `identifier_method`
+- `account`
+- `other`
+
+Render the visible `label`, optional `description`, and optional `masked_destination`. Submit the exact `choice.id` returned by the event:
+
+<CodeGroup>
+```typescript TypeScript
+const mfaChoices = state.choices?.filter(choice => choice.type === 'mfa_method') ?? [];
+const selected = await choose(mfaChoices);
+
+await kernel.auth.connections.submit(auth.id, {
+  interaction_id: state.interaction_id,
+  selected_choice_id: selected.id,
+});
 ```
 
 ```python Python
-from kernel import AsyncKernel
+mfa_choices = [choice for choice in (state.choices or []) if choice.type == "mfa_method"]
+selected = await choose(mfa_choices)
 
-kernel = AsyncKernel()
-
-# Create connection
-auth = await kernel.auth.connections.create(
-    domain="github.com",
-    profile_name="github-profile",
+await kernel.auth.connections.submit(
+    auth.id,
+    interaction_id=state.interaction_id,
+    selected_choice_id=selected.id,
 )
-
-login = await kernel.auth.connections.login(auth.id)
-
-# One SSE stream handles login + 2FA
-events = await kernel.auth.connections.follow(auth.id)
-final_state = None
-
-async for event in events:
-    if event.event != "managed_auth_state":
-        continue
-    final_state = event
-
-    if event.flow_step == "AWAITING_INPUT" and event.discovered_fields:
-        # Check what fields are needed
-        field_names = [field.name for field in event.discovered_fields]
-
-        if "username" in field_names:
-            # Initial login
-            await kernel.auth.connections.submit(
-                auth.id,
-                fields={"username": "my-username", "password": "my-password"},
-            )
-        else:
-            # 2FA or additional fields
-            code = input("Enter code: ")
-            await kernel.auth.connections.submit(
-                auth.id,
-                fields={event.discovered_fields[0].name: code},
-            )
-
-if final_state and final_state.flow_status == "SUCCESS":
-    print("Authentication successful!")
-    
-    browser = await kernel.browsers.create(
-        profile={"name": "github-profile"},
-        stealth=True,
-    )
-    
-    # Navigate to the site—you're already logged in
-    await page.goto("https://github.com")
 ```
 
 ```go Go
-package main
-
-import (
-	"context"
-	"fmt"
-
-	"github.com/kernel/kernel-go-sdk"
-	"github.com/kernel/kernel-go-sdk/shared"
-)
-
-func promptUserForCode() string {
-	return "123456"
-}
-
-func main() {
-	ctx := context.Background()
-	client := kernel.NewClient()
-
-	// Create connection
-	auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
-		ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
-			Domain:      "github.com",
-			ProfileName: "github-profile",
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
-	if err != nil {
-		panic(err)
-	}
-	_ = login
-
-	// One SSE stream handles login + 2FA
-	events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
-	authenticated := false
-
-	for events.Next() {
-		event := events.Current()
-		if event.Event != "managed_auth_state" {
-			continue
-		}
-		if event.FlowStatus == "SUCCESS" {
-			authenticated = true
-		}
-
-		if event.FlowStep == "AWAITING_INPUT" && len(event.DiscoveredFields) > 0 {
-			// Check what fields are needed
-			fieldNames := map[string]bool{}
-			for _, field := range event.DiscoveredFields {
-				fieldNames[field.Name] = true
-			}
-
-			if fieldNames["username"] {
-				// Initial login
-				_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-					SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-						Fields: map[string]string{
-							"username": "my-username",
-							"password": "my-password",
-						},
-					},
-				})
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				// 2FA or additional fields
-				code := promptUserForCode()
-				_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-					SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-						Fields: map[string]string{
-							event.DiscoveredFields[0].Name: code,
-						},
-					},
-				})
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-	}
-	if err := events.Err(); err != nil {
-		panic(err)
-	}
-
-	if authenticated {
-		fmt.Println("Authentication successful!")
-
-		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
-			Profile: shared.BrowserProfileParam{
-				Name: kernel.String("github-profile"),
-			},
-			Stealth: kernel.Bool(true),
-		})
-		if err != nil {
-			panic(err)
-		}
-
-		// Navigate to the site—you're already logged in
-		_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
-			Code: `await page.goto("https://github.com");`,
-		})
-		if err != nil {
-			panic(err)
-		}
-	}
+_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+	SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+		InteractionID:    kernel.String(state.InteractionID),
+		SelectedChoiceID: kernel.String(selected.ID),
+	},
+})
+if err != nil {
+	panic(err)
 }
 ```
 </CodeGroup>
 
-<Tip>
-This example covers username/password login with 2FA — the most common flow. If the site uses SSO, MFA selection, account pickers, or external actions (push notifications), see [Handling Different Input Types](#handling-different-input-types) below for how to handle each case.
-</Tip>
+Do not derive the submitted id from the label or mfa type. Two sms choices can have different masked destinations and different grounded targets.
 
-<Tip>
-Every programmatic login session also has a `hosted_url`. If your flow encounters an unexpected state, you can redirect the user to this URL to complete login via the [Hosted UI](/auth/hosted-ui) instead.
-</Tip>
+### Account and organization pickers
 
-## Handling Different Input Types
+Account and organization rows are choices with `type: 'account'` or another non-mfa choice type. Show every returned row and submit the selected stable id:
 
-The SSE event loop handles `discovered_fields`, but login pages can require other input types too. In the examples below, `state` is the current `managed_auth_state` event from the stream.
+```typescript
+const accounts = state.choices?.filter(choice => choice.type === 'account');
 
-### SSO Buttons
+for (const account of accounts ?? []) {
+  console.log(account.label, account.description);
+}
+```
 
-When the login page has "Sign in with Google/GitHub/Microsoft" buttons, they appear in `pending_sso_buttons`:
+Stored credential values are not returned for matching. Use only the masked or display context present on each choice.
 
-<CodeGroup>
-```typescript TypeScript
-if (state.pending_sso_buttons?.length) {
-  // Show the user available SSO options
-  for (const btn of state.pending_sso_buttons) {
-    console.log(`${btn.provider}: ${btn.label}`);
-  }
-  
-  // Submit the selected SSO button
+## External actions
+
+When `flow_step` is `AWAITING_EXTERNAL_ACTION`, show `external_action_message` and keep listening. The flow resumes when the external action completes.
+
+Some external-action screens also expose fallback `fields` or `choices`. If `interaction_id` is present, submit a fallback through the same canonical contract:
+
+```typescript
+if (
+  state.flow_step === 'AWAITING_EXTERNAL_ACTION' &&
+  state.interaction_id &&
+  state.choices?.length
+) {
+  const fallback = await choose(state.choices);
   await kernel.auth.connections.submit(auth.id, {
-    sso_button_selector: state.pending_sso_buttons[0].selector
+    interaction_id: state.interaction_id,
+    selected_choice_id: fallback.id,
   });
 }
 ```
 
-```python Python
-if state.pending_sso_buttons:
-    # Show the user available SSO options
-    for btn in state.pending_sso_buttons:
-        print(f"{btn['provider']}: {btn['label']}")
-    
-    # Submit the selected SSO button
-    await kernel.auth.connections.submit(
-        auth.id,
-        sso_button_selector=state.pending_sso_buttons[0]["selector"],
-    )
-```
-
-```go Go
-if len(state.PendingSSOButtons) > 0 {
-	// Show the user available SSO options
-	for _, btn := range state.PendingSSOButtons {
-		fmt.Printf("%s: %s\n", btn.Provider, btn.Label)
-	}
-
-	// Submit the selected SSO button
-	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-			SSOButtonSelector: kernel.String(state.PendingSSOButtons[0].Selector),
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-}
-```
-</CodeGroup>
-
-<Info>
-Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are automatically allowed. For custom OAuth providers, add their domains to `allowed_domains` on the connection.
-</Info>
-
-### SSO Provider Selection
-
-As an alternative to clicking an SSO button by selector, you can submit the SSO provider name directly. When SSO buttons are detected, the session state includes a `sso_provider` field (a string) identifying the provider that Kernel recommends. You can also specify a provider explicitly using the `sso_provider` submit parameter:
-
-<CodeGroup>
-```typescript TypeScript
-if (state.pending_sso_buttons?.length) {
-  // Submit by provider name instead of selector
-  await kernel.auth.connections.submit(auth.id, {
-    sso_provider: state.pending_sso_buttons[0].provider  // e.g., "google"
-  });
-}
-```
-
-```python Python
-if state.pending_sso_buttons:
-    # Submit by provider name instead of selector
-    await kernel.auth.connections.submit(
-        auth.id,
-        sso_provider=state.pending_sso_buttons[0]["provider"],  # e.g., "google"
-    )
-```
-
-```go Go
-if len(state.PendingSSOButtons) > 0 {
-	// Submit by provider name instead of selector
-	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-			SSOProvider: kernel.String(state.PendingSSOButtons[0].Provider), // e.g., "google"
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-}
-```
-</CodeGroup>
-
-<Info>
-`sso_provider` is a singular string value, not an array. Use `sso_button_selector` when you need to click a specific button by its CSS selector, and `sso_provider` when you want to identify the provider by name (e.g., `"google"`, `"microsoft"`, `"okta"`).
-</Info>
-
-### MFA Selection
-
-When the site offers multiple MFA methods, they appear in `mfa_options`:
-
-<CodeGroup>
-```typescript TypeScript
-if (state.mfa_options?.length) {
-  // Available types: sms, email, totp, push, call, password, switch
-  for (const opt of state.mfa_options) {
-    console.log(`${opt.type}: ${opt.label}`);
-  }
-
-  // Submit the selected MFA method
-  await kernel.auth.connections.submit(auth.id, {
-    mfa_option_id: 'sms'
-  });
-}
-```
-
-```python Python
-if state.mfa_options:
-    # Available types: sms, email, totp, push, call, password, switch
-    for opt in state.mfa_options:
-        print(f"{opt['type']}: {opt['label']}")
-
-    # Submit the selected MFA method
-    await kernel.auth.connections.submit(
-        auth.id,
-        mfa_option_id="sms",
-    )
-```
-
-```go Go
-if len(state.MfaOptions) > 0 {
-	// Available types: sms, email, totp, push, call, password, switch
-	for _, opt := range state.MfaOptions {
-		fmt.Printf("%s: %s\n", opt.Type, opt.Label)
-	}
-
-	// Submit the selected MFA method
-	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-			MfaOptionID: kernel.String("sms"),
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-}
-```
-</CodeGroup>
-
-After selecting an MFA method, keep listening for `discovered_fields` to submit the code, or handle external actions for push/security key.
-
-<Info>
-The `switch` type represents generic method-switcher links like "Use another method" or "Try another way" that don't name a specific factor. Submit it the same way as any other MFA option to reveal the underlying alternatives on the next page.
-</Info>
-
-### Sign-In Options (Account/Org Pickers)
-
-Some sites present non-MFA choices during login, such as account selection or organization pickers. These appear in `sign_in_options` as an array of objects with `id`, `label`, and optional `description`:
-
-<CodeGroup>
-```typescript TypeScript
-if (state.sign_in_options?.length) {
-  // Show available options to the user
-  for (const opt of state.sign_in_options) {
-    console.log(`${opt.id}: ${opt.label}`);
-    if (opt.description) console.log(`  ${opt.description}`);
-  }
-
-  // Submit the selected option
-  await kernel.auth.connections.submit(auth.id, {
-    sign_in_option_id: state.sign_in_options[0].id
-  });
-}
-```
-
-```python Python
-if state.sign_in_options:
-    # Show available options to the user
-    for opt in state.sign_in_options:
-        print(f"{opt['id']}: {opt['label']}")
-        if opt.get("description"):
-            print(f"  {opt['description']}")
-
-    # Submit the selected option
-    await kernel.auth.connections.submit(
-        auth.id,
-        sign_in_option_id=state.sign_in_options[0]["id"],
-    )
-```
-
-```go Go
-if len(state.SignInOptions) > 0 {
-	// Show available options to the user
-	for _, opt := range state.SignInOptions {
-		fmt.Printf("%s: %s\n", opt.ID, opt.Label)
-		if opt.Description != "" {
-			fmt.Println("  " + opt.Description)
-		}
-	}
-
-	// Submit the selected option
-	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-			SignInOptionID: kernel.String(state.SignInOptions[0].ID),
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-}
-```
-</CodeGroup>
-
-<Info>
-Sign-in options are distinct from MFA options. MFA options (`mfa_options`) represent second-factor authentication methods like SMS or TOTP. Sign-in options represent non-security choices like "Which account do you want to use?" or "Select your organization."
-</Info>
-
-### External Actions (Push, Security Key)
-
-When the site requires an action outside the browser (push notification, security key tap), the step becomes `AWAITING_EXTERNAL_ACTION`:
-
-<CodeGroup>
-```typescript TypeScript
-if (state.flow_step === 'AWAITING_EXTERNAL_ACTION') {
-  // Show the message to the user
-  console.log(state.external_action_message);
-  // e.g., "Check your phone for a push notification"
-
-  // Some sites offer fallback methods alongside the external action
-  // (e.g. "Try another way"). Submit one to switch verification methods.
-  if (state.mfa_options?.length) {
-    await kernel.auth.connections.submit(auth.id, {
-      mfa_option_id: state.mfa_options[0].type,
-    });
-  }
-
-  // Otherwise keep listening—the flow resumes automatically when the user completes the action
-}
-```
-
-```python Python
-if state.flow_step == "AWAITING_EXTERNAL_ACTION":
-    # Show the message to the user
-    print(state.external_action_message)
-    # e.g., "Check your phone for a push notification"
-
-    # Some sites offer fallback methods alongside the external action
-    # (e.g. "Try another way"). Submit one to switch verification methods.
-    if state.mfa_options:
-        await kernel.auth.connections.submit(
-            auth.id,
-            mfa_option_id=state.mfa_options[0]["type"],
-        )
-
-    # Otherwise keep listening—the flow resumes automatically when the user completes the action
-```
-
-```go Go
-if state.FlowStep == kernel.ManagedAuthFlowStepAwaitingExternalAction {
-	// Show the message to the user
-	fmt.Println(state.ExternalActionMessage)
-	// e.g., "Check your phone for a push notification"
-
-	// Some sites offer fallback methods alongside the external action
-	// (e.g. "Try another way"). Submit one to switch verification methods.
-	if len(state.MfaOptions) > 0 {
-		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
-			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
-				MfaOptionID: kernel.String(state.MfaOptions[0].Type),
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	// Otherwise keep listening—the flow resumes automatically when the user completes the action
-}
-```
-</CodeGroup>
-
-<Info>
-`mfa_options`, `pending_sso_buttons`, and `sign_in_options` may be populated during `AWAITING_EXTERNAL_ACTION` when the site exposes fallback methods alongside the external action (for example, "Try another way" on a push prompt). Submit one of them to switch verification methods, or keep listening to let the user complete the external action.
-</Info>
-
-## Step Reference
-
-The `flow_step` field indicates what the flow is waiting for:
+## Step reference
 
 | Step | Description |
-|------|-------------|
-| `DISCOVERING` | Finding the login page and analyzing it |
-| `AWAITING_INPUT` | Waiting for field values, SSO button click, SSO provider selection, MFA selection, or sign-in option selection |
-| `SUBMITTING` | Processing submitted values |
-| `AWAITING_EXTERNAL_ACTION` | Waiting for push approval, security key, etc. |
-| `COMPLETED` | Flow has finished |
+|---|---|
+| `DISCOVERING` | Finding and inspecting the login surface. |
+| `AWAITING_INPUT` | Waiting for canonical fields or choices. |
+| `AWAITING_EXTERNAL_ACTION` | Waiting for an out-of-browser action; canonical fallbacks may also be present. |
+| `SUBMITTING` | Processing the submitted interaction. |
+| `COMPLETED` | The flow has finished. |
 
-## Status Reference
-
-The `flow_status` field indicates the current flow state:
+## Status reference
 
 | Status | Description |
-|--------|-------------|
-| `IN_PROGRESS` | Authentication is ongoing—keep listening |
-| `SUCCESS` | Login completed, profile saved |
-| `FAILED` | Login failed (check `error_message`) |
-| `EXPIRED` | Flow timed out (10 minutes for user input, 20 minutes overall) |
-| `CANCELED` | Flow was canceled |
+|---|---|
+| `IN_PROGRESS` | Authentication is ongoing. |
+| `SUCCESS` | Login completed and the profile was saved. |
+| `FAILED` | Login failed; inspect `error_code` and `error_message`. |
+| `EXPIRED` | The flow timed out. |
+| `CANCELED` | The flow was canceled or superseded. |
 
-The `status` field indicates the overall connection state:
+The connection's overall `status` is `AUTHENTICATED` or `NEEDS_AUTH`.
 
-| Status | Description |
-|--------|-------------|
-| `AUTHENTICATED` | Profile is logged in and ready to use |
-| `NEEDS_AUTH` | Profile needs authentication |
+## Connection configuration
 
-## Connection Configuration
-
-Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — apply equally to all integration flows and are documented in [Connection Configuration](/auth/configuration).
+Connection-level options such as a custom login url, allowed domains, proxy, session recording, and health-check interval apply to both hosted and programmatic flows. See [connection configuration](/auth/configuration).
 
 ## SSE stream behavior
 
-`auth.connections.follow()` opens the Server-Sent Events stream at:
+`auth.connections.follow()` opens:
 
 ```
 GET /auth/connections/{id}/events
 ```
 
-The stream delivers `managed_auth_state` events containing `flow_status`, `flow_step`, `discovered_fields`, and the other login-flow fields used throughout this guide. It closes automatically when the flow succeeds, fails, expires, or is canceled.
-
-<Note>
-Use the SSE stream for login flows. It delivers state changes immediately and avoids repeated status requests.
-</Note>
+The stream delivers `managed_auth_state` events and closes when the flow succeeds, fails, expires, or is canceled. Prefer the stream over polling so your ui receives each interaction id in order.

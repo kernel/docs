@@ -6,9 +6,9 @@ title: FAQ
 
 When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
-## What are sign-in options?
+## What are auth choices?
 
-Sign-in options are non-MFA choices that some sites present during login, such as account pickers ("Which account do you want to use?") or organization selectors. Unlike MFA options which are security challenges, sign-in options are informational choices that route the login flow. They appear in the session state as `sign_in_options` and are submitted via `sign_in_option_id`. See the [Programmatic flow guide](/auth/programmatic#sign-in-options-accountorg-pickers) for details and SDK examples.
+Auth choices are visible routes a site presents during login, including mfa methods, sso providers, account pickers, and organization selectors. They appear in the canonical `choices` array. Submit the exact returned id with `interaction_id` and `selected_choice_id`. See the [programmatic flow guide](/auth/programmatic#choices) for examples.
 
 ## Which authentication methods are supported?
 
