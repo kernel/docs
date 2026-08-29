@@ -1,0 +1,45 @@
+---
+title: "fx"
+description: "Give Vercel's fx coding agent a Kernel cloud browser via MCP"
+---
+
+## Overview
+
+[fx](https://github.com/vercel-labs/fx) is Vercel Labs' native CLI coding agent — a minimalist, terminal-first agent with a small built-in tool surface and first-class MCP support. Instead of loading every connected server's full tool list up front, fx searches for the right capability on demand and only pulls in the tool it needs, which keeps context usage low even with several MCP servers connected.
+
+Connecting Kernel's [MCP server](/reference/mcp-server) gives fx a real cloud browser: it can create a session, drive it with Playwright via [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code), and tear it down — the same toolset described in the [MCP server reference](/reference/mcp-server), including managed auth, profiles, proxies, and replays.
+
+## Setup
+
+Follow the [fx client guide](/reference/mcp-server/clients/fx) to add Kernel to `~/.fx/mcp.json`. Two paths, depending on how you run fx:
+
+- **Interactive session (recommended)** — `kernel mcp install --target fx`, then `/mcp reload` and `/mcp auth kernel --open` to authorize via OAuth in a browser.
+- **Headless or scripted (`fx ask`, `fx acp`, CI)** — OAuth needs a browser, so it doesn't work outside an interactive session. Use a Kernel API key with `bearer_token_env` instead; see [Headless and scripted use](/reference/mcp-server/clients/fx#headless-and-scripted-use) for the config.
+
+## Example
+
+With Kernel connected, fx can drive a browser from a single prompt:
+
+```bash
+fx ask "Using the kernel MCP server, create a browser session, navigate to https://example.com, return the page title, then delete the session."
+```
+
+fx searches its connected servers for the right capability, calls `manage_browsers` to create the session, `execute_playwright_code` to read the title, and `manage_browsers` again to delete it:
+
+```
+Example Domain
+```
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="fx MCP client guide" icon="terminal" href="/reference/mcp-server/clients/fx">
+    Full setup steps, including headless auth
+  </Card>
+  <Card title="MCP Server" icon="server" href="/reference/mcp-server">
+    All tools the Kernel MCP server exposes
+  </Card>
+  <Card title="execute_playwright_code" icon="code" href="/reference/mcp-server/tools/execute-playwright-code">
+    Run Playwright against a session
+  </Card>
+</CardGroup>
