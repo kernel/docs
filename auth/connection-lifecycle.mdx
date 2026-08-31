@@ -139,7 +139,14 @@ Common codes:
 
 | Code | Meaning | Retried |
 |------|---------|---------|
-| `credentials_invalid` | The stored or submitted credentials were rejected by the site. | No |
+| `credentials_invalid` | The stored or submitted username or password was rejected by the site. | No |
+| `totp_code_rejected` | The site rejected an authenticator code Kernel submitted. | No; retry with a fresh code |
+| `totp_required` | Reauth requires an authenticator code that Kernel couldn't provide automatically. | No |
+| `sms_code_required` | Reauth requires a code sent by SMS. | No |
+| `email_code_required` | Reauth requires a code sent by email. | No |
+| `account_choice_required` | Reauth requires a person to select an account or identity. | No |
+| `customer_input_required` | Reauth requires another field or choice from a person. | No |
+| `external_action_required` | Reauth requires a push approval, link, or another action outside the browser. | No |
 | `account_locked` | The site locked or suspended the account. | No |
 | `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). | No |
 | `rate_limited` | The site rate-limited the login attempt. | No; retry later |
@@ -152,6 +159,9 @@ See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-
 ### Recovering
 
 - **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`totp_code_rejected`** — Retry with a code from a new TOTP window. If independently generated codes keep failing, reconnect the account and update its TOTP secret. One rejected code does not prove that the saved secret is stale.
+- **`totp_required` / `sms_code_required` / `email_code_required`** — Start an interactive login and provide the requested code. Add a TOTP secret to the linked credential to make future authenticator-code challenges automatic.
+- **`account_choice_required` / `customer_input_required` / `external_action_required`** — Start an interactive login and complete the choice, field, or external approval. Kernel does not guess an identity or trigger notification-producing steps during unattended reauth.
 - **`account_locked`** — Unlock the account with the site directly. Calling `.login()` again before that will not help and may extend the lockout.
 - **`rate_limited`** — Wait for the site's retry window before starting another login.
 - **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).
