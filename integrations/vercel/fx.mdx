@@ -16,13 +16,17 @@ For setup, follow the [fx client guide](/reference/mcp-server/clients/fx) — it
 With Kernel connected, fx can drive a browser from a single prompt:
 
 ```bash
-fx ask "Using the kernel MCP server, create a browser session, navigate to https://example.com, return the page title, then delete the session."
+fx ask "Using the kernel MCP server, create a browser session, navigate to https://news.ycombinator.com, return the titles of the top 5 articles, then delete the session."
 ```
 
-fx searches its connected servers for the right capability, calls `manage_browsers` to create the session, `execute_playwright_code` to read the title, and `manage_browsers` again to delete it:
+fx searches its connected servers for the right capability, calls `manage_browsers` to create the session, `execute_playwright_code` to scrape the titles, and `manage_browsers` again to delete it. A run looked like this (front page changes, so yours will differ):
 
 ```
-Example Domain
+1. AnkiDroid: Google Play no longer allowing Open Collective donation link
+2. Ask HN: Who is hiring? (September 2026)
+3. Urban Congestion Pricing and the Response Times of Emergency Medical Services
+4. 44% on ARC-AGI-1 in 67 cents
+5. Io_uring Without Readahead
 ```
 
 ## Related
