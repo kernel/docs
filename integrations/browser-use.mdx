@@ -68,18 +68,6 @@ result = agent.run()
 kernel.browsers.delete_by_id(kernel_browser.session_id)
 ```
 
-<Info>
-If you're using Browser Use versions `< 0.7.9`, you may need to use a [custom resize class](https://github.com/onkernel/create-kernel-app/blob/main/templates/python/browser-use/session.py) to correct viewport sizing for the browser session. Here's how to use it:
-
-```python
-agent = Agent(
-    task="Your automation task",
-    llm=your_llm_instance,
-    browser_session=BrowserSessionCustomResize(cdp_url=kernel_browser.cdp_ws_url)
-)
-```
-</Info>
-
 ## Quick setup with our Browser Use example app
 
 Alternatively, you can use our Kernel app template that includes a pre-configured Browser Use integration:
