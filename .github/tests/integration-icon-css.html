@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>Integration icon CSS regression test</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      #navigation-items button {
+        display: flex;
+        flex-direction: row-reverse;
+        align-items: center;
+        gap: 12px;
+        width: 320px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav id="navigation-items">
+      <ul>
+        <li>
+          <button id="local-icon" type="button">
+            <div><svg width="16" height="16" aria-hidden="true"></svg></div>
+            <div><img src="/images/integration-icons/claude.svg" alt="" /></div>
+            <div>Local asset URL</div>
+          </button>
+        </li>
+        <li>
+          <button id="cdn-icon" type="button">
+            <div><svg width="16" height="16" aria-hidden="true"></svg></div>
+            <div>
+              <img
+                src="https://mintcdn.com/tbd-6fc993ce/example/images/integration-icons/claude.svg?fit=max&amp;auto=format&amp;n=example&amp;q=85&amp;s=example"
+                alt=""
+              />
+            </div>
+            <div>Mintlify CDN URL</div>
+          </button>
+        </li>
+      </ul>
+    </nav>
+    <pre id="result">Running…</pre>
+    <script>
+      window.addEventListener("load", () => {
+        const inspect = (id) => {
+          const button = document.getElementById(id);
+          const icon = button.children[1];
+          const label = button.children[2];
+          const image = icon.querySelector("img");
+          const styles = getComputedStyle(image);
+
+          return {
+            iconLeft: icon.getBoundingClientRect().left < label.getBoundingClientRect().left,
+            width: styles.width,
+            height: styles.height,
+            opacity: styles.opacity,
+            filter: styles.filter,
+          };
+        };
+
+        const results = {
+          local: inspect("local-icon"),
+          cdn: inspect("cdn-icon"),
+        };
+        const expected = (result) =>
+          result.iconLeft &&
+          result.width === "14px" &&
+          result.height === "14px" &&
+          result.opacity === "0.68" &&
+          result.filter === "invert(1)";
+        const passed = expected(results.local) && expected(results.cdn);
+
+        document.body.dataset.testStatus = passed ? "passed" : "failed";
+        document.getElementById("result").textContent = JSON.stringify(
+          { passed, ...results },
+          null,
+          2,
+        );
+      });
+    </script>
+  </body>
+</html>

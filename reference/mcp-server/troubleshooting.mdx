@@ -7,3 +7,7 @@ description: "Fix connection and authentication issues with the Kernel MCP serve
 - **Clear saved auth and retry:** `rm -rf ~/.mcp-auth`
 - **Node.js version:** Ensure a recent Node.js version when using `npx mcp-remote`.
 - **Strict networks:** If behind strict networks, try stdio via `mcp-remote`, or explicitly set the transport your client supports.
+
+## OAuth issuer mismatch on strict clients
+
+If you have issues connecting with OAuth on a client that does strict [RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) issuer verification — an error rejecting the flow before token exchange because the returned issuer doesn't match what discovery advertised — connect with an API key instead of OAuth. Get a project-scoped key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and configure it the way your client expects a bearer token (e.g. fx's [`bearer_token_env`](/reference/mcp-server/clients/fx#connect-with-an-api-key-workaround)). See [Authentication](/reference/mcp-server/authentication#api-key-authentication) for the general API-key format.
