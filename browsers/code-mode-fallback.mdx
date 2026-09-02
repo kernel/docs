@@ -35,9 +35,9 @@ Code mode should be your default: it's faster and cheaper per action. Reach for 
 
 ## Picking a harness
 
-The snippets below use [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness` — currently the only agent harness `browser-loop` binds to. It's the right choice for this pattern specifically because of one method: `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript. The model that picks up in computer use still has the entire code-mode conversation as context — it knows what it already tried and why it stopped.
+The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up in computer use still has the entire code-mode conversation as context, and knows what it already tried.
 
-If your agent already runs on a different harness, you likely won't get that live swap; most agent SDKs don't expose an equivalent mid-session tool-catalog change. Implement the handoff as two sequential calls instead: run code mode to completion or failure, then start a fresh computer-use call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
+The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run code mode to completion or failure, then start a fresh computer-use call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
 
 ## Setup
 
