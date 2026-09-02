@@ -22,7 +22,7 @@ Filtering and navigating work fine through the DOM. Dragging a card onto the boa
 
 ## Code mode vs. computer use
 
-`browser-loop` compiles two tool catalogs for the same browser session. In general, an agent should run in **code mode** by default — resolving elements in the DOM and acting on them by reference — and fall back to **computer use** — driving the browser from screenshots, the way a person would — only for the interactions code mode can't reliably drive. `browser-loop` specifically calls these **playwright mode** (`loop.toolsets.browser()`) and **CUA mode** (`loop.toolsets.computer()`); the rest of this cookbook uses those two names, since that's what the code below is switching between.
+`browser-loop` compiles two tool catalogs for the same browser session. **Code mode** is the general approach: an agent resolves elements in the DOM and acts on them by reference, rather than driving the browser from pixels the way a person would. `browser-loop` implements code mode by making **playwright mode** available (`loop.toolsets.browser()`); its computer-use counterpart is **CUA mode** (`loop.toolsets.computer()`). The rest of this cookbook uses those two specific names, since that's what the code below is switching between.
 
 | | playwright mode | CUA mode |
 | --- | --- | --- |
