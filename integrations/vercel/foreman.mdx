@@ -23,6 +23,10 @@ Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Fore
 2. **Add the Kernel extension** — run `eve add extension/kernel` to mount `@onkernel/eve-extension`.
 3. **Add a sign-in approval gate** — wire the browser connection through Vercel Connect so it authenticates as you, and require your approval before its first action in a signed-in session. That's what lets the implementation agent reproduce a bug behind auth instead of just reading the code.
 
+<Info>
+Do not mount the Kernel extension under `agent/subagents/`. Stations run in task mode and cannot park for a consent prompt, an approval card, or a sign-in hand-off.
+</Info>
+
 The copy prompt below drives your coding agent through steps 2 and 3.
 
 ## Quickstart prompt
