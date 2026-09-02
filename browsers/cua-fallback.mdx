@@ -37,7 +37,7 @@ Playwright mode should be your default: it's faster and cheaper per action. Reac
 
 The snippets below use [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness` — currently the only agent harness `browser-loop` binds to. It's the right choice for this pattern specifically because of one method: `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript. The model that picks up in CUA mode still has the entire playwright-mode conversation as context — it knows what it already tried and why it stopped.
 
-If your agent already runs on a different harness — Claude Agent SDK, Codex, or your own loop — you won't get that live swap; those harnesses don't expose an equivalent mid-session tool-catalog change. Implement the handoff as two sequential calls instead: run playwright mode to completion or failure, then start a fresh CUA-mode call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
+If your agent already runs on a different harness, you likely won't get that live swap; most agent SDKs don't expose an equivalent mid-session tool-catalog change. Implement the handoff as two sequential calls instead: run playwright mode to completion or failure, then start a fresh CUA-mode call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
 
 ## Setup
 
