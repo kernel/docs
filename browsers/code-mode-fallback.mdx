@@ -22,22 +22,22 @@ Filtering and navigating work fine through the DOM. Dragging a card onto the boa
 
 ## Code mode vs. computer use
 
-`browser-loop` compiles two tool catalogs for the same browser session:
+`browser-loop` compiles two tool catalogs for the same browser session. In general, an agent should run in **code mode** by default — resolving elements in the DOM and acting on them by reference — and fall back to **computer use** — driving the browser from screenshots, the way a person would — only for the interactions code mode can't reliably drive. `browser-loop` specifically calls these **playwright mode** (`loop.toolsets.browser()`) and **CUA mode** (`loop.toolsets.computer()`); the rest of this cookbook uses those two names, since that's what the code below is switching between.
 
-| | code mode | computer use |
+| | playwright mode | CUA mode |
 | --- | --- | --- |
-| tools | `browser_*` (`loop.toolsets.browser()`) | `computer_*` (`loop.toolsets.computer()`) |
+| tools | `browser_*` | `computer_*` |
 | driven by | an accessibility snapshot, resolved by ref | a screenshot, read pixel by pixel |
 | a click is | one DOM lookup + one CDP dispatch | a vision call, then an OS-level click at a coordinate — see [Computer Controls](/browsers/computer-controls) |
 | cost | cheap, fast, deterministic when the DOM cooperates | a full model round trip per action, but works on anything the page renders regardless of DOM structure |
 
-Code mode should be your default: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
+Playwright mode should be your default: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
 
 ## Picking a harness
 
-The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up in computer use still has the entire code-mode conversation as context, and knows what it already tried.
+The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up in CUA mode still has the entire playwright-mode conversation as context, and knows what it already tried.
 
-The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run code mode to completion or failure, then start a fresh computer-use call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
+The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run playwright mode to completion or failure, then start a fresh CUA-mode call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
 
 ## Setup
 
@@ -52,16 +52,18 @@ npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core t
 Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
 
 ```bash
-KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx code-then-computer-use.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-stepcount.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-mixed.ts
 ```
 
 ## Three ways to hand off
 
-All three run code mode first and switch to computer use once it stops making progress. They differ in what you need to know about the task at integration time:
+All three run playwright mode first and switch to CUA mode once it stops making progress. They differ in what you need to know about the task at integration time:
 
 | you know | approach | integration cost |
 | --- | --- | --- |
-| the specific code-mode tool likely to be unreliable for this task | [trigger-tool budget](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
+| the specific playwright tool likely to be unreliable for this task | [trigger-tool budget](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
 | the general shape of the task, not the specific risky action | [flat step-count budget](#approach-b-flat-step-count-budget) | needs a per-task number, found by testing |
 | little to nothing — tasks arrive from an end user at runtime | [mixed toolset + steering prompt](#approach-c-mixed-toolset-and-steering-prompt) | no handoff logic, but no bound on the model's own switching either |
 
@@ -69,9 +71,59 @@ If you can name the risky tool, do — it's the only one of the three that's bot
 
 ### Approach A: trigger-tool budget
 
-Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific code-mode tool this task needs computer use to take over for. `FALLBACK_TRIGGER_TOOLS` names it; the harness counts completed attempts against that tool (most DOM-ref tools report success even when they don't produce the intended effect, so a completed attempt against a still-unfinished task is itself the signal) and hands off once `FALLBACK_TRIGGER_BUDGET` is spent. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches the trigger tool at all.
+Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific playwright tool this task needs CUA's help with. `FALLBACK_TRIGGER_TOOLS` names it; the harness counts completed attempts against that tool (most DOM-ref tools report success even when they don't produce the intended effect, so a completed attempt against a still-unfinished task is itself the signal) and hands off once `FALLBACK_TRIGGER_BUDGET` is spent. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches the trigger tool at all.
 
 ```ts
+/**
+ * Cookbook: playwright mode first, fall back to CUA mode after the playwright
+ * tool(s) this task depends on have had their shot and haven't finished the
+ * job.
+ *
+ * `browser_drag` (the atomic tool @onkernel/browser-loop compiles for
+ * "playwright execution mode") drags by resolving two DOM/viewport points and
+ * dispatching exactly one CDP `mousePressed` -> `mouseMoved` -> `mouseReleased`
+ * sequence between them. Kanban boards built on pointer-based drag-and-drop
+ * (dnd-kit, SortableJS, most React DnD setups) need several intermediate
+ * `mousemove` events to cross their drag-activation threshold, so a single
+ * jump often never registers as a drag at all -- the card just gets a click.
+ * The tool call itself still reports success: there's no error to catch, only
+ * a card that never moved.
+ *
+ * `computer_drag` (CUA/computer-use mode) takes a multi-point pixel path and
+ * dispatches a real mousemove sequence along it, which is enough motion for
+ * those same libraries to pick up the gesture.
+ *
+ * This script runs a task in playwright mode and hands off to CUA mode once
+ * playwright mode has spent FALLBACK_TRIGGER_BUDGET attempts on
+ * FALLBACK_TRIGGER_TOOLS and the task still isn't done. The trigger keys on
+ * that specific tool rather than a generic action count, so setup steps like
+ * navigation and filtering never eat into the budget before the action that
+ * actually needs CUA gets a turn. FALLBACK_TRIGGER_TOOLS is `browser_drag`
+ * here because drag-and-drop is this task's known-unreliable action; adapt it
+ * to whatever playwright tool your own task expects to need CUA's help for
+ * (a file upload, a canvas interaction, anything DOM-ref execution doesn't
+ * reliably drive). An action safety cap is a backstop for pages that never
+ * reach a trigger tool at all.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). Its board uses pointer-based
+ * drag-and-drop, so `browser_drag` reliably fails to move cards while
+ * `computer_drag` succeeds -- a good, honest example of the failure mode this
+ * fallback exists for.
+ *
+ * The session is recorded end to end with Kernel's replay API, so both modes
+ * -- the failed playwright-mode drags and the cua-mode recovery -- are on one
+ * video. The replay view URL prints as soon as recording starts and again
+ * once it's stopped and finished processing.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, Kernel browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
 import Kernel from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
@@ -83,15 +135,19 @@ const TASK_PROMPT =
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
-// The code-mode tool this task depends on and expects to be unreliable.
-// Swap per task — a different task might key on browser_fill for a
-// canvas-backed input, or nothing at all if no single tool is the known risk.
+// Primary trigger: the playwright-mode tool(s) this task depends on and known
+// to be unreliable. Swap this per task -- browser_drag here because
+// drag-and-drop is what this task needs CUA's help with; a different task
+// might key on browser_fill for a canvas-backed input, or nothing at all if
+// no single tool is the known risk. These tools report no execution error
+// even when they don't produce the intended effect, so this is a count of
+// attempts -- an attempt that doesn't finish the task is itself the signal.
 const FALLBACK_TRIGGER_TOOLS = new Set(["browser_drag"]);
 const FALLBACK_TRIGGER_BUDGET = 2;
 
-// Backstop: total tool calls code mode gets regardless of whether it
-// ever reaches the trigger tool, so a wrong selector or navigation failure
-// can't run forever.
+// Backstop: total tool calls playwright mode gets regardless of whether it
+// ever reaches a drag, so a page that never triggers one (wrong selector,
+// navigation failure) can't run forever.
 const ACTION_SAFETY_CAP = 20;
 
 async function main(): Promise<void> {
@@ -101,24 +157,26 @@ async function main(): Promise<void> {
 
 	const client = new Kernel({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });
 
 	try {
-		const session = await new InMemorySessionRepo().create({ id: "code-then-computer-use" });
+		const session = await new InMemorySessionRepo().create({ id: "playwright-then-cua" });
 
-		const codePair = kb.compile({
+		const playwrightPair = kb.compile({
 			model: MODEL,
 			tools: loop.toolsets.browser(),
 		});
 		const harness = new AgentHarness({
 			session,
-			model: codePair.model,
-			models: codePair.models,
-			tools: [...codePair.tools],
-			activeToolNames: codePair.tools.map((tool) => tool.name),
+			model: playwrightPair.model,
+			models: playwrightPair.models,
+			tools: [...playwrightPair.tools],
+			activeToolNames: playwrightPair.tools.map((tool) => tool.name),
 			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
 		});
-		codePair.activate(harness);
+		playwrightPair.activate(harness);
 
 		let actionTurns = 0;
 		let triggerAttempts = 0;
@@ -126,29 +184,36 @@ async function main(): Promise<void> {
 		const unsubscribe = harness.subscribe((event: AgentHarnessEvent) => {
 			if (event.type !== "tool_execution_end") return;
 			actionTurns += 1;
-			if (FALLBACK_TRIGGER_TOOLS.has(event.toolName)) triggerAttempts += 1;
+			const isTrigger = FALLBACK_TRIGGER_TOOLS.has(event.toolName);
+			if (isTrigger) triggerAttempts += 1;
+			console.log(`[playwright ${actionTurns}] ${event.toolName} error=${event.isError}${isTrigger ? ` (trigger attempt ${triggerAttempts}/${FALLBACK_TRIGGER_BUDGET})` : ""}`);
 			if (budgetExhausted) return;
 			if (triggerAttempts >= FALLBACK_TRIGGER_BUDGET) {
 				budgetExhausted = true;
+				console.log("[playwright] trigger tool budget exhausted, aborting run to switch to CUA mode");
 				void harness.abort();
 			} else if (actionTurns >= ACTION_SAFETY_CAP) {
 				budgetExhausted = true;
+				console.log("[playwright] action safety cap reached without a trigger tool attempt, aborting run to switch to CUA mode");
 				void harness.abort();
 			}
 		});
 
+		console.log(`model=${MODEL} mode=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
 		let final = await harness.prompt(TASK_PROMPT);
 		unsubscribe();
 
 		if (final.stopReason === "aborted") {
-			const computerUsePair = kb.compile({
+			console.log("[cua] playwright mode did not finish in budget, switching to computer-use tools");
+			const cuaPair = kb.compile({
 				model: MODEL,
 				tools: loop.toolsets.computer(),
 			});
-			await computerUsePair.apply(harness);
+			await cuaPair.apply(harness);
 
+			console.log(`model=${MODEL} mode=cua`);
 			final = await harness.prompt(
-				"Code-mode drag actions were not registering on this page's drag-and-drop board -- " +
+				"Playwright-mode drag actions were not registering on this page's drag-and-drop board -- " +
 					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
 					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
 					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
@@ -162,6 +227,8 @@ async function main(): Promise<void> {
 		}
 	} finally {
 		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
 		await client.browsers.deleteByID(browser.session_id);
 	}
 }
@@ -171,11 +238,44 @@ void main();
 
 ### Approach B: flat step-count budget
 
-Use this when you know the general category of task but not the specific action likely to need computer use, so naming one tool up front isn't realistic. `CODE_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so code mode gets a fixed total before the handoff regardless of what those actions turn out to be.
+Use this when you know the general category of task but not the specific action likely to need CUA, so naming one tool up front isn't realistic. `PLAYWRIGHT_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so playwright mode gets a fixed total before the handoff regardless of what those actions turn out to be.
 
-Size the budget generously enough to survive the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs computer use. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
+Size the budget generously enough to survive the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs CUA. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
 
 ```ts
+/**
+ * Cookbook variant B: playwright mode first, fall back to CUA mode after a
+ * flat step-count budget -- for when you know the general shape of the task
+ * (browser automation against an unfamiliar app) without knowing which
+ * specific playwright tool is going to be the unreliable one. Use this over
+ * the trigger-tool variant (playwright-then-cua.ts) when you can't name the
+ * risky action in advance; use it over the mixed-toolset variant
+ * (playwright-then-cua-mixed.ts) when you want a deterministic, bounded
+ * playwright-mode budget instead of trusting a system prompt to self-limit.
+ *
+ * The budget counts every completed tool call, so it has to be generous
+ * enough to survive whatever setup (navigation, filtering, form-filling) the
+ * task legitimately needs before it reaches the action that actually needs
+ * CUA. Too tight and it burns out on setup before ever attempting the risky
+ * action. Picking the right number takes running the task and looking; that
+ * imprecision is the tradeoff for skipping the step of naming which tool
+ * will fail.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). See playwright-then-cua.ts for
+ * why browser_drag reliably fails here and computer_drag reliably succeeds.
+ *
+ * The session is recorded end to end with Kernel's replay API, so both modes
+ * land on one video.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-stepcount.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, Kernel browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
 import Kernel from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
@@ -187,10 +287,13 @@ const TASK_PROMPT =
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
-// How many tool calls of any kind code mode gets before handing off.
-// Size it to comfortably cover the task's normal setup plus a couple of
-// attempts at whatever turns out to be the hard part.
-const CODE_ACTION_BUDGET = 10;
+// How many tool calls of any kind playwright mode gets before we hand off to
+// CUA mode. Size this to comfortably cover the task's normal setup steps plus
+// a couple of attempts at whatever turns out to be the hard part -- too tight
+// and it can exhaust the budget before ever reaching the action that needs
+// CUA. There's no per-tool signal here, so this is deliberately generous
+// compared to the trigger-tool variant's budget of 1-2.
+const PLAYWRIGHT_ACTION_BUDGET = 10;
 
 async function main(): Promise<void> {
 	const kernelApiKey = process.env.KERNEL_API_KEY;
@@ -199,48 +302,55 @@ async function main(): Promise<void> {
 
 	const client = new Kernel({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });
 
 	try {
-		const session = await new InMemorySessionRepo().create({ id: "code-then-computer-use-stepcount" });
+		const session = await new InMemorySessionRepo().create({ id: "playwright-then-cua-stepcount" });
 
-		const codePair = kb.compile({
+		const playwrightPair = kb.compile({
 			model: MODEL,
 			tools: loop.toolsets.browser(),
 		});
 		const harness = new AgentHarness({
 			session,
-			model: codePair.model,
-			models: codePair.models,
-			tools: [...codePair.tools],
-			activeToolNames: codePair.tools.map((tool) => tool.name),
+			model: playwrightPair.model,
+			models: playwrightPair.models,
+			tools: [...playwrightPair.tools],
+			activeToolNames: playwrightPair.tools.map((tool) => tool.name),
 			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
 		});
-		codePair.activate(harness);
+		playwrightPair.activate(harness);
 
 		let actionTurns = 0;
 		let budgetExhausted = false;
 		const unsubscribe = harness.subscribe((event: AgentHarnessEvent) => {
 			if (event.type !== "tool_execution_end") return;
 			actionTurns += 1;
-			if (actionTurns >= CODE_ACTION_BUDGET && !budgetExhausted) {
+			console.log(`[playwright ${actionTurns}/${PLAYWRIGHT_ACTION_BUDGET}] ${event.toolName} error=${event.isError}`);
+			if (actionTurns >= PLAYWRIGHT_ACTION_BUDGET && !budgetExhausted) {
 				budgetExhausted = true;
+				console.log("[playwright] action budget exhausted, aborting run to switch to CUA mode");
 				void harness.abort();
 			}
 		});
 
+		console.log(`model=${MODEL} mode=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
 		let final = await harness.prompt(TASK_PROMPT);
 		unsubscribe();
 
 		if (final.stopReason === "aborted") {
-			const computerUsePair = kb.compile({
+			console.log("[cua] playwright mode did not finish in budget, switching to computer-use tools");
+			const cuaPair = kb.compile({
 				model: MODEL,
 				tools: loop.toolsets.computer(),
 			});
-			await computerUsePair.apply(harness);
+			await cuaPair.apply(harness);
 
+			console.log(`model=${MODEL} mode=cua`);
 			final = await harness.prompt(
-				"Code-mode drag actions were not registering on this page's drag-and-drop board -- " +
+				"Playwright-mode drag actions were not registering on this page's drag-and-drop board -- " +
 					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
 					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
 					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
@@ -254,6 +364,8 @@ async function main(): Promise<void> {
 		}
 	} finally {
 		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
 		await client.browsers.deleteByID(browser.session_id);
 	}
 }
@@ -263,11 +375,48 @@ void main();
 
 ### Approach C: mixed toolset and steering prompt
 
-Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs computer use. `loop.toolsets.mixed()` hands the model both code-mode and computer-use tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
+Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs CUA. `loop.toolsets.mixed()` hands the model both playwright-mode and CUA-mode tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
 
-The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with code-mode tools before trying computer use, and which computer-use tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job (`computer_drag`) over reassembling the effect from lower-level primitives (`computer_mouse_down` / `computer_move` / `computer_mouse_up`).
+The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with playwright tools before trying CUA, and which CUA tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
 
 ```ts
+/**
+ * Cookbook variant C: give the model both playwright-mode and CUA-mode tools
+ * up front (loop.toolsets.mixed()) and let it choose per action, steered by a
+ * system prompt toward playwright tools by default. Use this over the two
+ * scripted-handoff variants (playwright-then-cua.ts,
+ * playwright-then-cua-stepcount.ts) when you don't want to write any handoff
+ * logic at all -- appropriate for a general-purpose agent whose tasks aren't
+ * known ahead of time, where you can't pre-decide a trigger tool or a
+ * reasonable step budget.
+ *
+ * The tradeoff: with both toolsets available, a model can try browser_*
+ * tools first, take a screenshot, notice a drag hasn't landed, and switch to
+ * computer_* tools on its own -- but it may never call the purpose-built
+ * computer_drag tool. It can reassemble a drag by hand from
+ * computer_mouse_down / computer_move / computer_mouse_up primitives
+ * instead, taking far more tool calls -- and therefore model round trips --
+ * for the same result. A system prompt is a soft constraint on both when it
+ * switches and which tool it reaches for once it does; naming computer_drag
+ * explicitly in a handoff message (as the scripted variants do) is what
+ * keeps CUA mode fast once it's in control. Nothing here enforces that a
+ * real handoff even happens -- there's no hard bound on how long the model
+ * sticks with browser_* tools before trying computer_* ones.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). See playwright-then-cua.ts for
+ * why browser_drag reliably fails here and computer_drag reliably succeeds.
+ *
+ * The session is recorded end to end with Kernel's replay API.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-mixed.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, Kernel browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
 import Kernel from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
@@ -286,10 +435,12 @@ async function main(): Promise<void> {
 
 	const client = new Kernel({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });
 
 	try {
-		const session = await new InMemorySessionRepo().create({ id: "code-then-computer-use-mixed" });
+		const session = await new InMemorySessionRepo().create({ id: "playwright-then-cua-mixed" });
 
 		const compiled = kb.compile({ model: MODEL, tools: loop.toolsets.mixed() });
 		const harness = new AgentHarness({
@@ -308,11 +459,14 @@ async function main(): Promise<void> {
 		});
 		compiled.activate(harness);
 
+		let actionTurns = 0;
 		harness.subscribe((event: AgentHarnessEvent) => {
 			if (event.type !== "tool_execution_end") return;
-			console.log(`${event.toolName} error=${event.isError}`);
+			actionTurns += 1;
+			console.log(`[${actionTurns}] ${event.toolName} error=${event.isError}`);
 		});
 
+		console.log(`model=${MODEL} mode=mixed prompt=${JSON.stringify(TASK_PROMPT)}`);
 		const final = await harness.prompt(TASK_PROMPT);
 		console.log(`final stopReason: ${final.stopReason}`);
 		for (const block of final.content) {
@@ -320,6 +474,8 @@ async function main(): Promise<void> {
 		}
 	} finally {
 		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
 		await client.browsers.deleteByID(browser.session_id);
 	}
 }
@@ -339,13 +495,13 @@ As a starting rule: reach for **A** first, even if it costs you one exploratory 
 
 ## Notes
 
-- **None of the three hand control back.** Once a run switches to computer use, code mode doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once computer use re-establishes progress.
+- **None of the three hand control back.** Once a run switches to CUA mode, playwright mode doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once CUA mode re-establishes progress.
 - **Swap models freely.** All three default to `anthropic:claude-sonnet-5` via `LOOP_MODEL`. Use `listLoopModels()` from `@onkernel/browser-loop/pi` to see everything else the catalog supports for both toolsets.
-- **Record the whole handoff on one video.** Wrap the run in [`client.browsers.replays.start()` / `.stop()`](/browsers/replays) so the code-mode attempt and the computer-use recovery land on the same replay.
+- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the playwright-mode attempt and the CUA-mode recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
 
 ## Next steps
 
-- [Computer Controls](/browsers/computer-controls) — the OS-level API computer use drives
+- [Computer Controls](/browsers/computer-controls) — the OS-level API CUA mode drives
 - [Computer Use overview](/integrations/computer-use/overview) — running computer-use models on Kernel more generally
 - [Replays](/browsers/replays) — record a session end to end
 - [Stealth mode](/browsers/bot-detection/stealth) — reduce how often a page notices the automation in the first place
