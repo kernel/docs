@@ -19,6 +19,14 @@ Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Fore
 
 Follow [Vercel's guide for building a browser agent](https://vercel.com/kb/guide/build-a-browser-agent) for the full recipe, including the shadowed connection and tool allowlist.
 
+### Steps
+
+1. **Install the software factory template** — deploy [`vercel-labs/eve-software-factory-template`](https://github.com/vercel-labs/eve-software-factory-template) so Foreman is running against your repo.
+2. **Add the Kernel extension** — run `eve add extension/kernel` to mount `@onkernel/eve-extension`.
+3. **Gate the browser behind an approval** — shadow the extension's browser connection so it authenticates through Vercel Connect and parks its first action per session for you to approve. That's what lets the implementation agent sign in as you and reproduce a bug behind auth instead of just reading the code.
+
+The copy prompt below drives your coding agent through steps 2 and 3.
+
 ## Quickstart prompt
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
