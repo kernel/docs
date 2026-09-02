@@ -21,7 +21,7 @@ Mounting Kernel's [Eve extension](/integrations/vercel/eve-extension) gives Fore
 
 1. **Install the software factory template** — deploy [`vercel-labs/eve-software-factory-template`](https://github.com/vercel-labs/eve-software-factory-template) so Foreman is running against your repo.
 2. **Add the Kernel extension** — run `eve add extension/kernel` to mount `@onkernel/eve-extension`.
-3. **Gate the browser behind an approval** — shadow the extension's browser connection so it authenticates through Vercel Connect and parks its first action per session for you to approve. That's what lets the implementation agent sign in as you and reproduce a bug behind auth instead of just reading the code.
+3. **Add a sign-in approval gate** — wire the browser connection through Vercel Connect so it authenticates as you, and require your approval before its first action in a signed-in session. That's what lets the implementation agent reproduce a bug behind auth instead of just reading the code.
 
 The copy prompt below drives your coding agent through steps 2 and 3.
 
@@ -49,9 +49,7 @@ Ground truth first: read AGENTS.md in the repository root, read agent/extensions
 7. Do not mount this extension under agent/subagents/. Stations run in task mode and cannot park for a consent prompt, an approval card, or a sign-in hand-off. If I ask for it later, explain the failure mode before doing it.
 8. Explain the approval choice back to me instead of copying by reflex. once() parks the first browser action of a session for the person driving it, and agent/connections/linear.ts shows the predicate alternative. Say why a connection whose tools act inside logged-in sessions warrants a gate that this repo's read-oriented connections do not carry.
 
-Finish by running pnpm validate and confirming 0 errors and 0 warnings, then run npx eve info and show me the kernel mount in the discovered surface with only the seven allowed tools. Do not deploy.
-
-Full recipe, with the reasoning behind each step: https://vercel.com/kb/guide/build-a-browser-agent`}
+Finish by running pnpm validate and confirming 0 errors and 0 warnings, then run npx eve info and show me the kernel mount in the discovered surface with only the seven allowed tools. Do not deploy.`}
 />
 <a
   href="https://vercel.com/kb/guide/build-a-browser-agent"
