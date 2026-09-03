@@ -9,6 +9,26 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="September 4" tags={["Product", "Docs"]}>
+## Product updates
+
+- Expanded **WebMCP** support: Kernel browsers now expose a WebMCP discovery and invocation API, and the [MCP server](/reference/mcp-server) gained browser WebMCP tool support so agents can list and call a site's WebMCP tools directly. WebMCP sessions now recover after missed events, and tool guidance was sharpened for empty catalogs and outcome-unknown cases.
+- Improved managed auth reliability and feedback: [`@onkernel/managed-auth-react`](https://github.com/kernel/managed-auth-react) now renders typed errors, verification returns authoritative tri-state outcomes, and reauth eligibility is risk-aware. The login agent also accounts for every visible field and authentication choice on the current auth surface — including controls inside nested frames — before pausing for input.
+- Added API support for multi-host app deployments, decoupling apps from a single host and load-balancing invocations across hosts for higher availability and throughput.
+- Added captcha and challenge telemetry: browser sessions now emit a `captcha_solve_started` event across both solver paths, and captcha task events carry a `challenge_id` so you can correlate solve attempts end to end.
+- Moved OTLP telemetry destinations from project scope to organization scope and added dashboard management with a launch-time destination picker and per-session detail, making it easier to route [browser telemetry](/browsers/telemetry/overview) to your own observability stack.
+- Kernel browsers now install regional browser locale data, so pages render with locale-appropriate formatting for the session's region.
+- The [MCP server](/reference/mcp-server) now accepts a browser session name anywhere a session ID is expected, so you can reference browsers by the names you already use.
+
+## Documentation updates
+
+- Added a cookbook for [Playwright with a computer-use fallback](/browsers/playwright-computer-use-fallback) for steps pure Playwright can't complete.
+- Documented the [live view domains](/browsers/live-view) the embedded live view loads from, so you can allowlist them.
+- Documented captcha task and challenge [telemetry categories](/browsers/telemetry/categories), including when events carry a `challenge_id`.
+- Refreshed the [managed auth docs](/auth/connection-lifecycle) — canonical interactions, typed reauth outcomes, and the authenticator-requirement outcome — and improved managed auth discoverability across the docs.
+- Documented how to [connect the MCP server with an API key](/reference/mcp-server/troubleshooting) when a client's strict OAuth issuer verification rejects the flow.
+</Update>
+
 <Update label="August 28" tags={["Product", "Docs"]}>
 ## Product updates
 
