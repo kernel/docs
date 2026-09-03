@@ -5,7 +5,7 @@ description: "Start with fast, DOM-based Playwright tools, then fall back to scr
 
 [Playwright](https://github.com/microsoft/playwright) is Microsoft's open-source browser automation framework, first released in 2020. It controls Chromium, Firefox, and WebKit through one API, with resilient element locators, automatic waiting, isolated browser contexts, and detailed tracing when something goes wrong.
 
-Higher-level browser-agent tools often wrap Playwright in model-friendly abstractions. Those tools can be useful, but Playwright remains a strong starting point: it is widely adopted, well documented, and gives developers direct, inspectable control over the browser. For agents, DOM-based Playwright actions are usually faster, cheaper, and more predictable than reasoning from screenshots and clicking screen coordinates.
+Higher-level browser-agent frameworks often wrap Playwright in model-friendly abstractions. Those frameworks can be useful, but Playwright remains a strong starting point: it is widely adopted, well documented, and gives developers direct, inspectable control over the browser. For agents, DOM-based Playwright actions are usually faster, cheaper, and more predictable than reasoning from screenshots and clicking screen coordinates.
 
 Some page interactions still cannot be completed reliably through simplified DOM-based tools. Pointer-driven drag-and-drop is a common example. Libraries such as `dnd-kit` and `SortableJS` may require several intermediate `mousemove` events before they recognize a drag. A tool that jumps directly from pressing to releasing can report success even though the page never recognized the gesture and the card did not move.
 
@@ -25,6 +25,8 @@ then drag every item card to the Done column.
 Filtering and navigating work fine through the DOM. Dragging a card onto the board doesn't — `magnitasks.com`'s board uses pointer-based drag-and-drop, so it's a small, honest example of the failure mode this cookbook exists for.
 
 ## Playwright vs. CUA
+
+An agent tool is a callable operation that lets the model read browser state or take an action. The model selects a tool and supplies its inputs; the harness executes the operation and returns the result to the model. A **toolset** is the collection of tools available during a run.
 
 `browser-loop` provides two toolsets for controlling the same browser session. **Playwright tools** (`loop.toolsets.browser()`) find page elements through the DOM and act on them by reference. **CUA tools** (`loop.toolsets.computer()`) read screenshots and control the pointer using screen coordinates.
 
