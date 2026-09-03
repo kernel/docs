@@ -1,13 +1,17 @@
 ---
-title: "Using Code Mode with Computer Use Fallback"
-description: "Run an agent in code mode, hand it off to computer use only when the DOM won't cooperate"
+title: "Using Playwright with CUA Fallback"
+description: "Start with fast, DOM-based Playwright tools, then fall back to screenshot-based CUA tools for interactions they cannot complete"
 ---
 
-Some page interactions don't survive a trip through the DOM. Pointer-based drag-and-drop is the common one: a library like `dnd-kit` or `SortableJS` needs a real sequence of mousemove events to recognize a drag, and a DOM-ref tool that jumps straight from press to release never crosses that threshold. The tool call still reports success — the card just doesn't move.
+[Playwright](https://github.com/microsoft/playwright) is Microsoft's open-source browser automation framework, first released in 2020. It controls Chromium, Firefox, and WebKit through one API, with resilient element locators, automatic waiting, isolated browser contexts, and detailed tracing when something goes wrong.
 
-The fix isn't to run every task through the slower, pixel-based path. It's to run fast by default and fall back to computer use only for the step that actually needs it, without losing the agent's place in the task when it does.
+Higher-level browser-agent tools often wrap Playwright in model-friendly abstractions. Those tools can be useful, but Playwright remains a strong starting point: it is widely adopted, well documented, and gives developers direct, inspectable control over the browser. For agents, DOM-based Playwright actions are usually faster, cheaper, and more predictable than reasoning from screenshots and clicking screen coordinates.
 
-This cookbook covers three ways to wire that handoff with [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop), Kernel's tool package for browser agents, plus the code for each.
+Some page interactions still cannot be completed reliably through simplified DOM-based tools. Pointer-driven drag-and-drop is a common example. Libraries such as `dnd-kit` and `SortableJS` may require several intermediate `mousemove` events before they recognize a drag. A tool that jumps directly from pressing to releasing can report success even though the page never recognized the gesture and the card did not move.
+
+The answer is not to run the entire task through slower, screenshot-based computer use. Start with Playwright for navigation, reading, clicking, and form filling. Switch to CUA only for the interaction that needs realistic pointer movement, then continue without losing the browser's open tabs, page state, or the agent's conversation context.
+
+This cookbook demonstrates three ways to make that handoff with [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop), Kernel's tool package for browser agents, with complete code for each approach.
 
 ## The example task
 
@@ -20,24 +24,24 @@ then drag every item card to the Done column.
 
 Filtering and navigating work fine through the DOM. Dragging a card onto the board doesn't — `magnitasks.com`'s board uses pointer-based drag-and-drop, so it's a small, honest example of the failure mode this cookbook exists for.
 
-## Code mode vs. computer use
+## Playwright vs. CUA
 
-`browser-loop` compiles two tool catalogs for the same browser session. **Code mode** is the general approach: an agent resolves elements in the DOM and acts on them by reference, rather than driving the browser from pixels the way a person would. `browser-loop` implements code mode by making **playwright mode** available (`loop.toolsets.browser()`); its computer-use counterpart is **CUA mode** (`loop.toolsets.computer()`). The rest of this cookbook uses those two specific names, since that's what the code below is switching between.
+`browser-loop` provides two toolsets for controlling the same browser session. **Playwright tools** (`loop.toolsets.browser()`) find page elements through the DOM and act on them by reference. **CUA tools** (`loop.toolsets.computer()`) read screenshots and control the pointer using screen coordinates.
 
-| | playwright mode | CUA mode |
+| | Playwright | CUA |
 | --- | --- | --- |
 | tools | `browser_*` | `computer_*` |
 | driven by | an accessibility snapshot, resolved by ref | a screenshot, read pixel by pixel |
 | a click is | one DOM lookup + one CDP dispatch | a vision call, then an OS-level click at a coordinate — see [Computer Controls](/browsers/computer-controls) |
 | cost | cheap, fast, deterministic when the DOM cooperates | a full model round trip per action, but works on anything the page renders regardless of DOM structure |
 
-Playwright mode should be your default: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
+Make Playwright your default: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
 
 ## Picking a harness
 
-The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up in CUA mode still has the entire playwright-mode conversation as context, and knows what it already tried.
+The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up with CUA still has the entire Playwright conversation as context, and knows what it already tried.
 
-The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run playwright mode to completion or failure, then start a fresh CUA-mode call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
+The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh CUA call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
 
 ## Setup
 
@@ -59,11 +63,11 @@ KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-mixed.ts
 
 ## Three ways to hand off
 
-All three run playwright mode first and switch to CUA mode once it stops making progress. They differ in what you need to know about the task at integration time:
+All three run Playwright first and switch to CUA once it stops making progress. They differ in what you need to know about the task at integration time:
 
 | you know | approach | integration cost |
 | --- | --- | --- |
-| the specific playwright tool likely to be unreliable for this task | [trigger-tool budget](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
+| the specific Playwright tool likely to be unreliable for this task | [trigger-tool budget](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
 | the general shape of the task, not the specific risky action | [flat step-count budget](#approach-b-flat-step-count-budget) | needs a per-task number, found by testing |
 | little to nothing — tasks arrive from an end user at runtime | [mixed toolset + steering prompt](#approach-c-mixed-toolset-and-steering-prompt) | no handoff logic, but no bound on the model's own switching either |
 
@@ -71,16 +75,16 @@ If you can name the risky tool, do — it's the only one of the three that's bot
 
 ### Approach A: trigger-tool budget
 
-Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific playwright tool this task needs CUA's help with. `FALLBACK_TRIGGER_TOOLS` names it; the harness counts completed attempts against that tool (most DOM-ref tools report success even when they don't produce the intended effect, so a completed attempt against a still-unfinished task is itself the signal) and hands off once `FALLBACK_TRIGGER_BUDGET` is spent. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches the trigger tool at all.
+Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific Playwright tool this task needs CUA's help with. `FALLBACK_TRIGGER_TOOLS` names it; the harness counts completed attempts against that tool (most DOM-ref tools report success even when they don't produce the intended effect, so a completed attempt against a still-unfinished task is itself the signal) and hands off once `FALLBACK_TRIGGER_BUDGET` is spent. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches the trigger tool at all.
 
 ```ts
 /**
- * Cookbook: playwright mode first, fall back to CUA mode after the playwright
+ * Cookbook: Playwright first, fall back to CUA after the Playwright
  * tool(s) this task depends on have had their shot and haven't finished the
  * job.
  *
  * `browser_drag` (the atomic tool @onkernel/browser-loop compiles for
- * "playwright execution mode") drags by resolving two DOM/viewport points and
+ * the Playwright toolset) drags by resolving two DOM/viewport points and
  * dispatching exactly one CDP `mousePressed` -> `mouseMoved` -> `mouseReleased`
  * sequence between them. Kanban boards built on pointer-based drag-and-drop
  * (dnd-kit, SortableJS, most React DnD setups) need several intermediate
@@ -89,18 +93,18 @@ Use this when you're integrating against a known, fixed target and you already k
  * The tool call itself still reports success: there's no error to catch, only
  * a card that never moved.
  *
- * `computer_drag` (CUA/computer-use mode) takes a multi-point pixel path and
+ * `computer_drag` (from the CUA toolset) takes a multi-point pixel path and
  * dispatches a real mousemove sequence along it, which is enough motion for
  * those same libraries to pick up the gesture.
  *
- * This script runs a task in playwright mode and hands off to CUA mode once
- * playwright mode has spent FALLBACK_TRIGGER_BUDGET attempts on
+ * This script runs a task with Playwright and hands off to CUA once
+ * Playwright has spent FALLBACK_TRIGGER_BUDGET attempts on
  * FALLBACK_TRIGGER_TOOLS and the task still isn't done. The trigger keys on
  * that specific tool rather than a generic action count, so setup steps like
  * navigation and filtering never eat into the budget before the action that
  * actually needs CUA gets a turn. FALLBACK_TRIGGER_TOOLS is `browser_drag`
  * here because drag-and-drop is this task's known-unreliable action; adapt it
- * to whatever playwright tool your own task expects to need CUA's help for
+ * to whatever Playwright tool your own task expects to need CUA's help for
  * (a file upload, a canvas interaction, anything DOM-ref execution doesn't
  * reliably drive). An action safety cap is a backstop for pages that never
  * reach a trigger tool at all.
@@ -111,10 +115,9 @@ Use this when you're integrating against a known, fixed target and you already k
  * `computer_drag` succeeds -- a good, honest example of the failure mode this
  * fallback exists for.
  *
- * The session is recorded end to end with Kernel's replay API, so both modes
- * -- the failed playwright-mode drags and the cua-mode recovery -- are on one
- * video. The replay view URL prints as soon as recording starts and again
- * once it's stopped and finished processing.
+ * Kernel's replay API records the failed Playwright drags and the CUA recovery
+ * on one video. The replay view URL prints as soon as recording starts and
+ * again once it's stopped and finished processing.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua.ts
@@ -135,7 +138,7 @@ const TASK_PROMPT =
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
-// Primary trigger: the playwright-mode tool(s) this task depends on and known
+// Primary trigger: the Playwright tool(s) this task depends on and known
 // to be unreliable. Swap this per task -- browser_drag here because
 // drag-and-drop is what this task needs CUA's help with; a different task
 // might key on browser_fill for a canvas-backed input, or nothing at all if
@@ -145,7 +148,7 @@ const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic
 const FALLBACK_TRIGGER_TOOLS = new Set(["browser_drag"]);
 const FALLBACK_TRIGGER_BUDGET = 2;
 
-// Backstop: total tool calls playwright mode gets regardless of whether it
+// Backstop: total tool calls Playwright gets regardless of whether it
 // ever reaches a drag, so a page that never triggers one (wrong selector,
 // navigation failure) can't run forever.
 const ACTION_SAFETY_CAP = 20;
@@ -190,30 +193,30 @@ async function main(): Promise<void> {
 			if (budgetExhausted) return;
 			if (triggerAttempts >= FALLBACK_TRIGGER_BUDGET) {
 				budgetExhausted = true;
-				console.log("[playwright] trigger tool budget exhausted, aborting run to switch to CUA mode");
+				console.log("[playwright] trigger tool budget exhausted, aborting run to switch to CUA");
 				void harness.abort();
 			} else if (actionTurns >= ACTION_SAFETY_CAP) {
 				budgetExhausted = true;
-				console.log("[playwright] action safety cap reached without a trigger tool attempt, aborting run to switch to CUA mode");
+				console.log("[playwright] action safety cap reached without a trigger tool attempt, aborting run to switch to CUA");
 				void harness.abort();
 			}
 		});
 
-		console.log(`model=${MODEL} mode=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
+		console.log(`model=${MODEL} toolset=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
 		let final = await harness.prompt(TASK_PROMPT);
 		unsubscribe();
 
 		if (final.stopReason === "aborted") {
-			console.log("[cua] playwright mode did not finish in budget, switching to computer-use tools");
+			console.log("[cua] Playwright did not finish in budget, switching to CUA tools");
 			const cuaPair = kb.compile({
 				model: MODEL,
 				tools: loop.toolsets.computer(),
 			});
 			await cuaPair.apply(harness);
 
-			console.log(`model=${MODEL} mode=cua`);
+			console.log(`model=${MODEL} toolset=cua`);
 			final = await harness.prompt(
-				"Playwright-mode drag actions were not registering on this page's drag-and-drop board -- " +
+				"Playwright drag actions were not registering on this page's drag-and-drop board -- " +
 					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
 					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
 					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
@@ -238,20 +241,20 @@ void main();
 
 ### Approach B: flat step-count budget
 
-Use this when you know the general category of task but not the specific action likely to need CUA, so naming one tool up front isn't realistic. `PLAYWRIGHT_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so playwright mode gets a fixed total before the handoff regardless of what those actions turn out to be.
+Use this when you know the general category of task but not the specific action likely to need CUA, so naming one tool up front isn't realistic. `PLAYWRIGHT_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so Playwright gets a fixed total before the handoff regardless of what those actions turn out to be.
 
 Size the budget generously enough to survive the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs CUA. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
 
 ```ts
 /**
- * Cookbook variant B: playwright mode first, fall back to CUA mode after a
+ * Cookbook variant B: Playwright first, fall back to CUA after a
  * flat step-count budget -- for when you know the general shape of the task
  * (browser automation against an unfamiliar app) without knowing which
- * specific playwright tool is going to be the unreliable one. Use this over
+ * specific Playwright tool is going to be the unreliable one. Use this over
  * the trigger-tool variant (playwright-then-cua.ts) when you can't name the
  * risky action in advance; use it over the mixed-toolset variant
  * (playwright-then-cua-mixed.ts) when you want a deterministic, bounded
- * playwright-mode budget instead of trusting a system prompt to self-limit.
+ * Playwright budget instead of trusting a system prompt to self-limit.
  *
  * The budget counts every completed tool call, so it has to be generous
  * enough to survive whatever setup (navigation, filtering, form-filling) the
@@ -265,8 +268,7 @@ Size the budget generously enough to survive the task's legitimate setup — nav
  * cards between columns, filter by assignee). See playwright-then-cua.ts for
  * why browser_drag reliably fails here and computer_drag reliably succeeds.
  *
- * The session is recorded end to end with Kernel's replay API, so both modes
- * land on one video.
+ * Kernel's replay API records both toolsets on one video.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-stepcount.ts
@@ -287,8 +289,8 @@ const TASK_PROMPT =
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
-// How many tool calls of any kind playwright mode gets before we hand off to
-// CUA mode. Size this to comfortably cover the task's normal setup steps plus
+// How many tool calls of any kind Playwright gets before we hand off to
+// CUA. Size this to comfortably cover the task's normal setup steps plus
 // a couple of attempts at whatever turns out to be the hard part -- too tight
 // and it can exhaust the budget before ever reaching the action that needs
 // CUA. There's no per-tool signal here, so this is deliberately generous
@@ -331,26 +333,26 @@ async function main(): Promise<void> {
 			console.log(`[playwright ${actionTurns}/${PLAYWRIGHT_ACTION_BUDGET}] ${event.toolName} error=${event.isError}`);
 			if (actionTurns >= PLAYWRIGHT_ACTION_BUDGET && !budgetExhausted) {
 				budgetExhausted = true;
-				console.log("[playwright] action budget exhausted, aborting run to switch to CUA mode");
+				console.log("[playwright] action budget exhausted, aborting run to switch to CUA");
 				void harness.abort();
 			}
 		});
 
-		console.log(`model=${MODEL} mode=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
+		console.log(`model=${MODEL} toolset=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
 		let final = await harness.prompt(TASK_PROMPT);
 		unsubscribe();
 
 		if (final.stopReason === "aborted") {
-			console.log("[cua] playwright mode did not finish in budget, switching to computer-use tools");
+			console.log("[cua] Playwright did not finish in budget, switching to CUA tools");
 			const cuaPair = kb.compile({
 				model: MODEL,
 				tools: loop.toolsets.computer(),
 			});
 			await cuaPair.apply(harness);
 
-			console.log(`model=${MODEL} mode=cua`);
+			console.log(`model=${MODEL} toolset=cua`);
 			final = await harness.prompt(
-				"Playwright-mode drag actions were not registering on this page's drag-and-drop board -- " +
+				"Playwright drag actions were not registering on this page's drag-and-drop board -- " +
 					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
 					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
 					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
@@ -375,15 +377,15 @@ void main();
 
 ### Approach C: mixed toolset and steering prompt
 
-Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs CUA. `loop.toolsets.mixed()` hands the model both playwright-mode and CUA-mode tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
+Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs CUA. `loop.toolsets.mixed()` hands the model both Playwright and CUA tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
 
-The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with playwright tools before trying CUA, and which CUA tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
+The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with Playwright tools before trying CUA, and which CUA tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
 
 ```ts
 /**
- * Cookbook variant C: give the model both playwright-mode and CUA-mode tools
+ * Cookbook variant C: give the model both Playwright and CUA tools
  * up front (loop.toolsets.mixed()) and let it choose per action, steered by a
- * system prompt toward playwright tools by default. Use this over the two
+ * system prompt toward Playwright tools by default. Use this over the two
  * scripted-handoff variants (playwright-then-cua.ts,
  * playwright-then-cua-stepcount.ts) when you don't want to write any handoff
  * logic at all -- appropriate for a general-purpose agent whose tasks aren't
@@ -399,7 +401,7 @@ The tradeoff is that a system prompt is a soft constraint on both axes that matt
  * for the same result. A system prompt is a soft constraint on both when it
  * switches and which tool it reaches for once it does; naming computer_drag
  * explicitly in a handoff message (as the scripted variants do) is what
- * keeps CUA mode fast once it's in control. Nothing here enforces that a
+ * keeps CUA fast once it's in control. Nothing here enforces that a
  * real handoff even happens -- there's no hard bound on how long the model
  * sticks with browser_* tools before trying computer_* ones.
  *
@@ -466,7 +468,7 @@ async function main(): Promise<void> {
 			console.log(`[${actionTurns}] ${event.toolName} error=${event.isError}`);
 		});
 
-		console.log(`model=${MODEL} mode=mixed prompt=${JSON.stringify(TASK_PROMPT)}`);
+		console.log(`model=${MODEL} toolset=mixed prompt=${JSON.stringify(TASK_PROMPT)}`);
 		const final = await harness.prompt(TASK_PROMPT);
 		console.log(`final stopReason: ${final.stopReason}`);
 		for (const block of final.content) {
@@ -495,13 +497,13 @@ As a starting rule: reach for **A** first, even if it costs you one exploratory 
 
 ## Notes
 
-- **None of the three hand control back.** Once a run switches to CUA mode, playwright mode doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once CUA mode re-establishes progress.
+- **None of the three hand control back.** Once a run switches to CUA, Playwright doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once CUA re-establishes progress.
 - **Swap models freely.** All three default to `anthropic:claude-sonnet-5` via `LOOP_MODEL`. Use `listLoopModels()` from `@onkernel/browser-loop/pi` to see everything else the catalog supports for both toolsets.
-- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the playwright-mode attempt and the CUA-mode recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
+- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the Playwright attempt and the CUA recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
 
 ## Next steps
 
-- [Computer Controls](/browsers/computer-controls) — the OS-level API CUA mode drives
+- [Computer Controls](/browsers/computer-controls) — the OS-level API CUA drives
 - [Computer Use overview](/integrations/computer-use/overview) — running computer-use models on Kernel more generally
 - [Replays](/browsers/replays) — record a session end to end
 - [Stealth mode](/browsers/bot-detection/stealth) — reduce how often a page notices the automation in the first place
