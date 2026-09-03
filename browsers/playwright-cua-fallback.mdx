@@ -1,17 +1,17 @@
 ---
-title: "Using Playwright with CUA Fallback"
-description: "Start with fast, DOM-based Playwright tools, then fall back to screenshot-based CUA tools for interactions they cannot complete"
+title: "Using Playwright with Computer Use Fallback"
+description: "Run an agent with fast, DOM-based Playwright tools, then fall back to Computer Use only when the DOM won't cooperate"
 ---
 
-[Playwright](https://github.com/microsoft/playwright) is Microsoft's open-source browser automation framework, first released in 2020. It controls Chromium, Firefox, and WebKit through one API, with resilient element locators, automatic waiting, isolated browser contexts, and detailed tracing when something goes wrong.
+[Playwright](https://github.com/microsoft/playwright) is Microsoft's open-source browser automation framework. It controls Chromium, Firefox, and WebKit through one API, with resilient element locators, automatic waiting, isolated browser contexts, and detailed tracing when something goes wrong.
 
 Higher-level browser-agent frameworks often wrap Playwright in model-friendly abstractions. Those frameworks can be useful, but Playwright remains a strong starting point: it is widely adopted, well documented, and gives developers direct, inspectable control over the browser. For agents, DOM-based Playwright actions are usually faster, cheaper, and more predictable than reasoning from screenshots and clicking screen coordinates.
 
-Some page interactions still cannot be completed reliably through simplified DOM-based tools. Pointer-driven drag-and-drop is a common example. Libraries such as `dnd-kit` and `SortableJS` may require several intermediate `mousemove` events before they recognize a drag. A tool that jumps directly from pressing to releasing can report success even though the page never recognized the gesture and the card did not move.
+Some page interactions still cannot be completed reliably through DOM-based tools. Pointer-driven drag-and-drop is a common example. Libraries such as `dnd-kit` and `SortableJS` may require several intermediate `mousemove` events before they recognize a drag. A tool that jumps directly from pressing to releasing can report success even though the page never recognized the gesture and the card did not move.
 
-The answer is not to run the entire task through slower, screenshot-based computer use. Start with Playwright for navigation, reading, clicking, and form filling. Switch to CUA only for the interaction that needs realistic pointer movement, then continue without losing the browser's open tabs, page state, or the agent's conversation context.
+The answer is not to run the entire task through slower, screenshot-based computer use. Start with Playwright for navigation, reading, clicking, and form filling. Switch to computer use only for the interaction that needs realistic pointer movement, then continue without losing the browser's open tabs, page state, or the agent's conversation context.
 
-This cookbook demonstrates three ways to make that handoff with [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop), Kernel's tool package for browser agents, with complete code for each approach.
+This cookbook demonstrates three ways to make that handoff between Playwright and Computer Use with [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop), KERNEL's tool package for browser agents.
 
 ## The example task
 
@@ -24,11 +24,11 @@ then drag every item card to the Done column.
 
 Filtering and navigating work fine through the DOM. Dragging a card onto the board doesn't — `magnitasks.com`'s board uses pointer-based drag-and-drop, so it's a small, honest example of the failure mode this cookbook exists for.
 
-## Playwright vs. CUA
+## Playwright vs. Computer Use Toolsets
 
 An agent tool is a callable operation that lets the model read browser state or take an action. The model selects a tool and supplies its inputs; the harness executes the operation and returns the result to the model. A **toolset** is the collection of tools available during a run.
 
-`browser-loop` provides two toolsets for controlling the same browser session. **Playwright tools** (`loop.toolsets.browser()`) find page elements through the DOM and act on them by reference. **CUA tools** (`loop.toolsets.computer()`) read screenshots and control the pointer using screen coordinates.
+`browser-loop` provides two toolsets for controlling the same browser session. **Playwright tools** (`loop.toolsets.browser()`) find page elements through the DOM and act on them by reference. **Computer Use Agent (CUA) tools** (`loop.toolsets.computer()`) read screenshots and control the pointer using screen coordinates.
 
 | | Playwright | CUA |
 | --- | --- | --- |
@@ -37,13 +37,15 @@ An agent tool is a callable operation that lets the model read browser state or 
 | a click is | one DOM lookup + one CDP dispatch | a vision call, then an OS-level click at a coordinate — see [Computer Controls](/browsers/computer-controls) |
 | cost | cheap, fast, deterministic when the DOM cooperates | a full model round trip per action, but works on anything the page renders regardless of DOM structure |
 
-Make Playwright your default: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
+Make Playwright your default toolset: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
 
 ## Picking a harness
 
-The snippets below drive the browser with `browser-loop`, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff below a single method call — the model that picks up with CUA still has the entire Playwright conversation as context, and knows what it already tried.
+The snippets below drive the browser with KERNEL's `browser-loop` harness, bound here to [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`. 
 
-The same ideas apply to whatever harness or tools you use to drive a browser. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh CUA call and carry forward what happened as plain-text context in the new prompt, the way approach A's handoff message does below.
+`compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff between Playwright and CUA tools a single method call. The model that picks up with CUA tools still has the entire Playwright conversation as context, and knows what it already tried.
+
+If you choose a different harness than `browser-loop`, the same concepts apply. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh CUA call and carry forward what happened as plain-text context in the new prompt. We demonstrate that below in Approach A.
 
 ## Setup
 
@@ -52,7 +54,7 @@ npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core t
 ```
 
 <Warning>
-`browser-loop` pins an exact `@onkernel/sdk` version as a peer dependency. Installing a newer `@onkernel/sdk` elsewhere in the same project can hoist a mismatched version, which produces two incompatible `Kernel` client types — `attach({ client, browser })` won't type-check. Run `npm ls @onkernel/sdk` if you hit a type error there.
+`browser-loop` pins an exact `@onkernel/sdk` version as a peer dependency. Installing a newer `@onkernel/sdk` elsewhere in the same project can hoist a mismatched version, which produces two incompatible `KERNEL` client types — `attach({ client, browser })` won't type-check. Run `npm ls @onkernel/sdk` if you hit a type error there.
 </Warning>
 
 Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
@@ -63,19 +65,24 @@ KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-stepcount.t
 KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-mixed.ts
 ```
 
-## Three ways to hand off
+## Three ways to hand off between Playwright and Computer Use
 
-All three run Playwright first and switch to CUA once it stops making progress. They differ in what you need to know about the task at integration time:
+We recommend three different approaches:
+- Per-Tool Attempt Limit
+- Total Tool-Call Limit
+- Model-Directed Handoff
 
-| you know | approach | integration cost |
+All three run Playwright first and switch to Computer Use once it stops making progress. They differ in what you need to know about the task at integration time:
+
+| what you you know | approach | integration cost |
 | --- | --- | --- |
-| the specific Playwright tool likely to be unreliable for this task | [trigger-tool budget](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
-| the general shape of the task, not the specific risky action | [flat step-count budget](#approach-b-flat-step-count-budget) | needs a per-task number, found by testing |
-| little to nothing — tasks arrive from an end user at runtime | [mixed toolset + steering prompt](#approach-c-mixed-toolset-and-steering-prompt) | no handoff logic, but no bound on the model's own switching either |
+| the specific Playwright tool likely to be unreliable for this task | [Per-Tool Attempt Limit](#approach-a-trigger-tool-budget) | lowest — one config line, no tuning |
+| the general shape of the task, not the specific risky action | [Total Tool-Call Limit](#approach-b-flat-step-count-budget) | needs a per-task number, found by testing |
+| little to nothing — tasks arrive from an end user at runtime | [Model-Directed Handoff](#approach-c-mixed-toolset-and-steering-prompt) | no handoff logic, but no bound on the model's own switching either |
 
-If you can name the risky tool, do — it's the only one of the three that's both precise and free of tuning. The other two exist for when the task genuinely isn't known until runtime.
+If you can name the risky tool, go with a Per-Tool Attempt Limit — it's the only one of the three that's both precise and free of tuning. The other two exist for when the task genuinely isn't known until runtime.
 
-### Approach A: trigger-tool budget
+### Approach A: Per-Tool Attempt Limit
 
 Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific Playwright tool this task needs CUA's help with. `FALLBACK_TRIGGER_TOOLS` names it; the harness counts completed attempts against that tool (most DOM-ref tools report success even when they don't produce the intended effect, so a completed attempt against a still-unfinished task is itself the signal) and hands off once `FALLBACK_TRIGGER_BUDGET` is spent. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches the trigger tool at all.
 
@@ -117,7 +124,7 @@ Use this when you're integrating against a known, fixed target and you already k
  * `computer_drag` succeeds -- a good, honest example of the failure mode this
  * fallback exists for.
  *
- * Kernel's replay API records the failed Playwright drags and the CUA recovery
+ * KERNEL's replay API records the failed Playwright drags and the CUA recovery
  * on one video. The replay view URL prints as soon as recording starts and
  * again once it's stopped and finished processing.
  *
@@ -125,11 +132,11 @@ Use this when you're integrating against a known, fixed target and you already k
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua.ts
  *
  * Env:
- *   KERNEL_API_KEY   required, Kernel browser API key
+ *   KERNEL_API_KEY   required, KERNEL browser API key
  *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
  *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
  */
-import Kernel from "@onkernel/sdk";
+import KERNEL from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
 import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
@@ -160,7 +167,7 @@ async function main(): Promise<void> {
 	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
 	requireLoopEnvApiKeyForModel(MODEL);
 
-	const client = new Kernel({ apiKey: kernelApiKey });
+	const client = new KERNEL({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
@@ -243,9 +250,9 @@ void main();
 
 ### Approach B: flat step-count budget
 
-Use this when you know the general category of task but not the specific action likely to need CUA, so naming one tool up front isn't realistic. `PLAYWRIGHT_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so Playwright gets a fixed total before the handoff regardless of what those actions turn out to be.
+Use this when you know the general category of task but not the specific action likely to need Computer Use, so naming one tool up front isn't realistic. `PLAYWRIGHT_ACTION_BUDGET` counts every completed tool call, not just attempts at one tool, so Playwright gets a fixed total before the handoff regardless of what those actions turn out to be.
 
-Size the budget generously enough to survive the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs CUA. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
+Size the budget generously enough to survive the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs Computer Use. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
 
 ```ts
 /**
@@ -270,17 +277,17 @@ Size the budget generously enough to survive the task's legitimate setup — nav
  * cards between columns, filter by assignee). See playwright-then-cua.ts for
  * why browser_drag reliably fails here and computer_drag reliably succeeds.
  *
- * Kernel's replay API records both toolsets on one video.
+ * KERNEL's replay API records both toolsets on one video.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-stepcount.ts
  *
  * Env:
- *   KERNEL_API_KEY   required, Kernel browser API key
+ *   KERNEL_API_KEY   required, KERNEL browser API key
  *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
  *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
  */
-import Kernel from "@onkernel/sdk";
+import KERNEL from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
 import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
@@ -304,7 +311,7 @@ async function main(): Promise<void> {
 	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
 	requireLoopEnvApiKeyForModel(MODEL);
 
-	const client = new Kernel({ apiKey: kernelApiKey });
+	const client = new KERNEL({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
@@ -379,9 +386,9 @@ void main();
 
 ### Approach C: mixed toolset and steering prompt
 
-Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs CUA. `loop.toolsets.mixed()` hands the model both Playwright and CUA tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
+Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs Computer Use. `loop.toolsets.mixed()` hands the model both Playwright and CUA tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
 
-The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with Playwright tools before trying CUA, and which CUA tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
+The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with Playwright tools before trying Computer Use, and which Computer Use tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
 
 ```ts
 /**
@@ -411,17 +418,17 @@ The tradeoff is that a system prompt is a soft constraint on both axes that matt
  * cards between columns, filter by assignee). See playwright-then-cua.ts for
  * why browser_drag reliably fails here and computer_drag reliably succeeds.
  *
- * The session is recorded end to end with Kernel's replay API.
+ * The session is recorded end to end with KERNEL's replay API.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-then-cua-mixed.ts
  *
  * Env:
- *   KERNEL_API_KEY   required, Kernel browser API key
+ *   KERNEL_API_KEY   required, KERNEL browser API key
  *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
  *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
  */
-import Kernel from "@onkernel/sdk";
+import KERNEL from "@onkernel/sdk";
 import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
 import { loop } from "@onkernel/browser-loop";
 import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
@@ -437,7 +444,7 @@ async function main(): Promise<void> {
 	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
 	requireLoopEnvApiKeyForModel(MODEL);
 
-	const client = new Kernel({ apiKey: kernelApiKey });
+	const client = new KERNEL({ apiKey: kernelApiKey });
 	const browser = await client.browsers.create({ stealth: true });
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
@@ -499,13 +506,13 @@ As a starting rule: reach for **A** first, even if it costs you one exploratory 
 
 ## Notes
 
-- **None of the three hand control back.** Once a run switches to CUA, Playwright doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once CUA re-establishes progress.
+- **None of the three hand control back.** Once a run switches to computer-use tools, Playwright doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once computer-use tools re-establishes progress.
 - **Swap models freely.** All three default to `anthropic:claude-sonnet-5` via `LOOP_MODEL`. Use `listLoopModels()` from `@onkernel/browser-loop/pi` to see everything else the catalog supports for both toolsets.
-- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the Playwright attempt and the CUA recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
+- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the Playwright attempt and the computer-use recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
 
 ## Next steps
 
 - [Computer Controls](/browsers/computer-controls) — the OS-level API CUA drives
-- [Computer Use overview](/integrations/computer-use/overview) — running computer-use models on Kernel more generally
+- [Computer Use overview](/integrations/computer-use/overview) — running computer-use models on KERNEL more generally
 - [Replays](/browsers/replays) — record a session end to end
 - [Stealth mode](/browsers/bot-detection/stealth) — reduce how often a page notices the automation in the first place
