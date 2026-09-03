@@ -45,7 +45,7 @@ The snippets below use `browser-loop` with [`@earendil-works/pi-agent-core`](htt
 
 `compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff between Playwright and computer-use tools a single method call. The model that picks up with computer-use tools still has the entire Playwright conversation as context, and knows what it already tried.
 
-If you use a different agent harness, the same concepts apply. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh call with computer-use tools and carry forward what happened as plain-text context in the new prompt. The Per-Tool Attempt Limit example below shows what to include in that handoff message.
+If you use a different agent harness, the same concepts apply. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh call with computer-use tools and carry forward what happened as plain-text context in the new prompt. The Per-Tool Limit example below shows what to include in that handoff message.
 
 ## Setup
 
@@ -60,7 +60,7 @@ npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core t
 Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
 
 ```bash
-KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-attempt-limit.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-limit.ts
 KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-total-tool-call-limit.ts
 KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-model-directed-handoff.ts
 ```
@@ -71,19 +71,19 @@ All three run Playwright first and switch to computer use once it stops making p
 
 | what you know | approach | integration cost |
 | --- | --- | --- |
-| the specific Playwright tool likely to be unreliable for this task | [Per-Tool Attempt Limit](#per-tool-attempt-limit) | lowest — one config line, no tuning |
+| the specific Playwright tool likely to be unreliable for this task | [Per-Tool Limit](#per-tool-limit) | lowest — one config line, no tuning |
 | the general shape of the task, not the specific risky action | [Total Tool-Call Limit](#total-tool-call-limit) | needs a per-task number, found by testing |
 | little to nothing — tasks arrive from an end user at runtime | [Model-Directed Handoff](#model-directed-handoff) | no handoff logic, but no bound on the model's own switching either |
 
-If you can name the risky tool, use **Per-Tool Attempt Limit** — it's the only one of the three that's both precise and free of tuning. The other two exist for when the task genuinely isn't known until runtime.
+If you can name the risky tool, use **Per-Tool Limit** — it's the only one of the three that's both precise and free of tuning. The other two exist for when the task genuinely isn't known until runtime.
 
-### Per-Tool Attempt Limit
+### Per-Tool Limit
 
 Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific Playwright tool needs help from computer-use tools. `PLAYWRIGHT_TOOLS_WITH_ATTEMPT_LIMITS` names those tools; the harness counts completed attempts for each one and hands off when any tool reaches `PER_TOOL_ATTEMPT_LIMIT`. Most DOM-ref tools report success even when they don't produce the intended effect, so an attempt against a still-unfinished task is itself the signal. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches a per-tool limit.
 
 ```ts
 /**
- * Cookbook: Playwright first, fall back to computer-use tools after a
+ * Per-Tool Limit: Playwright first, fall back to computer-use tools after a
  * task-critical Playwright tool reaches its per-tool attempt limit without
  * finishing the job.
  *
@@ -121,7 +121,7 @@ Use this when you're integrating against a known, fixed target and you already k
  * starts and again once it's stopped and finished processing.
  *
  * Usage:
- *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-attempt-limit.ts
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-limit.ts
  *
  * Env:
  *   KERNEL_API_KEY   required, KERNEL browser API key
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
 	const kb = attach({ client, browser });
 
 	try {
-		const session = await new InMemorySessionRepo().create({ id: "playwright-computer-use-per-tool-attempt-limit" });
+		const session = await new InMemorySessionRepo().create({ id: "playwright-computer-use-per-tool-limit" });
 
 		const playwrightPair = kb.compile({
 			model: MODEL,
@@ -268,7 +268,7 @@ Set the limit high enough to cover the task's legitimate setup — navigation, f
  *
  * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
  * cards between columns, filter by assignee). See
- * playwright-computer-use-per-tool-attempt-limit.ts for why browser_drag
+ * playwright-computer-use-per-tool-limit.ts for why browser_drag
  * reliably fails here and computer_drag reliably succeeds.
  *
  * KERNEL's replay API records both toolsets on one video.
@@ -405,7 +405,7 @@ The tradeoff is that a system prompt is a soft constraint on both axes that matt
  *
  * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
  * cards between columns, filter by assignee). See
- * playwright-computer-use-per-tool-attempt-limit.ts for why browser_drag
+ * playwright-computer-use-per-tool-limit.ts for why browser_drag
  * reliably fails here and computer_drag reliably succeeds.
  *
  * The session is recorded end to end with KERNEL's replay API.
@@ -488,11 +488,11 @@ void main();
 
 | approach | needs knowing | integration effort | switching behavior |
 | --- | --- | --- | --- |
-| Per-Tool Attempt Limit | the exact risky tool | one config line, no tuning | fires when a selected tool reaches its attempt limit |
+| Per-Tool Limit | the exact risky tool | one config line, no tuning | fires when a selected tool reaches its attempt limit |
 | Total Tool-Call Limit | enough about the task to size a number | a number to find and re-check per task | fires on total tool-call count, regardless of which tools ran |
 | Model-Directed Handoff | nothing in advance | no handoff logic at all | left entirely to the model's own judgment, with no hard bound |
 
-As a starting rule, reach for **Per-Tool Attempt Limit** first, even if it costs you one exploratory run to find the tool name. Use **Total Tool-Call Limit** only when the task varies enough that naming a specific tool isn't realistic. Use **Model-Directed Handoff** only when you can't write task-specific logic at all — and if you do, consider pairing it with a hard action cap as a backstop against its unbounded soft constraint.
+As a starting rule, reach for **Per-Tool Limit** first, even if it costs you one exploratory run to find the tool name. Use **Total Tool-Call Limit** only when the task varies enough that naming a specific tool isn't realistic. Use **Model-Directed Handoff** only when you can't write task-specific logic at all — and if you do, consider pairing it with a hard action cap as a backstop against its unbounded soft constraint.
 
 ## Notes
 
