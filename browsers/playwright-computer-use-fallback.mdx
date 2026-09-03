@@ -1,0 +1,508 @@
+---
+title: "Using Playwright with Computer Use Fallback"
+description: "Run an agent with fast, DOM-based Playwright tools, then fall back to computer use only when the DOM won't cooperate"
+---
+
+[Playwright](https://github.com/microsoft/playwright) is Microsoft's open-source browser automation framework. It controls Chromium, Firefox, and WebKit through one API, with resilient element locators, automatic waiting, isolated browser contexts, and detailed tracing when something goes wrong.
+
+Higher-level browser-agent frameworks often wrap Playwright in model-friendly abstractions. Those frameworks can be useful, but Playwright remains a strong starting point: it is widely adopted, well documented, and gives developers direct, inspectable control over the browser. For agents, DOM-based Playwright actions are usually faster, cheaper, and more predictable than reasoning from screenshots and clicking screen coordinates.
+
+Some page interactions still cannot be completed reliably through DOM-based tools. Pointer-driven drag-and-drop is a common example. Libraries such as `dnd-kit` and `SortableJS` may require several intermediate `mousemove` events before they recognize a drag. A tool that jumps directly from pressing to releasing can report success even though the page never recognized the gesture and the card did not move.
+
+The answer is not to run the entire task through slower, screenshot-based computer use. Start with Playwright for navigation, reading, clicking, and form filling. Switch to computer use only for the interaction that needs realistic pointer movement, then continue without losing the browser's open tabs, page state, or the agent's conversation context.
+
+This cookbook demonstrates three ways to make that handoff between Playwright and computer use with [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop), KERNEL's tool package for browser agents.
+
+## The example task
+
+Every snippet below runs the same task against [magnitasks.com](https://magnitasks.com), a public Kanban-style board:
+
+```
+Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks,
+then drag every item card to the Done column.
+```
+
+Filtering and navigating work fine through the DOM. Dragging a card onto the board doesn't — `magnitasks.com`'s board uses pointer-based drag-and-drop, so it's a small, honest example of the failure mode this cookbook exists for.
+
+## Playwright vs. computer use
+
+An agent tool is a callable operation that lets the model read browser state or take an action. The model selects a tool and supplies its inputs; the harness executes the operation and returns the result to the model. A **toolset** is the collection of tools available during a run.
+
+`browser-loop` provides two toolsets for controlling the same browser session. **Playwright tools** (`loop.toolsets.browser()`) find page elements through the DOM and act on them by reference. **Computer-use tools** (`loop.toolsets.computer()`) read screenshots and control the pointer using screen coordinates.
+
+| | Playwright | computer use |
+| --- | --- | --- |
+| tools | `browser_*` | `computer_*` |
+| driven by | an accessibility snapshot, resolved by ref | a screenshot, read pixel by pixel |
+| a click is | one DOM lookup + one CDP dispatch | a vision call, then an OS-level click at a coordinate — see [Computer Controls](/browsers/computer-controls) |
+| cost | cheap, fast, deterministic when the DOM cooperates | a full model round trip per action, but works on anything the page renders regardless of DOM structure |
+
+Make Playwright your default toolset: it's faster and cheaper per action. Reach for [computer use](/integrations/computer-use/overview) for the specific interactions that don't hold up to DOM-ref execution: drag-and-drop on a pointer-sensor library, canvas-drawn UI, a file picker's native dialog, anything a screenshot can see that the accessibility tree can't reliably resolve.
+
+## Picking a harness
+
+The snippets below use `browser-loop` with [`@earendil-works/pi-agent-core`](https://www.npmjs.com/package/@earendil-works/pi-agent-core)'s `AgentHarness`.
+
+`compiled.apply(harness)` swaps a *running* harness onto a new (model, tools) pair without resetting browser refs, open tabs, or the conversation transcript, which is what makes the mid-session handoff between Playwright and computer-use tools a single method call. The model that picks up with computer-use tools still has the entire Playwright conversation as context, and knows what it already tried.
+
+If you use a different agent harness, the same concepts apply. If your setup doesn't expose an equivalent live tool-catalog swap, implement the handoff as two sequential calls instead: run Playwright to completion or failure, then start a fresh call with computer-use tools and carry forward what happened as plain-text context in the new prompt. The Per-Tool Limit example below shows what to include in that handoff message.
+
+## Setup
+
+```bash
+npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core tsx
+```
+
+<Warning>
+`browser-loop` pins an exact `@onkernel/sdk` version as a peer dependency. Installing a newer `@onkernel/sdk` elsewhere in the same project can hoist a mismatched version, which produces two incompatible `KERNEL` client types — `attach({ client, browser })` won't type-check. Run `npm ls @onkernel/sdk` if you hit a type error there.
+</Warning>
+
+Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
+
+```bash
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-limit.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-total-tool-call-limit.ts
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-model-directed-handoff.ts
+```
+
+## Three ways to hand off between Playwright and computer use
+
+All three run Playwright first and switch to computer use once it stops making progress. They differ in what you need to know about the task at integration time:
+
+| what you know | approach | integration cost |
+| --- | --- | --- |
+| the specific Playwright tool likely to be unreliable for this task | [Per-Tool Limit](#per-tool-limit) | lowest — one config line, no tuning |
+| the general shape of the task, not the specific risky action | [Total Tool-Call Limit](#total-tool-call-limit) | needs a per-task number, found by testing |
+| little to nothing — tasks arrive from an end user at runtime | [Model-Directed Handoff](#model-directed-handoff) | no handoff logic, but no bound on the model's own switching either |
+
+If you can name the risky tool, use **Per-Tool Limit** — it's the only one of the three that's both precise and free of tuning. The other two exist for when the task genuinely isn't known until runtime.
+
+### Per-Tool Limit
+
+Use this when you're integrating against a known, fixed target and you already know — or can find in one test run — which specific Playwright tool needs help from computer-use tools. `PLAYWRIGHT_TOOLS_WITH_ATTEMPT_LIMITS` names those tools; the harness counts completed attempts for each one and hands off when any tool reaches `PER_TOOL_ATTEMPT_LIMIT`. Most DOM-ref tools report success even when they don't produce the intended effect, so an attempt against a still-unfinished task is itself the signal. `ACTION_SAFETY_CAP` is a backstop for a run that never reaches a per-tool limit.
+
+```ts
+/**
+ * Per-Tool Limit: Playwright first, fall back to computer-use tools after a
+ * task-critical Playwright tool reaches its per-tool attempt limit without
+ * finishing the job.
+ *
+ * `browser_drag` (the atomic tool @onkernel/browser-loop compiles for
+ * the Playwright toolset) drags by resolving two DOM/viewport points and
+ * dispatching exactly one CDP `mousePressed` -> `mouseMoved` -> `mouseReleased`
+ * sequence between them. Kanban boards built on pointer-based drag-and-drop
+ * (dnd-kit, SortableJS, most React DnD setups) need several intermediate
+ * `mousemove` events to cross their drag-activation threshold, so a single
+ * jump often never registers as a drag at all -- the card just gets a click.
+ * The tool call itself still reports success: there's no error to catch, only
+ * a card that never moved.
+ *
+ * `computer_drag` (from the computer-use toolset) takes a multi-point pixel
+ * path and dispatches a real mousemove sequence along it, which is enough
+ * motion for those same libraries to pick up the gesture.
+ *
+ * This script hands off to computer-use tools once any tool in
+ * PLAYWRIGHT_TOOLS_WITH_ATTEMPT_LIMITS reaches PER_TOOL_ATTEMPT_LIMIT and the
+ * task still isn't done. Each selected tool has its own attempt count, so
+ * setup steps like navigation and filtering never consume another tool's
+ * limit. `browser_drag` is selected here because drag-and-drop is this task's
+ * known-unreliable action; adapt the set to the Playwright tools your task
+ * expects to need computer-use help for. An action safety cap is a backstop
+ * for pages that never reach a per-tool limit.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). Its board uses pointer-based
+ * drag-and-drop, so `browser_drag` reliably fails to move cards while
+ * `computer_drag` succeeds -- a good, honest example of the failure mode this
+ * fallback exists for.
+ *
+ * KERNEL's replay API records the failed Playwright drags and the computer-use
+ * recovery on one video. The replay view URL prints as soon as recording
+ * starts and again once it's stopped and finished processing.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-per-tool-limit.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, KERNEL browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+const TASK_PROMPT =
+	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
+	"then drag every item card to the Done column.";
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+// Playwright tools this task depends on and that are known to be unreliable.
+// Each selected tool gets its own attempt count. These tools report no
+// execution error even when they don't produce the intended effect, so an
+// attempt that doesn't finish the task is itself the signal.
+const PLAYWRIGHT_TOOLS_WITH_ATTEMPT_LIMITS = new Set(["browser_drag"]);
+const PER_TOOL_ATTEMPT_LIMIT = 2;
+
+// Backstop: total tool calls Playwright gets regardless of whether it
+// ever reaches a drag, so a page that never triggers one (wrong selector,
+// navigation failure) can't run forever.
+const ACTION_SAFETY_CAP = 20;
+
+async function main(): Promise<void> {
+	const kernelApiKey = process.env.KERNEL_API_KEY;
+	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const client = new KERNEL({ apiKey: kernelApiKey });
+	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
+	const kb = attach({ client, browser });
+
+	try {
+		const session = await new InMemorySessionRepo().create({ id: "playwright-computer-use-per-tool-limit" });
+
+		const playwrightPair = kb.compile({
+			model: MODEL,
+			tools: loop.toolsets.browser(),
+		});
+		const harness = new AgentHarness({
+			session,
+			model: playwrightPair.model,
+			models: playwrightPair.models,
+			tools: [...playwrightPair.tools],
+			activeToolNames: playwrightPair.tools.map((tool) => tool.name),
+			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+		});
+		playwrightPair.activate(harness);
+
+		let actionTurns = 0;
+		const attemptsByTool = new Map<string, number>();
+		let handoffRequested = false;
+		const unsubscribe = harness.subscribe((event: AgentHarnessEvent) => {
+			if (event.type !== "tool_execution_end") return;
+			actionTurns += 1;
+			let attemptStatus = "";
+			let reachedAttemptLimit = false;
+			if (PLAYWRIGHT_TOOLS_WITH_ATTEMPT_LIMITS.has(event.toolName)) {
+				const attempts = (attemptsByTool.get(event.toolName) ?? 0) + 1;
+				attemptsByTool.set(event.toolName, attempts);
+				attemptStatus = ` (attempt ${attempts}/${PER_TOOL_ATTEMPT_LIMIT})`;
+				reachedAttemptLimit = attempts >= PER_TOOL_ATTEMPT_LIMIT;
+			}
+			console.log(`[playwright ${actionTurns}] ${event.toolName} error=${event.isError}${attemptStatus}`);
+			if (handoffRequested) return;
+			if (reachedAttemptLimit) {
+				handoffRequested = true;
+				console.log("[playwright] per-tool attempt limit reached, aborting run to switch to computer-use tools");
+				void harness.abort();
+			} else if (actionTurns >= ACTION_SAFETY_CAP) {
+				handoffRequested = true;
+				console.log("[playwright] action safety cap reached, aborting run to switch to computer-use tools");
+				void harness.abort();
+			}
+		});
+
+		console.log(`model=${MODEL} toolset=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
+		let final = await harness.prompt(TASK_PROMPT);
+		unsubscribe();
+
+		if (final.stopReason === "aborted") {
+			console.log("[computer-use] Playwright did not finish within its limits, switching toolsets");
+			const computerPair = kb.compile({
+				model: MODEL,
+				tools: loop.toolsets.computer(),
+			});
+			await computerPair.apply(harness);
+
+			console.log(`model=${MODEL} toolset=computer`);
+			final = await harness.prompt(
+				"Playwright drag actions were not registering on this page's drag-and-drop board -- " +
+					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
+					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
+					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
+					"and end so the board can see the pointer move and recognize a drag.",
+			);
+		}
+
+		console.log(`final stopReason: ${final.stopReason}`);
+		for (const block of final.content) {
+			if (block.type === "text") console.log(block.text);
+		}
+	} finally {
+		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
+		await client.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+
+### Total Tool-Call Limit
+
+Use this when you know the general category of task but not the specific action likely to need computer use, so naming one tool up front isn't realistic. `TOTAL_TOOL_CALL_LIMIT` counts every completed Playwright tool call and hands off when the total reaches that limit, regardless of which tools the agent used.
+
+Set the limit high enough to cover the task's legitimate setup — navigation, filtering, form-filling — before it reaches the action that needs computer use. There's no principled way to pick the number without running the task and looking; that's the direct cost of not needing to know which tool will fail.
+
+```ts
+/**
+ * Total Tool-Call Limit: Playwright first, fall back to computer-use tools after
+ * a total tool-call limit. Use this when you know the general shape of the
+ * task without knowing which specific Playwright tool will be unreliable. Use
+ * this over the per-tool attempt limit when you can't name the risky action in
+ * advance; use it over model-directed handoff when you want a deterministic,
+ * bounded Playwright run instead of trusting a system prompt to self-limit.
+ *
+ * The limit counts every completed tool call, so it has to be generous
+ * enough to survive whatever setup (navigation, filtering, form-filling) the
+ * task legitimately needs before it reaches the action that actually needs
+ * computer use. Too tight and it stops during setup before ever attempting
+ * the risky action. Picking the right number takes running the task and
+ * looking; that imprecision is the tradeoff for skipping the step of naming
+ * which tool will fail.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). See
+ * playwright-computer-use-per-tool-limit.ts for why browser_drag
+ * reliably fails here and computer_drag reliably succeeds.
+ *
+ * KERNEL's replay API records both toolsets on one video.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-total-tool-call-limit.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, KERNEL browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+const TASK_PROMPT =
+	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
+	"then drag every item card to the Done column.";
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+// Total Playwright tool calls allowed before the handoff to computer-use tools.
+// Set this high enough to cover normal setup plus a few attempts at the action
+// that needs computer use.
+const TOTAL_TOOL_CALL_LIMIT = 10;
+
+async function main(): Promise<void> {
+	const kernelApiKey = process.env.KERNEL_API_KEY;
+	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const client = new KERNEL({ apiKey: kernelApiKey });
+	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
+	const kb = attach({ client, browser });
+
+	try {
+		const session = await new InMemorySessionRepo().create({ id: "playwright-computer-use-total-tool-call-limit" });
+
+		const playwrightPair = kb.compile({
+			model: MODEL,
+			tools: loop.toolsets.browser(),
+		});
+		const harness = new AgentHarness({
+			session,
+			model: playwrightPair.model,
+			models: playwrightPair.models,
+			tools: [...playwrightPair.tools],
+			activeToolNames: playwrightPair.tools.map((tool) => tool.name),
+			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+		});
+		playwrightPair.activate(harness);
+
+		let toolCalls = 0;
+		let handoffRequested = false;
+		const unsubscribe = harness.subscribe((event: AgentHarnessEvent) => {
+			if (event.type !== "tool_execution_end") return;
+			toolCalls += 1;
+			console.log(`[playwright ${toolCalls}/${TOTAL_TOOL_CALL_LIMIT}] ${event.toolName} error=${event.isError}`);
+			if (toolCalls >= TOTAL_TOOL_CALL_LIMIT && !handoffRequested) {
+				handoffRequested = true;
+				console.log("[playwright] total tool-call limit reached, aborting run to switch to computer-use tools");
+				void harness.abort();
+			}
+		});
+
+		console.log(`model=${MODEL} toolset=playwright prompt=${JSON.stringify(TASK_PROMPT)}`);
+		let final = await harness.prompt(TASK_PROMPT);
+		unsubscribe();
+
+		if (final.stopReason === "aborted") {
+			console.log("[computer-use] Playwright did not finish within its limit, switching toolsets");
+			const computerPair = kb.compile({
+				model: MODEL,
+				tools: loop.toolsets.computer(),
+			});
+			await computerPair.apply(harness);
+
+			console.log(`model=${MODEL} toolset=computer`);
+			final = await harness.prompt(
+				"Playwright drag actions were not registering on this page's drag-and-drop board -- " +
+					"the cards weren't moving. Take a screenshot to see where things stand, then finish the " +
+					"task using the computer-use tools: click and drag by pixel coordinates instead of DOM " +
+					"refs. For computer_drag, use a path with several intermediate waypoints between the start " +
+					"and end so the board can see the pointer move and recognize a drag.",
+			);
+		}
+
+		console.log(`final stopReason: ${final.stopReason}`);
+		for (const block of final.content) {
+			if (block.type === "text") console.log(block.text);
+		}
+	} finally {
+		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
+		await client.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+
+### Model-Directed Handoff
+
+Use this when the task isn't known at integration time at all — a general-purpose agent product where an end user's request determines the site, the workflow, and whether anything needs computer use. `loop.toolsets.mixed()` gives the model both Playwright and computer-use tools from the start; a system prompt steers it toward the cheaper `browser_*` tools by default and toward `computer_*` tools once a `browser_*` action doesn't produce the expected effect. There's no handoff code to write.
+
+The tradeoff is that a system prompt is a soft constraint on both axes that matter: how long the model sticks with Playwright tools before trying computer use, and which computer-use tool it reaches for once it does. Nothing here enforces a hard bound, and nothing guarantees it picks the purpose-built tool for the job over reassembling the effect from lower-level primitives.
+
+```ts
+/**
+ * Model-Directed Handoff: give the model both Playwright and computer-use tools up
+ * front (loop.toolsets.mixed()) and let it choose per action, steered by a
+ * system prompt toward Playwright tools by default. Use model-directed handoff
+ * when you don't want to write handoff logic for a general-purpose agent whose
+ * tasks aren't known ahead of time, so you can't preselect a limited tool or
+ * set a reasonable total tool-call limit.
+ *
+ * The tradeoff: with both toolsets available, a model can try browser_*
+ * tools first, take a screenshot, notice a drag hasn't landed, and switch to
+ * computer_* tools on its own -- but it may never call the purpose-built
+ * computer_drag tool. It can reassemble a drag by hand from
+ * computer_mouse_down / computer_move / computer_mouse_up primitives
+ * instead, taking far more tool calls -- and therefore model round trips --
+ * for the same result. A system prompt is a soft constraint on both when it
+ * switches and which tool it reaches for once it does; naming computer_drag
+ * explicitly in a handoff message (as the scripted variants do) is what
+ * keeps computer use fast once it's in control. Nothing here enforces that a
+ * real handoff even happens -- there's no hard bound on how long the model
+ * sticks with browser_* tools before trying computer_* ones.
+ *
+ * Demo target: magnitasks.com, a Kanban-style task board (Tasks page, drag
+ * cards between columns, filter by assignee). See
+ * playwright-computer-use-per-tool-limit.ts for why browser_drag
+ * reliably fails here and computer_drag reliably succeeds.
+ *
+ * The session is recorded end to end with KERNEL's replay API.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx playwright-computer-use-model-directed-handoff.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, KERNEL browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+const TASK_PROMPT =
+	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
+	"then drag every item card to the Done column.";
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+async function main(): Promise<void> {
+	const kernelApiKey = process.env.KERNEL_API_KEY;
+	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const client = new KERNEL({ apiKey: kernelApiKey });
+	const browser = await client.browsers.create({ stealth: true });
+	const replay = await client.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
+	const kb = attach({ client, browser });
+
+	try {
+		const session = await new InMemorySessionRepo().create({ id: "playwright-computer-use-model-directed-handoff" });
+
+		const compiled = kb.compile({ model: MODEL, tools: loop.toolsets.mixed() });
+		const harness = new AgentHarness({
+			session,
+			model: compiled.model,
+			models: compiled.models,
+			tools: [...compiled.tools],
+			activeToolNames: compiled.tools.map((tool) => tool.name),
+			systemPrompt:
+				"Use the browser_* tools (ref-based, DOM-driven) as your default for navigation, clicking, " +
+				"filling forms, and reading page state -- they're faster and cheaper. Only reach for the " +
+				"computer_* tools (screenshot-driven, pixel-coordinate based) when a browser_* action, " +
+				"especially browser_drag, doesn't produce the effect you expected after a snapshot or " +
+				"screenshot check. Don't retry a failing browser_* action more than once before switching " +
+				"to the computer_* equivalent for that specific step.",
+		});
+		compiled.activate(harness);
+
+		let actionTurns = 0;
+		harness.subscribe((event: AgentHarnessEvent) => {
+			if (event.type !== "tool_execution_end") return;
+			actionTurns += 1;
+			console.log(`[${actionTurns}] ${event.toolName} error=${event.isError}`);
+		});
+
+		console.log(`model=${MODEL} toolset=mixed prompt=${JSON.stringify(TASK_PROMPT)}`);
+		const final = await harness.prompt(TASK_PROMPT);
+		console.log(`final stopReason: ${final.stopReason}`);
+		for (const block of final.content) {
+			if (block.type === "text") console.log(block.text);
+		}
+	} finally {
+		await kb.dispose();
+		await client.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
+		await client.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+
+## Choosing between them
+
+| approach | needs knowing | integration effort | switching behavior |
+| --- | --- | --- | --- |
+| Per-Tool Limit | the exact risky tool | one config line, no tuning | fires when a selected tool reaches its attempt limit |
+| Total Tool-Call Limit | enough about the task to size a number | a number to find and re-check per task | fires on total tool-call count, regardless of which tools ran |
+| Model-Directed Handoff | nothing in advance | no handoff logic at all | left entirely to the model's own judgment, with no hard bound |
+
+As a starting rule, reach for **Per-Tool Limit** first, even if it costs you one exploratory run to find the tool name. Use **Total Tool-Call Limit** only when the task varies enough that naming a specific tool isn't realistic. Use **Model-Directed Handoff** only when you can't write task-specific logic at all — and if you do, consider pairing it with a hard action cap as a backstop against its unbounded soft constraint.
+
+## Notes
+
+- **None of the three hand control back.** Once a run switches to computer-use tools, Playwright doesn't get another turn in that session. Fine for a single bounded task; worth revisiting for a longer-running agent that could benefit from returning to the cheaper tools once computer-use tools re-establishes progress.
+- **Swap models freely.** All three default to `anthropic:claude-sonnet-5` via `LOOP_MODEL`. Use `listLoopModels()` from `@onkernel/browser-loop/pi` to see everything else the catalog supports for both toolsets.
+- **The whole handoff is recorded on one video.** Each script wraps the run in `client.browsers.replays.start()` / `.stop()`, so the Playwright attempt and the computer-use recovery land on the same replay. The replay URL prints as soon as recording starts and again once it's stopped and finished processing.
+
+## Next steps
+
+- [Computer Controls](/browsers/computer-controls) — the OS-level API that computer-use tools drive
+- [Computer Use overview](/integrations/computer-use/overview) — running computer-use models on KERNEL more generally
+- [Replays](/browsers/replays) — record a session end to end
+- [Stealth mode](/browsers/bot-detection/stealth) — reduce how often a page notices the automation in the first place
