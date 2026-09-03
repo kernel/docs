@@ -4,7 +4,7 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel runs periodic health checks, detects logged-out sessions, and re-authenticates in the background so the profile stays logged in. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
+When you link credentials to a connection, Kernel runs periodic health checks and can reauthenticate supported credential-based flows in the background. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
 ## What are auth choices?
 
@@ -12,11 +12,7 @@ Auth choices are visible routes a site presents during login, including mfa meth
 
 ## Which authentication methods are supported?
 
-Managed Auth supports username/password authentication and most SSO providers. 
-
-<Warning>
-Passkey-based authentication (e.g., Google accounts with passkeys enabled) is not currently supported. If a user's SSO provider requires a passkey, the login will fail with the `unsupported_auth_method` error code.
-</Warning>
+Managed Auth supports common credential, SSO, and multi-step login flows. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. Authentication requirements vary by site, so [contact support](/info/support) if your flow uses additional verification or approval steps.
 
 ## What happens if login fails?
 
@@ -24,7 +20,7 @@ Kernel surfaces an error code (`credentials_invalid`, `account_locked`, `bot_det
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth works with most websites. Sites with aggressive bot detection may require additional configuration (stealth mode, proxies). Passkeys and hardware security keys are not currently supported.
+Managed Auth covers common login flows across a broad range of websites. Site-specific authentication and bot detection can require additional configuration. Test your target flow, or [contact support](/info/support) to find the best setup for your use case.
 
 ## Is Managed Auth available during a trial?
 
@@ -36,7 +32,7 @@ Call `.login()` on the connection to trigger auth immediately. See [Triggering r
 
 ## What types of flows does Managed Auth support?
 
-Managed Auth handles login and authentication flows end-to-end: entering credentials, multi-step login forms (e.g. email on one page, password on the next), SSO redirects, MFA challenges, and keeping sessions alive. For post-login browser work like form filling, sign-ups, or other workflows, use [Kernel's browser automation](/introduction/control) directly.
+Managed Auth navigates login pages, enters stored credentials, follows SSO redirects, guides users through additional authentication steps, and saves the resulting browser session. For post-login work like form filling, sign-ups, or other workflows, use [Kernel's browser automation](/introduction/control) directly.
 
 ## How do I debug a managed auth session?
 
@@ -44,7 +40,7 @@ Use the **Browser Sessions** tab in the dashboard for live view, or set `record_
 
 ## Can I attach multiple auth connections to one profile?
 
-Yes. A profile can have any number of auth connections, each for a different domain. When you create a browser with that profile, it is already logged in to every connected domain.
+Yes. A profile can have any number of auth connections, each for a different domain. When you create a browser with that profile, it loads the saved authentication state for every connected domain.
 
 This is useful for two common patterns:
 
@@ -55,6 +51,6 @@ See [Profiles — Multiple auth connections per profile](/auth/profiles#multiple
 
 ## How is Managed Auth billed?
 
-Managed Auth is included on all plans with no per-connection fees. It uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage like any other browser session.
+Managed Auth is included on all plans with no per-connection fees. It uses browser sessions for login, health checks, and eligible reauthentication attempts. These count toward your browser usage like any other browser session.
 
-Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage. See [Pricing & Limits](/info/pricing#managed-auth) for details.
+Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and can automatically reauthenticate eligible credential-based flows when sessions expire. Most sessions stay valid for days. For example, monitoring 100 auth connections typically costs less than $5/month in browser usage. See [Pricing & Limits](/info/pricing#managed-auth) for details.

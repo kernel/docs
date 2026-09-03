@@ -202,7 +202,7 @@ As a best practice, release each browser when you're done with it — that retur
 
 ## Profiles with browser pools
 
-A [profile](/auth/profiles) carries login state — cookies and local storage — into a browser; use [Managed Auth](/auth/overview) to populate and maintain it. Put the profile on the browser pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools)).
+A [profile](/auth/profiles) carries login state, including cookies and local storage, into a browser. Use [Managed Auth](/auth/overview) to populate that state and monitor its health. Put the profile on the browser pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools)).
 
 A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
 

@@ -4,13 +4,13 @@ sidebarTitle: "Configuration"
 description: "Shared options for managed auth connections, regardless of integration flow"
 ---
 
-Managed Auth Connections are configured the same way regardless of how you collect credentials — via [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). The options below live on the connection itself and apply to the initial login, every background health check, and every automatic re-authentication.
+Managed Auth connections use the same configuration whether you collect credentials through the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). These options apply to the initial login, every background health check, and each automatic reauthentication attempt.
 
 ## Credentials and Auto-Reauth
 
-Credentials are saved after every successful login, enabling automatic re-authentication when the session expires. One-time codes (TOTP, SMS, etc.) are not saved.
+By default, Kernel saves durable credential fields after a successful login. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. Submitted one-time codes aren't saved.
 
-To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for more on automated authentication.
+To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for configuration examples.
 
 Automatic re-authentication is gated by two boolean flags that both default to `true`:
 
@@ -56,7 +56,9 @@ _ = auth
 
 Both flags can be flipped on an existing connection with `auth.connections.update`; changes take effect immediately on the running connection.
 
-Setting `auto_reauth: true` is an opt-in only — it doesn't guarantee reauth is feasible. The system still needs what it requires to perform the login (e.g. saved credentials for the required fields). If those preconditions aren't met when a health check fails, the connection transitions to `NEEDS_AUTH` even with `auto_reauth: true`.
+Setting `auto_reauth: true` permits Kernel to attempt automatic reauthentication. The connection must also have a credential that covers the login flow and a stored TOTP secret when the site requires one. If your flow has additional verification or approval requirements, [contact support](/info/support) to find the best configuration.
+
+If Kernel can't complete an automatic attempt, the connection transitions to `NEEDS_AUTH` so you can start a new login.
 
 ## Custom Login URL
 
@@ -96,7 +98,7 @@ _ = auth
 
 ## SSO/OAuth Support
 
-Sites with "Sign in with Google/GitHub/Microsoft" are supported. The user completes the OAuth flow with the provider, and the authenticated session is automatically saved to the Kernel profile.
+Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements.
 
 Common SSO provider domains are automatically allowed by default, including Google, Microsoft/Azure AD, Okta, Auth0, Apple, GitHub, Facebook, LinkedIn, Amazon Cognito, OneLogin, and Ping Identity. You don't need to add these to `allowed_domains`.
 
