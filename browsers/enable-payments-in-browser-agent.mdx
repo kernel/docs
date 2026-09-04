@@ -61,6 +61,16 @@ choose one provider and complete its setup:
 - [stripe link](/integrations/payments/stripe-link): the user connects a stripe link wallet, selects a payment method, and approves a one-use card for this purchase.
 - [agentcard](/integrations/payments/agentcard): the user enrolls a card once, and the reusable card item requests approval when checkout begins.
 
+<Note>
+  we're onboarding more native payment providers and will update this guide as
+  new integrations become available. we plan to build additional card-collection
+  and vault-management surfaces so developers can connect the payment providers
+  and third-party vaults they already use. over time, we want{" "}
+  <span className="kernel-brand-name">KERNEL</span> to support more of the
+  browser-side steps required to complete a payment without exposing the
+  underlying credential to the agent or browser.
+</Note>
+
 both provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
 
 retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
