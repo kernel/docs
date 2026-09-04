@@ -53,10 +53,6 @@ If you use a different agent harness, the same concepts apply. If your setup doe
 npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core tsx
 ```
 
-<Warning>
-`browser-loop` pins an exact `@onkernel/sdk` version as a peer dependency. Installing a newer `@onkernel/sdk` elsewhere in the same project can hoist a mismatched version, which produces two incompatible `KERNEL` client types — `attach({ client, browser })` won't type-check. Run `npm ls @onkernel/sdk` if you hit a type error there.
-</Warning>
-
 Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
 
 ```bash
