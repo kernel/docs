@@ -14,7 +14,7 @@ this guide starts after you have an existing browser agent. it changes how you p
 - install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
 - use a supported stripe checkout you control. the initial release supports the request formats listed in the [payments overview](/integrations/payments/overview#supported-checkouts).
-- start in the provider's test or sandbox mode. stripe link uses `test: true` on its card item. agentcard mode comes from the integration's configured credential.
+- use a low-value checkout you control while validating the flow. stripe link card creation is live-only. agentcard mode comes from the integration's configured credential.
 
 <Warning>
   keep wallet collection and payment approval outside the agent. show hosted
@@ -48,6 +48,10 @@ kernel = Kernel(
     max_retries=0,
 )
 vault = kernel.vaults.upsert(name="user-12345")
+```
+
+```bash CLI
+kernel vaults create --name user-12345
 ```
 
 </CodeGroup>
@@ -105,6 +109,10 @@ if card.type != "card" or card.state.status != "ready" or card.state.aliases is 
 aliases = card.state.aliases
 ```
 
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+```
+
 </CodeGroup>
 
 ## 3. Attach the vault to the browser
@@ -127,6 +135,10 @@ browser = kernel.browsers.create(
     headless=False,
     timeout_seconds=1800,
 )
+```
+
+```bash CLI
+kernel browsers create --vault user-12345 -o json
 ```
 
 </CodeGroup>
@@ -227,9 +239,18 @@ def observe_payment(stop: Event) -> None:
 
 ```
 
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 5 --open
+kernel vaults items events user-12345 notebook-order --wait 60 -o json
+```
+
 </CodeGroup>
 
 run this observer concurrently with your existing agent loop. abort the signal or set the event after the agent stops and you have inspected the merchant's order state. the observer displays user actions and reads events; it doesn't submit checkout or repeat authorization.
+
+each CLI `--wait` performs one bounded observation, so rerun the commands to
+continue observing the existing attempt. CLI commands prepare and observe the
+payment state; they don't submit merchant payments or retry them.
 
 `events` returns an ordered array. an empty array means no new observation arrived during the wait. it does not mean payment failed. correlate `event.browser_id` with the browser you created when a vault is attached to more than one session.
 

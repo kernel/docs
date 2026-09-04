@@ -5,10 +5,10 @@ description: "Attach provider-backed values to browser sessions without exposing
 
 **status:** <Badge color="yellow">preview</Badge>
 
-<span className="kernel-brand-name">KERNEL</span> vaults are scoped containers
-for provider-backed items. they let a browser session use a value without
-placing the underlying value in the page, agent context, screenshots, or browser
-replay.
+<span className="kernel-brand-name">KERNEL</span> vaults group provider-backed
+items for use in browser sessions. they let a browser session use a value
+without placing the underlying value in the page, agent context, screenshots, or
+browser replay.
 
 the primitive separates four concerns: a vault scopes access, an item describes a provider-backed value, an alias gives the browser a non-secret placeholder, and an action or operation advances provider state outside the browser. egress resolves an alias only when the browser, session, project, vault, item, and provider state all match.
 
@@ -24,7 +24,7 @@ the primitive separates four concerns: a vault scopes access, an item describes 
 
 | resource           | technical behavior                                                                                    |
 | ------------------ | ----------------------------------------------------------------------------------------------------- |
-| vault              | project-owned container with an immutable `name`                                                      |
+| vault              | resource with an immutable `name` that groups provider-backed items                                   |
 | item               | provider-backed value addressed by an immutable `key`; the initial item types are `wallet` and `card` |
 | alias              | non-secret, format-valid placeholder returned in item state; aliases belong to an item                |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                    |
@@ -64,6 +64,10 @@ browser = kernel.browsers.create(
 )
 ```
 
+```bash CLI
+kernel browsers create --vault user-12345 -o json
+```
+
 </CodeGroup>
 
 the `vaults` array supports up to 20 references. each reference accepts exactly one of `id` or `name`, and attachments cannot change after browser creation. a browser and vault must belong to the same project.
@@ -73,6 +77,12 @@ attachment grants the browser access to the vault, not to a selected set of item
 ## Api behavior
 
 create or retrieve a vault by its immutable `name`. names accept 1–255 letters, numbers, `.`, `_`, and `-`, but can't use a cuid-like value that could be mistaken for a vault id. vault responses contain `id`, `name`, `created_at`, and `updated_at`.
+
+```bash CLI
+kernel vaults create --name user-12345
+kernel vaults get user-12345 -o json
+kernel vaults items list user-12345 -o json
+```
 
 item keys are immutable and accept 1–255 letters, numbers, `.`, `_`, and `-`. creating an item at an existing key succeeds only when its type, provider, and specification match the existing item and its lifecycle permits retrieval. otherwise, the api returns a conflict. a card's `spec.wallet` must reference a wallet in the same vault and from the same provider.
 
@@ -110,10 +120,10 @@ the initial release accepts these `spec` fields. fields not listed here are reje
 
 ### Card items
 
-| provider  | required fields                                                                                                     | optional fields                                  |
-| --------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| link      | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context`, `test` | `line_items`, `totals`, `metadata`, `expires_at` |
-| agentcard | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                              | `card_id`                                        |
+| provider  | required fields                                                                                             | optional fields                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| link      | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+| agentcard | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`                                        |
 
 `amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
 

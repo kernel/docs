@@ -27,6 +27,10 @@ kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
 vault = kernel.vaults.upsert(name="user-12345")
 ```
 
+```bash CLI
+kernel vaults create --name user-12345
+```
+
 </CodeGroup>
 
 ## Lifecycle
@@ -78,6 +82,14 @@ wallet = kernel.vaults.items.retrieve(
 )
 ```
 
+```bash CLI
+kernel vaults wallets create user-12345 agentcard-wallet \
+  --provider agentcard \
+  --spec '{}' \
+  --open
+kernel vaults items get user-12345 agentcard-wallet --wait 60
+```
+
 </CodeGroup>
 
 <Warning>
@@ -127,6 +139,18 @@ if card.state.status != "ready" or card.state.aliases is None:
     raise RuntimeError(f"card is {card.state.status}")
 ```
 
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider agentcard \
+  --spec '{
+    "wallet": "agentcard-wallet",
+    "merchant": "example shop",
+    "amount": 2306,
+    "currency": "usd"
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+```
+
 </CodeGroup>
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. omitting `card_id` lets the cardholder select an enrolled card on the approval screen. to pin a card, request the wallet's advertised `payment_methods` expansion and set a returned id as `spec.card_id`.
@@ -138,6 +162,15 @@ agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant
 agentcard does not advertise the `authorize` operation. authorization begins only after an attached browser submits a supported checkout request containing the aliases.
 
 while the request is held, retrieve the card and show `action.url` to the user. `state.authorization` describes the pending or most recent authorization, including its `status`, `browser_id`, expected and actual amounts when available, charge result, and replay result.
+
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 60 --open
+kernel vaults items events user-12345 notebook-order --wait 60 -o json
+```
+
+each `--wait` performs one bounded observation. repeat the relevant command to
+continue observing an existing checkout; don't use it as evidence that a
+payment succeeded or failed.
 
 | field                              | interpretation                                                                                       |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |

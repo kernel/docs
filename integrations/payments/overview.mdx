@@ -16,7 +16,7 @@ payment handoff outside the browser.
 
 both supported providers use the same integration shape:
 
-1. create a project-scoped vault.
+1. create a vault for the user or task.
 2. create a wallet item and send the user through the provider-hosted collection flow.
 3. create a card item for the intended purchase and wait for aliases.
 4. attach the vault when you create the browser session.
@@ -69,7 +69,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | purchase authorization    | explicit `authorize` operation before checkout           | approval begins when the browser submits checkout                   |
 | payment handoff           | one-use credential substituted at egress                 | provider executes the held request and returns the response         |
 | reuse                     | card item and aliases are consumed on first substitution | card item and aliases remain reusable; each checkout needs approval |
-| test mode                 | required `spec.test` field                               | determined by the configured agentcard credential                   |
+| environment               | live only                                                | determined by the configured agentcard credential                   |
 
 choose [stripe link](/integrations/payments/stripe-link) when each purchase needs a newly approved, one-use credential. choose [agentcard](/integrations/payments/agentcard) when the same enrolled card must support multiple separately approved purchases.
 
@@ -95,3 +95,15 @@ the request must contain the complete alias set. arbitrary processors, custom re
 ## Next step
 
 configure [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent) to attach the vault and give payment aliases to your agent.
+
+the provider pages show the CLI commands for creating wallets and cards. once
+the card item is ready, the shared CLI flow is:
+
+```bash CLI
+kernel vaults create --name user-12345
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+kernel browsers create --vault user-12345 -o json
+```
+
+`--wait` performs one bounded observation. it does not confirm that a payment
+succeeded, and the CLI does not submit or retry merchant payments.

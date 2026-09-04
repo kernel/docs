@@ -27,6 +27,10 @@ kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
 vault = kernel.vaults.upsert(name="user-12345")
 ```
 
+```bash CLI
+kernel vaults create --name user-12345
+```
+
 </CodeGroup>
 
 ## Lifecycle
@@ -34,7 +38,7 @@ vault = kernel.vaults.upsert(name="user-12345")
 1. create a `wallet` item with the link oauth specification.
 2. open the returned `link_oauth` action for the user and wait for the wallet to become `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
-4. create a `card` item with the purchase details and `test` intent.
+4. create a `card` item with the purchase details.
 5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
 6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
 7. use `state.aliases` in an attached browser. the first supported substitution changes the item to `consumed`.
@@ -86,6 +90,14 @@ wallet = kernel.vaults.items.retrieve(
     id_or_name=vault.id,
     wait=60,
 )
+```
+
+```bash CLI
+kernel vaults wallets create user-12345 link-wallet \
+  --provider link \
+  --spec '{"authorization":{"method":"oauth","client":{"type":"kernel_managed"}}}' \
+  --open
+kernel vaults items get user-12345 link-wallet --wait 60
 ```
 
 </CodeGroup>
@@ -158,6 +170,10 @@ if payment_method is None or (
     raise RuntimeError("select an available payment method")
 ```
 
+```bash CLI
+kernel vaults wallets payment-methods user-12345 link-wallet -o json
+```
+
 </CodeGroup>
 
 show the returned methods in a trusted user-facing surface, let the user choose one, and set its id as `LINK_PAYMENT_METHOD_ID`. missing capability metadata means eligibility is unknown. only `eligible: false` is an explicit negative result.
@@ -181,7 +197,6 @@ let card = await kernel.vaults.items.upsert("notebook-order", {
     context:
       "buy one notebook from example shop for a total of 23.06 usd, including tax " +
       "and shipping. this request is for this purchase only and must not be repeated.",
-    test: true,
   },
 });
 
@@ -214,7 +229,6 @@ card = kernel.vaults.items.upsert(
             "buy one notebook from example shop for a total of 23.06 usd, including tax "
             "and shipping. this request is for this purchase only and must not be repeated."
         ),
-        "test": True,
     },
 )
 
@@ -230,9 +244,26 @@ card = kernel.vaults.items.perform_operation(
 print(card.action)
 ```
 
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider link \
+  --spec '{
+    "wallet": "link-wallet",
+    "payment_method_id": "pm_123",
+    "amount": 2306,
+    "currency": "usd",
+    "merchant_name": "example shop",
+    "merchant_url": "https://shop.example.com",
+    "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+kernel vaults items invoke user-12345 notebook-order authorize --open
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+```
+
 </CodeGroup>
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. set `test: false` only for an intentionally authorized live purchase against a live checkout.
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
 `merchant_url` supplies provider context. <span className="kernel-brand-name">KERNEL</span> derives its registrable domain into `state.domains` when authorization starts, but `state.domains` is metadata rather than an enforced browser-origin allowlist.
 
