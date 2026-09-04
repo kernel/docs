@@ -8,7 +8,7 @@ Managed Auth connections use the same configuration whether you collect credenti
 
 ## Credentials and Auto-Reauth
 
-By default, Kernel saves durable credential fields after a successful login. Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed. Submitted one-time codes aren't saved.
+By default, Kernel saves durable credential fields after a successful login. Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed. Submitted one-time codes (TOTP, SMS, etc.) aren't saved.
 
 To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for configuration examples.
 
@@ -56,11 +56,9 @@ _ = auth
 
 Both flags can be flipped on an existing connection with `auth.connections.update`; changes take effect immediately on the running connection.
 
-Setting `auto_reauth: true` permits Kernel to attempt automatic reauthentication. The connection must also have a credential that covers the login flow.
+Automatic reauthentication requires a previously successful login and saved credentials for the durable login fields. Setting `auto_reauth: true` permits Kernel to attempt it but doesn't guarantee the next login will succeed.
 
 If Kernel can't complete an automatic attempt, the connection transitions to `NEEDS_AUTH` so you can start a new login.
-
-To learn more about using Managed Auth, [contact support](/info/support).
 
 ## Custom Login URL
 

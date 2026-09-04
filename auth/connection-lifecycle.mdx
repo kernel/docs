@@ -4,7 +4,7 @@ sidebarTitle: "Lifecycle"
 description: "How connections stay authenticated, and what to do when one breaks"
 ---
 
-Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks. For supported credential-based flows, Kernel can automatically reauthenticate after it confirms that the session expired. This page covers the runtime lifecycle, configuration options, and recovery steps.
+Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks. For eligible flows, Kernel can automatically reauthenticate the session to keep it valid. This page covers the runtime lifecycle, configuration options, and recovery steps.
 
 ## The lifecycle
 
@@ -22,7 +22,7 @@ After the initial login, every connection moves through this loop:
     An inconclusive check never triggers reauth. Kernel would rather check again on the next cycle than log in again unnecessarily — a spurious login can trip risk checks on the site, prompt a device-verification email, or invalidate a working session.
   </Step>
   <Step title="NEEDS_AUTH (when action is required)">
-    If Kernel needs input to restore the session, the connection's `status` changes to `NEEDS_AUTH`. Start a new login session to continue.
+    If automatic reauthentication isn't possible — for example, credentials are missing, human input is required, or the login keeps failing — the connection's `status` changes to `NEEDS_AUTH`. Start a new login session to continue.
   </Step>
 </Steps>
 
@@ -72,9 +72,11 @@ If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter
 
 ## Can this connection auto-reauth?
 
-Check the `can_reauth` boolean on a connection. It's `true` when the connection has completed a successful login, a credential is linked, and Kernel hasn't recorded a requirement that blocks an automatic attempt. It describes eligibility to attempt reauthentication, not whether the next login will succeed.
+Check the `can_reauth` boolean on a connection. It describes eligibility to attempt reauthentication, not whether the next login will succeed. It's `true` only when all of these conditions hold:
 
-For TOTP-only flows, `can_reauth` can be `true` before Kernel knows whether it can provide the code. If it can't, the attempt ends with `totp_required`.
+1. **A previous login succeeded** — Kernel has recorded the result of a completed login.
+2. **A credential is linked** — It's stored in Kernel or sourced from [1Password](/integrations/1password).
+3. **No blocking requirement is recorded** — Kernel hasn't recorded a requirement that prevents an automatic attempt.
 
 Use `can_reauth_reason` to see why the connection is or isn't eligible. See [Get auth connection](https://kernel.sh/docs/api-reference/managed-auth/get-auth-connection) for the possible values.
 
@@ -88,8 +90,6 @@ You can handle these flows in two ways:
 
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. Codes are generated on demand, so the flow no longer needs external action. If a code expires before the site accepts it, Kernel retries with a fresh one.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
-
-To learn more about using Managed Auth, [contact support](/info/support).
 
 ## Triggering re-auth manually
 
