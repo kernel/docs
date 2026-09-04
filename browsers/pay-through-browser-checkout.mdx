@@ -1,0 +1,246 @@
+---
+title: "Pay Through a Browser Checkout"
+description: "Give a browser agent provider-backed payment aliases and complete a web checkout without exposing card data"
+---
+
+you're building a browser agent. you can add payments without bringing your application, agent, or browser into pci dss scope.
+
+create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link](/integrations/payments/link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
+
+this guide starts after you have an existing browser agent. it changes how you prepare and pass payment input, not how your agent navigates or reasons about the checkout page.
+
+## Before you start
+
+- install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
+- set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
+- use a supported stripe checkout you control. the initial release supports the request formats listed in the [payments overview](/integrations/payments/overview#supported-checkouts).
+- start in the provider's test or sandbox mode. link uses `test: true` on its card item. agentcard mode comes from the integration's configured credential.
+
+<Warning>
+  keep wallet collection and payment approval outside the agent. show hosted
+  action urls only in a trusted user-facing surface. the only payment values you
+  give the agent are the aliases returned in card state.
+</Warning>
+
+## 1. Create a vault
+
+scope the client and vault to the same project that will own the browser session.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const projectID = process.env.KERNEL_PROJECT_ID;
+if (!projectID) throw new Error("set KERNEL_PROJECT_ID");
+
+const kernel = new Kernel({ projectID, maxRetries: 0 });
+const vault = await kernel.vaults.upsert({ name: "browser-checkout" });
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(
+    project_id=os.environ["KERNEL_PROJECT_ID"],
+    max_retries=0,
+)
+vault = kernel.vaults.upsert(name="browser-checkout")
+```
+
+</CodeGroup>
+
+`vaults.upsert` creates the vault or retrieves an existing vault with the same name. vault names are immutable within the project.
+
+## 2. Add a wallet and prepare a card
+
+choose one provider and complete its setup:
+
+- [link](/integrations/payments/link): the user connects a link wallet, selects a payment method, and approves a one-use card for this purchase.
+- [agentcard](/integrations/payments/agentcard): the user enrolls a card once, and the reusable card item requests approval when checkout begins.
+
+both provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
+
+retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = await kernel.vaults.items.retrieve("notebook-order", {
+  id_or_name: vault.id,
+  wait: 60,
+});
+
+if (
+  card.type !== "card" ||
+  card.state.status !== "ready" ||
+  !card.state.aliases
+) {
+  throw new Error(`payment item is ${card.state.status}`);
+}
+const aliases = card.state.aliases;
+```
+
+```python Python
+card = kernel.vaults.items.retrieve(
+    "notebook-order",
+    id_or_name=vault.id,
+    wait=60,
+)
+
+if card.type != "card" or card.state.status != "ready" or card.state.aliases is None:
+    raise RuntimeError(f"payment item is {card.state.status}")
+aliases = card.state.aliases
+```
+
+</CodeGroup>
+
+## 3. Attach the vault to the browser
+
+vault attachments are fixed at browser creation. use the same project-scoped client that created the vault.
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+  headless: false,
+  timeout_seconds: 1800,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+    headless=False,
+    timeout_seconds=1800,
+)
+```
+
+</CodeGroup>
+
+connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser](/introduction/control) for supported connection options.
+
+## 4. Give the aliases to your agent
+
+pass the aliases as structured task input. instruct the agent to use them in the page's normal card fields and submit checkout once.
+
+```text
+Complete the checkout at https://shop.example.com for one notebook.
+The approved total is 23.06 USD.
+
+Use this payment input in the checkout form:
+- card number: <aliases.number>
+- cvc: <aliases.cvc>
+- expiry month: <aliases.exp_month>
+- expiry year: <aliases.exp_year>
+
+Submit the checkout once. If the payment request pauses for user approval,
+wait for the controller to finish that approval. Do not retry payment.
+```
+
+replace the angle-bracketed fields in your controller before sending the task. don't put oauth codes, action urls, provider responses, the vault api key, or the browser connection url in the prompt.
+
+the agent can fill both top-level fields and payment fields embedded in iframes. let the merchant page's own submission code create the outgoing request. don't replace the checkout with a raw processor api call.
+
+## 5. Keep approval and observation outside the agent
+
+start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for link and provides item events after credential substitution.
+
+<CodeGroup>
+
+```typescript TypeScript
+let after: string | undefined;
+
+async function observePayment(stop: AbortSignal): Promise<void> {
+  while (!stop.aborted) {
+    const current = await kernel.vaults.items.retrieve(card.key, {
+      id_or_name: vault.id,
+      wait: 5,
+    });
+
+    if (current.action && "url" in current.action) {
+      console.log(
+        `open privately to complete ${current.action.name}: ${current.action.url}`,
+      );
+    } else if (current.action?.name === "push_approval") {
+      console.log("complete the approval in your wallet");
+    }
+
+    const events = await kernel.vaults.items.events(card.key, {
+      id_or_name: vault.id,
+      after,
+      wait: 5,
+    });
+    for (const event of events) {
+      console.log(event.id, event.name, event.browser_id, event.data);
+      after = event.id;
+    }
+  }
+}
+```
+
+```python Python
+from threading import Event
+
+
+def observe_payment(stop: Event) -> None:
+    after = None
+
+    while not stop.is_set():
+        current = kernel.vaults.items.retrieve(
+            card.key,
+            id_or_name=vault.id,
+            wait=5,
+        )
+
+        if current.action is not None and hasattr(current.action, "url"):
+            print(f"open privately to complete {current.action.name}: {current.action.url}")
+        elif current.action is not None and current.action.name == "push_approval":
+            print("complete the approval in your wallet")
+
+        if after is None:
+            events = kernel.vaults.items.events(card.key, id_or_name=vault.id, wait=5)
+        else:
+            events = kernel.vaults.items.events(
+                card.key,
+                id_or_name=vault.id,
+                after=after,
+                wait=5,
+            )
+
+        for event in events:
+            print(event.id, event.name, event.browser_id, event.data)
+            after = event.id
+
+```
+
+</CodeGroup>
+
+run this observer concurrently with your existing agent loop. abort the signal or set the event after the agent stops and you have inspected the merchant's order state. the observer displays user actions and reads events; it doesn't submit checkout or repeat authorization.
+
+`events` returns an ordered array. an empty array means no new observation arrived during the wait. it does not mean payment failed. correlate `event.browser_id` with the browser you created when a vault is attached to more than one session.
+
+## 6. Verify the outcome
+
+use item state, item events, the checkout page, and the merchant's order record together.
+
+| observation                                                            | next action                                                                                     |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `payment_succeeded`                                                    | verify that the merchant created the expected order                                             |
+| `payment_requires_action`                                              | continue the existing merchant flow without resubmitting payment                                |
+| `payment_processing`                                                   | wait for the existing payment and inspect the merchant's status                                 |
+| link `consumed`, `credential_submitted`, or `credential_tokenized`     | confirm processor and merchant state; credential use alone does not prove purchase success      |
+| agentcard `ready` or authorization `approved`                          | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
+| decline, expiry, rejection, failure, abandonment, or `payment_unknown` | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
+
+<Warning>
+  a timeout, browser deletion, missing event, or closed checkout does not undo
+  provider execution or cancel a merchant order. don't retry automatically.
+  retain the vault id, card key, browser id, and last event id until you have
+  reconciled the attempt.
+</Warning>
+
+delete the browser when the task and outcome inspection are complete. keep or delete the vault and provider items according to whether the user needs them for a future task.

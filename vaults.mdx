@@ -1,0 +1,151 @@
+---
+title: "Vaults"
+description: "Attach provider-backed values to browser sessions without exposing the underlying value to the browser or agent"
+---
+
+**Status:** <Badge color="yellow">Preview</Badge>
+
+<span className="kernel-brand-name">KERNEL</span> vaults are project-scoped
+containers for provider-backed items. they let a browser session use a value
+without placing the underlying value in the page, agent context, screenshots, or
+browser replay.
+
+the primitive separates four concerns: a vault scopes access, an item describes a provider-backed value, an alias gives the browser a non-secret placeholder, and an action or operation advances provider state outside the browser. egress resolves an alias only when the browser, session, project, vault, item, and provider state all match.
+
+<Note>
+  vaults are in preview. the initial release supports `wallet` and `card` items
+  for [link](/integrations/payments/link) and
+  [agentcard](/integrations/payments/agentcard). the vault model is not limited
+  to payments, but no other item types or providers are supported in this
+  release.
+</Note>
+
+## Resource model
+
+| resource           | technical behavior                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| vault              | project-owned container with an immutable `name`                                                      |
+| item               | provider-backed value addressed by an immutable `key`; the initial item types are `wallet` and `card` |
+| alias              | non-secret, format-valid placeholder returned in item state; aliases belong to an item                |
+| action             | user interaction returned as `action`, such as a hosted collection or approval url                    |
+| operation          | explicit api action advertised in `available_operations`; the initial operation type is `authorize`   |
+| expansion          | live provider data advertised in `available_expansions`; the initial expansion is `payment_methods`   |
+| event              | immutable item observation with `id`, `name`, optional `browser_id`, `data`, and `created_at`         |
+| browser attachment | vault reference fixed when the browser is created                                                     |
+
+```mermaid
+flowchart LR
+  P[project] --> V[vault]
+  V --> I[provider-backed item]
+  I --> A[non-secret alias]
+  V --> B[attached browser session]
+  B --> E[egress resolution]
+  A --> E
+  E --> R[provider-backed value]
+```
+
+## Scope and attachment
+
+select project scope on the sdk client or use a project-scoped api key. `project_id` is not accepted in a vault request body. without explicit project scope, <span className="kernel-brand-name">KERNEL</span> uses the organization's default project.
+
+attach vaults when you create a browser:
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+)
+```
+
+</CodeGroup>
+
+the `vaults` array supports up to 20 references. each reference accepts exactly one of `id` or `name`, and attachments cannot change after browser creation. a browser and vault must belong to the same project.
+
+attachment grants the browser access to the vault, not to a selected set of items. items created later in the same vault are available to every attached browser in that project. use separate vaults when browser tasks must not share access. deleting a vault or item invalidates its provider-backed values and aliases.
+
+## Vault api fields
+
+| method                     | endpoint                      | supported request fields                                 |
+| -------------------------- | ----------------------------- | -------------------------------------------------------- |
+| create or retrieve by name | `POST /vaults`                | body: `name`                                             |
+| list                       | `GET /vaults`                 | query: `limit` (1–100, default 20), `offset` (default 0) |
+| retrieve                   | `GET /vaults/{id_or_name}`    | path: `id_or_name`                                       |
+| delete                     | `DELETE /vaults/{id_or_name}` | path: `id_or_name`                                       |
+
+`name` is immutable, 1–255 characters, and accepts letters, numbers, `.`, `_`, and `-`. vault responses contain `id`, `name`, `created_at`, and `updated_at`.
+
+## Item api fields
+
+| method                            | endpoint                                           | supported request fields                           |
+| --------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
+| list                              | `GET /vaults/{id_or_name}/items`                   | path: `id_or_name`                                 |
+| create or retrieve identical item | `PUT /vaults/{id_or_name}/items/{key}`             | path: `id_or_name`, `key`; body: `type`, `spec`    |
+| retrieve                          | `GET /vaults/{id_or_name}/items/{key}`             | path: `id_or_name`, `key`; query: `wait`, `expand` |
+| update card item                  | `PATCH /vaults/{id_or_name}/items/{key}`           | path: `id_or_name`, `key`; body: complete `spec`   |
+| delete                            | `DELETE /vaults/{id_or_name}/items/{key}`          | path: `id_or_name`, `key`                          |
+| perform advertised operation      | `POST /vaults/{id_or_name}/items/{key}/operations` | path: `id_or_name`, `key`; body: `type`            |
+| list events                       | `GET /vaults/{id_or_name}/items/{key}/events`      | path: `id_or_name`, `key`; query: `after`, `wait`  |
+
+`key` is immutable and 1–255 characters. `wait` accepts 0–60 seconds. `expand` accepts `payment_methods` only when the item advertises it. operation `type` accepts `authorize` only when the item advertises it. events are returned as an ordered array; use the last event `id` as `after` to request newer events.
+
+item responses expose these fields:
+
+| field                                    | behavior                                             |
+| ---------------------------------------- | ---------------------------------------------------- |
+| `id`, `key`, `type`                      | stable item identity; `key` and `type` cannot change |
+| `spec`                                   | provider-specific input saved with the item          |
+| `state`                                  | provider-specific status and non-secret output       |
+| `action`                                 | current user action, when one is required            |
+| `available_operations`                   | operations valid in the current state                |
+| `available_expansions`                   | live provider data the item can request              |
+| `expanded`                               | requested live data; not persisted on the item       |
+| `expires_at`, `created_at`, `updated_at` | item timestamps when present                         |
+
+## Initial item specifications
+
+the initial release accepts these `spec` fields. fields not listed here are rejected.
+
+### Wallet items
+
+| provider  | required fields                                                                                    | optional fields                                                            |
+| --------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client.type: 'kernel_managed'` | none                                                                       |
+| agentcard | `provider: 'agentcard'`                                                                            | `user_id` for a user already enrolled through a wallet in the organization |
+
+### Card items
+
+| provider  | required fields                                                                                                     | optional fields                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| link      | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context`, `test` | `line_items`, `totals`, `metadata`, `expires_at` |
+| agentcard | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                              | `card_id`                                        |
+
+`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, and requires at least 100 characters in `context`. agentcard accepts 1–9007199254740991, requires a three-letter `currency`, and limits `merchant` to 120 characters.
+
+link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
+
+card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`. agentcard card items can update while `requested` or `ready`, but not while approval is pending.
+
+## Initial actions, states, and aliases
+
+`action.name` can be `link_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
+
+wallet status values are:
+
+- link: `pending_authorization`, `connected`, `declined`, `reconnect_required`, `degraded`
+- agentcard: `pending_authorization`, `connected`, `degraded`
+
+card status values are:
+
+- link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`
+- agentcard: `requested`, `ready`, `pending_approval`, `degraded`
+
+card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-secret placeholders, not standalone credentials or permission to use the provider-backed value.
+
+for the payment-specific lifecycle, read the [payments overview](/integrations/payments/overview). to complete a checkout, follow [Pay Through a Browser Checkout](/browsers/pay-through-browser-checkout).

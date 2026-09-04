@@ -1,0 +1,245 @@
+---
+title: "Link"
+description: "Use Link to approve a one-use payment credential for a browser checkout"
+---
+
+link connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential encrypted, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
+
+## Before you start
+
+create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({ projectID: process.env.KERNEL_PROJECT_ID! });
+const vault = await kernel.vaults.upsert({ name: "browser-checkout" });
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
+vault = kernel.vaults.upsert(name="browser-checkout")
+```
+
+</CodeGroup>
+
+## Lifecycle
+
+1. create a `wallet` item with the link oauth specification.
+2. open the returned `link_oauth` action for the user and wait for the wallet to become `connected`.
+3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
+4. create a `card` item with the purchase details and `test` intent.
+5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
+6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
+7. use `state.aliases` in an attached browser. the first supported substitution changes the item to `consumed`.
+
+## Connect a wallet
+
+<CodeGroup>
+
+```typescript TypeScript
+let wallet = await kernel.vaults.items.upsert("link-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "link",
+    authorization: {
+      method: "oauth",
+      client: { type: "kernel_managed" },
+    },
+  },
+});
+
+if (wallet.action?.name === "link_oauth") {
+  console.log("open privately:", wallet.action.url);
+}
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "link-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "link",
+        "authorization": {
+            "method": "oauth",
+            "client": {"type": "kernel_managed"},
+        },
+    },
+)
+
+if wallet.action is not None and wallet.action.name == "link_oauth":
+    print("open privately:", wallet.action.url)
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    wait=60,
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  open collection and approval urls in a trusted user-facing surface. don't give
+  them to the agent or print full wallet responses into model context.
+</Warning>
+
+## Select a payment method
+
+request `payment_methods` only when `available_expansions` advertises it. the expansion comes from link at request time and is not persisted in the vault item.
+
+<CodeGroup>
+
+```typescript TypeScript
+if (
+  !wallet.available_expansions.some(({ type }) => type === "payment_methods")
+) {
+  throw new Error("payment methods are unavailable");
+}
+
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+
+const methods = wallet.expanded?.payment_methods ?? [];
+for (const method of methods) {
+  console.log(method.id, method.display, method.capabilities);
+}
+
+const paymentMethod = methods.find(
+  ({ id }) => id === process.env.LINK_PAYMENT_METHOD_ID,
+);
+if (
+  !paymentMethod ||
+  paymentMethod.capabilities.single_use_card?.eligible === false
+) {
+  throw new Error("select an available payment method");
+}
+```
+
+```python Python
+if not any(expansion.type == "payment_methods" for expansion in wallet.available_expansions):
+    raise RuntimeError("payment methods are unavailable")
+
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+
+methods = (wallet.expanded.payment_methods or []) if wallet.expanded else []
+for method in methods:
+    print(method.id, method.display, method.capabilities)
+
+payment_method = next(
+    (
+        method
+        for method in methods
+        if method.id == os.environ["LINK_PAYMENT_METHOD_ID"]
+    ),
+    None,
+)
+if payment_method is None or (
+    payment_method.capabilities.single_use_card is not None
+    and payment_method.capabilities.single_use_card.eligible is False
+):
+    raise RuntimeError("select an available payment method")
+```
+
+</CodeGroup>
+
+show the returned methods in a trusted user-facing surface, let the user choose one, and set its id as `LINK_PAYMENT_METHOD_ID`. missing capability metadata means eligibility is unknown. only `eligible: false` is an explicit negative result.
+
+## Create and authorize a card item
+
+<CodeGroup>
+
+```typescript TypeScript
+let card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "link",
+    wallet: wallet.key,
+    payment_method_id: paymentMethod.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com",
+    context:
+      "buy one notebook from example shop for a total of 23.06 usd, including tax " +
+      "and shipping. this request is for this purchase only and must not be repeated.",
+    test: true,
+  },
+});
+
+card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (!card.available_operations.some(({ type }) => type === "authorize")) {
+  throw new Error("authorization is unavailable");
+}
+
+card = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+console.log(card.action);
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "link",
+        "wallet": wallet.key,
+        "payment_method_id": payment_method.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com",
+        "context": (
+            "buy one notebook from example shop for a total of 23.06 usd, including tax "
+            "and shipping. this request is for this purchase only and must not be repeated."
+        ),
+        "test": True,
+    },
+)
+
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if not any(operation.type == "authorize" for operation in card.available_operations):
+    raise RuntimeError("authorization is unavailable")
+
+card = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+print(card.action)
+```
+
+</CodeGroup>
+
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. set `test: false` only for an intentionally authorized live purchase against a live checkout.
+
+`merchant_url` supplies provider context. <span className="kernel-brand-name">KERNEL</span> derives its registrable domain into `state.domains` when authorization starts, but `state.domains` is metadata rather than an enforced browser-origin allowlist.
+
+## Use the aliases
+
+after the user completes the approval action, retrieve the card with `wait: 60` until it becomes `ready`. pass `state.aliases` to the [browser checkout guide](/browsers/pay-through-browser-checkout).
+
+the first supported checkout request that contains the aliases consumes the item and clears its encrypted card value. `consumed` means the credential was substituted, not that the processor accepted the payment or the merchant created an order.
+
+don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect item events and the merchant's order state first.
