@@ -146,36 +146,42 @@ kernel vaults create --name user-12345
 
 ## 2. Connect the end user's payment method and prepare a card item
 
-`wallet` and `card` are KERNEL api resources. they are not two setup steps your
-end user performs. your trusted backend creates both resources. your end user
-interacts with the payment provider to connect or enroll a real payment method,
-select it when required, and approve spending. the browser agent does neither.
+`wallet` and `card` are KERNEL api resources, not the underlying wallet or card.
+your end user initiates setup and purchases through your product. your
+application then makes the authenticated api calls on their behalf. a card item
+represents the payment authorization and aliases for a purchase; creating one
+does not add or expose the end user's real card.
 
-| actor                   | responsibility                                                                                                                                        |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| your trusted backend    | creates the vault, wallet item, and card item; presents provider actions in your user-facing application; waits for state changes; attaches the vault |
-| your end user           | completes wallet connection or card enrollment, selects a payment method when required, confirms the purchase, and completes approval                 |
-| your browser agent      | receives aliases, enters them into the checkout form, and submits once                                                                                |
-| KERNEL and the provider | collect and store the underlying payment method, enforce vault bindings, authorize the purchase, and handle payment data at egress                    |
+the end user creates the purchase intent. your application translates that
+confirmed intent into a KERNEL card item without exposing its api key to the
+user or agent.
+
+| actor                | responsibility                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| your application     | calls KERNEL on the end user's behalf; presents provider actions in your user-facing interface; observes state; attaches the vault when it creates the browser |
+| your end user        | initiates wallet setup and purchases; adds or selects the real payment method in the provider-hosted flow; confirms the purchase and completes approval        |
+| your browser agent   | receives aliases, enters them into the checkout form, and submits once                                                                                         |
+| KERNEL               | creates the requested vault resources, returns aliases, enforces browser bindings, and handles payment data at egress                                          |
+| the payment provider | hosts connection, enrollment, and approval; stores the underlying payment method; authorizes the purchase                                                      |
 
 ### Once per end user and provider
 
-1. your backend creates or retrieves a vault for the end user.
-2. your backend creates a wallet item for [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard).
-3. your backend presents the returned action in a trusted user-facing surface outside the agent-controlled browser.
+1. your end user chooses to connect a payment method in your application.
+2. your application creates or retrieves a vault for that end user, then creates a wallet item for [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard).
+3. your application presents the returned action in a trusted user-facing surface outside the agent-controlled browser.
 4. your end user completes the provider-hosted connection or enrollment flow.
-5. your backend waits until the wallet item's status is `connected`.
+5. your application waits until the wallet item's status is `connected`.
 
 this is the point where your end user adds or connects their real payment
 method. the end user does not create the KERNEL wallet item directly.
 
 ### For each purchase
 
-1. your backend receives or determines the merchant, amount, and currency, then asks the end user to confirm the purchase.
-2. for stripe link, your backend lists the connected wallet's payment methods and lets the end user select one. for agentcard, it can pin an enrolled card or let the end user choose during approval.
-3. your backend prepares a card item for the confirmed purchase. stripe link requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. this resource refers to the connected wallet; it does not contain card details supplied by your end user.
-4. for stripe link, your backend invokes the advertised `authorize` operation after the end user confirms the purchase, then presents any returned approval action to them. agentcard begins authorization after the browser submits checkout.
-5. your backend waits for the card item to become `ready`, then passes only its aliases to the browser agent.
+1. your application or agent determines the merchant, amount, and currency, then asks the end user to confirm the purchase.
+2. for stripe link, your application lists the connected wallet's payment methods and lets the end user select one. for agentcard, it can pin an enrolled card or let the end user choose during approval.
+3. after the end user confirms, your application asks KERNEL to prepare a card item on their behalf. stripe link requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. the item refers to the connected wallet; it is not the end user's real card.
+4. for stripe link, your application invokes the advertised `authorize` operation, then presents any returned approval action to the end user. agentcard begins authorization after the browser submits checkout.
+5. your application waits for the card item to become `ready`, then passes only its aliases to the browser agent.
 
 <Warning>
   don't start checkout until the wallet is `connected` and the card item is
