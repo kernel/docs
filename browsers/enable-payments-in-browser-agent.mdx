@@ -144,12 +144,47 @@ kernel vaults create --name user-12345
 
 `vaults.upsert` creates the vault or retrieves an existing vault with the same name. vault names are immutable within the project.
 
-## 2. Add a wallet and prepare a card
+## 2. Connect the end user's payment method and prepare a card item
 
-choose one provider and complete its setup:
+`wallet` and `card` are KERNEL api resources. they are not two setup steps your
+end user performs. your trusted backend creates both resources. your end user
+interacts with the payment provider to connect or enroll a real payment method,
+select it when required, and approve spending. the browser agent does neither.
 
-- [stripe link](/integrations/payments/stripe-link): the user connects a stripe link wallet, selects a payment method, and approves a one-use card for this purchase.
-- [agentcard](/integrations/payments/agentcard): the user enrolls a card once, and the reusable card item requests approval when checkout begins.
+| actor                   | responsibility                                                                                                                                        |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| your trusted backend    | creates the vault, wallet item, and card item; presents provider actions in your user-facing application; waits for state changes; attaches the vault |
+| your end user           | completes wallet connection or card enrollment, selects a payment method when required, confirms the purchase, and completes approval                 |
+| your browser agent      | receives aliases, enters them into the checkout form, and submits once                                                                                |
+| KERNEL and the provider | collect and store the underlying payment method, enforce vault bindings, authorize the purchase, and handle payment data at egress                    |
+
+### Once per end user and provider
+
+1. your backend creates or retrieves a vault for the end user.
+2. your backend creates a wallet item for [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard).
+3. your backend presents the returned action in a trusted user-facing surface outside the agent-controlled browser.
+4. your end user completes the provider-hosted connection or enrollment flow.
+5. your backend waits until the wallet item's status is `connected`.
+
+this is the point where your end user adds or connects their real payment
+method. the end user does not create the KERNEL wallet item directly.
+
+### For each purchase
+
+1. your backend receives or determines the merchant, amount, and currency, then asks the end user to confirm the purchase.
+2. for stripe link, your backend lists the connected wallet's payment methods and lets the end user select one. for agentcard, it can pin an enrolled card or let the end user choose during approval.
+3. your backend prepares a card item for the confirmed purchase. stripe link requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. this resource refers to the connected wallet; it does not contain card details supplied by your end user.
+4. for stripe link, your backend invokes the advertised `authorize` operation after the end user confirms the purchase, then presents any returned approval action to them. agentcard begins authorization after the browser submits checkout.
+5. your backend waits for the card item to become `ready`, then passes only its aliases to the browser agent.
+
+<Warning>
+  don't start checkout until the wallet is `connected` and the card item is
+  `ready`. without a wallet item, card creation fails because `spec.wallet` must
+  reference a wallet from the same vault and provider. with an unconnected link
+  wallet, card creation returns a conflict. with an unconnected agentcard
+  wallet, a card without `card_id` can remain `requested`, while a pinned
+  `card_id` cannot be validated. neither path is ready for checkout.
+</Warning>
 
 <Note>
   we're onboarding more native payment providers and will update this guide as
