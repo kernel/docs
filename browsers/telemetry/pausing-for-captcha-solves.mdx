@@ -49,7 +49,11 @@ KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
 
 `createCaptchaGate` is the only piece of custom logic. It opens the telemetry stream, tracks whether a captcha episode is currently in flight, and exposes one method the driver awaits after pausing the agent.
 
-A `captcha_solve_started` event marks the start of an episode and calls `onSolveStarted`. Further `captcha_solve_started` events for the same episode — an image-grid challenge can run several solver tasks under one `challenge_id` — don't fire it again or overwrite the tracked IDs; the driver only needs to know once that it should stop, and losing the original `task_id` would break the pairing described in the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges). The episode ends on whichever terminal event actually arrives: `captcha_challenge_result` when a `challenge_id` was seen, or `captcha_solve_result` on `task_id` when it wasn't. Those two terminal events mean different things — a `captcha_challenge_result` of `solved` means the visible challenge actually cleared, while a `captcha_solve_result` of `success` only means the solver returned a usable answer for that one task, so the gate keeps them as distinct outcomes (`challenge_solved` vs. `task_success`) instead of collapsing both into "solved."
+A `captcha_solve_started` event marks the start of an episode and calls `onSolveStarted`. From there:
+
+- **Further `captcha_solve_started` events for the same episode don't fire it again or overwrite the tracked IDs.** An image-grid challenge can run several solver tasks under one `challenge_id`; the driver only needs to know once that it should stop, and losing the original `task_id` would break the pairing described in the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges).
+- **The episode ends on whichever terminal event actually arrives** — `captcha_challenge_result` when a `challenge_id` was seen, or `captcha_solve_result` on `task_id` when it wasn't.
+- **Those two terminal events mean different things**, so the gate keeps them as distinct outcomes instead of collapsing both into "solved": a `captcha_challenge_result` of `solved` means the visible challenge actually cleared, while a `captcha_solve_result` of `success` only means the solver returned a usable answer for that one task (`challenge_solved` vs. `task_success`).
 
 Because delivery is best-effort and events can arrive out of order, a terminal event can land before the driver even calls `waitForOutcome` (right after `harness.abort()` returns). The gate buffers that outcome instead of dropping it, and `waitForOutcome` checks the buffer before it starts waiting. If nothing ever arrives, the timeout resolves to `"unknown"` and clears the tracked IDs, so a later captcha still triggers a fresh pause instead of being mistaken for the one that timed out.
 
@@ -118,6 +122,11 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 				if (isSameEpisode) continue;
 				const isIdle = taskId === null && challengeId === null;
 				if (isIdle) {
+					// Discard any outcome still sitting in the buffer: it's from an
+					// episode that finished before the driver got back to
+					// waitForOutcome, and a new episode has since opened, so it no
+					// longer describes what the driver is now waiting on.
+					bufferedOutcome = null;
 					onSolveStarted();
 					taskId = event.data.task_id ?? null;
 					challengeId = event.data.challenge_id ?? null;
