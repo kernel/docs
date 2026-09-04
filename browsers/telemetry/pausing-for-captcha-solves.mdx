@@ -7,7 +7,7 @@ Kernel's [stealth mode](/browsers/bot-detection/stealth) includes an automatic c
 
 The naive way to handle that is a system-prompt instruction: [`"If you see a CAPTCHA or similar test, just wait for it to get solved automatically."`](/browsers/bot-detection/stealth#anthropic-computer-use) That works, but it's a soft constraint. The model decides for itself how long to wait and how to tell a solve is still running, from a screenshot alone. It can act too soon — a click during an active solve can land on the widget and interfere with it — or wait long after the page has already moved on.
 
-[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) — the same package used in [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once the result comes back successful.
+[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) — the same package used in [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once telemetry reports a terminal outcome for that solve.
 
 ## The approach
 
@@ -49,7 +49,9 @@ KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
 
 `createCaptchaGate` is the only piece of custom logic. It opens the telemetry stream, tracks whether a captcha episode is currently in flight, and exposes one method the driver awaits after pausing the agent.
 
-A `captcha_solve_started` event marks the start of an episode and calls `onSolveStarted`. Duplicate `captcha_solve_started` events for the same episode (an image-grid challenge can run several solver tasks) don't fire it again — the driver only needs to know once that it should stop. The episode ends on whichever terminal event actually arrives: `captcha_challenge_result` when the task carried a `challenge_id`, or `captcha_solve_result` when it didn't. Per the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges), delivery is best-effort and unordered, so `waitForOutcome` takes a timeout and resolves to `"unknown"` rather than hanging forever if a terminal event never shows up.
+A `captcha_solve_started` event marks the start of an episode and calls `onSolveStarted`. Further `captcha_solve_started` events for the same episode — an image-grid challenge can run several solver tasks under one `challenge_id` — don't fire it again or overwrite the tracked IDs; the driver only needs to know once that it should stop, and losing the original `task_id` would break the pairing described in the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges). The episode ends on whichever terminal event actually arrives: `captcha_challenge_result` when a `challenge_id` was seen, or `captcha_solve_result` on `task_id` when it wasn't. Those two terminal events mean different things — a `captcha_challenge_result` of `solved` means the visible challenge actually cleared, while a `captcha_solve_result` of `success` only means the solver returned a usable answer for that one task, so the gate keeps them as distinct outcomes (`challenge_solved` vs. `task_success`) instead of collapsing both into "solved."
+
+Because delivery is best-effort and events can arrive out of order, a terminal event can land before the driver even calls `waitForOutcome` (right after `harness.abort()` returns). The gate buffers that outcome instead of dropping it, and `waitForOutcome` checks the buffer before it starts waiting. If nothing ever arrives, the timeout resolves to `"unknown"` and clears the tracked IDs, so a later captcha still triggers a fresh pause instead of being mistaken for the one that timed out.
 
 The driver compiles a Playwright-toolset harness the same way as the [fallback cookbook](/browsers/playwright-computer-use-fallback), wires the gate's `onSolveStarted` callback to `harness.abort()`, and loops on `stopReason === "aborted"` — re-prompting with the outcome each time a captcha resolves, until the agent finishes for a reason other than a captcha pause.
 
@@ -76,20 +78,32 @@ import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@eare
 import { loop } from "@onkernel/browser-loop";
 import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
 
-type CaptchaOutcome = "solved" | "failure" | "timeout" | "abandoned" | "unknown";
+type CaptchaOutcome = "challenge_solved" | "task_success" | "failure" | "timeout" | "abandoned" | "unknown";
 
-// Tracks one captcha episode at a time: an episode opens on captcha_solve_started
-// and closes on whichever terminal event actually arrives for it.
+// Tracks one open captcha episode at a time: it opens on captcha_solve_started
+// and closes on whichever terminal event actually arrives for it. A second,
+// unrelated episode starting while one is already open is ignored rather than
+// overwriting the tracked IDs -- overlapping captcha widgets are rare, and the
+// telemetry docs note that even Kernel's own event model can't always
+// attribute a result when multiple same-provider challenges are open at once.
 function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: () => void) {
 	let taskId: string | null = null;
 	let challengeId: string | null = null;
+	let bufferedOutcome: CaptchaOutcome | null = null;
 	let waiter: ((outcome: CaptchaOutcome) => void) | null = null;
 
-	function settle(outcome: CaptchaOutcome) {
+	function finish(outcome: CaptchaOutcome) {
 		taskId = null;
 		challengeId = null;
-		waiter?.(outcome);
-		waiter = null;
+		if (waiter) {
+			const resolve = waiter;
+			waiter = null;
+			resolve(outcome);
+		} else {
+			// waitForOutcome hasn't been called yet -- buffer the outcome so a
+			// fast terminal event isn't dropped by the race with harness.abort().
+			bufferedOutcome = outcome;
+		}
 	}
 
 	(async () => {
@@ -98,28 +112,43 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 			if (event.category !== "captcha") continue;
 
 			if (event.type === "captcha_solve_started") {
-				const isNewEpisode = taskId === null && challengeId === null;
-				taskId = event.data.task_id ?? taskId;
-				challengeId = event.data.challenge_id ?? challengeId;
-				if (isNewEpisode) onSolveStarted();
+				const isSameEpisode =
+					(event.data.challenge_id !== undefined && event.data.challenge_id === challengeId) ||
+					(event.data.task_id !== undefined && event.data.task_id === taskId);
+				if (isSameEpisode) continue;
+				const isIdle = taskId === null && challengeId === null;
+				if (isIdle) {
+					onSolveStarted();
+					taskId = event.data.task_id ?? null;
+					challengeId = event.data.challenge_id ?? null;
+				}
 			} else if (event.type === "captcha_challenge_result" && event.data.challenge_id === challengeId) {
-				settle(event.data.status);
+				finish(event.data.status === "solved" ? "challenge_solved" : event.data.status);
 			} else if (event.type === "captcha_solve_result" && !challengeId && event.data?.task_id === taskId) {
-				settle(event.data.status === "success" ? "solved" : event.data.status);
+				finish(event.data.status === "success" ? "task_success" : event.data.status);
 			}
 		}
 	})();
 
 	return {
 		waitForOutcome(timeoutMs: number): Promise<CaptchaOutcome> {
-			if (taskId === null && challengeId === null) return Promise.resolve("solved");
+			if (bufferedOutcome !== null) {
+				const outcome = bufferedOutcome;
+				bufferedOutcome = null;
+				return Promise.resolve(outcome);
+			}
+			if (taskId === null && challengeId === null) return Promise.resolve("challenge_solved");
 			return new Promise((resolve) => {
 				waiter = resolve;
 				setTimeout(() => {
-					if (waiter === resolve) {
-						waiter = null;
-						resolve("unknown");
-					}
+					if (waiter !== resolve) return;
+					waiter = null;
+					// Give up waiting -- clear the tracked IDs so a later
+					// captcha_solve_started still triggers a fresh pause instead
+					// of being mistaken for the episode that just timed out.
+					taskId = null;
+					challengeId = null;
+					resolve("unknown");
 				}, timeoutMs);
 			});
 		},
@@ -180,10 +209,14 @@ async function main(): Promise<void> {
 			const outcome = await gate.waitForOutcome(CAPTCHA_WAIT_TIMEOUT_MS);
 			console.log(`[captcha] resolved: ${outcome}`);
 			const followUp =
-				outcome === "solved"
-					? "Kernel's captcha solver resolved the challenge successfully. Continue the task."
-					: `The captcha challenge ended as "${outcome}". Take a screenshot to check the current ` +
-						"page state, then retry the challenge yourself or report the blocker.";
+				outcome === "challenge_solved"
+					? "Kernel's captcha solver reported that the visible challenge cleared. Continue the task."
+					: outcome === "task_success"
+						? "Kernel's captcha solver returned a usable solution, but there's no visible-challenge " +
+							"confirmation for this page. Take a screenshot to confirm the challenge actually " +
+							"cleared, then continue or retry."
+						: `The captcha challenge ended as "${outcome}". Take a screenshot to check the current ` +
+							"page state, then retry the challenge yourself or report the blocker.";
 			final = await harness.prompt(followUp);
 		}
 
@@ -204,8 +237,9 @@ void main();
 
 - **The gate only matters once a run is in flight.** If a captcha appears and clears before the first `harness.prompt()` call starts, there's nothing to pause — which is fine, since there was nothing for the agent to interfere with either.
 - **`harness.abort()` interrupts the current turn, not just the next tool call.** The agent's in-flight action still completes on the browser side; the harness stops before starting another one. This is the same mechanism the [fallback cookbook](/browsers/playwright-computer-use-fallback#per-tool-limit) uses to hand off between toolsets.
-- **Multiple captchas in one run just loop.** Each terminal event resets the gate's state, so a second `captcha_solve_started` later in the task pauses and resumes the same way.
-- **A bounded wait beats an indefinite one.** Per the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges), event delivery isn't guaranteed or ordered — `waitForOutcome`'s timeout is what keeps a dropped event from stalling the run forever.
+- **Sequential captchas in one run just loop.** Each terminal event (or timeout) resets the gate's state, so a second `captcha_solve_started` later in the task pauses and resumes the same way.
+- **Overlapping captchas aren't split apart.** The gate tracks one open episode at a time; a second, unrelated `captcha_solve_started` while the first is still open is ignored rather than risking a mismatched pairing. Two genuinely concurrent visible challenges are rare, and the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) note that Kernel's own event model can't always attribute a result in that case either.
+- **A bounded wait beats an indefinite one.** Event delivery isn't guaranteed or ordered, so `waitForOutcome`'s timeout is what keeps a dropped event from stalling the run forever — and it clears the gate's state on the way out so the next captcha isn't mistaken for the one that timed out.
 
 ## Next steps
 
