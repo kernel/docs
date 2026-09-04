@@ -9,6 +9,12 @@ The naive way to handle that is a system-prompt instruction: [`"If you see a CAP
 
 [Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once telemetry reports a terminal outcome for that solve.
 
+| Event | Fires when | Possible outcomes |
+| --- | --- | --- |
+| `captcha_solve_started` | The solver accepts a task. Doesn't mean a solve is currently in flight. | — |
+| `captcha_solve_result` | A solver task reaches a terminal state. A `success` means the solver returned a usable answer, not that the visible challenge cleared. | `success`, `failure`, `timeout`, `abandoned` |
+| `captcha_challenge_result` | The visible challenge itself reaches its overall terminal state. Only emitted for challenge types Kernel can track as a widget. | `solved`, `failure`, `timeout`, `abandoned` |
+
 ## The approach
 
 Run the agent through a `browser-loop`-compiled harness. Alongside it, open the session's [telemetry stream](/browsers/telemetry/streaming) and watch for `captcha` events:
