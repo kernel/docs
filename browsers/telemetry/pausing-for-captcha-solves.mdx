@@ -93,20 +93,45 @@ type CaptchaOutcome = "challenge_solved" | "task_success" | "failure" | "timeout
 function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: () => void) {
 	let taskId: string | null = null;
 	let challengeId: string | null = null;
-	let bufferedOutcome: CaptchaOutcome | null = null;
 	let waiter: ((outcome: CaptchaOutcome) => void) | null = null;
 
+	// A finished episode's outcome, kept alongside the IDs it belongs to. Delivery
+	// is unordered, so a captcha_solve_started for this same episode can still
+	// arrive after its result; matching on these IDs tells that late duplicate
+	// apart from a genuinely new episode.
+	let bufferedOutcome: CaptchaOutcome | null = null;
+	let bufferedTaskId: string | null = null;
+	let bufferedChallengeId: string | null = null;
+
+	function matchesBuffer(eventTaskId?: string, eventChallengeId?: string): boolean {
+		if (bufferedOutcome === null) return false;
+		return (
+			(eventChallengeId !== undefined && eventChallengeId === bufferedChallengeId) ||
+			(eventTaskId !== undefined && eventTaskId === bufferedTaskId)
+		);
+	}
+
+	function clearBuffer() {
+		bufferedOutcome = null;
+		bufferedTaskId = null;
+		bufferedChallengeId = null;
+	}
+
 	function finish(outcome: CaptchaOutcome) {
-		taskId = null;
-		challengeId = null;
 		if (waiter) {
 			const resolve = waiter;
 			waiter = null;
+			taskId = null;
+			challengeId = null;
 			resolve(outcome);
 		} else {
 			// waitForOutcome hasn't been called yet -- buffer the outcome so a
 			// fast terminal event isn't dropped by the race with harness.abort().
 			bufferedOutcome = outcome;
+			bufferedTaskId = taskId;
+			bufferedChallengeId = challengeId;
+			taskId = null;
+			challengeId = null;
 		}
 	}
 
@@ -116,17 +141,17 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 			if (event.category !== "captcha") continue;
 
 			if (event.type === "captcha_solve_started") {
-				const isSameEpisode =
+				const isSameOpenEpisode =
 					(event.data.challenge_id !== undefined && event.data.challenge_id === challengeId) ||
 					(event.data.task_id !== undefined && event.data.task_id === taskId);
-				if (isSameEpisode) continue;
+				if (isSameOpenEpisode) continue;
+				if (matchesBuffer(event.data.task_id, event.data.challenge_id)) continue;
 				const isIdle = taskId === null && challengeId === null;
 				if (isIdle) {
-					// Discard any outcome still sitting in the buffer: it's from an
-					// episode that finished before the driver got back to
-					// waitForOutcome, and a new episode has since opened, so it no
-					// longer describes what the driver is now waiting on.
-					bufferedOutcome = null;
+					// A genuinely new episode makes any buffered outcome stale: it
+					// belongs to an earlier episode the driver hasn't collected yet,
+					// and this new one is what waitForOutcome should wait on instead.
+					clearBuffer();
 					onSolveStarted();
 					taskId = event.data.task_id ?? null;
 					challengeId = event.data.challenge_id ?? null;
@@ -143,7 +168,7 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 		waitForOutcome(timeoutMs: number): Promise<CaptchaOutcome> {
 			if (bufferedOutcome !== null) {
 				const outcome = bufferedOutcome;
-				bufferedOutcome = null;
+				clearBuffer();
 				return Promise.resolve(outcome);
 			}
 			if (taskId === null && challengeId === null) return Promise.resolve("challenge_solved");
