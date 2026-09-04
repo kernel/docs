@@ -176,6 +176,12 @@ the initial release accepts these `spec` fields. fields not listed here are reje
 | link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client.type: 'kernel_managed'` | none                                                                       |
 | agentcard | `provider: 'agentcard'`                                                                            | `user_id` for a user already enrolled through a wallet in the organization |
 
+for payment settings ui, enforce at most one wallet per provider in each vault.
+the api currently enforces uniqueness by item key, not by wallet provider, so a
+different key can create a second wallet for the same provider. list items before
+rendering provider options, hide the add option whenever that provider already
+has a wallet in any state, and reuse or recover the existing item.
+
 ### Cards
 
 | provider  | required fields                                                                                             | optional fields                                  |

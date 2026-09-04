@@ -23,6 +23,12 @@ both supported providers use the same integration shape:
 5. give the aliases to the agent and let it complete the merchant's checkout.
 6. complete any provider-hosted approval and inspect item events alongside the merchant's order state.
 
+each vault must contain at most one wallet item for each provider. before
+showing a provider connection option, list the vault's items. if that provider
+already has a wallet in any state, hide the add option and reuse or recover the
+existing item. when both stripe link and agentcard wallets exist, show both as
+configured and do not offer either provider again.
+
 ```mermaid
 flowchart LR
   U[user] --> H[provider-hosted collection]
@@ -69,7 +75,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | purchase authorization    | explicit `authorize` operation before checkout           | approval begins when the browser submits checkout                   |
 | payment handoff           | one-use credential substituted at egress                 | provider executes the held request and returns the response         |
 | reuse                     | card item and aliases are consumed on first substitution | card item and aliases remain reusable; each checkout needs approval |
-| environment               | live only                                                | determined by the configured agentcard credential                   |
+| environment               | live only                                                | configured agentcard credential; not exposed through the vault api  |
 
 choose [stripe link](/integrations/payments/stripe-link) when each purchase needs a newly approved, one-use credential. choose [agentcard](/integrations/payments/agentcard) when the same enrolled card must support multiple separately approved purchases.
 

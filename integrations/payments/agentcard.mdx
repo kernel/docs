@@ -16,6 +16,11 @@ import Kernel from "@onkernel/sdk";
 
 const kernel = new Kernel({ projectID: process.env.KERNEL_PROJECT_ID! });
 const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+const agentcardMode = process.env.AGENTCARD_MODE;
+if (agentcardMode !== "sandbox" && agentcardMode !== "live") {
+  throw new Error("set AGENTCARD_MODE to sandbox or live");
+}
 ```
 
 ```python Python
@@ -25,6 +30,10 @@ from kernel import Kernel
 
 kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
 vault = kernel.vaults.upsert(name="user-12345")
+
+agentcard_mode = os.environ.get("AGENTCARD_MODE")
+if agentcard_mode not in {"sandbox", "live"}:
+    raise RuntimeError("set AGENTCARD_MODE to sandbox or live")
 ```
 
 ```bash CLI
@@ -32,6 +41,12 @@ kernel vaults create --name user-12345
 ```
 
 </CodeGroup>
+
+the vault api does not expose whether the configured agentcard credential is
+sandbox or live. `AGENTCARD_MODE` is an application-owned assertion, not a
+value read from KERNEL. set it from the deployment configuration that owns the
+agentcard credential, show the mode in internal checkout controls, and fail
+closed when it is missing or does not match the environment you intend to use.
 
 ## Lifecycle
 
@@ -47,17 +62,45 @@ the card item returns to `ready` after an authorization settles and can be used 
 
 ## Enroll a card
 
+before showing an agentcard enrollment option, list the vault's items. if an
+agentcard wallet already exists in any state, reuse it and do not let the user
+add another. show its existing action or status instead. the api makes item keys
+unique but does not currently enforce one wallet per provider, so the ui must
+enforce a maximum of one agentcard wallet per vault.
+
+the examples use `presentProviderAction`, an application-owned function that
+publishes the action to an authenticated session for the end user who owns the
+vault. bind the action to that user, vault, and item; apply a short application
+ttl capped by `wallet.expires_at` when present; and stop serving it when the
+action changes or disappears. derive `authenticatedUser` from the server-side
+session, not a request field. do not log the url or put it in model context.
+
 <CodeGroup>
 
 ```typescript TypeScript
-let wallet = await kernel.vaults.items.upsert("agentcard-wallet", {
-  id_or_name: vault.id,
-  type: "wallet",
-  spec: { provider: "agentcard" },
-});
+const items = await kernel.vaults.items.list(vault.id);
+const agentcardWallets = items.filter(
+  (item) => item.type === "wallet" && item.spec.provider === "agentcard",
+);
+if (agentcardWallets.length > 1) {
+  throw new Error("vault has more than one agentcard wallet");
+}
+
+let wallet = agentcardWallets[0];
+if (!wallet) {
+  wallet = await kernel.vaults.items.upsert("agentcard-wallet", {
+    id_or_name: vault.id,
+    type: "wallet",
+    spec: { provider: "agentcard" },
+  });
+}
 
 if (wallet.action?.name === "card_enrollment") {
-  console.log("open privately:", wallet.action.url);
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: wallet,
+  });
 }
 wallet = await kernel.vaults.items.retrieve(wallet.key, {
   id_or_name: vault.id,
@@ -66,15 +109,30 @@ wallet = await kernel.vaults.items.retrieve(wallet.key, {
 ```
 
 ```python Python
-wallet = kernel.vaults.items.upsert(
-    "agentcard-wallet",
-    id_or_name=vault.id,
-    type="wallet",
-    spec={"provider": "agentcard"},
-)
+items = kernel.vaults.items.list(vault.id)
+agentcard_wallets = [
+    item
+    for item in items
+    if item.type == "wallet" and item.spec.provider == "agentcard"
+]
+if len(agentcard_wallets) > 1:
+    raise RuntimeError("vault has more than one agentcard wallet")
+
+wallet = agentcard_wallets[0] if agentcard_wallets else None
+if wallet is None:
+    wallet = kernel.vaults.items.upsert(
+        "agentcard-wallet",
+        id_or_name=vault.id,
+        type="wallet",
+        spec={"provider": "agentcard"},
+    )
 
 if wallet.action is not None and wallet.action.name == "card_enrollment":
-    print("open privately:", wallet.action.url)
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=wallet,
+    )
 wallet = kernel.vaults.items.retrieve(
     wallet.key,
     id_or_name=vault.id,
@@ -83,6 +141,8 @@ wallet = kernel.vaults.items.retrieve(
 ```
 
 ```bash CLI
+# create only when the list has no agentcard wallet
+kernel vaults items list user-12345 -o json
 kernel vaults wallets create user-12345 agentcard-wallet \
   --provider agentcard \
   --spec '{}' \
@@ -94,7 +154,9 @@ kernel vaults items get user-12345 agentcard-wallet --wait 60
 
 <Warning>
   open the enrollment url in a trusted user-facing surface. don't give it to the
-  agent or open it in the agent-controlled checkout browser.
+  agent or open it in the agent-controlled checkout browser. run cli `--open`
+  only from a trusted, human-operated terminal because the command output can
+  contain the action url.
 </Warning>
 
 `spec.user_id` can reuse a user who was already enrolled through another wallet in your organization. it cannot reference an arbitrary agentcard user.
@@ -155,13 +217,103 @@ kernel vaults items get user-12345 notebook-order -o json
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. omitting `card_id` lets the cardholder select an enrolled card on the approval screen. to pin a card, request the wallet's advertised `payment_methods` expansion and set a returned id as `spec.card_id`.
 
-agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration. confirm that mode before using the aliases.
+### Reuse a card item for a new purchase
+
+`upsert` can retrieve an identical item, but it cannot replace the purchase
+specification at an existing key. for a later purchase, retrieve the reusable
+agentcard item and use `update` with the complete new specification:
+
+<CodeGroup>
+
+```typescript TypeScript
+let reusableCard = await kernel.vaults.items.retrieve("notebook-order", {
+  id_or_name: vault.id,
+  wait: 60,
+});
+
+if (
+  reusableCard.type !== "card" ||
+  reusableCard.spec.provider !== "agentcard" ||
+  (reusableCard.state.status !== "requested" &&
+    reusableCard.state.status !== "ready")
+) {
+  throw new Error(`card cannot be updated from ${reusableCard.state.status}`);
+}
+
+reusableCard = await kernel.vaults.items.update("notebook-order", {
+  id_or_name: vault.id,
+  spec: {
+    provider: "agentcard",
+    wallet: wallet.key,
+    merchant: "example books",
+    amount: 4199,
+    currency: "usd",
+  },
+});
+```
+
+```python Python
+reusable_card = kernel.vaults.items.retrieve(
+    "notebook-order",
+    id_or_name=vault.id,
+    wait=60,
+)
+
+if (
+    reusable_card.type != "card"
+    or reusable_card.spec.provider != "agentcard"
+    or reusable_card.state.status not in {"requested", "ready"}
+):
+    raise RuntimeError(
+        f"card cannot be updated from {reusable_card.state.status}"
+    )
+
+reusable_card = kernel.vaults.items.update(
+    "notebook-order",
+    id_or_name=vault.id,
+    spec={
+        "provider": "agentcard",
+        "wallet": wallet.key,
+        "merchant": "example books",
+        "amount": 4199,
+        "currency": "usd",
+    },
+)
+```
+
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+kernel vaults cards update user-12345 notebook-order \
+  --provider agentcard \
+  --spec '{
+    "wallet": "agentcard-wallet",
+    "merchant": "example books",
+    "amount": 4199,
+    "currency": "usd"
+  }'
+```
+
+</CodeGroup>
+
+the api accepts an agentcard card update only while the item is `requested` or
+`ready`. if it is `pending_approval`, finish and reconcile that authorization
+before preparing another purchase. if it is `degraded`, retrieve it to allow
+recovery and stop if it remains degraded. `update` replaces the full `spec`, so
+include `card_id` again when you want to keep the card pinned. never update an item
+to retry a failed, timed-out, or indeterminate checkout.
+
+agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
 
 ## Handle checkout approval
 
 agentcard does not advertise the `authorize` operation. authorization begins only after an attached browser submits a supported checkout request containing the aliases.
 
-while the request is held, retrieve the card and show `action.url` to the user. `state.authorization` describes the pending or most recent authorization, including its `status`, `browser_id`, expected and actual amounts when available, charge result, and replay result.
+while the request is held, retrieve the card and send `action.url` through the
+same authenticated, expiring user-action flow used for enrollment. stop serving
+the url when it disappears, changes, expires, or the authorization settles.
+`state.authorization` describes the pending or most recent authorization,
+including its `status`, `browser_id`, expected and actual amounts when
+available, charge result, and replay result.
 
 ```bash CLI
 kernel vaults items get user-12345 notebook-order --wait 60 --open
@@ -170,7 +322,8 @@ kernel vaults items events user-12345 notebook-order --wait 60 -o json
 
 each `--wait` performs one bounded observation. repeat the relevant command to
 continue observing an existing checkout; don't use it as evidence that a
-payment succeeded or failed.
+payment succeeded or failed. run `--open` only in a trusted, human-operated
+terminal and never pass its output to an agent.
 
 | field                              | interpretation                                                                                       |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
