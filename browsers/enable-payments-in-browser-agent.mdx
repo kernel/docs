@@ -7,6 +7,39 @@ you're building a browser agent. you can add payments without bringing your appl
 
 create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
 
+to run the end-to-end stripe link path with a coding agent that has access to
+the <span className="kernel-brand-name">KERNEL</span> CLI, give it this task:
+
+```text Prompt
+Use the KERNEL CLI to complete the following checkout with stripe link. Use CLI
+commands rather than SDK or direct API calls.
+
+A vault groups items. Wallet and card are the payment item types. A card item
+references a wallet item in the same vault, so create the wallet before the
+card.
+
+1. Create or retrieve a vault named `user-12345`.
+2. Create or retrieve a stripe link wallet item named `link-wallet` in that
+   vault. Use `--open` for any returned provider action and pause while I
+   complete it. Never open a wallet or approval action in the checkout browser.
+3. Create a KERNEL browser with `user-12345` attached as a vault, then navigate
+   it to https://buy.stripe.com/28E5kw7DtgKXdLqgiY53O00.
+4. Inspect the checkout and determine the merchant, total amount, currency, and
+   merchant URL. Show me those purchase details and wait for my confirmation.
+5. List the wallet's payment methods and ask me which one to use. Create a link
+   card item named `checkout-card` for the confirmed purchase and selected
+   payment method. Include a specific context of at least 100 characters.
+6. Retrieve the card item. Invoke `authorize` only if it appears in
+   `available_operations`. Use `--open` for any returned approval action, wait
+   for me to complete it, and retrieve the item again until its status is
+   `ready`.
+7. Use only the returned aliases with `kernel browsers playwright execute` to
+   fill the checkout's normal card fields and submit it once.
+8. Inspect the checkout result and the card item's events. Do not retry a
+   failed, timed-out, or indeterminate payment. Report the existing attempt so
+   we can reconcile it first.
+```
+
 this guide starts after you have an existing browser agent. it changes how you prepare and pass payment input, not how your agent navigates or reasons about the checkout page.
 
 ## Before you start
