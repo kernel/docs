@@ -3,13 +3,13 @@ title: "Overview"
 description: "Maintain authenticated browser sessions for agents"
 ---
 
-Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and Kernel re-authenticates automatically when needed. When you launch Kernel browsers with Managed Auth connections, your agent starts already logged in and ready to go.
+Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and Kernel can automatically reauthenticate supported login flows when needed. When you launch Kernel browsers with Managed Auth connections, your agent can start logged in and ready to go.
 
 ## How It Works
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** attaches an authenticated domain to a browser [profile](/auth/profiles) so you can automatically be logged in when you launch future browsers. A single profile can have multiple auth connections — one per domain you want to keep authenticated.
+    A **Managed Auth Connection** attaches a domain's authentication state to a browser [profile](/auth/profiles) so future browsers can reuse it. A single profile can have multiple auth connections, one per domain.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -43,7 +43,7 @@ _ = auth
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a Kernel-hosted page or your own UI.
    
-    Specify a [Credential](/auth/credentials) to enable re-authentication without user input.
+    Specify a [Credential](/auth/credentials) to enable automatic reauthentication for supported credential-based flows.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -116,7 +116,7 @@ if authenticated {
 
   </Step>
   <Step title="Use the Profile">
-    Once the auth connection completes, the authenticated session is saved to the browser [profile](/auth/profiles) specified in step 1. You can attach additional auth connections to the same profile for other domains. When you create a browser with the profile, all of its auth connections are available — the browser session will already be logged in to every connected domain.
+    Once the auth connection completes, the authenticated session is saved to the browser [profile](/auth/profiles) specified in step 1. You can attach additional auth connections to the same profile for other domains. When you create a browser with the profile, it loads the saved authentication state for every connected domain.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -125,7 +125,7 @@ const browser = await kernel.browsers.create({
   stealth: true,
 });
 
-// Navigate to the site—you're already logged in
+// Navigate with the saved authentication state
 await page.goto('https://netflix.com');
 ```
 
@@ -135,7 +135,7 @@ browser = await kernel.browsers.create(
     stealth=True,
 )
 
-# Navigate to the site—you're already logged in
+# Navigate with the saved authentication state
 await page.goto("https://netflix.com")
 ```
 
@@ -151,7 +151,7 @@ if err != nil {
 }
 _ = browser
 
-// Navigate to the site—you're already logged in
+// Navigate with the saved authentication state
 _, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
 	Code: `await page.goto("https://netflix.com");`,
 })
@@ -164,7 +164,7 @@ if err != nil {
   </Step>
 </Steps>
 
-The steps above are the integration loop — what you wire up once per connection. After the initial login, the connection enters its runtime loop of periodic health checks and automatic re-authentication; see [Connection Lifecycle](/auth/connection-lifecycle) for how that works and how to tune it.
+The steps above are the integration loop you wire up once per connection. After the initial login, Kernel monitors the connection with periodic health checks and can automatically reauthenticate eligible flows. See [Connection Lifecycle](/auth/connection-lifecycle) for the runtime behavior and configuration options.
 
 ## Choose Your Integration
 
@@ -172,7 +172,7 @@ The steps above are the integration loop — what you wire up once per connectio
   <Card title="Hosted UI" icon="browser" href="/auth/hosted-ui">
     **Start here** - Simplest integration
 
-    Redirect users to Kernel's hosted page. Add features incrementally: save credentials for auto-reauth, custom login URLs, SSO support.
+    Redirect users to Kernel's hosted page. Add features incrementally: save credentials for eligible automatic reauthentication, set custom login URLs, and configure SSO.
   </Card>
   <Card title="React Component" icon="react" href="/auth/react">
     **Embed in your app** - Drop-in component
@@ -189,16 +189,16 @@ The steps above are the integration loop — what you wire up once per connectio
 
 ## Why Managed Auth?
 
-Managed Auth automates **login flows** — navigating login pages, filling credentials, handling SSO redirects, and completing MFA challenges. It keeps your profiles logged in across sessions.
+Managed Auth runs **login flows** by navigating login pages, filling credentials, following SSO redirects, and guiding users through additional authentication steps. It saves the resulting session state to a reusable profile.
 
 The most valuable workflows live behind logins. Managed Auth provides:
 
-- **Works on any website** - Login pages are discovered and handled automatically
-- **SSO/OAuth support** - "Sign in with Google/GitHub/Microsoft" buttons work out-of-the-box, with common SSO provider domains automatically allowed
-- **2FA/OTP handling** - TOTP codes automated with automatic retry on expiry, SMS/email/push OTP are supported
+- **Broad site coverage** - Login pages are discovered and handled across common website login flows
+- **SSO/OAuth support** - Kernel follows common SSO redirects. Common provider domains are allowed by default; add custom provider domains to `allowed_domains`
+- **2FA/OTP handling** - Kernel attempts to provide TOTP codes automatically; interactive login can collect other verification steps
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and automatic re-authentication when sessions expire with stored credentials
-- **Secure by default** - Credentials encrypted at rest, never exposed in API responses, or passed to LLMs
+- **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and automatic reauthentication for eligible credential-based flows
+- **Secure by default** - Credentials are encrypted at rest and never exposed in API responses or passed to LLMs
 
 ## Security
 

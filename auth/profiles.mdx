@@ -7,7 +7,7 @@ Profiles let you capture browser state created during a session (cookies and loc
 
 ## 1. Create a profile
 
-When you create a [Managed Auth connection](/auth/overview), it is attached to a profile. A single profile can hold multiple auth connections — one per domain — so a browser launched with that profile is logged in to all of them at once.
+When you create a [Managed Auth connection](/auth/overview), it is attached to a profile. A single profile can hold multiple auth connections, one per domain, so a browser launched with that profile loads the saved authentication state for each connection.
 
 You can also use profiles without Managed Auth. The first step in using profiles is to create one, optionally giving it a meaningful `name` that is unique within your [project](/info/projects).
 
@@ -355,11 +355,11 @@ The API and SDKs support listing, deleting, and downloading profile data as JSON
 
 ## Multiple auth connections per profile
 
-A profile can have any number of auth connections, each for a different domain. When you launch a browser with that profile, it is already logged in to every connected domain.
+A profile can have any number of auth connections, each for a different domain. When you launch a browser with that profile, it loads the saved authentication state for every connected domain.
 
 ### Multi-site workflows
 
-If your agent interacts with multiple sites as part of a single workflow, attach an auth connection for each site to one profile. The browser starts logged in to all of them:
+If your agent interacts with multiple sites in one workflow, attach an auth connection for each site to one profile. The browser loads the saved authentication state for all of them:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -381,7 +381,7 @@ const crmAuth = await kernel.auth.connections.create({
 
 // Authenticate each connection (omitted for brevity)
 
-// Launch a single browser — logged in to Gmail, Slack, and the CRM
+// Launch a browser with the saved state for all three sites
 const browser = await kernel.browsers.create({
   profile: { name: 'workflow-bot' },
   stealth: true,
@@ -407,7 +407,7 @@ crm_auth = await kernel.auth.connections.create(
 
 # Authenticate each connection (omitted for brevity)
 
-# Launch a single browser — logged in to Gmail, Slack, and the CRM
+# Launch a browser with the saved state for all three sites
 browser = await kernel.browsers.create(
     profile={"name": "workflow-bot"},
     stealth=True,
@@ -451,7 +451,7 @@ _ = crmAuth
 
 // Authenticate each connection (omitted for brevity)
 
-// Launch a single browser — logged in to Gmail, Slack, and the CRM
+// Launch a browser with the saved state for all three sites
 browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
 	Profile: shared.BrowserProfileParam{
 		Name: kernel.String("workflow-bot"),

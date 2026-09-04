@@ -8,13 +8,13 @@ Collect credentials securely via Kernel's hosted page, then use the authenticate
 Use the Hosted UI when:
 - You need users to provide their credentials
 - You want the simplest integration with minimal code
-- You want Kernel to handle 2FA and multi-step login flows
+- You want Kernel to guide users through 2FA and multi-step login flows
 
 ## Getting started
 
 ### 1. Create a Connection
 
-A Managed Auth Connection attaches an authenticated domain to a [profile](/auth/profiles) so you can use the auth connection in future browsers. You can attach multiple auth connections to the same profile — one per domain — to keep several sites authenticated at once.
+A Managed Auth connection saves a domain's authentication state to a [profile](/auth/profiles) so future browsers can reuse it. You can attach multiple auth connections to the same profile, one per domain.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -90,7 +90,11 @@ fmt.Println("Redirect to:", login.HostedURL)
 The user will:
 1. See the login page for the target website
 2. Enter their credentials
-3. Complete 2FA if needed
+3. Complete 2FA or another verification step if needed
+
+<Info>
+Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed.
+</Info>
 
 ### 4. Stream until completion
 
@@ -150,7 +154,7 @@ The SSE stream closes automatically when the flow succeeds, fails, expires, or i
 
 ### 5. Use the Profile
 
-Create browsers with the profile and navigate to the site. The browser session will already be authenticated:
+Create browsers with the profile and navigate to the site. The browser loads the authentication state saved during login:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -159,7 +163,7 @@ const browser = await kernel.browsers.create({
   stealth: true,
 });
 
-// Navigate to the site—you're already logged in
+// Navigate with the saved authentication state
 await page.goto('https://linkedin.com');
 ```
 
@@ -169,7 +173,7 @@ browser = await kernel.browsers.create(
     stealth=True,
 )
 
-# Navigate to the site—you're already logged in
+# Navigate with the saved authentication state
 await page.goto("https://linkedin.com")
 ```
 
@@ -184,7 +188,7 @@ if err != nil {
 	panic(err)
 }
 
-// Navigate to the site—you're already logged in
+// Navigate with the saved authentication state
 _, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
 	Code: `await page.goto("https://linkedin.com");`,
 })
@@ -234,7 +238,7 @@ if (finalState?.flow_status === 'SUCCESS') {
     stealth: true,
   });
   
-  // Navigate to the site—you're already logged in
+  // Navigate with the saved authentication state
   await page.goto('https://doordash.com');
 }
 ```
@@ -269,7 +273,7 @@ if final_state and final_state.flow_status == "SUCCESS":
         stealth=True,
     )
     
-    # Navigate to the site—you're already logged in
+    # Navigate with the saved authentication state
     await page.goto("https://doordash.com")
 ```
 
@@ -332,7 +336,7 @@ func main() {
 			panic(err)
 		}
 
-		// Navigate to the site—you're already logged in
+		// Navigate with the saved authentication state
 		_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
 			Code: `await page.goto("https://doordash.com");`,
 		})
