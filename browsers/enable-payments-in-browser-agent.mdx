@@ -68,7 +68,9 @@ card.
 9. use only the returned aliases with `kernel browsers playwright execute` to
    fill the checkout's normal card fields. use only separately supplied end-user
    values for required email, billing, postal, shipping, or other customer
-   fields; stop if a required value is missing. submit checkout once.
+   fields; stop if a required value is missing. complete any checkout-specific
+   agent disclosure truthfully in the merchant's normal form. submit checkout
+   once.
 10. inspect the checkout result and the card item's events. do not retry a
    failed, timed-out, or indeterminate payment. report the existing attempt so
    we can reconcile it first.
@@ -114,9 +116,10 @@ card.
    `kernel browsers playwright execute` to fill the checkout's normal card
    fields. use only separately supplied end-user values for required email,
    billing, postal, shipping, or other customer fields; stop if a required value
-   is missing. submit checkout once and keep that execution open while KERNEL
-   holds the payment request. do not poll or print the card item while approval
-   is pending.
+   is missing. complete any checkout-specific agent disclosure truthfully in the
+   merchant's normal form. submit checkout once and keep that execution open
+   while KERNEL holds the payment request. do not poll or print the card item
+   while approval is pending.
 10. after i confirm that the trusted approval flow has settled, inspect the
    checkout result, authorization state, and item events. do not retry a failed,
    timed-out, or indeterminate payment. report the existing attempt so we can
@@ -270,16 +273,22 @@ updating a card item:
 for a stripe payment link without an order or cart backend, use the payment-link
 response as the deterministic source. the current response exposes
 `account_settings.display_name`, `line_item_group.total`,
-`line_item_group.currency`, and `line_item_group.line_items`. the dom also
-exposes `data-testid` attributes that can be read with fixed selectors. these
-are stripe page details rather than a KERNEL contract, so missing or changed
-fields must fail verification instead of falling back to model inference.
+`line_item_group.currency`, and `line_item_group.line_items`. use dom text and
+`data-testid` attributes only as supplemental checks. stripe can render multiple
+responsive copies of a summary or omit product-level test ids in another layout,
+so don't require a specific test id or number of matching elements. these are
+stripe page details rather than a KERNEL contract. if the structured response is
+missing or its values disagree with the rendered checkout, fail verification
+instead of falling back to model inference.
 
 stripe adaptive pricing can change the checkout's displayed amount and currency
 for the browser's location. create the card item from the active presentment
 amount and currency shown to the user and submitted by that checkout, not the
 payment link's base integration amount and currency. include those active values
-in the verified purchase object and the confirmation screen.
+in the verified purchase object and the confirmation screen. when the checkout
+response is your deterministic source, create the attached browser in step 3
+before you create or update the card item, then inspect and submit with that same
+browser session. the vault attachment covers items created later in that vault.
 
 <Warning>
   don't start checkout until the wallet is `connected` and the card item is
@@ -310,6 +319,13 @@ number, or other customer data. collect the required values from the end user in
 your trusted application, or load values the end user has already approved from
 your backend. pass them to the browser agent separately from the card aliases.
 do not ask the agent to invent missing customer data.
+
+merchant-specific agent disclosures are normal checkout fields. if the page
+asks whether automation is acting for another person, instruct the agent to
+answer truthfully in the merchant's form before submission. for a checkout that
+offers **I am an AI agent acting on behalf of someone else**, select that option.
+don't bypass the disclosure or replace the page's normal submission with a raw
+processor request.
 
 retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
 
@@ -361,6 +377,15 @@ const browser = await kernel.browsers.create({
   headless: false,
   timeout_seconds: 1800,
 });
+
+if (!browser.browser_live_view_url) {
+  throw new Error("headful browser did not return a live view url");
+}
+await presentLiveView({
+  userID: authenticatedUser.id,
+  sessionID: browser.session_id,
+  url: browser.browser_live_view_url,
+});
 ```
 
 ```python Python
@@ -369,6 +394,14 @@ browser = kernel.browsers.create(
     headless=False,
     timeout_seconds=1800,
 )
+
+if browser.browser_live_view_url is None:
+    raise RuntimeError("headful browser did not return a live view url")
+present_live_view(
+    user_id=authenticated_user.id,
+    session_id=browser.session_id,
+    url=browser.browser_live_view_url,
+)
 ```
 
 ```bash CLI
@@ -376,6 +409,14 @@ kernel browsers create --vault user-12345 -o json
 ```
 
 </CodeGroup>
+
+`browser_live_view_url` lets the end user watch the checkout during confirmation
+and agentcard approval pauses. `presentLiveView` represents your authenticated
+application page: keep the url server-side with the end user and browser session
+binding, render or embed it only after checking that session, and remove it when
+you delete or time out the browser. don't log the url or put it in model context.
+see [live view](/browsers/live-view#embedding-in-an-iframe) for iframe and csp
+requirements.
 
 connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser](/introduction/control) for supported connection options.
 
@@ -397,6 +438,10 @@ Use these separately collected customer fields where the checkout requires them:
 - email: <checkout.email>
 - billing name: <checkout.billing_name>
 - postal code: <checkout.postal_code>
+
+If the checkout asks whether an agent is acting for another person, select the
+truthful disclosure option in the page before submission. For example:
+- I am an AI agent acting on behalf of someone else
 
 Submit the checkout once. If the payment request pauses for user approval,
 wait for the controller to finish that approval. Do not retry payment.
@@ -514,7 +559,11 @@ try {
   await waitForMerchantResolution(verifiedPurchase.orderID);
 } finally {
   stop.abort();
-  await observer;
+  try {
+    await observer;
+  } finally {
+    await kernel.browsers.deleteByID(browser.session_id);
+  }
 }
 ```
 
@@ -534,7 +583,10 @@ try:
     wait_for_merchant_resolution(verified_purchase.order_id)
 finally:
     stop.set()
-    observer.join()
+    try:
+        observer.join()
+    finally:
+        kernel.browsers.delete_by_id(browser.session_id)
 ```
 
 </CodeGroup>
@@ -571,9 +623,11 @@ the frozen purchase object. use authorization state and item events to explain
 the provider and handoff path, and use the checkout page as supporting evidence.
 only report success when the trusted merchant record confirms the matching
 order. a ready agentcard item, an approved authorization, a delivered replay, or
-a success page cannot establish that by itself. when the sources disagree or
-the merchant record is unavailable, keep the result indeterminate and do not
-retry.
+a success page cannot establish that by itself. merchant success text is
+page-specific: a completed stripe checkout might say **Thanks for your payment**,
+but don't use that string or any other generic text matcher as the success
+condition. when the sources disagree or the merchant record is unavailable,
+keep the result indeterminate and do not retry.
 
 <Warning>
   a timeout, browser deletion, missing event, or closed checkout does not undo

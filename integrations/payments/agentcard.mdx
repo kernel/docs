@@ -37,6 +37,7 @@ if agentcard_mode not in {"sandbox", "live"}:
 ```
 
 ```bash CLI
+export AGENTCARD_MODE=live
 kernel vaults create --name user-12345
 ```
 
@@ -47,6 +48,8 @@ sandbox or live. `AGENTCARD_MODE` is an application-owned assertion, not a
 value read from KERNEL. set it from the deployment configuration that owns the
 agentcard credential, show the mode in internal checkout controls, and fail
 closed when it is missing or does not match the environment you intend to use.
+set `AGENTCARD_MODE=sandbox` instead only when that deployment uses a sandbox
+credential.
 
 ## Lifecycle
 
@@ -73,7 +76,9 @@ publishes the action to an authenticated session for the end user who owns the
 vault. bind the action to that user, vault, and item; apply a short application
 ttl capped by `wallet.expires_at` when present; and stop serving it when the
 action changes or disappears. derive `authenticatedUser` from the server-side
-session, not a request field. do not log the url or put it in model context.
+session, not a request field. do not log the url or put it in model context. the
+[browser payment guide](/browsers/enable-payments-in-browser-agent#present-hosted-actions-in-your-application)
+defines the authenticated redirect and expiry contract for this helper.
 
 <CodeGroup>
 
@@ -304,6 +309,166 @@ to retry a failed, timed-out, or indeterminate checkout.
 
 agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
 
+## Complete the first checkout
+
+use this sequence for an agentcard checkout:
+
+1. require exactly one agentcard wallet in the vault and wait for it to become `connected`.
+2. create a headful browser with the vault attached, surface `browser_live_view_url` through your trusted application, and navigate to the checkout. keep this same browser for verification and submission so location-dependent pricing cannot change between the confirmed purchase and the outgoing request.
+3. independently verify the merchant, items, active presentment amount, and active presentment currency. for a stripe payment link, prefer `account_settings.display_name`, `line_item_group.total`, `line_item_group.currency`, and `line_item_group.line_items` from the structured payment-link response when you don't have an order backend. use dom text and test ids only as supplemental checks because stripe can duplicate or omit them across layouts.
+4. collect merchant-required fields such as email, billing name, and postal code from the end user. identify checkout-specific agent disclosures and instruct the agent to answer them truthfully in the normal form.
+5. show the verified purchase to the end user. after confirmation, create or update the card item from that same frozen object and require it to be `ready`. the vault attachment covers items created later in the same vault.
+6. start the card and event observer before checkout submission. keep it running concurrently while the browser request is held.
+7. give the browser agent the aliases, separately collected customer fields, and any required disclosure answer. submit the merchant form once.
+8. publish the approval action through the authenticated, expiring application flow. never send it to the checkout browser or agent.
+9. after the authorization settles, reconcile authorization state, item events, the checkout page, and the merchant order record. don't prepare the next purchase until this attempt is terminal or explicitly classified as indeterminate.
+
+### Surface the live view
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+  headless: false,
+  timeout_seconds: 1800,
+});
+
+if (!browser.browser_live_view_url) {
+  throw new Error("headful browser did not return a live view url");
+}
+await presentLiveView({
+  userID: authenticatedUser.id,
+  sessionID: browser.session_id,
+  url: browser.browser_live_view_url,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+    headless=False,
+    timeout_seconds=1800,
+)
+
+if browser.browser_live_view_url is None:
+    raise RuntimeError("headful browser did not return a live view url")
+present_live_view(
+    user_id=authenticated_user.id,
+    session_id=browser.session_id,
+    url=browser.browser_live_view_url,
+)
+```
+
+```bash CLI
+kernel browsers create --vault user-12345 -o json
+```
+
+</CodeGroup>
+
+`presentLiveView` represents an application-owned route. store the url
+server-side with the authenticated end user and browser session binding, and
+render or embed it only after checking that session. retain the same binding
+through confirmation and approval pauses. remove it when the browser is deleted
+or times out, and don't put it in logs or model context. see
+[live view](/browsers/live-view#embedding-in-an-iframe) for iframe and csp
+requirements.
+
+### Run checkout and observation concurrently
+
+start the observer before calling the browser agent. the application-owned
+functions below represent the observer, your existing agent loop, your order
+backend, and your reconciliation policy:
+
+<CodeGroup>
+
+```typescript TypeScript
+const stop = new AbortController();
+const observer = observePayment(stop.signal);
+
+try {
+  const pageOutcome = await runBrowserAgentCheckout({
+    browser,
+    aliases: card.state.aliases,
+    verifiedPurchase,
+    customerFields,
+    disclosure: "I am an AI agent acting on behalf of someone else",
+  });
+  const merchantOrder = await waitForMerchantResolution(
+    verifiedPurchase.orderID,
+  );
+  const current = await kernel.vaults.items.retrieve(card.key, {
+    id_or_name: vault.id,
+  });
+  if (current.type !== "card" || current.state.provider !== "agentcard") {
+    throw new Error("expected an agentcard card item");
+  }
+  const events = await kernel.vaults.items.events(card.key, {
+    id_or_name: vault.id,
+  });
+
+  const result = reconcileAgentcard({
+    verifiedPurchase,
+    merchantOrder,
+    authorization: current.state.authorization,
+    events,
+    pageOutcome,
+  });
+  handleReconciledResult(result);
+} finally {
+  stop.abort();
+  try {
+    await observer;
+  } finally {
+    await kernel.browsers.deleteByID(browser.session_id);
+  }
+}
+```
+
+```python Python
+from threading import Event, Thread
+
+stop = Event()
+observer = Thread(target=observe_payment, args=(stop,))
+observer.start()
+
+try:
+    page_outcome = run_browser_agent_checkout(
+        browser=browser,
+        aliases=card.state.aliases,
+        verified_purchase=verified_purchase,
+        customer_fields=customer_fields,
+        disclosure="I am an AI agent acting on behalf of someone else",
+    )
+    merchant_order = wait_for_merchant_resolution(verified_purchase.order_id)
+    current = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+    if current.type != "card" or current.state.provider != "agentcard":
+        raise RuntimeError("expected an agentcard card item")
+    events = kernel.vaults.items.events(card.key, id_or_name=vault.id)
+
+    result = reconcile_agentcard(
+        verified_purchase=verified_purchase,
+        merchant_order=merchant_order,
+        authorization=current.state.authorization,
+        events=events,
+        page_outcome=page_outcome,
+    )
+    handle_reconciled_result(result)
+finally:
+    stop.set()
+    try:
+        observer.join()
+    finally:
+        kernel.browsers.delete_by_id(browser.session_id)
+```
+
+</CodeGroup>
+
+the observer must have its own terminal-state loop and application deadline.
+cancel it after the merchant reaches a terminal state or the deadline expires.
+if the deadline expires, retain the vault id, card key, browser id, and last
+event id, classify the attempt as indeterminate, and don't resubmit checkout.
+
 ## Handle checkout approval
 
 agentcard does not advertise the `authorize` operation. authorization begins only after an attached browser submits a supported checkout request containing the aliases.
@@ -334,5 +499,14 @@ terminal and never pass its output to an agent.
 | `replay_delivered`                 | whether that response reached the browser; this does not confirm a merchant order                    |
 
 declines, expirations, and provider failures can return a stripe-shaped error to the browser. the reusable item can still return to `ready`, so item status alone does not prove that the purchase succeeded or failed.
+
+your reconciliation policy must return `succeeded` only when the merchant order
+record confirms a paid order whose merchant, items, amount, and currency match
+the frozen purchase object. treat `state.authorization`, `charged_kind`,
+`replay_delivered`, item events, and the checkout page as supporting evidence.
+merchant success text is page-specific: **Thanks for your payment** can appear
+for one stripe checkout, but no generic success-text matcher proves that the
+merchant created the expected order. return `indeterminate` when the sources
+disagree or the merchant record is unavailable, and don't retry automatically.
 
 pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
