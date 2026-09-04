@@ -3,7 +3,7 @@ title: "Vaults"
 description: "Attach provider-backed values to browser sessions without exposing the underlying value to the browser or agent"
 ---
 
-**Status:** <Badge color="yellow">Preview</Badge>
+**status:** <Badge color="yellow">preview</Badge>
 
 <span className="kernel-brand-name">KERNEL</span> vaults are project-scoped
 containers for provider-backed items. they let a browser session use a value
@@ -46,7 +46,7 @@ flowchart LR
 
 ## Scope and attachment
 
-select project scope on the sdk client or use a project-scoped api key. `project_id` is not accepted in a vault request body. without explicit project scope, <span className="kernel-brand-name">KERNEL</span> uses the organization's default project.
+select project scope on the sdk client or use a project-scoped api key. for direct api requests, `X-Kernel-Project` accepts a project id or name. `project_id` is not accepted in a vault request body. without explicit project scope, <span className="kernel-brand-name">KERNEL</span> uses the organization's default project.
 
 attach vaults when you create a browser:
 
@@ -70,32 +70,13 @@ the `vaults` array supports up to 20 references. each reference accepts exactly 
 
 attachment grants the browser access to the vault, not to a selected set of items. items created later in the same vault are available to every attached browser in that project. use separate vaults when browser tasks must not share access. deleting a vault or item invalidates its provider-backed values and aliases.
 
-## Vault api fields
+## Api behavior
 
-| method                     | endpoint                      | supported request fields                                 |
-| -------------------------- | ----------------------------- | -------------------------------------------------------- |
-| create or retrieve by name | `POST /vaults`                | body: `name`                                             |
-| list                       | `GET /vaults`                 | query: `limit` (1–100, default 20), `offset` (default 0) |
-| retrieve                   | `GET /vaults/{id_or_name}`    | path: `id_or_name`                                       |
-| delete                     | `DELETE /vaults/{id_or_name}` | path: `id_or_name`                                       |
+create or retrieve a vault by its immutable `name`. names accept 1–255 letters, numbers, `.`, `_`, and `-`, but can't use a cuid-like value that could be mistaken for a vault id. vault responses contain `id`, `name`, `created_at`, and `updated_at`.
 
-`name` is immutable, 1–255 characters, and accepts letters, numbers, `.`, `_`, and `-`. vault responses contain `id`, `name`, `created_at`, and `updated_at`.
+item keys are immutable and accept 1–255 letters, numbers, `.`, `_`, and `-`. creating an item at an existing key succeeds only when its type, provider, and specification match the existing item and its lifecycle permits retrieval. otherwise, the api returns a conflict. a card's `spec.wallet` must reference a wallet in the same vault and from the same provider.
 
-## Item api fields
-
-| method                            | endpoint                                           | supported request fields                           |
-| --------------------------------- | -------------------------------------------------- | -------------------------------------------------- |
-| list                              | `GET /vaults/{id_or_name}/items`                   | path: `id_or_name`                                 |
-| create or retrieve identical item | `PUT /vaults/{id_or_name}/items/{key}`             | path: `id_or_name`, `key`; body: `type`, `spec`    |
-| retrieve                          | `GET /vaults/{id_or_name}/items/{key}`             | path: `id_or_name`, `key`; query: `wait`, `expand` |
-| update card item                  | `PATCH /vaults/{id_or_name}/items/{key}`           | path: `id_or_name`, `key`; body: complete `spec`   |
-| delete                            | `DELETE /vaults/{id_or_name}/items/{key}`          | path: `id_or_name`, `key`                          |
-| perform advertised operation      | `POST /vaults/{id_or_name}/items/{key}/operations` | path: `id_or_name`, `key`; body: `type`            |
-| list events                       | `GET /vaults/{id_or_name}/items/{key}/events`      | path: `id_or_name`, `key`; query: `after`, `wait`  |
-
-`key` is immutable and 1–255 characters. `wait` accepts 0–60 seconds. `expand` accepts `payment_methods` only when the item advertises it. operation `type` accepts `authorize` only when the item advertises it. events are returned as an ordered array; use the last event `id` as `after` to request newer events.
-
-item responses expose these fields:
+retrieve an item before acting on it. responses expose these fields and advertise what the current state permits:
 
 | field                                    | behavior                                             |
 | ---------------------------------------- | ---------------------------------------------------- |
@@ -107,6 +88,14 @@ item responses expose these fields:
 | `available_expansions`                   | live provider data the item can request              |
 | `expanded`                               | requested live data; not persisted on the item       |
 | `expires_at`, `created_at`, `updated_at` | item timestamps when present                         |
+
+when `action` is present, complete it in a trusted user-facing surface. invoke only operations listed in `available_operations`, and request only expansions listed in `available_expansions`. don't hard-code provider transitions from a previous response.
+
+item reads accept `wait` values from 0–60 seconds. a read returns early when the item no longer has an unresolved authorization or approval transition. event reads support the same maximum wait and return an ordered array. use the last event `id` as the `after` cursor for newer events.
+
+deleting a card consumes its aliases and clears any stored provider value. deleting a wallet also invalidates its dependent card items. deleting a vault invalidates every item it contains.
+
+see the [vaults api reference](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-a-vault-by-immutable-name) for endpoints and complete request and response schemas.
 
 ## Initial item specifications
 
@@ -126,7 +115,9 @@ the initial release accepts these `spec` fields. fields not listed here are reje
 | link      | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context`, `test` | `line_items`, `totals`, `metadata`, `expires_at` |
 | agentcard | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                              | `card_id`                                        |
 
-`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, and requires at least 100 characters in `context`. agentcard accepts 1–9007199254740991, requires a three-letter `currency`, and limits `merchant` to 120 characters.
+`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+
+agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
