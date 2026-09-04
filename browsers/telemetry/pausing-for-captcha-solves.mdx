@@ -31,20 +31,6 @@ Run the agent through a `browser-loop`-compiled harness. Alongside it, open the 
 npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core tsx
 ```
 
-<Warning>
-`browser-loop` depends on an older, exact `@onkernel/sdk` version that predates the [telemetry API](/browsers/telemetry/overview) — installing `@onkernel/sdk` at its current version alongside it can leave two copies in `node_modules`, which produces two incompatible `KERNEL` client types (`attach({ client, browser })` won't type-check, and `client.browsers.telemetry` won't exist on the version `browser-loop` sees). Run `npm ls @onkernel/sdk`; if you see two versions, force a single one with an `overrides` entry in `package.json`:
-
-```json
-{
-  "overrides": {
-    "@onkernel/sdk": "$@onkernel/sdk"
-  }
-}
-```
-
-That pins every copy in the tree to whatever version your own `dependencies` entry resolves to, so `attach()` and `client.browsers.telemetry.stream()` both see the same client type.
-</Warning>
-
 Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
 
 ```bash
