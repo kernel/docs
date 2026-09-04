@@ -35,7 +35,7 @@ const projectID = process.env.KERNEL_PROJECT_ID;
 if (!projectID) throw new Error("set KERNEL_PROJECT_ID");
 
 const kernel = new Kernel({ projectID, maxRetries: 0 });
-const vault = await kernel.vaults.upsert({ name: "browser-checkout" });
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
 ```
 
 ```python Python
@@ -47,7 +47,7 @@ kernel = Kernel(
     project_id=os.environ["KERNEL_PROJECT_ID"],
     max_retries=0,
 )
-vault = kernel.vaults.upsert(name="browser-checkout")
+vault = kernel.vaults.upsert(name="user-12345")
 ```
 
 </CodeGroup>
