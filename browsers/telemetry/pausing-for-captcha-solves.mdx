@@ -7,17 +7,17 @@ Kernel's [stealth mode](/browsers/bot-detection/stealth) includes an automatic c
 
 The naive way to handle that is a system-prompt instruction: [`"If you see a CAPTCHA or similar test, just wait for it to get solved automatically."`](/browsers/bot-detection/stealth#anthropic-computer-use) That works, but it's a soft constraint. The model decides for itself how long to wait and how to tell a solve is still running, from a screenshot alone. It can act too soon — a click during an active solve can land on the widget and interfere with it — or wait long after the page has already moved on.
 
-[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) — the same package used in [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once telemetry reports a terminal outcome for that solve.
+[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once telemetry reports a terminal outcome for that solve.
 
 ## The approach
 
-Run the agent through a `browser-loop`-compiled harness as usual. Alongside it, open the session's [telemetry stream](/browsers/telemetry/streaming) and watch for `captcha` events:
+Run the agent through a `browser-loop`-compiled harness. Alongside it, open the session's [telemetry stream](/browsers/telemetry/streaming) and watch for `captcha` events:
 
 1. On `captcha_solve_started`, abort the harness's current turn so the agent stops taking actions.
 2. Wait for the matching terminal event — `captcha_challenge_result` when a `challenge_id` is available, otherwise `captcha_solve_result` on `task_id` — within a bounded timeout.
 3. Re-prompt the harness with what happened, so it picks up with full context instead of starting over.
 
-This mirrors the abort-and-resume pattern from the [Per-Tool Limit](/browsers/playwright-computer-use-fallback#per-tool-limit) recipe: `harness.abort()` interrupts the in-flight run, and a fresh `harness.prompt()` call continues the same conversation once the agent is safe to act again.
+`harness.abort()` interrupts the in-flight run, and a fresh `harness.prompt()` call continues the same conversation once the agent is safe to act again.
 
 ## Setup
 
@@ -57,7 +57,7 @@ A `captcha_solve_started` event marks the start of an episode and calls `onSolve
 
 Because delivery is best-effort and events can arrive out of order, a terminal event can land before the driver even calls `waitForOutcome` (right after `harness.abort()` returns). The gate buffers that outcome instead of dropping it, and `waitForOutcome` checks the buffer before it starts waiting. If nothing ever arrives, the timeout resolves to `"unknown"` and clears the tracked IDs, so a later captcha still triggers a fresh pause instead of being mistaken for the one that timed out.
 
-The driver compiles a Playwright-toolset harness the same way as the [fallback cookbook](/browsers/playwright-computer-use-fallback), wires the gate's `onSolveStarted` callback to `harness.abort()`, and loops on `stopReason === "aborted"` — re-prompting with the outcome each time a captcha resolves, until the agent finishes for a reason other than a captcha pause.
+The driver compiles a Playwright-toolset harness, wires the gate's `onSolveStarted` callback to `harness.abort()`, and loops on `stopReason === "aborted"` — re-prompting with the outcome each time a captcha resolves, until the agent finishes for a reason other than a captcha pause.
 
 ```ts
 /**
@@ -65,11 +65,11 @@ The driver compiles a Playwright-toolset harness the same way as the [fallback c
  * `captcha_solve_started` and resuming once Kernel's solver reports a
  * terminal outcome for that episode.
  *
- * Demo target: start on duckduckgo.com, then navigate to 2captcha.com's public
- * Cloudflare Turnstile demo. Kernel's stealth captcha solver handles the
- * Turnstile challenge automatically; this script's job is only to keep the
- * agent from acting on the page while that's in progress, then have it
- * summarize the page once the challenge clears.
+ * Set TASK_PROMPT below to whatever task the agent should run -- anything
+ * that might land it on a captcha-protected page. Kernel's stealth captcha
+ * solver handles supported challenge types automatically; this script's job
+ * is only to keep the agent from acting on the page while a solve is in
+ * progress.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
@@ -191,10 +191,7 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 	};
 }
 
-const TASK_PROMPT =
-	"Start at duckduckgo.com, then navigate to 2captcha.com/demo/cloudflare-turnstile. Once the " +
-	"Turnstile challenge finishes solving, summarize the page's content, explaining how Turnstile " +
-	"challenges get solved.";
+const TASK_PROMPT = "[ENTER TASK FOR AGENT THAT MAY NEED CAPTCHA SOLVING]";
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
@@ -274,7 +271,7 @@ void main();
 ## Notes
 
 - **The gate only matters once a run is in flight.** If a captcha appears and clears before the first `harness.prompt()` call starts, there's nothing to pause — which is fine, since there was nothing for the agent to interfere with either.
-- **`harness.abort()` interrupts the current turn, not just the next tool call.** The agent's in-flight action still completes on the browser side; the harness stops before starting another one. This is the same mechanism the [fallback cookbook](/browsers/playwright-computer-use-fallback#per-tool-limit) uses to hand off between toolsets.
+- **`harness.abort()` interrupts the current turn, not just the next tool call.** The agent's in-flight action still completes on the browser side; the harness stops before starting another one.
 - **Sequential captchas in one run just loop.** Each terminal event (or timeout) resets the gate's state, so a second `captcha_solve_started` later in the task pauses and resumes the same way.
 - **Overlapping captchas aren't split apart.** The gate tracks one open episode at a time; a second, unrelated `captcha_solve_started` while the first is still open is ignored rather than risking a mismatched pairing. Two genuinely concurrent visible challenges are rare, and the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) note that Kernel's own event model can't always attribute a result in that case either.
 - **A bounded wait beats an indefinite one.** Event delivery isn't guaranteed or ordered, so `waitForOutcome`'s timeout is what keeps a dropped event from stalling the run forever — and it clears the gate's state on the way out so the next captcha isn't mistaken for the one that timed out.
