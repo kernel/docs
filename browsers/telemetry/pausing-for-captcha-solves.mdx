@@ -65,9 +65,11 @@ The driver compiles a Playwright-toolset harness the same way as the [fallback c
  * `captcha_solve_started` and resuming once Kernel's solver reports a
  * terminal outcome for that episode.
  *
- * Demo target: the public reCAPTCHA v2 demo at google.com/recaptcha/api2/demo.
- * Kernel's stealth captcha solver handles it automatically; this script's job
- * is only to keep the agent from acting on the page while that's in progress.
+ * Demo target: start on duckduckgo.com, then navigate to 2captcha.com's public
+ * Cloudflare Turnstile demo. Kernel's stealth captcha solver handles the
+ * Turnstile challenge automatically; this script's job is only to keep the
+ * agent from acting on the page while that's in progress, then have it
+ * summarize the page once the challenge clears.
  *
  * Usage:
  *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
@@ -190,7 +192,9 @@ function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: ()
 }
 
 const TASK_PROMPT =
-	"Go to google.com/recaptcha/api2/demo, solve the reCAPTCHA challenge, and submit the form.";
+	"Start at duckduckgo.com, then navigate to 2captcha.com/demo/cloudflare-turnstile. Once the " +
+	"Turnstile challenge finishes solving, summarize the page's content, explaining how Turnstile " +
+	"challenges get solved.";
 
 const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
 
