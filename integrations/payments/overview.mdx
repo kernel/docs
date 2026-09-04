@@ -39,8 +39,12 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 ## Choose a provider
 
 <CardGroup cols={2}>
-  <Card title="Link" href="/integrations/payments/link" icon="link">
-    collect a Link wallet and approve a one-use credential for a specific
+  <Card
+    title="stripe link"
+    href="/integrations/payments/stripe-link"
+    icon="link"
+  >
+    collect a stripe link wallet and approve a one-use credential for a specific
     purchase.
   </Card>
   <Card
@@ -53,7 +57,13 @@ the card number and cvc stay outside the agent-controlled environment. the brows
   </Card>
 </CardGroup>
 
-| behavior                  | link                                                     | agentcard                                                           |
+<Note>
+  <span className="kernel-brand-name">KERNEL</span> is actively adding native
+  integrations with more payment providers. email
+  [support@kernel.sh](mailto:support@kernel.sh) to request one.
+</Note>
+
+| behavior                  | stripe link                                              | agentcard                                                           |
 | ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | payment-method collection | hosted `link_oauth` action                               | hosted `card_enrollment` action                                     |
 | purchase authorization    | explicit `authorize` operation before checkout           | approval begins when the browser submits checkout                   |
@@ -61,7 +71,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | reuse                     | card item and aliases are consumed on first substitution | card item and aliases remain reusable; each checkout needs approval |
 | test mode                 | required `spec.test` field                               | determined by the configured agentcard credential                   |
 
-choose [link](/integrations/payments/link) when each purchase needs a newly approved, one-use credential. choose [agentcard](/integrations/payments/agentcard) when the same enrolled card must support multiple separately approved purchases.
+choose [stripe link](/integrations/payments/stripe-link) when each purchase needs a newly approved, one-use credential. choose [agentcard](/integrations/payments/agentcard) when the same enrolled card must support multiple separately approved purchases.
 
 ## Supported checkouts
 
@@ -84,4 +94,4 @@ the request must contain the complete alias set. arbitrary processors, custom re
 
 ## Next step
 
-configure [link](/integrations/payments/link) or [agentcard](/integrations/payments/agentcard), then follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent) to attach the vault and give payment aliases to your agent.
+configure [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent) to attach the vault and give payment aliases to your agent.

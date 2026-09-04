@@ -5,7 +5,7 @@ description: "Give a browser agent provider-backed payment aliases and complete 
 
 you're building a browser agent. you can add payments without bringing your application, agent, or browser into pci dss scope.
 
-create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link](/integrations/payments/link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
+create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
 
 this guide starts after you have an existing browser agent. it changes how you prepare and pass payment input, not how your agent navigates or reasons about the checkout page.
 
@@ -14,7 +14,7 @@ this guide starts after you have an existing browser agent. it changes how you p
 - install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
 - use a supported stripe checkout you control. the initial release supports the request formats listed in the [payments overview](/integrations/payments/overview#supported-checkouts).
-- start in the provider's test or sandbox mode. link uses `test: true` on its card item. agentcard mode comes from the integration's configured credential.
+- start in the provider's test or sandbox mode. stripe link uses `test: true` on its card item. agentcard mode comes from the integration's configured credential.
 
 <Warning>
   keep wallet collection and payment approval outside the agent. show hosted
@@ -58,7 +58,7 @@ vault = kernel.vaults.upsert(name="browser-checkout")
 
 choose one provider and complete its setup:
 
-- [link](/integrations/payments/link): the user connects a link wallet, selects a payment method, and approves a one-use card for this purchase.
+- [stripe link](/integrations/payments/stripe-link): the user connects a stripe link wallet, selects a payment method, and approves a one-use card for this purchase.
 - [agentcard](/integrations/payments/agentcard): the user enrolls a card once, and the reusable card item requests approval when checkout begins.
 
 both provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
@@ -147,7 +147,7 @@ the agent can fill both top-level fields and payment fields embedded in iframes.
 
 ## 5. Keep approval and observation outside the agent
 
-start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for link and provides item events after credential substitution.
+start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for stripe link and provides item events after credential substitution.
 
 <CodeGroup>
 
@@ -227,14 +227,14 @@ run this observer concurrently with your existing agent loop. abort the signal o
 
 use item state, item events, the checkout page, and the merchant's order record together.
 
-| observation                                                            | next action                                                                                     |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `payment_succeeded`                                                    | verify that the merchant created the expected order                                             |
-| `payment_requires_action`                                              | continue the existing merchant flow without resubmitting payment                                |
-| `payment_processing`                                                   | wait for the existing payment and inspect the merchant's status                                 |
-| link `consumed`, `credential_submitted`, or `credential_tokenized`     | confirm processor and merchant state; credential use alone does not prove purchase success      |
-| agentcard `ready` or authorization `approved`                          | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
-| decline, expiry, rejection, failure, abandonment, or `payment_unknown` | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
+| observation                                                               | next action                                                                                     |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `payment_succeeded`                                                       | verify that the merchant created the expected order                                             |
+| `payment_requires_action`                                                 | continue the existing merchant flow without resubmitting payment                                |
+| `payment_processing`                                                      | wait for the existing payment and inspect the merchant's status                                 |
+| stripe link `consumed`, `credential_submitted`, or `credential_tokenized` | confirm processor and merchant state; credential use alone does not prove purchase success      |
+| agentcard `ready` or authorization `approved`                             | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
+| decline, expiry, rejection, failure, abandonment, or `payment_unknown`    | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
 
 <Warning>
   a timeout, browser deletion, missing event, or closed checkout does not undo
