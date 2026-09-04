@@ -17,7 +17,7 @@ After the initial login, every connection moves through this loop:
     A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
   </Step>
   <Step title="Auto-reauth (if eligible)">
-    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. A successful login resets the loop.
+    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. A successful login resets the loop.
 
     An inconclusive check never triggers reauth. Kernel would rather check again on the next cycle than log in again unnecessarily — a spurious login can trip risk checks on the site, prompt a device-verification email, or invalidate a working session.
   </Step>
@@ -72,19 +72,17 @@ If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter
 
 ## Can this connection auto-reauth?
 
-Check the `can_reauth` boolean on a connection. It is `true` when a credential is linked and the recorded login flow supports automatic reauthentication.
+Check the `can_reauth` boolean on a connection. It's `true` when the connection has completed a successful login, a credential is linked, and Kernel hasn't recorded a requirement that blocks an automatic attempt. It describes eligibility to attempt reauthentication, not whether the next login will succeed.
 
-| Login flow | Automatic reauthentication |
-| --- | --- |
-| Stored credentials | Supported |
-| Stored credentials and TOTP | Supported when the TOTP secret is saved |
-| Additional verification or approval requirements | [Contact support](/info/support) to find the best configuration |
+For TOTP-only flows, `can_reauth` can be `true` before Kernel knows whether it can provide the code. If it can't, the attempt ends with `totp_required`.
 
-`can_reauth` reflects what Kernel knows about the previous login. A site can introduce a new requirement during a later attempt. If Kernel needs input, the connection moves to `NEEDS_AUTH` so you can start a new login. For other authentication requirements, [contact support](/info/support) to find the best configuration.
+Use `can_reauth_reason` to see why the connection is or isn't eligible. See [Get auth connection](/api-reference/managed-auth/get-auth-connection) for the possible values.
 
-### Flows that need additional input
+`can_reauth` reflects what Kernel knows about the previous login. A site can introduce a new requirement during a later attempt. If Kernel needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` so you can start a new login. For other authentication requirements, [contact support](/info/support) to find the best configuration.
 
-After a successful login, Kernel saves the login flow. If a later attempt needs additional input or approval, the connection moves to `NEEDS_AUTH` instead of guessing how to proceed.
+### Flows that need input, a choice, or approval
+
+After a successful login, Kernel saves the login flow. If a later attempt needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` instead of guessing how to proceed.
 
 You can handle these flows in two ways:
 

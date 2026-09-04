@@ -3,7 +3,7 @@ title: "Overview"
 description: "Create and monitor authenticated browser sessions for agents"
 ---
 
-Managed Auth creates authenticated browser sessions for your agents and saves them to reusable profiles. Kernel can automatically reauthenticate when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. If your login has additional requirements, [contact support](/info/support) to find the best configuration.
+Managed Auth creates authenticated browser sessions for your agents and saves them to reusable profiles. Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed. If your login has additional requirements, [contact support](/info/support) to find the best configuration.
 
 ## How It Works
 
@@ -194,8 +194,8 @@ Managed Auth runs **login flows** by navigating login pages, filling credentials
 The most valuable workflows live behind logins. Managed Auth provides:
 
 - **Broad site coverage** - Login pages are discovered and handled across common website login flows
-- **SSO/OAuth support** - Common provider domains are allowed by default, with support for custom providers
-- **2FA/OTP handling** - TOTP can run automatically when its secret is stored; interactive login can collect other verification steps
+- **SSO/OAuth support** - Kernel follows common SSO redirects. Common provider domains are allowed by default; add custom provider domains to `allowed_domains`
+- **2FA/OTP handling** - Kernel attempts to provide TOTP codes automatically; interactive login can collect other verification steps
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
 - **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and automatic reauthentication for eligible credential-based flows
 - **Secure by default** - Credentials are encrypted at rest and never exposed in API responses or passed to LLMs

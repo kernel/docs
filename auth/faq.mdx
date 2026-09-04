@@ -4,7 +4,7 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel runs periodic health checks and can reauthenticate supported credential-based flows in the background. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
+When you link credentials to a connection, Kernel runs periodic health checks and can reauthenticate supported credential-based flows in the background. This includes TOTP when Kernel can provide the authenticator code. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
 
 ## What are auth choices?
 
@@ -12,7 +12,11 @@ Auth choices are visible routes a site presents during login, including mfa meth
 
 ## Which authentication methods are supported?
 
-Managed Auth supports common credential, SSO, and multi-step login flows. Automatic reauthentication is supported when the login requires only stored credentials, or stored credentials and TOTP with a saved secret. Authentication requirements vary by site, so [contact support](/info/support) if your flow uses additional verification or approval steps.
+Managed Auth supports common credential, SSO, and multi-step login flows. Automatic reauthentication uses stored credentials and attempts to provide TOTP codes when needed. Authentication requirements vary by site, so [contact support](/info/support) if your flow uses additional input, choices, or approval steps.
+
+<Warning>
+Passkey-only authentication isn't currently supported. If a site's SSO provider requires a passkey, the login returns `unsupported_auth_method`. [Contact support](/info/support) to find the best configuration for that flow.
+</Warning>
 
 ## What happens if login fails?
 
