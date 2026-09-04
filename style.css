@@ -308,3 +308,20 @@ html.dark .callout[class*="yellow"] svg {
 html.dark #navigation-items img[src*="/images/integration-icons/"] {
   filter: invert(1);
 }
+
+/* cookbooks: sidebar entries under /cookbooks/ are external GitHub links (url frontmatter),
+   so hide pagination that would point at them */
+#pagination a[href^="/cookbooks/"] {
+  display: none;
+}
+
+/* cookbooks card category label */
+.cookbook-tag {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin-bottom: 0.375rem;
+}
