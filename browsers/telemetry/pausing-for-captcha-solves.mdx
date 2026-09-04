@@ -1,0 +1,215 @@
+---
+title: "Pausing for Captcha Solves"
+description: "Use captcha telemetry events to pause an agent while Kernel's solver works, and resume once it succeeds"
+---
+
+Kernel's [stealth mode](/browsers/bot-detection/stealth) includes an automatic captcha solver that attempts supported challenges — reCAPTCHA, hCaptcha, Cloudflare/Turnstile, and press-and-hold — without any action from your agent. The solver runs in the VM; your agent's job is just to not get in its way while it works.
+
+The naive way to handle that is a system-prompt instruction: [`"If you see a CAPTCHA or similar test, just wait for it to get solved automatically."`](/browsers/bot-detection/stealth#anthropic-computer-use) That works, but it's a soft constraint. The model decides for itself how long to wait and how to tell a solve is still running, from a screenshot alone. It can act too soon — a click during an active solve can land on the widget and interfere with it — or wait long after the page has already moved on.
+
+[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) turns that guess into a signal: `captcha_solve_started` fires when the solver accepts a task, and `captcha_solve_result` / `captcha_challenge_result` fire when it reaches a terminal outcome. This cookbook uses [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) — the same package used in [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — to build an automation that streams those events in real time, pauses the agent the instant a solve starts, and resumes it once the result comes back successful.
+
+## The approach
+
+Run the agent through a `browser-loop`-compiled harness as usual. Alongside it, open the session's [telemetry stream](/browsers/telemetry/streaming) and watch for `captcha` events:
+
+1. On `captcha_solve_started`, abort the harness's current turn so the agent stops taking actions.
+2. Wait for the matching terminal event — `captcha_challenge_result` when a `challenge_id` is available, otherwise `captcha_solve_result` on `task_id` — within a bounded timeout.
+3. Re-prompt the harness with what happened, so it picks up with full context instead of starting over.
+
+This mirrors the abort-and-resume pattern from the [Per-Tool Limit](/browsers/playwright-computer-use-fallback#per-tool-limit) recipe: `harness.abort()` interrupts the in-flight run, and a fresh `harness.prompt()` call continues the same conversation once the agent is safe to act again.
+
+## Setup
+
+```bash
+npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core tsx
+```
+
+<Warning>
+`browser-loop` depends on an older, exact `@onkernel/sdk` version that predates the [telemetry API](/browsers/telemetry/overview) — installing `@onkernel/sdk` at its current version alongside it can leave two copies in `node_modules`, which produces two incompatible `KERNEL` client types (`attach({ client, browser })` won't type-check, and `client.browsers.telemetry` won't exist on the version `browser-loop` sees). Run `npm ls @onkernel/sdk`; if you see two versions, force a single one with an `overrides` entry in `package.json`:
+
+```json
+{
+  "overrides": {
+    "@onkernel/sdk": "$@onkernel/sdk"
+  }
+}
+```
+
+That pins every copy in the tree to whatever version your own `dependencies` entry resolves to, so `attach()` and `client.browsers.telemetry.stream()` both see the same client type.
+</Warning>
+
+Every script needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
+
+```bash
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
+```
+
+## The script
+
+`createCaptchaGate` is the only piece of custom logic. It opens the telemetry stream, tracks whether a captcha episode is currently in flight, and exposes one method the driver awaits after pausing the agent.
+
+A `captcha_solve_started` event marks the start of an episode and calls `onSolveStarted`. Duplicate `captcha_solve_started` events for the same episode (an image-grid challenge can run several solver tasks) don't fire it again — the driver only needs to know once that it should stop. The episode ends on whichever terminal event actually arrives: `captcha_challenge_result` when the task carried a `challenge_id`, or `captcha_solve_result` when it didn't. Per the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges), delivery is best-effort and unordered, so `waitForOutcome` takes a timeout and resolves to `"unknown"` rather than hanging forever if a terminal event never shows up.
+
+The driver compiles a Playwright-toolset harness the same way as the [fallback cookbook](/browsers/playwright-computer-use-fallback), wires the gate's `onSolveStarted` callback to `harness.abort()`, and loops on `stopReason === "aborted"` — re-prompting with the outcome each time a captcha resolves, until the agent finishes for a reason other than a captcha pause.
+
+```ts
+/**
+ * Run an agent against a page that may present a captcha, pausing on
+ * `captcha_solve_started` and resuming once Kernel's solver reports a
+ * terminal outcome for that episode.
+ *
+ * Demo target: the public reCAPTCHA v2 demo at google.com/recaptcha/api2/demo.
+ * Kernel's stealth captcha solver handles it automatically; this script's job
+ * is only to keep the agent from acting on the page while that's in progress.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-solve-wait.ts
+ *
+ * Env:
+ *   KERNEL_API_KEY   required, KERNEL browser API key
+ *   LOOP_MODEL       optional, defaults to anthropic:claude-sonnet-5
+ *                    (needs the matching provider API key, e.g. ANTHROPIC_API_KEY)
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo, type AgentHarnessEvent } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+type CaptchaOutcome = "solved" | "failure" | "timeout" | "abandoned" | "unknown";
+
+// Tracks one captcha episode at a time: an episode opens on captcha_solve_started
+// and closes on whichever terminal event actually arrives for it.
+function createCaptchaGate(client: KERNEL, sessionId: string, onSolveStarted: () => void) {
+	let taskId: string | null = null;
+	let challengeId: string | null = null;
+	let waiter: ((outcome: CaptchaOutcome) => void) | null = null;
+
+	function settle(outcome: CaptchaOutcome) {
+		taskId = null;
+		challengeId = null;
+		waiter?.(outcome);
+		waiter = null;
+	}
+
+	(async () => {
+		const stream = await client.browsers.telemetry.stream(sessionId);
+		for await (const { event } of stream) {
+			if (event.category !== "captcha") continue;
+
+			if (event.type === "captcha_solve_started") {
+				const isNewEpisode = taskId === null && challengeId === null;
+				taskId = event.data.task_id ?? taskId;
+				challengeId = event.data.challenge_id ?? challengeId;
+				if (isNewEpisode) onSolveStarted();
+			} else if (event.type === "captcha_challenge_result" && event.data.challenge_id === challengeId) {
+				settle(event.data.status);
+			} else if (event.type === "captcha_solve_result" && !challengeId && event.data?.task_id === taskId) {
+				settle(event.data.status === "success" ? "solved" : event.data.status);
+			}
+		}
+	})();
+
+	return {
+		waitForOutcome(timeoutMs: number): Promise<CaptchaOutcome> {
+			if (taskId === null && challengeId === null) return Promise.resolve("solved");
+			return new Promise((resolve) => {
+				waiter = resolve;
+				setTimeout(() => {
+					if (waiter === resolve) {
+						waiter = null;
+						resolve("unknown");
+					}
+				}, timeoutMs);
+			});
+		},
+	};
+}
+
+const TASK_PROMPT =
+	"Go to google.com/recaptcha/api2/demo, solve the reCAPTCHA challenge, and submit the form.";
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+// How long to wait for a terminal captcha event before giving up and letting
+// the agent reassess the page on its own.
+const CAPTCHA_WAIT_TIMEOUT_MS = 45_000;
+
+async function main(): Promise<void> {
+	const kernelApiKey = process.env.KERNEL_API_KEY;
+	if (!kernelApiKey) throw new Error("KERNEL_API_KEY is required");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const client = new KERNEL({ apiKey: kernelApiKey });
+	const browser = await client.browsers.create({
+		stealth: true,
+		telemetry: { browser: { captcha: { enabled: true } } },
+	});
+	const kb = attach({ client, browser });
+
+	try {
+		const session = await new InMemorySessionRepo().create({ id: "captcha-solve-wait" });
+
+		const compiled = kb.compile({ model: MODEL, tools: loop.toolsets.browser() });
+		const harness = new AgentHarness({
+			session,
+			model: compiled.model,
+			models: compiled.models,
+			tools: [...compiled.tools],
+			activeToolNames: compiled.tools.map((tool) => tool.name),
+			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+		});
+		compiled.activate(harness);
+
+		let actionTurns = 0;
+		harness.subscribe((event: AgentHarnessEvent) => {
+			if (event.type !== "tool_execution_end") return;
+			actionTurns += 1;
+			console.log(`[agent ${actionTurns}] ${event.toolName} error=${event.isError}`);
+		});
+
+		const gate = createCaptchaGate(client, browser.session_id, () => {
+			console.log("[captcha] solve started, pausing agent");
+			void harness.abort();
+		});
+
+		console.log(`model=${MODEL} prompt=${JSON.stringify(TASK_PROMPT)}`);
+		let final = await harness.prompt(TASK_PROMPT);
+
+		while (final.stopReason === "aborted") {
+			const outcome = await gate.waitForOutcome(CAPTCHA_WAIT_TIMEOUT_MS);
+			console.log(`[captcha] resolved: ${outcome}`);
+			const followUp =
+				outcome === "solved"
+					? "Kernel's captcha solver resolved the challenge successfully. Continue the task."
+					: `The captcha challenge ended as "${outcome}". Take a screenshot to check the current ` +
+						"page state, then retry the challenge yourself or report the blocker.";
+			final = await harness.prompt(followUp);
+		}
+
+		console.log(`final stopReason: ${final.stopReason}`);
+		for (const block of final.content) {
+			if (block.type === "text") console.log(block.text);
+		}
+	} finally {
+		await kb.dispose();
+		await client.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+
+## Notes
+
+- **The gate only matters once a run is in flight.** If a captcha appears and clears before the first `harness.prompt()` call starts, there's nothing to pause — which is fine, since there was nothing for the agent to interfere with either.
+- **`harness.abort()` interrupts the current turn, not just the next tool call.** The agent's in-flight action still completes on the browser side; the harness stops before starting another one. This is the same mechanism the [fallback cookbook](/browsers/playwright-computer-use-fallback#per-tool-limit) uses to hand off between toolsets.
+- **Multiple captchas in one run just loop.** Each terminal event resets the gate's state, so a second `captcha_solve_started` later in the task pauses and resumes the same way.
+- **A bounded wait beats an indefinite one.** Per the [telemetry docs](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges), event delivery isn't guaranteed or ordered — `waitForOutcome`'s timeout is what keeps a dropped event from stalling the run forever.
+
+## Next steps
+
+- [Telemetry Categories](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) — the full captcha event schema, `task_id` / `challenge_id` correlation, and outcome meanings
+- [Stream Telemetry](/browsers/telemetry/streaming) — resuming a dropped stream, filtering by category
+- [Stealth mode](/browsers/bot-detection/stealth) — what the automatic captcha solver covers
+- [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — the abort-and-resume pattern this cookbook reuses
