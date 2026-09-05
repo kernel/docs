@@ -1,0 +1,519 @@
+---
+title: "Pausing for Captcha Solves"
+description: "Use captcha telemetry to hold an agent while Kernel's solver works, and tell it what actually happened"
+---
+
+Kernel's [stealth mode](/browsers/bot-detection/stealth) includes an automatic captcha solver that attempts supported challenges — reCAPTCHA, hCaptcha, Cloudflare/Turnstile, and press-and-hold — without any action from your agent. The solver runs in the VM; your agent's job is to not get in its way, and to know what happened when it finishes.
+
+The usual approach is a system-prompt instruction: [`"If you see a CAPTCHA or similar test, just wait for it to get solved automatically."`](/browsers/bot-detection/stealth#anthropic-computer-use) That works, but the model decides for itself how long to wait and how to tell a solve is still running, from a screenshot alone.
+
+[Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) gives you the signal directly. This cookbook wires it into a [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) agent so that browser actions are held while a solve is outstanding, and the agent is told the outcome in terms it can act on.
+
+The design follows one split:
+
+<Note>
+Telemetry decides **what to say**. The live page decides **whether to interrupt the agent at all**. A solver task succeeding and a challenge clearing are different facts, so the gate never reports one as the other.
+</Note>
+
+## What the events tell you
+
+| Event | Scope | What it means |
+| --- | --- | --- |
+| `captcha_solve_started` | Solver task | The solver accepted a task. It does **not** mean a solve is currently in flight. |
+| `captcha_solve_result` | Solver task | A task ended `success`, `failure`, `timeout`, or `abandoned`. Success means the solver returned a usable answer, not that the challenge cleared. |
+| `captcha_challenge_result` | Visible challenge | The challenge reached its overall outcome. Only emitted for challenge types Kernel tracks as a widget. |
+
+Three rules from [Correlate captcha tasks and challenges](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) shape everything below:
+
+- **`task_id` is the only join.** Pair a start with its result on it. `challenge_id` groups tasks for one visible challenge and is present only when Kernel tracked the widget — tasks without one can never be joined to a `captcha_challenge_result`, even when one is emitted for the same page.
+- **Delivery is best-effort and unordered.** A start can arrive after its result, and any event can be absent. Nothing may depend on arrival order, and every wait needs a deadline.
+- **Fall back to the page.** When you need a challenge-level outcome and don't have one, use the available task results and the current page state.
+
+## Setup
+
+<Warning>
+Pin `@earendil-works/pi-agent-core` to the version `@onkernel/browser-loop` depends on. A newer one renames the exports this script uses and the script won't compile.
+</Warning>
+
+```bash
+npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core@0.83.0 tsx
+```
+
+Every run needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
+
+```bash
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-gate.ts "your task"
+```
+
+## Build the gate
+
+The four snippets below are one file, `captcha-gate.ts`, in order.
+
+<Steps>
+  <Step title="Read the events">
+    Three maps, one per thing the telemetry can tell you, all keyed so nothing depends on arrival order. `joinable` is the important one: it holds only the `challenge_id`s that actually appeared on a task event, which are the only ones a challenge result may be attributed to.
+
+    A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed.
+
+```ts captcha-gate.ts
+/**
+ * Pause a browser-loop agent while Kernel's captcha solver works, and tell it
+ * what actually happened when the solve ends.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-gate.ts "your task"
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+const TASK_SETTLE_MS = 20_000;
+const CHALLENGE_GRACE_MS = 8_000;
+const POLL_MS = 250;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+interface PageState {
+	widgets: string[];
+	tokenPresent: boolean;
+}
+
+interface Outcome {
+	status?: string;
+	durationMs?: number;
+	captchaType?: string;
+}
+
+interface Verdict extends Outcome {
+	source: "challenge" | "task" | "page";
+	status: string;
+	joined: boolean;
+	page: PageState;
+	message: string;
+}
+
+function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => Promise<PageState>) {
+	const tasks = new Map<string, Outcome & { openedAt: number }>();
+	const challenges = new Map<string, Outcome & { status: string }>();
+	// Only challenge_ids that appeared on a task event may be attributed to it.
+	const joinable = new Set<string>();
+
+	void (async () => {
+		const stream = await kernel.browsers.telemetry.stream(sessionId);
+		for await (const { event } of stream) {
+			if (event.category !== "captcha") continue;
+
+			if (event.type === "captcha_solve_started" && event.data?.task_id) {
+				// A result for an unseen task lands already closed, so a start that
+				// arrives after its own result never reopens it.
+				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
+				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				tasks.set(event.data.task_id, task);
+				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id) {
+				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
+				task.status = event.data.status;
+				task.durationMs = event.data.duration_ms;
+				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				tasks.set(event.data.task_id, task);
+				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id) {
+				challenges.set(event.data.challenge_id, {
+					status: event.data.status,
+					durationMs: event.data.duration_ms,
+					captchaType: event.data.captcha_type,
+				});
+			}
+		}
+	})();
+```
+  </Step>
+
+  <Step title="Decide when to hold">
+    A task counts as open while it has no terminal status and is still inside its deadline — that deadline is what stops a missing `captcha_solve_result` from holding the agent forever. `until` is the only waiting primitive, and it always takes a timeout.
+
+```ts captcha-gate.ts
+	const openTasks = () => [...tasks.values()].filter((t) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS);
+	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
+
+	async function until(done: () => boolean, timeoutMs: number) {
+		const deadline = Date.now() + timeoutMs;
+		while (!done() && Date.now() < deadline) await sleep(POLL_MS);
+	}
+```
+  </Step>
+
+  <Step title="Resolve an outcome">
+    `resolve` settles what it can, waits a bounded interval for a challenge-level result *only* when a task actually carried a `challenge_id`, then reads the page and picks the best available source: an attributable challenge result, then any challenge result (labelled as a page observation rather than a join), then task results, then the page alone.
+
+    `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone.
+
+```ts captcha-gate.ts
+	async function resolve(): Promise<Verdict> {
+		// A challenge result covers every task under it, so stop waiting once one lands.
+		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
+		if (joinable.size > 0 && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+
+		const page = await probePage();
+		const challenge = joinedResult() ?? [...challenges][0];
+		if (challenge) return describe("challenge", challenge[1].status, joinable.has(challenge[0]), challenge[1], page);
+
+		const finished = [...tasks.values()].filter((t) => t.status);
+		const task = finished.find((t) => t.status !== "success") ?? finished[0];
+		if (task) return describe("task", task.status!, false, task, page);
+
+		return describe("page", "unknown", false, {}, page);
+	}
+
+	return {
+		/** A task the solver accepted has no terminal result yet. */
+		holding: () => openTasks().length > 0,
+		/** A terminal outcome is recorded that the agent hasn't been told about. */
+		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => t.status && t.status !== "success"),
+		resolve,
+		reset: () => {
+			tasks.clear();
+			challenges.clear();
+			joinable.clear();
+		},
+	};
+}
+
+function describe(source: Verdict["source"], status: string, joined: boolean, outcome: Outcome, page: PageState): Verdict {
+	const took = outcome.durationMs ? ` after ${(outcome.durationMs / 1000).toFixed(1)}s` : "";
+	const kind = outcome.captchaType ? `${outcome.captchaType} ` : "";
+	const headline =
+		source === "page"
+			? "No terminal captcha telemetry arrived."
+			: source === "task"
+				? status === "success"
+					? `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`
+					: `A ${kind}solver task ended as "${status}"${took}.`
+				: status === "solved"
+					? `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`
+					: `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	const caveat =
+		source === "challenge" && !joined
+			? " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
+			: "";
+	const where = page.widgets.length
+		? `A captcha widget is still on the page (${page.widgets.join(", ")}).`
+		: "No captcha widget is visible on the page.";
+	return { source, status, joined, captchaType: outcome.captchaType, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
+}
+```
+  </Step>
+
+  <Step title="Wire it to the agent">
+    `harness.on("tool_call", …)` is awaited before the tool is dispatched, so returning from it late holds the action and returning `{ block: true, reason }` replaces it with a message the model reads. That is cheaper than aborting the turn and it stops the action *before* it reaches the page.
+
+    The page probe is a read-only Playwright snippet. Its result is what decides whether the agent is interrupted at all — a cleared page just resumes with no extra turn.
+
+```ts captcha-gate.ts
+const PROBE = `
+return await page.evaluate(() => {
+  const groups = {
+    recaptcha: 'iframe[src*="recaptcha"], .g-recaptcha',
+    hcaptcha: 'iframe[src*="hcaptcha"], .h-captcha',
+    turnstile: 'iframe[src*="challenges.cloudflare.com"], .cf-turnstile',
+  };
+  const onScreen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  return {
+    widgets: Object.entries(groups)
+      .filter(([, sel]) => [...document.querySelectorAll(sel)].some(onScreen))
+      .map(([name]) => name),
+    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"]')]
+      .some((el) => el.value.length > 0),
+  };
+});
+`;
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+async function main(): Promise<void> {
+	const task = process.argv[2];
+	if (!task) throw new Error("pass the task as the first argument");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const kernel = new KERNEL();
+	const browser = await kernel.browsers.create({
+		stealth: true,
+		telemetry: { browser: { captcha: { enabled: true } } },
+	});
+	const kb = attach({ client: kernel, browser });
+
+	const probePage = async (): Promise<PageState> => {
+		const { result } = await kernel.browsers.playwright.execute(browser.session_id, { code: PROBE });
+		return (result as PageState | undefined) ?? { widgets: [], tokenPresent: false };
+	};
+	const gate = createCaptchaGate(kernel, browser.session_id, probePage);
+
+	try {
+		const compiled = kb.compile({ model: MODEL, tools: loop.toolsets.browser() });
+		const harness = new AgentHarness({
+			session: await new InMemorySessionRepo().create({ id: browser.session_id }),
+			model: compiled.model,
+			models: compiled.models,
+			tools: [...compiled.tools],
+			activeToolNames: compiled.tools.map((tool) => tool.name),
+			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+		});
+		compiled.activate(harness);
+
+		harness.on("tool_call", async () => {
+			if (!gate.holding() && !gate.pending()) return undefined;
+			const verdict = await gate.resolve();
+			gate.reset();
+			console.log(`[captcha] ${verdict.source}:${verdict.status} — ${verdict.message}`);
+			// Telemetry decides what to say; the page decides whether to interrupt.
+			if (verdict.page.widgets.length === 0) return undefined;
+			return { block: true, reason: verdict.message };
+		});
+
+		const final = await harness.prompt(task);
+		for (const block of final.content) if (block.type === "text") console.log(block.text);
+	} finally {
+		await kb.dispose();
+		await kernel.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+  </Step>
+</Steps>
+
+<Accordion title="The complete captcha-gate.ts">
+```ts captcha-gate.ts
+/**
+ * Pause a browser-loop agent while Kernel's captcha solver works, and tell it
+ * what actually happened when the solve ends.
+ *
+ * Usage:
+ *   KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx captcha-gate.ts "your task"
+ */
+import KERNEL from "@onkernel/sdk";
+import { AgentHarness, InMemorySessionRepo } from "@earendil-works/pi-agent-core";
+import { loop } from "@onkernel/browser-loop";
+import { attach, requireLoopEnvApiKeyForModel, type LoopModelRef } from "@onkernel/browser-loop/pi";
+
+const TASK_SETTLE_MS = 20_000;
+const CHALLENGE_GRACE_MS = 8_000;
+const POLL_MS = 250;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+interface PageState {
+	widgets: string[];
+	tokenPresent: boolean;
+}
+
+interface Outcome {
+	status?: string;
+	durationMs?: number;
+	captchaType?: string;
+}
+
+interface Verdict extends Outcome {
+	source: "challenge" | "task" | "page";
+	status: string;
+	joined: boolean;
+	page: PageState;
+	message: string;
+}
+
+function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => Promise<PageState>) {
+	const tasks = new Map<string, Outcome & { openedAt: number }>();
+	const challenges = new Map<string, Outcome & { status: string }>();
+	// Only challenge_ids that appeared on a task event may be attributed to it.
+	const joinable = new Set<string>();
+
+	void (async () => {
+		const stream = await kernel.browsers.telemetry.stream(sessionId);
+		for await (const { event } of stream) {
+			if (event.category !== "captcha") continue;
+
+			if (event.type === "captcha_solve_started" && event.data?.task_id) {
+				// A result for an unseen task lands already closed, so a start that
+				// arrives after its own result never reopens it.
+				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
+				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				tasks.set(event.data.task_id, task);
+				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id) {
+				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
+				task.status = event.data.status;
+				task.durationMs = event.data.duration_ms;
+				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				tasks.set(event.data.task_id, task);
+				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id) {
+				challenges.set(event.data.challenge_id, {
+					status: event.data.status,
+					durationMs: event.data.duration_ms,
+					captchaType: event.data.captcha_type,
+				});
+			}
+		}
+	})();
+
+	const openTasks = () => [...tasks.values()].filter((t) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS);
+	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
+
+	async function until(done: () => boolean, timeoutMs: number) {
+		const deadline = Date.now() + timeoutMs;
+		while (!done() && Date.now() < deadline) await sleep(POLL_MS);
+	}
+
+	async function resolve(): Promise<Verdict> {
+		// A challenge result covers every task under it, so stop waiting once one lands.
+		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
+		if (joinable.size > 0 && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+
+		const page = await probePage();
+		const challenge = joinedResult() ?? [...challenges][0];
+		if (challenge) return describe("challenge", challenge[1].status, joinable.has(challenge[0]), challenge[1], page);
+
+		const finished = [...tasks.values()].filter((t) => t.status);
+		const task = finished.find((t) => t.status !== "success") ?? finished[0];
+		if (task) return describe("task", task.status!, false, task, page);
+
+		return describe("page", "unknown", false, {}, page);
+	}
+
+	return {
+		/** A task the solver accepted has no terminal result yet. */
+		holding: () => openTasks().length > 0,
+		/** A terminal outcome is recorded that the agent hasn't been told about. */
+		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => t.status && t.status !== "success"),
+		resolve,
+		reset: () => {
+			tasks.clear();
+			challenges.clear();
+			joinable.clear();
+		},
+	};
+}
+
+function describe(source: Verdict["source"], status: string, joined: boolean, outcome: Outcome, page: PageState): Verdict {
+	const took = outcome.durationMs ? ` after ${(outcome.durationMs / 1000).toFixed(1)}s` : "";
+	const kind = outcome.captchaType ? `${outcome.captchaType} ` : "";
+	const headline =
+		source === "page"
+			? "No terminal captcha telemetry arrived."
+			: source === "task"
+				? status === "success"
+					? `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`
+					: `A ${kind}solver task ended as "${status}"${took}.`
+				: status === "solved"
+					? `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`
+					: `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	const caveat =
+		source === "challenge" && !joined
+			? " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
+			: "";
+	const where = page.widgets.length
+		? `A captcha widget is still on the page (${page.widgets.join(", ")}).`
+		: "No captcha widget is visible on the page.";
+	return { source, status, joined, captchaType: outcome.captchaType, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
+}
+
+const PROBE = `
+return await page.evaluate(() => {
+  const groups = {
+    recaptcha: 'iframe[src*="recaptcha"], .g-recaptcha',
+    hcaptcha: 'iframe[src*="hcaptcha"], .h-captcha',
+    turnstile: 'iframe[src*="challenges.cloudflare.com"], .cf-turnstile',
+  };
+  const onScreen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  return {
+    widgets: Object.entries(groups)
+      .filter(([, sel]) => [...document.querySelectorAll(sel)].some(onScreen))
+      .map(([name]) => name),
+    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"]')]
+      .some((el) => el.value.length > 0),
+  };
+});
+`;
+
+const MODEL = (process.env.LOOP_MODEL as LoopModelRef | undefined) ?? "anthropic:claude-sonnet-5";
+
+async function main(): Promise<void> {
+	const task = process.argv[2];
+	if (!task) throw new Error("pass the task as the first argument");
+	requireLoopEnvApiKeyForModel(MODEL);
+
+	const kernel = new KERNEL();
+	const browser = await kernel.browsers.create({
+		stealth: true,
+		telemetry: { browser: { captcha: { enabled: true } } },
+	});
+	const kb = attach({ client: kernel, browser });
+
+	const probePage = async (): Promise<PageState> => {
+		const { result } = await kernel.browsers.playwright.execute(browser.session_id, { code: PROBE });
+		return (result as PageState | undefined) ?? { widgets: [], tokenPresent: false };
+	};
+	const gate = createCaptchaGate(kernel, browser.session_id, probePage);
+
+	try {
+		const compiled = kb.compile({ model: MODEL, tools: loop.toolsets.browser() });
+		const harness = new AgentHarness({
+			session: await new InMemorySessionRepo().create({ id: browser.session_id }),
+			model: compiled.model,
+			models: compiled.models,
+			tools: [...compiled.tools],
+			activeToolNames: compiled.tools.map((tool) => tool.name),
+			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+		});
+		compiled.activate(harness);
+
+		harness.on("tool_call", async () => {
+			if (!gate.holding() && !gate.pending()) return undefined;
+			const verdict = await gate.resolve();
+			gate.reset();
+			console.log(`[captcha] ${verdict.source}:${verdict.status} — ${verdict.message}`);
+			// Telemetry decides what to say; the page decides whether to interrupt.
+			if (verdict.page.widgets.length === 0) return undefined;
+			return { block: true, reason: verdict.message };
+		});
+
+		const final = await harness.prompt(task);
+		for (const block of final.content) if (block.type === "text") console.log(block.text);
+	} finally {
+		await kb.dispose();
+		await kernel.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+</Accordion>
+
+## What the agent is told
+
+Every verdict pairs a telemetry claim with the page state it was checked against:
+
+| Source | Message |
+| --- | --- |
+| Attributable challenge result | "Kernel observed the challenge clear after 18.0s. That is not proof the site accepted the solution. No captcha widget is visible on the page." |
+| Unjoinable challenge result | Same, plus "It could not be joined to this page's solver tasks, so treat it as an observation about the page." |
+| Task result only | "The solver returned an answer for a turnstile task after 3.9s. No challenge-level outcome was reported, so this is not a cleared challenge. A captcha widget is still on the page (turnstile)." |
+| Nothing terminal arrived | "No terminal captcha telemetry arrived. A captcha widget is still on the page (turnstile)." |
+
+Durations come straight from each event's `duration_ms`, which is authoritative; don't compute them from event timestamps.
+
+## Limits
+
+- **`TASK_SETTLE_MS` and `CHALLENGE_GRACE_MS` are the safety net.** Events can be absent, so both waits are bounded and the gate falls through to the page rather than stalling. Raise `TASK_SETTLE_MS` if your solves routinely run longer than 20s.
+- **Challenge results aren't emitted for every widget type.** Turnstile, for instance, reports task events only, so the task-plus-page path is the one that runs there.
+- **One episode at a time.** The gate resets after each verdict; overlapping visible challenges from the same provider aren't split apart, and the telemetry docs note Kernel's own event model can't always attribute a result in that case either.
+- **The page probe is best-effort.** It reads the DOM for known widget markers and a response token. A site that renders its challenge somewhere those selectors miss will fall back to the telemetry verdict alone.
+
+## Next steps
+
+- [Telemetry Categories](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) — the full captcha event schema and correlation rules
+- [Stream Telemetry](/browsers/telemetry/streaming) — resuming a dropped stream, filtering by category
+- [Stealth mode](/browsers/bot-detection/stealth) — what the automatic captcha solver covers
+- [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — holding and redirecting an agent mid-run for a different reason
