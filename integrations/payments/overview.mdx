@@ -12,9 +12,15 @@ page creates its normal payment request.
 <span className="kernel-brand-name">KERNEL</span> handles authorization and
 payment handoff outside the browser.
 
+stripe link and agentcard are credential providers, not merchant payment
+processors. at the browser form layer, both work with any web checkout that
+accepts standard card details, and the merchant's processor does not need to be
+stripe. end-to-end handoff also requires the outgoing payment request to match a
+native <span className="kernel-brand-name">KERNEL</span> processor adapter.
+
 ## How payments work
 
-both supported providers use the same integration shape:
+both credential providers use the same integration shape:
 
 1. create a vault for the user or task.
 2. create a wallet item and send the user through the provider-hosted collection flow.
@@ -31,12 +37,12 @@ configured and do not offer either provider again.
 
 ```mermaid
 flowchart LR
-  U[user] --> H[provider-hosted collection]
+  U[user] --> H[credential-provider collection]
   H --> W[wallet item]
   W --> C[card item and aliases]
   C --> A[agent fills checkout]
   A --> E[<span class='kernel-brand-name'>KERNEL</span> egress]
-  E --> P[payment provider]
+  E --> P[merchant processor]
   P --> M[merchant response]
 ```
 
@@ -64,9 +70,9 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 </CardGroup>
 
 <Note>
-  <span className="kernel-brand-name">KERNEL</span> is actively adding native
-  integrations with more payment providers. email
-  [support@kernel.sh](mailto:support@kernel.sh) to request one.
+  stripe link and agentcard identify where the credential comes from and how the
+  user approves it. choose between them based on that lifecycle, not the
+  merchant processor. processor-adapter coverage is the same for both.
 </Note>
 
 | behavior                  | stripe link                                              | agentcard                                                           |
@@ -79,16 +85,47 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 
 choose [stripe link](/integrations/payments/stripe-link) when each purchase needs a newly approved, one-use credential. choose [agentcard](/integrations/payments/agentcard) when the same enrolled card must support multiple separately approved purchases.
 
-## Supported checkouts
+## Checkout and processor coverage
 
-the initial release recognizes form-encoded card requests sent to `api.stripe.com` on these paths:
+<span className="kernel-brand-name">KERNEL</span> currently includes native
+adapters for these checkout request formats. all five adapters are enabled for
+both stripe link and agentcard.
 
-- `/v1/payment_methods`
-- `/v1/tokens`
-- `/v1/payment_intents/{id}/confirm`
-- `/v1/payment_pages/{id}/confirm`
+| merchant processor or platform | recognized HTTPS `POST` request formats                                                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| stripe                         | form requests to `api.stripe.com/v1/payment_methods`, `/v1/tokens`, `/v1/payment_intents/{id}/confirm`, and `/v1/payment_pages/{id}/confirm`                                                |
+| shopify                        | JSON card-session requests to `checkout.pci.shopifyinc.com/sessions` and `deposit.<region>.shopifycs.com/sessions`                                                                          |
+| square                         | JSON card-nonce requests to `pci-connect.squareup.com/v2/card-nonce` and `pci-connect.squareupsandbox.com/v2/card-nonce`                                                                    |
+| recurly                        | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
+| razorpay                       | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
 
-the request must contain the complete alias set. arbitrary processors, custom request formats, and every possible stripe integration are not supported in the initial release.
+for example, a browser can enter stripe link or agentcard aliases into a Shopify
+checkout. Shopify remains the merchant platform; stripe link or agentcard
+supplies the credential and approval flow.
+
+the outgoing request must contain the complete alias set and match the adapter's
+expected HTTPS method, host, path, content type, and card-field layout. these
+adapters are enabled today, but non-Stripe coverage still needs broader
+validation against real processor SDKs and hosted checkouts. encrypted payloads,
+different request layouts, and unrecognized processor endpoints pass through
+without native handoff.
+
+<span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
+support the same processors supported by agentcard's direct SDK. email
+[support@kernel.sh](mailto:support@kernel.sh) if you need another processor so
+we can prioritize its adapter and validate a real checkout.
+
+## Why use KERNEL handoff
+
+- integrate with one <span className="kernel-brand-name">KERNEL</span> vault api for both stripe link and agentcard.
+- let <span className="kernel-brand-name">KERNEL</span> intercept recognized payment requests at egress, including requests from embedded payment frames, instead of maintaining cdp interception or page-routing logic in your agent.
+- verify the project, browser session, vault attachment, item, aliases, and lifecycle state before handoff, then record the payment lifecycle in vault audit events.
+- keep the underlying credential outside your application, agent, and browser through aliases and provider-hosted enrollment and approval.
+
+the handoff is designed to prevent credential injection and browser-to-provider
+handoff failures. we don't yet have comparative data showing higher checkout
+completion or payment acceptance rates. expanding acceptance coverage against
+real processors and measuring reliability are active priorities.
 
 <Warning>
   don't retry a failed, timed-out, rejected, or indeterminate payment. a browser

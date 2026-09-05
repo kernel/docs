@@ -7,18 +7,22 @@ you're building a browser agent. you can add payments without bringing your appl
 
 create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
 
+stripe link and agentcard are credential providers, not merchant payment
+processors. at the browser form layer, both work with any web checkout that
+accepts standard card details, and the merchant's processor does not need to be
+stripe. end-to-end handoff also requires the outgoing request to match one of the
+[native processor adapters](/integrations/payments/overview#checkout-and-processor-coverage).
+
 you can use either [stripe link](/integrations/payments/stripe-link) or
 [agentcard](/integrations/payments/agentcard). choose based on how the payment
 credential is created and when the user approves it:
 
-|                            | stripe link                                                                                            | agentcard                                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| card source                | provider-minted, one-use card for a specific purchase                                                  | user's enrolled card, represented by a reusable card item                                                                                     |
-| approval timing            | before the browser submits checkout                                                                    | after the browser submits checkout and while the request is held                                                                              |
-| reuse                      | card item and aliases are consumed after the first supported substitution                              | card item and aliases return to `ready`; every checkout requires approval                                                                     |
-| mode                       | live only                                                                                              | deployment credential; the vault api does not expose sandbox or live mode                                                                     |
-| checkout fit               | likely the better starting point for stripe-powered checkout pages                                     | may fit general card-entry pages better because it is backed by the user's enrolled card                                                      |
-| current preview constraint | limited to the [supported stripe request formats](/integrations/payments/overview#supported-checkouts) | limited to the same [supported stripe request formats](/integrations/payments/overview#supported-checkouts), not arbitrary payment processors |
+|                 | stripe link                                                       | agentcard                                                                        |
+| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
+| approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
+| reuse           | card item and aliases are consumed after the first native handoff | card item and aliases return to `ready`; every checkout requires approval        |
+| mode            | live only                                                         | deployment credential; the vault api doesn't expose sandbox or live mode         |
 
 agentcard is backed by a card the user enrolls, but the agent and browser still
 enter aliases rather than the underlying card details. those details remain
@@ -70,7 +74,7 @@ card.
    values for required email, billing, postal, shipping, or other customer
    fields; stop if a required value is missing. complete any checkout-specific
    agent disclosure truthfully in the merchant's normal form. submit checkout
-   once.
+   once and never retry submission.
 10. inspect the checkout result and the card item's events. do not retry a
    failed, timed-out, or indeterminate payment. report the existing attempt so
    we can reconcile it first.
@@ -109,7 +113,7 @@ card.
    an enrolled card during approval.
 8. retrieve the card item and confirm its status is `ready`. do not invoke
    `authorize`; agentcard starts authorization only when the attached browser
-   submits a supported checkout request.
+   submits a recognized processor request containing the aliases.
 9. give me the exact cli observation commands, but do not run them. ask me to
    start the trusted approval observer outside this agent. after i confirm it is
    running, use only the returned aliases with
@@ -117,9 +121,9 @@ card.
    fields. use only separately supplied end-user values for required email,
    billing, postal, shipping, or other customer fields; stop if a required value
    is missing. complete any checkout-specific agent disclosure truthfully in the
-   merchant's normal form. submit checkout once and keep that execution open
-   while KERNEL holds the payment request. do not poll or print the card item
-   while approval is pending.
+   merchant's normal form. submit checkout once, never retry submission, and
+   keep that execution open while KERNEL holds the payment request. do not poll
+   or print the card item while approval is pending.
 10. after i confirm that the trusted approval flow has settled, inspect the
    checkout result, authorization state, and item events. do not retry a failed,
    timed-out, or indeterminate payment. report the existing attempt so we can
@@ -134,8 +138,8 @@ this guide starts after you have an existing browser agent. it changes how you p
 
 - install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
-- use a supported stripe checkout you control. the initial release supports the request formats listed in the [payments overview](/integrations/payments/overview#supported-checkouts).
-- use a low-value checkout you control while validating the flow. stripe link card creation is live-only. agentcard mode comes from the integration's configured credential.
+- use a low-value web checkout you control whose outgoing payment request matches a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage). the merchant processor doesn't need to be stripe.
+- stripe link card creation is live-only. agentcard mode comes from the integration's configured credential.
 - for agentcard, keep an application-owned `AGENTCARD_MODE` deployment setting and fail closed unless it explicitly matches the sandbox or live environment you intend to use. the vault api does not return this mode.
 
 <Warning>
@@ -192,13 +196,14 @@ the end user creates the purchase intent. your application translates that
 confirmed intent into a KERNEL card item without exposing its api key to the
 user or agent.
 
-| actor                | responsibility                                                                                                                                        |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| your application     | enforces one wallet per provider; independently verifies purchase values; calls KERNEL; presents provider actions; observes state; attaches the vault |
-| your end user        | initiates wallet setup and purchases; adds or selects the real payment method; confirms the verified purchase; completes approval                     |
-| your browser agent   | proposes purchase values; after verification and confirmation, receives aliases, enters them into the checkout form, and submits once                 |
-| KERNEL               | creates the requested vault resources, returns aliases, enforces browser bindings, and handles payment data at egress                                 |
-| the payment provider | hosts connection, enrollment, and approval; stores the underlying payment method; authorizes the purchase                                             |
+| actor                       | responsibility                                                                                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| your application            | enforces one wallet per provider; independently verifies purchase values; calls KERNEL; presents provider actions; observes state; attaches the vault |
+| your end user               | initiates wallet setup and purchases; adds or selects the real payment method; confirms the verified purchase; completes approval                     |
+| your browser agent          | proposes purchase values; after verification and confirmation, receives aliases, enters them into the checkout form, and submits once                 |
+| KERNEL                      | creates the requested vault resources, returns aliases, enforces browser bindings, and handles payment data at egress                                 |
+| the credential provider     | hosts wallet connection, enrollment, and approval; stores or mints the underlying payment credential                                                  |
+| the merchant's processor    | receives the recognized checkout request and returns its tokenization or payment response                                                             |
 
 ### Once per end user and provider
 
@@ -270,6 +275,11 @@ updating a card item:
   card specification, approval display, and authorization.
 </Warning>
 
+purchase verification doesn't depend on the merchant processor. prefer the
+merchant's trusted order or cart backend. if one isn't available, use documented
+structured checkout data or deterministic extraction for that checkout, and
+fail closed when the values can't be independently verified.
+
 for a stripe payment link without an order or cart backend, use the payment-link
 response as the deterministic source. the current response exposes
 `account_settings.display_name`, `line_item_group.total`,
@@ -300,16 +310,16 @@ browser session. the vault attachment covers items created later in that vault.
 </Warning>
 
 <Note>
-  we're onboarding more native payment providers and will update this guide as
-  new integrations become available. we plan to build additional card-collection
-  and vault-management surfaces so developers can connect the payment providers
-  and third-party vaults they already use. over time, we want{" "}
+  we're adding credential-provider integrations and merchant-processor adapters
+  and will update this guide as coverage expands. we plan to build additional
+  card-collection and vault-management surfaces so developers can connect the
+  credential providers and third-party vaults they already use. over time, we want{" "}
   <span className="kernel-brand-name">KERNEL</span> to support more of the
   browser-side steps required to complete a payment without exposing the
   underlying credential to the agent or browser.
 </Note>
 
-both provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
+both credential-provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
 
 ### Collect non-card checkout fields
 
@@ -324,8 +334,14 @@ merchant-specific agent disclosures are normal checkout fields. if the page
 asks whether automation is acting for another person, instruct the agent to
 answer truthfully in the merchant's form before submission. for a checkout that
 offers **I am an AI agent acting on behalf of someone else**, select that option.
-don't bypass the disclosure or replace the page's normal submission with a raw
-processor request.
+stripe can render hidden or duplicate copies of its disclosure control for
+responsive layouts. target the visible label. if the label doesn't toggle the
+control, locate the associated real `input[type="checkbox"]` and invoke its
+native dom `click()`. read that same input's `checked` property and require it to
+be `true` before submission. if you can't verify the checked state, stop without
+submitting. don't bypass the disclosure or replace the page's normal submission
+with a raw processor request. after triggering submission once, never retry it,
+including after a timeout, unchanged page, or indeterminate result.
 
 retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
 
@@ -443,8 +459,9 @@ If the checkout asks whether an agent is acting for another person, select the
 truthful disclosure option in the page before submission. For example:
 - I am an AI agent acting on behalf of someone else
 
-Submit the checkout once. If the payment request pauses for user approval,
-wait for the controller to finish that approval. Do not retry payment.
+Submit the checkout once and never retry submission. If the payment request
+pauses for user approval, wait for the controller to finish that approval. Do
+not retry payment.
 ```
 
 replace the angle-bracketed fields in your controller before sending the task. don't put oauth codes, action urls, provider responses, the vault api key, or the browser connection url in the prompt.

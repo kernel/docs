@@ -25,9 +25,10 @@ resolved.
 <Note>
   vaults are in preview. the initial release supports `wallet` and `card` items
   for [stripe link](/integrations/payments/stripe-link) and
-  [agentcard](/integrations/payments/agentcard). the vault model is not limited
-  to payments, but no other item types or providers are supported in this
-  release.
+  [agentcard](/integrations/payments/agentcard). here, provider means the
+  credential provider connected to the vault, not the merchant's payment
+  processor. the vault model isn't limited to payments, but no other item types
+  or credential providers are supported in this release.
 </Note>
 
 ## How vaults work
@@ -153,8 +154,16 @@ see the [vaults api reference](https://kernel.sh/docs/api-reference/vaults/creat
 
 the initial release applies the vault primitive to browser checkout. a wallet
 connects an end user's payment method through a provider-hosted flow. a card item
-then publishes aliases that an attached browser can enter into a supported
-checkout. authorization and payment handoff happen outside the browser vm.
+then publishes aliases that an attached browser can enter into a web checkout.
+authorization and payment handoff happen outside the browser vm.
+
+stripe link and agentcard are credential providers, not merchant payment
+processors. at the browser form layer, both work with any web checkout that
+accepts standard card details, and the merchant's processor doesn't need to be
+stripe. end-to-end handoff requires the outgoing request to match a native
+processor adapter. the current adapters cover request formats used by stripe,
+shopify, square, recurly, and razorpay; see [checkout and processor
+coverage](/integrations/payments/overview#checkout-and-processor-coverage).
 
 stripe link creates a one-use card for an approved purchase. agentcard keeps a
 reusable card item and requests approval for each checkout. wallet connection,
