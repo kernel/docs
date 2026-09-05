@@ -1,0 +1,512 @@
+---
+title: "Agentcard"
+description: "Use Agentcard to approve browser checkouts against an enrolled payment method"
+---
+
+[agentcard](https://www.agentcard.sh/) collects a user's card in a hosted enrollment flow and authorizes each browser checkout against that enrolled payment method. the card number and cvc stay with agentcard. your agent receives non-secret aliases.
+
+## Before you start
+
+create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({ projectID: process.env.KERNEL_PROJECT_ID! });
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+const agentcardMode = process.env.AGENTCARD_MODE;
+if (agentcardMode !== "sandbox" && agentcardMode !== "live") {
+  throw new Error("set AGENTCARD_MODE to sandbox or live");
+}
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
+vault = kernel.vaults.upsert(name="user-12345")
+
+agentcard_mode = os.environ.get("AGENTCARD_MODE")
+if agentcard_mode not in {"sandbox", "live"}:
+    raise RuntimeError("set AGENTCARD_MODE to sandbox or live")
+```
+
+```bash CLI
+export AGENTCARD_MODE=live
+kernel vaults create --name user-12345
+```
+
+</CodeGroup>
+
+the vault api does not expose whether the configured agentcard credential is
+sandbox or live. `AGENTCARD_MODE` is an application-owned assertion, not a
+value read from KERNEL. set it from the deployment configuration that owns the
+agentcard credential, show the mode in internal checkout controls, and fail
+closed when it is missing or does not match the environment you intend to use.
+set `AGENTCARD_MODE=sandbox` instead only when that deployment uses a sandbox
+credential.
+
+## Lifecycle
+
+1. create a `wallet` item and open the returned `card_enrollment` action for the user.
+2. wait for the wallet to become `connected`.
+3. create a reusable `card` item with the merchant, amount, and currency.
+4. attach the vault to a browser and give `state.aliases` to the agent.
+5. when the browser submits a supported checkout, <span className="kernel-brand-name">KERNEL</span> holds the request and starts agentcard authorization.
+6. show the returned approval action to the user while the checkout remains in progress.
+7. agentcard executes the approved request, and <span className="kernel-brand-name">KERNEL</span> replays the processor response to the browser.
+
+the card item returns to `ready` after an authorization settles and can be used for another separately approved purchase. only one authorization can be pending on an item at a time.
+
+## Enroll a card
+
+before showing an agentcard enrollment option, list the vault's items. if an
+agentcard wallet already exists in any state, reuse it and do not let the user
+add another. show its existing action or status instead. the api makes item keys
+unique but does not currently enforce one wallet per provider, so the ui must
+enforce a maximum of one agentcard wallet per vault.
+
+the examples use `presentProviderAction`, an application-owned function that
+publishes the action to an authenticated session for the end user who owns the
+vault. bind the action to that user, vault, and item; apply a short application
+ttl capped by `wallet.expires_at` when present; and stop serving it when the
+action changes or disappears. derive `authenticatedUser` from the server-side
+session, not a request field. do not log the url or put it in model context. the
+[browser payment guide](/browsers/enable-payments-in-browser-agent#present-hosted-actions-in-your-application)
+defines the authenticated redirect and expiry contract for this helper.
+
+<CodeGroup>
+
+```typescript TypeScript
+const items = await kernel.vaults.items.list(vault.id);
+const agentcardWallets = items.filter(
+  (item) => item.type === "wallet" && item.spec.provider === "agentcard",
+);
+if (agentcardWallets.length > 1) {
+  throw new Error("vault has more than one agentcard wallet");
+}
+
+let wallet = agentcardWallets[0];
+if (!wallet) {
+  wallet = await kernel.vaults.items.upsert("agentcard-wallet", {
+    id_or_name: vault.id,
+    type: "wallet",
+    spec: { provider: "agentcard" },
+  });
+}
+
+if (wallet.action?.name === "card_enrollment") {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: wallet,
+  });
+}
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+items = kernel.vaults.items.list(vault.id)
+agentcard_wallets = [
+    item
+    for item in items
+    if item.type == "wallet" and item.spec.provider == "agentcard"
+]
+if len(agentcard_wallets) > 1:
+    raise RuntimeError("vault has more than one agentcard wallet")
+
+wallet = agentcard_wallets[0] if agentcard_wallets else None
+if wallet is None:
+    wallet = kernel.vaults.items.upsert(
+        "agentcard-wallet",
+        id_or_name=vault.id,
+        type="wallet",
+        spec={"provider": "agentcard"},
+    )
+
+if wallet.action is not None and wallet.action.name == "card_enrollment":
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=wallet,
+    )
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    wait=60,
+)
+```
+
+```bash CLI
+# create only when the list has no agentcard wallet
+kernel vaults items list user-12345 -o json
+kernel vaults wallets create user-12345 agentcard-wallet \
+  --provider agentcard \
+  --spec '{}' \
+  --open
+kernel vaults items get user-12345 agentcard-wallet --wait 60
+```
+
+</CodeGroup>
+
+<Warning>
+  open the enrollment url in a trusted user-facing surface. don't give it to the
+  agent or open it in the agent-controlled checkout browser. run cli `--open`
+  only from a trusted, human-operated terminal because the command output can
+  contain the action url.
+</Warning>
+
+`spec.user_id` can reuse a user who was already enrolled through another wallet in your organization. it cannot reference an arbitrary agentcard user.
+
+## Create a card item
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "agentcard",
+    wallet: wallet.key,
+    merchant: "example shop",
+    amount: 2306,
+    currency: "usd",
+  },
+});
+
+if (card.state.status !== "ready" || !card.state.aliases) {
+  throw new Error(`card is ${card.state.status}`);
+}
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "agentcard",
+        "wallet": wallet.key,
+        "merchant": "example shop",
+        "amount": 2306,
+        "currency": "usd",
+    },
+)
+
+if card.state.status != "ready" or card.state.aliases is None:
+    raise RuntimeError(f"card is {card.state.status}")
+```
+
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider agentcard \
+  --spec '{
+    "wallet": "agentcard-wallet",
+    "merchant": "example shop",
+    "amount": 2306,
+    "currency": "usd"
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+```
+
+</CodeGroup>
+
+`amount` uses minor currency units, so `2306` means 23.06 usd. omitting `card_id` lets the cardholder select an enrolled card on the approval screen. to pin a card, request the wallet's advertised `payment_methods` expansion and set a returned id as `spec.card_id`.
+
+### Reuse a card item for a new purchase
+
+`upsert` can retrieve an identical item, but it cannot replace the purchase
+specification at an existing key. for a later purchase, retrieve the reusable
+agentcard item and use `update` with the complete new specification:
+
+<CodeGroup>
+
+```typescript TypeScript
+let reusableCard = await kernel.vaults.items.retrieve("notebook-order", {
+  id_or_name: vault.id,
+  wait: 60,
+});
+
+if (
+  reusableCard.type !== "card" ||
+  reusableCard.spec.provider !== "agentcard" ||
+  (reusableCard.state.status !== "requested" &&
+    reusableCard.state.status !== "ready")
+) {
+  throw new Error(`card cannot be updated from ${reusableCard.state.status}`);
+}
+
+reusableCard = await kernel.vaults.items.update("notebook-order", {
+  id_or_name: vault.id,
+  spec: {
+    provider: "agentcard",
+    wallet: wallet.key,
+    merchant: "example books",
+    amount: 4199,
+    currency: "usd",
+  },
+});
+```
+
+```python Python
+reusable_card = kernel.vaults.items.retrieve(
+    "notebook-order",
+    id_or_name=vault.id,
+    wait=60,
+)
+
+if (
+    reusable_card.type != "card"
+    or reusable_card.spec.provider != "agentcard"
+    or reusable_card.state.status not in {"requested", "ready"}
+):
+    raise RuntimeError(
+        f"card cannot be updated from {reusable_card.state.status}"
+    )
+
+reusable_card = kernel.vaults.items.update(
+    "notebook-order",
+    id_or_name=vault.id,
+    spec={
+        "provider": "agentcard",
+        "wallet": wallet.key,
+        "merchant": "example books",
+        "amount": 4199,
+        "currency": "usd",
+    },
+)
+```
+
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+kernel vaults cards update user-12345 notebook-order \
+  --provider agentcard \
+  --spec '{
+    "wallet": "agentcard-wallet",
+    "merchant": "example books",
+    "amount": 4199,
+    "currency": "usd"
+  }'
+```
+
+</CodeGroup>
+
+the api accepts an agentcard card update only while the item is `requested` or
+`ready`. if it is `pending_approval`, finish and reconcile that authorization
+before preparing another purchase. if it is `degraded`, retrieve it to allow
+recovery and stop if it remains degraded. `update` replaces the full `spec`, so
+include `card_id` again when you want to keep the card pinned. never update an item
+to retry a failed, timed-out, or indeterminate checkout.
+
+agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
+
+## Complete the first checkout
+
+use this sequence for an agentcard checkout:
+
+1. require exactly one agentcard wallet in the vault and wait for it to become `connected`.
+2. create a headful browser with the vault attached, surface `browser_live_view_url` through your trusted application, and navigate to the checkout. keep this same browser for verification and submission so location-dependent pricing cannot change between the confirmed purchase and the outgoing request.
+3. independently verify the merchant, items, active presentment amount, and active presentment currency. for a stripe payment link, prefer `account_settings.display_name`, `line_item_group.total`, `line_item_group.currency`, and `line_item_group.line_items` from the structured payment-link response when you don't have an order backend. use dom text and test ids only as supplemental checks because stripe can duplicate or omit them across layouts.
+4. collect merchant-required fields such as email, billing name, and postal code from the end user. identify checkout-specific agent disclosures and instruct the agent to answer them truthfully in the normal form.
+5. show the verified purchase to the end user. after confirmation, create or update the card item from that same frozen object and require it to be `ready`. the vault attachment covers items created later in the same vault.
+6. start the card and event observer before checkout submission. keep it running concurrently while the browser request is held.
+7. give the browser agent the aliases, separately collected customer fields, and any required disclosure answer. submit the merchant form once.
+8. publish the approval action through the authenticated, expiring application flow. never send it to the checkout browser or agent.
+9. after the authorization settles, reconcile authorization state, item events, the checkout page, and the merchant order record. don't prepare the next purchase until this attempt is terminal or explicitly classified as indeterminate.
+
+### Surface the live view
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+  headless: false,
+  timeout_seconds: 1800,
+});
+
+if (!browser.browser_live_view_url) {
+  throw new Error("headful browser did not return a live view url");
+}
+await presentLiveView({
+  userID: authenticatedUser.id,
+  sessionID: browser.session_id,
+  url: browser.browser_live_view_url,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+    headless=False,
+    timeout_seconds=1800,
+)
+
+if browser.browser_live_view_url is None:
+    raise RuntimeError("headful browser did not return a live view url")
+present_live_view(
+    user_id=authenticated_user.id,
+    session_id=browser.session_id,
+    url=browser.browser_live_view_url,
+)
+```
+
+```bash CLI
+kernel browsers create --vault user-12345 -o json
+```
+
+</CodeGroup>
+
+`presentLiveView` represents an application-owned route. store the url
+server-side with the authenticated end user and browser session binding, and
+render or embed it only after checking that session. retain the same binding
+through confirmation and approval pauses. remove it when the browser is deleted
+or times out, and don't put it in logs or model context. see
+[live view](/browsers/live-view#embedding-in-an-iframe) for iframe and csp
+requirements.
+
+### Run checkout and observation concurrently
+
+start the observer before calling the browser agent. the application-owned
+functions below represent the observer, your existing agent loop, your order
+backend, and your reconciliation policy:
+
+<CodeGroup>
+
+```typescript TypeScript
+const stop = new AbortController();
+const observer = observePayment(stop.signal);
+
+try {
+  const pageOutcome = await runBrowserAgentCheckout({
+    browser,
+    aliases: card.state.aliases,
+    verifiedPurchase,
+    customerFields,
+    disclosure: "I am an AI agent acting on behalf of someone else",
+  });
+  const merchantOrder = await waitForMerchantResolution(
+    verifiedPurchase.orderID,
+  );
+  const current = await kernel.vaults.items.retrieve(card.key, {
+    id_or_name: vault.id,
+  });
+  if (current.type !== "card" || current.state.provider !== "agentcard") {
+    throw new Error("expected an agentcard card item");
+  }
+  const events = await kernel.vaults.items.events(card.key, {
+    id_or_name: vault.id,
+  });
+
+  const result = reconcileAgentcard({
+    verifiedPurchase,
+    merchantOrder,
+    authorization: current.state.authorization,
+    events,
+    pageOutcome,
+  });
+  handleReconciledResult(result);
+} finally {
+  stop.abort();
+  try {
+    await observer;
+  } finally {
+    await kernel.browsers.deleteByID(browser.session_id);
+  }
+}
+```
+
+```python Python
+from threading import Event, Thread
+
+stop = Event()
+observer = Thread(target=observe_payment, args=(stop,))
+observer.start()
+
+try:
+    page_outcome = run_browser_agent_checkout(
+        browser=browser,
+        aliases=card.state.aliases,
+        verified_purchase=verified_purchase,
+        customer_fields=customer_fields,
+        disclosure="I am an AI agent acting on behalf of someone else",
+    )
+    merchant_order = wait_for_merchant_resolution(verified_purchase.order_id)
+    current = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+    if current.type != "card" or current.state.provider != "agentcard":
+        raise RuntimeError("expected an agentcard card item")
+    events = kernel.vaults.items.events(card.key, id_or_name=vault.id)
+
+    result = reconcile_agentcard(
+        verified_purchase=verified_purchase,
+        merchant_order=merchant_order,
+        authorization=current.state.authorization,
+        events=events,
+        page_outcome=page_outcome,
+    )
+    handle_reconciled_result(result)
+finally:
+    stop.set()
+    try:
+        observer.join()
+    finally:
+        kernel.browsers.delete_by_id(browser.session_id)
+```
+
+</CodeGroup>
+
+the observer must have its own terminal-state loop and application deadline.
+cancel it after the merchant reaches a terminal state or the deadline expires.
+if the deadline expires, retain the vault id, card key, browser id, and last
+event id, classify the attempt as indeterminate, and don't resubmit checkout.
+
+## Handle checkout approval
+
+agentcard does not advertise the `authorize` operation. authorization begins only after an attached browser submits a supported checkout request containing the aliases.
+
+while the request is held, retrieve the card and send `action.url` through the
+same authenticated, expiring user-action flow used for enrollment. stop serving
+the url when it disappears, changes, expires, or the authorization settles.
+`state.authorization` describes the pending or most recent authorization,
+including its `status`, `browser_id`, expected and actual amounts when
+available, charge result, and replay result.
+
+```bash CLI
+kernel vaults items get user-12345 notebook-order --wait 60 --open
+kernel vaults items events user-12345 notebook-order --wait 60 -o json
+```
+
+each `--wait` performs one bounded observation. repeat the relevant command to
+continue observing an existing checkout; don't use it as evidence that a
+payment succeeded or failed. run `--open` only in a trusted, human-operated
+terminal and never pass its output to an agent.
+
+| field                              | interpretation                                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `amount_authority: 'display_only'` | the request does not prove a charge amount; tokenization requests can have this value                |
+| `amount_verified`                  | whether the observed amount matched the approved amount when verification was available              |
+| `charged_kind`                     | `captured`, `authorized`, or `none` as reported by the provider path                                 |
+| `replay_attempted`                 | whether <span className="kernel-brand-name">KERNEL</span> attempted to replay the processor response |
+| `replay_delivered`                 | whether that response reached the browser; this does not confirm a merchant order                    |
+
+declines, expirations, and provider failures can return a stripe-shaped error to the browser. the reusable item can still return to `ready`, so item status alone does not prove that the purchase succeeded or failed.
+
+your reconciliation policy must return `succeeded` only when the merchant order
+record confirms a paid order whose merchant, items, amount, and currency match
+the frozen purchase object. treat `state.authorization`, `charged_kind`,
+`replay_delivered`, item events, and the checkout page as supporting evidence.
+merchant success text is page-specific: **Thanks for your payment** can appear
+for one stripe checkout, but no generic success-text matcher proves that the
+merchant created the expected order. return `indeterminate` when the sources
+disagree or the merchant record is unavailable, and don't retry automatically.
+
+pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
