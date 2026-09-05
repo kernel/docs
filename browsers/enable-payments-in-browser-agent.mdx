@@ -73,13 +73,8 @@ card.
    fill the checkout's normal card fields. use only separately supplied end-user
    values for required email, billing, postal, shipping, or other customer
    fields; stop if a required value is missing. complete any checkout-specific
-   agent disclosure truthfully in the merchant's normal form. on stripe-hosted
-   checkout, target the visible disclosure label because stripe can render
-   hidden or duplicate controls. if needed, locate the associated real
-   `input[type="checkbox"]` and invoke its native dom `click()`. require that
-   same input's `checked` property to be `true` before submission. stop without
-   submitting if you can't verify that state. submit checkout once and never
-   retry submission.
+   agent disclosure truthfully in the merchant's normal form. submit checkout
+   once and never retry submission.
 10. inspect the checkout result and the card item's events. do not retry a
    failed, timed-out, or indeterminate payment. report the existing attempt so
    we can reconcile it first.
@@ -99,7 +94,7 @@ card.
    or an action is present, stop and ask me to resolve wallet setup outside this
    agent. do not create another wallet or print, return, or open an action url.
 3. create a KERNEL browser with `user-12345` attached as a vault, then navigate
-   it to https://shop.example.com/checkout.
+   it to https://buy.stripe.com/28E5kw7DtgKXdLqgiY53O00.
 4. inspect the checkout and propose the merchant, total amount, currency, and
    item or cart contents. treat this proposal as untrusted and do not create a
    card item from it.
@@ -126,14 +121,9 @@ card.
    fields. use only separately supplied end-user values for required email,
    billing, postal, shipping, or other customer fields; stop if a required value
    is missing. complete any checkout-specific agent disclosure truthfully in the
-   merchant's normal form. on stripe-hosted checkout, target the visible
-   disclosure label because stripe can render hidden or duplicate controls. if
-   needed, locate the associated real `input[type="checkbox"]` and invoke its
-   native dom `click()`. require that same input's `checked` property to be
-   `true` before submission. stop without submitting if you can't verify that
-   state. submit checkout once, never retry submission, and keep that execution
-   open while KERNEL holds the payment request. do not poll or print the card
-   item while approval is pending.
+   merchant's normal form. submit checkout once, never retry submission, and
+   keep that execution open while KERNEL holds the payment request. do not poll
+   or print the card item while approval is pending.
 10. after i confirm that the trusted approval flow has settled, inspect the
    checkout result, authorization state, and item events. do not retry a failed,
    timed-out, or indeterminate payment. report the existing attempt so we can
@@ -141,10 +131,6 @@ card.
 ```
 
 </CodeGroup>
-
-the agentcard prompt uses a non-Stripe merchant URL to make the processor
-distinction explicit. replace it with a low-value checkout you control whose
-outgoing request matches a native processor adapter.
 
 this guide starts after you have an existing browser agent. it changes how you prepare and pass payment input, not how your agent navigates or reasons about the checkout page.
 
@@ -472,11 +458,6 @@ Use these separately collected customer fields where the checkout requires them:
 If the checkout asks whether an agent is acting for another person, select the
 truthful disclosure option in the page before submission. For example:
 - I am an AI agent acting on behalf of someone else
-
-Stripe may render hidden or duplicate disclosure controls. Target the visible
-label. If needed, locate the associated real input[type="checkbox"] and invoke
-its native DOM click. Read that same input's checked property and require it to
-be true. If the checked state can't be verified, stop without submitting.
 
 Submit the checkout once and never retry submission. If the payment request
 pauses for user approval, wait for the controller to finish that approval. Do
