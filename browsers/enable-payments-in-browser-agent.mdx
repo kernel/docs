@@ -69,8 +69,13 @@ card.
    fill the checkout's normal card fields. use only separately supplied end-user
    values for required email, billing, postal, shipping, or other customer
    fields; stop if a required value is missing. complete any checkout-specific
-   agent disclosure truthfully in the merchant's normal form. submit checkout
-   once.
+   agent disclosure truthfully in the merchant's normal form. on stripe-hosted
+   checkout, target the visible disclosure label because stripe can render
+   hidden or duplicate controls. if needed, locate the associated real
+   `input[type="checkbox"]` and invoke its native dom `click()`. require that
+   same input's `checked` property to be `true` before submission. stop without
+   submitting if you can't verify that state. submit checkout once and never
+   retry submission.
 10. inspect the checkout result and the card item's events. do not retry a
    failed, timed-out, or indeterminate payment. report the existing attempt so
    we can reconcile it first.
@@ -117,9 +122,14 @@ card.
    fields. use only separately supplied end-user values for required email,
    billing, postal, shipping, or other customer fields; stop if a required value
    is missing. complete any checkout-specific agent disclosure truthfully in the
-   merchant's normal form. submit checkout once and keep that execution open
-   while KERNEL holds the payment request. do not poll or print the card item
-   while approval is pending.
+   merchant's normal form. on stripe-hosted checkout, target the visible
+   disclosure label because stripe can render hidden or duplicate controls. if
+   needed, locate the associated real `input[type="checkbox"]` and invoke its
+   native dom `click()`. require that same input's `checked` property to be
+   `true` before submission. stop without submitting if you can't verify that
+   state. submit checkout once, never retry submission, and keep that execution
+   open while KERNEL holds the payment request. do not poll or print the card
+   item while approval is pending.
 10. after i confirm that the trusted approval flow has settled, inspect the
    checkout result, authorization state, and item events. do not retry a failed,
    timed-out, or indeterminate payment. report the existing attempt so we can
@@ -324,8 +334,14 @@ merchant-specific agent disclosures are normal checkout fields. if the page
 asks whether automation is acting for another person, instruct the agent to
 answer truthfully in the merchant's form before submission. for a checkout that
 offers **I am an AI agent acting on behalf of someone else**, select that option.
-don't bypass the disclosure or replace the page's normal submission with a raw
-processor request.
+stripe can render hidden or duplicate copies of its disclosure control for
+responsive layouts. target the visible label. if the label doesn't toggle the
+control, locate the associated real `input[type="checkbox"]` and invoke its
+native dom `click()`. read that same input's `checked` property and require it to
+be `true` before submission. if you can't verify the checked state, stop without
+submitting. don't bypass the disclosure or replace the page's normal submission
+with a raw processor request. after triggering submission once, never retry it,
+including after a timeout, unchanged page, or indeterminate result.
 
 retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
 
@@ -443,8 +459,14 @@ If the checkout asks whether an agent is acting for another person, select the
 truthful disclosure option in the page before submission. For example:
 - I am an AI agent acting on behalf of someone else
 
-Submit the checkout once. If the payment request pauses for user approval,
-wait for the controller to finish that approval. Do not retry payment.
+Stripe may render hidden or duplicate disclosure controls. Target the visible
+label. If needed, locate the associated real input[type="checkbox"] and invoke
+its native DOM click. Read that same input's checked property and require it to
+be true. If the checked state can't be verified, stop without submitting.
+
+Submit the checkout once and never retry submission. If the payment request
+pauses for user approval, wait for the controller to finish that approval. Do
+not retry payment.
 ```
 
 replace the angle-bracketed fields in your controller before sending the task. don't put oauth codes, action urls, provider responses, the vault api key, or the browser connection url in the prompt.
