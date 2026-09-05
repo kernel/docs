@@ -5,6 +5,13 @@ description: "Use stripe link to approve a one-use payment credential for a brow
 
 [stripe link](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential encrypted, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
 
+stripe link is the credential provider, not the merchant's payment processor. at
+the browser form layer, it works with any web checkout that accepts standard
+card details, and the merchant's processor doesn't need to be stripe. end-to-end
+handoff also requires the outgoing request to match a [native processor
+adapter](/integrations/payments/overview#checkout-and-processor-coverage). for
+example, you can use a stripe link credential in a Shopify checkout.
+
 ## Before you start
 
 create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
@@ -41,7 +48,7 @@ kernel vaults create --name user-12345
 4. create a `card` item with the purchase details.
 5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
 6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
-7. use `state.aliases` in an attached browser. the first supported substitution changes the item to `consumed`.
+7. use `state.aliases` in an attached browser. the first native handoff changes the item to `consumed`.
 
 ## Connect a wallet
 
@@ -329,6 +336,9 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 after the user completes the approval action, retrieve the card with `wait: 60` until it becomes `ready`. pass `state.aliases` to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent).
 
-the first supported checkout request that contains the aliases consumes the item and clears its encrypted card value. `consumed` means the credential was substituted, not that the processor accepted the payment or the merchant created an order.
+the first recognized processor request that contains the aliases consumes the
+item and clears its encrypted card value. `consumed` means the credential was
+substituted, not that the processor accepted the payment or the merchant created
+an order.
 
 don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect item events and the merchant's order state first.

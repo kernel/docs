@@ -5,6 +5,20 @@ description: "Use Agentcard to approve browser checkouts against an enrolled pay
 
 [agentcard](https://www.agentcard.sh/) collects a user's card in a hosted enrollment flow and authorizes each browser checkout against that enrolled payment method. the card number and cvc stay with agentcard. your agent receives non-secret aliases.
 
+agentcard is the credential provider, not the merchant's payment processor. at
+the browser form layer, it works with any web checkout that accepts standard
+card details, and the merchant's processor doesn't need to be stripe. end-to-end
+handoff also requires the outgoing request to match a [native processor
+adapter](/integrations/payments/overview#checkout-and-processor-coverage).
+<span className="kernel-brand-name">KERNEL</span> currently has adapters for
+request formats used by stripe, shopify, square, recurly, and razorpay.
+
+agentcard's direct SDK recognizes additional processors, but
+<span className="kernel-brand-name">KERNEL</span>'s native handoff doesn't yet
+cover all of them. recognition alone doesn't guarantee end-to-end checkout
+compatibility. email [support@kernel.sh](mailto:support@kernel.sh) if you need
+another processor so we can prioritize its adapter and validate a real checkout.
+
 ## Before you start
 
 create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
@@ -57,7 +71,7 @@ credential.
 2. wait for the wallet to become `connected`.
 3. create a reusable `card` item with the merchant, amount, and currency.
 4. attach the vault to a browser and give `state.aliases` to the agent.
-5. when the browser submits a supported checkout, <span className="kernel-brand-name">KERNEL</span> holds the request and starts agentcard authorization.
+5. when the browser submits a recognized processor request containing the aliases, <span className="kernel-brand-name">KERNEL</span> holds the request and starts agentcard authorization.
 6. show the returned approval action to the user while the checkout remains in progress.
 7. agentcard executes the approved request, and <span className="kernel-brand-name">KERNEL</span> replays the processor response to the browser.
 
@@ -315,7 +329,7 @@ use this sequence for an agentcard checkout:
 
 1. require exactly one agentcard wallet in the vault and wait for it to become `connected`.
 2. create a headful browser with the vault attached, surface `browser_live_view_url` through your trusted application, and navigate to the checkout. keep this same browser for verification and submission so location-dependent pricing cannot change between the confirmed purchase and the outgoing request.
-3. independently verify the merchant, items, active presentment amount, and active presentment currency. for a stripe payment link, prefer `account_settings.display_name`, `line_item_group.total`, `line_item_group.currency`, and `line_item_group.line_items` from the structured payment-link response when you don't have an order backend. use dom text and test ids only as supplemental checks because stripe can duplicate or omit them across layouts.
+3. independently verify the merchant, items, active presentment amount, and active presentment currency from the merchant's trusted order or cart backend. if one isn't available, use documented structured checkout data or deterministic extraction for that checkout. for a stripe payment link specifically, prefer `account_settings.display_name`, `line_item_group.total`, `line_item_group.currency`, and `line_item_group.line_items` from the structured payment-link response. use dom text and test ids only as supplemental checks because stripe can duplicate or omit them across layouts.
 4. collect merchant-required fields such as email, billing name, and postal code from the end user. identify checkout-specific agent disclosures and instruct the agent to answer them truthfully in the normal form. stripe can render hidden or duplicate disclosure controls, so target the visible label or locate the associated real `input[type="checkbox"]` and invoke its native dom `click()`. require that same input's `checked` property to be `true`, and stop before submission if you can't verify that state.
 5. show the verified purchase to the end user. after confirmation, create or update the card item from that same frozen object and require it to be `ready`. the vault attachment covers items created later in the same vault.
 6. start the card and event observer before checkout submission. keep it running concurrently while the browser request is held.
@@ -471,7 +485,9 @@ event id, classify the attempt as indeterminate, and don't resubmit checkout.
 
 ## Handle checkout approval
 
-agentcard does not advertise the `authorize` operation. authorization begins only after an attached browser submits a supported checkout request containing the aliases.
+agentcard doesn't advertise the `authorize` operation. authorization begins
+only after an attached browser submits a recognized processor request containing
+the aliases.
 
 while the request is held, retrieve the card and send `action.url` through the
 same authenticated, expiring user-action flow used for enrollment. stop serving
@@ -498,7 +514,10 @@ terminal and never pass its output to an agent.
 | `replay_attempted`                 | whether <span className="kernel-brand-name">KERNEL</span> attempted to replay the processor response |
 | `replay_delivered`                 | whether that response reached the browser; this does not confirm a merchant order                    |
 
-declines, expirations, and provider failures can return a stripe-shaped error to the browser. the reusable item can still return to `ready`, so item status alone does not prove that the purchase succeeded or failed.
+declines, expirations, and provider failures can return a processor-shaped
+failure response to the browser. the exact response depends on the native
+adapter. the reusable item can still return to `ready`, so item status alone
+doesn't prove that the purchase succeeded or failed.
 
 your reconciliation policy must return `succeeded` only when the merchant order
 record confirms a paid order whose merchant, items, amount, and currency match
