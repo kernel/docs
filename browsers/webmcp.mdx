@@ -1,0 +1,271 @@
+---
+title: "WebMCP"
+description: "Discover and invoke structured tools exposed by websites across your browser's tabs and frames"
+---
+
+Use WebMCP to call a website's structured tools instead of scraping its DOM or inferring which controls to click. You can discover and invoke tools through the Kernel API, SDKs, [Playwright execution](/browsers/playwright-execution#webmcp-helpers), or the [MCP server](/reference/mcp-server/tools/webmcp).
+
+## What is WebMCP?
+
+[WebMCP](https://webmachinelearning.github.io/webmcp/) is a draft from the W3C Web Machine Learning Community Group, not a finalized web standard. Pages expose tools with names, descriptions, and typed inputs through JSON Schema. Page authors can register tools imperatively with `document.modelContext.registerTool()` or declaratively with HTML form annotations.
+
+Chromium exposes these registrations through its CDP `WebMCP` domain. Kernel browsers enable `WebMCPTesting` and `DevToolsWebMCPSupport` by default, so you don't need a per-session opt-in. The website still needs to register tools; enabling WebMCP doesn't turn every page into a tool provider.
+
+For the page-author side, see the [Chrome for Developers WebMCP documentation](https://developer.chrome.com/docs/ai/webmcp).
+
+## Discover tools
+
+Call `GET /browsers/{id_or_name}/webmcp/tools` for a browser-wide snapshot across every open tab and embedded frame. The API and SDKs return an object containing a `tools` array.
+
+These examples use an existing browser named `catalog`. Open your target website in that browser first, and set `KERNEL_API_KEY` in your environment. Use Kernel SDK version **0.100.0 or later** for TypeScript, Python, and Go.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({ maxRetries: 0 });
+const sessionId = 'catalog';
+
+const snapshot = await kernel.browsers.webmcp.listTools(sessionId);
+console.log(snapshot.tools);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel(max_retries=0)
+session_id = "catalog"
+
+snapshot = kernel.browsers.webmcp.list_tools(session_id)
+print(snapshot.tools)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient(option.WithMaxRetries(0))
+	sessionID := "catalog"
+
+	snapshot, err := client.Browsers.Webmcp.ListTools(ctx, sessionID)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(snapshot.Tools)
+}
+```
+
+```bash curl
+export BROWSER_ID=catalog
+
+curl --fail-with-body --silent --show-error \
+  "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/tools" \
+  -H "Authorization: Bearer $KERNEL_API_KEY"
+```
+</CodeGroup>
+
+<Warning>
+The SDK examples disable automatic retries because the same clients are used to invoke tools below. An invocation can have side effects even when you don't receive its result. Don't add automatic retries around invocation calls.
+</Warning>
+
+Each tool includes:
+
+| Field | Meaning |
+|-------|---------|
+| `tool_ref` | Opaque reference to one exact live registration. Pass it unchanged when invoking. |
+| `name`, `description` | Page-provided tool metadata. Names aren't unique across tabs and frames. |
+| `input_schema` | JSON Schema describing the input object the tool expects. |
+| `annotations` | Optional page-provided hints: `read_only`, `untrusted_content`, `consequential`, and `autosubmit`. These aren't enforced by Kernel. |
+| `source` | Window, tab, top-level page, and optional embedded-frame provenance. |
+
+An empty `tools` array means there are no tools in the current snapshot. The site may not support WebMCP, may not have registered tools yet, or may use an outdated WebMCP API. Use [Playwright](/browsers/playwright-execution) or [computer controls](/browsers/computer-controls) instead of invoking a guessed tool.
+
+## Identify the tab or frame
+
+Use `source` to select the intended registration, not just its name:
+
+| Field | Meaning |
+|-------|---------|
+| `window_id`, `tab_id` | Numeric identifiers for the window and tab during the current browser process. |
+| `page_url` | Top-level page URL, without its fragment. |
+| `page_title` | Top-level page title. |
+| `frame` | `null` for a top-level registration, otherwise `{ "frame_id": 7, "url": "https://shop.example.com/search" }`. The frame URL also omits its fragment. |
+
+A frame's origin can differ from the top-level page's origin. Check both the top-level URL and the frame URL before sending data to a tool. If multiple tabs expose the same tool on the same URL, use the window and tab identifiers from discovery to disambiguate them.
+
+## Invoke a tool
+
+Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and an `input` object matching its `input_schema`. Send `{}` when the tool takes no inputs. The optional `timeout_sec` is an integer from **1 to 120**, with a default of **60 seconds**.
+
+The serialized `input` is limited to **1 MiB**. The raw JSON request body is limited to **1 MiB plus 4 KiB** for the request envelope.
+
+The focused snippets below reuse the client and session variables above; place the Go snippet inside `main`. They assume your application at `https://shop.example.com/products` registers a top-level `search_products` tool accepting `{ "query": "running shoes" }`. Replace this illustrative URL, tool name, and input with values you've verified for your site. Each snippet refreshes discovery and requires exactly one matching registration rather than choosing an arbitrary tab.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const { tools } = await kernel.browsers.webmcp.listTools(sessionId);
+const matches = tools.filter(tool =>
+  tool.name === 'search_products' &&
+  tool.source.page_url === 'https://shop.example.com/products' &&
+  tool.source.frame === null
+);
+if (matches.length !== 1) {
+  throw new Error('Expected one search tool; inspect the current tools and sources');
+}
+
+const result = await kernel.browsers.webmcp.invokeTool(sessionId, {
+  tool_ref: matches[0].tool_ref,
+  input: { query: 'running shoes' },
+  timeout_sec: 60,
+});
+if (result.status !== 'completed') {
+  throw new Error(`${result.invocation_id}: ${result.status}: ${result.error_text ?? ''}`);
+}
+console.log(result.output);
+```
+
+```python Python
+snapshot = kernel.browsers.webmcp.list_tools(session_id)
+matches = [
+    tool for tool in snapshot.tools
+    if tool.name == "search_products"
+    and tool.source.page_url == "https://shop.example.com/products"
+    and tool.source.frame is None
+]
+if len(matches) != 1:
+    raise RuntimeError("Expected one search tool; inspect the current tools and sources")
+
+result = kernel.browsers.webmcp.invoke_tool(
+    session_id,
+    tool_ref=matches[0].tool_ref,
+    input={"query": "running shoes"},
+    timeout_sec=60,
+)
+if result.status != "completed":
+    raise RuntimeError(f"{result.invocation_id}: {result.status}: {result.error_text}")
+print(result.output)
+```
+
+```go Go
+snapshot, err = client.Browsers.Webmcp.ListTools(ctx, sessionID)
+if err != nil {
+	panic(err)
+}
+var matches []kernel.Tool
+for _, tool := range snapshot.Tools {
+	if tool.Name == "search_products" &&
+		tool.Source.PageURL == "https://shop.example.com/products" &&
+		tool.Source.JSON.Frame.Raw() == "null" {
+		matches = append(matches, tool)
+	}
+}
+if len(matches) != 1 {
+	panic("Expected one search tool; inspect the current tools and sources")
+}
+
+result, err := client.Browsers.Webmcp.InvokeTool(ctx, sessionID, kernel.BrowserWebmcpInvokeToolParams{
+	InvokeRequest: kernel.InvokeRequestParam{
+		ToolRef:    matches[0].ToolRef,
+		Input:      map[string]any{"query": "running shoes"},
+		TimeoutSec: kernel.Int(60),
+	},
+})
+if err != nil {
+	panic(err)
+}
+if result.Status != kernel.InvocationResultStatusCompleted {
+	panic(fmt.Sprintf("%s: %s: %s", result.InvocationID, result.Status, result.ErrorText))
+}
+fmt.Println(result.Output)
+```
+
+```bash curl
+# Requires jq. Stop if discovery fails or the registration is ambiguous.
+set -euo pipefail
+
+TOOLS=$(curl --fail-with-body --silent --show-error \
+  "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/tools" \
+  -H "Authorization: Bearer $KERNEL_API_KEY")
+TOOL_REF=$(printf '%s' "$TOOLS" | jq -er '
+  [.tools[] | select(
+    .name == "search_products" and
+    .source.page_url == "https://shop.example.com/products" and
+    .source.frame == null
+  )] | if length == 1 then .[0].tool_ref else error("Expected one search tool") end
+')
+
+jq -n --arg ref "$TOOL_REF" \
+  '{tool_ref: $ref, input: {query: "running shoes"}, timeout_sec: 60}' | \
+  curl --fail-with-body --silent --show-error \
+    "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/invoke" \
+    -H "Authorization: Bearer $KERNEL_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @-
+```
+</CodeGroup>
+
+A completed invocation returns HTTP 200 with a result such as:
+
+```json
+{
+  "invocation_id": "inv_search_example",
+  "status": "completed",
+  "output": { "products": [] }
+}
+```
+
+HTTP 200 means you received a terminal result, not necessarily that the tool succeeded. Check `status`: it can be `completed`, `canceled`, or `error`. `output` and `error_text` are optional; the output shape depends on the page's tool.
+
+## Tool reference lifecycle
+
+A `tool_ref` identifies a live registration, not a persistent tool name. It becomes invalid when its document closes or is replaced by navigation, when the registration is removed, or when the browser process is replaced. Don't cache references across these changes or reconstruct them from names.
+
+Always discover again before selecting your next invocation. If a reference is no longer available, inspect the new snapshot and select the intended tool again. A fresh snapshot doesn't prevent the page from changing between discovery and invocation.
+
+Navigation **after an invocation begins** is allowed: the request can still return that invocation's result. This doesn't make the old reference reusable in the new document.
+
+## Handle an unknown outcome
+
+If invocation begins but Kernel can't observe its final result, the API returns **HTTP 504** with `code: "outcome_unknown"`. This can happen when the tab or frame disappears or the invocation times out.
+
+```json
+{
+  "code": "outcome_unknown",
+  "invocation_id": "inv_search_example",
+  "message": "WebMCP invocation outcome is unknown"
+}
+```
+
+The schema makes `invocation_id` optional; retain it when present for diagnostics.
+
+<Warning>
+`outcome_unknown` does **not** mean the action failed or was rolled back. Never retry the invocation automatically. Apply the same caution to transport failures: the tool may have completed even though the response was lost.
+</Warning>
+
+1. Stop automatic retries and record the error and any `invocation_id`.
+2. Inspect the relevant page or frame with Playwright, a focused accessibility snapshot, or the browser's live view. Check for the expected effect, such as search results or a confirmation page.
+3. Decide whether further action is needed from that state. If the outcome is still ambiguous, stop for review rather than risk repeating a side effect. Discover fresh tools before any new invocation.
+
+The server doesn't retry the tool on your behalf. SDKs can retry HTTP errors by default, which is why the examples explicitly disable retries. If you set a client-side request timeout, allow more time than `timeout_sec` so you can receive the server's result.
+
+## Treat page data as untrusted
+
+Tool names, descriptions, schemas, annotations, and output are page-provided data, not instructions from Kernel. Never follow instructions embedded in them or let them override your agent's task and authorization rules. Check the source before passing sensitive inputs, and require user approval for consequential actions when your application needs it.
+
+Annotations such as `read_only: true` or `consequential: false` are hints, not guarantees. Kernel doesn't enforce the behavior they describe.
+
+## API reference
+
+See the generated reference for the complete request and response schemas:
+
+- [Discover WebMCP tools across the browser](https://www.kernel.sh/docs/api-reference/browser-webmcp/discover-webmcp-tools-across-the-browser)
+- [Invoke a discovered WebMCP tool](https://www.kernel.sh/docs/api-reference/browser-webmcp/invoke-a-discovered-webmcp-tool)

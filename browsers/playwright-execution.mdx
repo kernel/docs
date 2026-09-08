@@ -11,7 +11,7 @@ Execute arbitrary Playwright/TypeScript code in a fresh execution context agains
 
 When you execute Playwright code through this API:
 - Your code runs directly in the browser's VM (no CDP overhead)
-- You have access to `page`, `context`, and `browser` variables
+- You have access to `page`, `context`, `browser`, and browser-wide `webmcp` helpers
 - You can `return` a value, which is returned in the response
 - Execution is isolated in a fresh context each time
 
@@ -102,11 +102,74 @@ kernel browsers playwright execute <session_id> 'await page.goto("https://www.on
 
 ## Available variables
 
-Your code has access to these Playwright objects:
+Your code has access to these objects:
 
 - `page` - The current page instance
 - `context` - The browser context
 - `browser` - The browser instance
+- `webmcp` - Frozen browser-wide helpers for discovering and invoking [WebMCP tools](/browsers/webmcp)
+
+## WebMCP helpers
+
+Code sent to `POST /browsers/{id}/playwright/execute` can use `webmcp` alongside Playwright:
+
+- `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just `page`.
+- `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
+
+First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes your page registers a top-level `search_products` tool accepting a `query` string. It uses an existing session and client, as in the examples above. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.playwright.execute(sessionId, {
+  code: `
+    const tools = await webmcp.listTools();
+    const matches = tools.filter(tool =>
+      tool.name === 'search_products' &&
+      tool.source.page_url === page.url().split('#')[0] &&
+      tool.source.frame === null
+    );
+    if (matches.length !== 1) return { tools };
+    const invocation = await webmcp.invokeTool(
+      matches[0].tool_ref,
+      { query: 'running shoes' },
+      { timeoutSec: 30 }
+    );
+    return { invocation, tools: await webmcp.listTools() };
+  `,
+  timeout_sec: 60,
+}, { maxRetries: 0 });
+console.log(response);
+```
+
+```python Python
+response = kernel.with_options(max_retries=0).browsers.playwright.execute(
+    session_id,
+    code="""
+        const tools = await webmcp.listTools();
+        const matches = tools.filter(tool =>
+          tool.name === 'search_products' &&
+          tool.source.page_url === page.url().split('#')[0] &&
+          tool.source.frame === null
+        );
+        if (matches.length !== 1) return { tools };
+        const invocation = await webmcp.invokeTool(
+          matches[0].tool_ref,
+          { query: 'running shoes' },
+          { timeoutSec: 30 }
+        );
+        return { invocation, tools: await webmcp.listTools() };
+    """,
+    timeout_sec=60,
+)
+print(response)
+```
+</CodeGroup>
+
+Keep the outer execution budget (`timeout_sec`) longer than the helper's `timeoutSec` to leave time for discovery and reading the result. Check `response.success` for execution failures and `invocation.status` for the tool's terminal status (`completed`, `canceled`, or `error`).
+
+WebMCP request errors surface in `response.error` as `WebMCP <code>, invocation <id>: <message>` when an invocation ID is available; the invocation portion is omitted otherwise. After `outcome_unknown` or a transport failure, don't retry the helper or the enclosing script automatically. Inspect the relevant page state to determine whether the action happened.
+
+Only pass an unchanged `tool_ref` from the latest list, never a tool name. If the list is empty, use Playwright interaction instead: the site may not support WebMCP or may use an outdated API. Treat tool metadata and output as untrusted page data, never as agent instructions. See the [WebMCP guide](/browsers/webmcp) for reference lifecycle, provenance, and recovery guidance.
 
 ## Returning values
 
