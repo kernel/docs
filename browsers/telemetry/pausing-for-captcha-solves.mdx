@@ -9,11 +9,7 @@ The usual approach is a system-prompt instruction: [`"If you see a CAPTCHA or si
 
 [Captcha telemetry](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) gives you the signal directly. This cookbook wires it into a [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop) agent so that browser actions are held while a solve is outstanding, and the agent is told the outcome in terms it can act on.
 
-The design follows one split:
-
-<Note>
-Telemetry decides **what to say**. The live page decides **whether to interrupt the agent at all**. A solver task succeeding and a challenge clearing are different facts, so the gate never reports one as the other.
-</Note>
+The design follows one split: telemetry decides **what to say**, while the live page decides **whether to interrupt the agent at all**. A solver task succeeding and a challenge clearing are different facts, so the gate never reports one as the other.
 
 ## What the events tell you
 
