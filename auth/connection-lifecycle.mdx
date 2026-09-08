@@ -4,7 +4,7 @@ sidebarTitle: "Lifecycle"
 description: "How connections stay authenticated, and what to do when one breaks"
 ---
 
-Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks and automatic re-authentication to keep the session valid. This page covers the runtime lifecycle of a connection: how the check-and-reauth loop works, how to tune it, what blocks auto-reauth, and how to debug a connection that won't stay logged in.
+Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks. For eligible flows, Kernel can automatically reauthenticate the session to keep it valid. This page covers the runtime lifecycle, configuration options, and recovery steps.
 
 ## The lifecycle
 
@@ -17,12 +17,12 @@ After the initial login, every connection moves through this loop:
     A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
   </Step>
   <Step title="Auto-reauth (if eligible)">
-    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved login flow with the stored credentials in the background. A successful login resets the loop.
+    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. A successful login resets the loop.
 
     An inconclusive check never triggers reauth. Kernel would rather check again on the next cycle than log in again unnecessarily — a spurious login can trip risk checks on the site, prompt a device-verification email, or invalidate a working session.
   </Step>
-  <Step title="NEEDS_AUTH (if not eligible, or auto-reauth fails)">
-    If auto-reauth isn't possible — credentials aren't linked, the saved flow requires human input, or the login keeps failing — the connection's `status` flips to `NEEDS_AUTH` and a new login session is required.
+  <Step title="NEEDS_AUTH (when action is required)">
+    If automatic reauthentication isn't possible — for example, credentials are missing, human input is required, or the login keeps failing — the connection's `status` changes to `NEEDS_AUTH`. Start a new login session to continue.
   </Step>
 </Steps>
 
@@ -66,24 +66,27 @@ if err != nil {
 
 ### Sessions that expire faster than the interval
 
-Kernel keeps re-authenticating even when every health check finds the session expired. A successful login resets the auto-reauth state, so a site whose session TTL is shorter than your health check interval is re-authenticated on every cycle rather than being given up on.
+For an eligible connection, Kernel continues reauthenticating when every health check finds the session expired. A successful login resets the automatic reauthentication state, so a site whose session TTL is shorter than your health check interval is reauthenticated on every cycle.
 
 If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter detection windows, lower `health_check_interval` toward your plan's minimum.
 
 ## Can this connection auto-reauth?
 
-Check the `can_reauth` boolean on a connection. It's `true` only when **both** of these hold:
+Check the `can_reauth` boolean on a connection. It describes eligibility to attempt reauthentication, not whether the next login will succeed. It's `true` only when all of these conditions hold:
 
-1. **A credential is linked** — stored in Kernel or sourced via [1Password](/integrations/1password).
-2. **No known human-only requirement is recorded** — for example, an sms/email code, push approval, or other external action.
+1. **A previous login succeeded** — Kernel has recorded the result of a completed login.
+2. **A credential is linked** — It's stored in Kernel or sourced from [1Password](/integrations/1password).
+3. **No blocking requirement is recorded** — Kernel hasn't recorded a requirement that prevents an automatic attempt.
 
-If either fails, the connection will move to `NEEDS_AUTH` on the next expired session and wait for a fresh login. A site can still present a new or conditional challenge during reauth; if Kernel can't resolve it safely, reauth stops and the connection moves to `NEEDS_AUTH`.
+Use `can_reauth_reason` to see why the connection is or isn't eligible. See [Get auth connection](https://kernel.sh/docs/api-reference/managed-auth/get-auth-connection) for the possible values.
 
-### External actions that block auto-reauth
+`can_reauth` reflects what Kernel knows about the previous login. A site can introduce a new requirement during a later attempt. If Kernel needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` so you can start a new login.
 
-After a successful login, Kernel saves the login flow. If that flow includes steps that require human action, the connection can't auto-reauth because those steps can't be replayed without user input.
+### Flows that need input, a choice, or approval
 
-If your flow requires one of these, you can still automate around it:
+After a successful login, Kernel saves the login flow. If a later attempt needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` instead of guessing how to proceed.
+
+You can handle these flows in two ways:
 
 - **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. Codes are generated on demand, so the flow no longer needs external action. If a code expires before the site accepts it, Kernel retries with a fresh one.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
