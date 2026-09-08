@@ -74,7 +74,7 @@ If you run your own Chrome — in Docker, on Kubernetes, or as a process on a bo
 
 Two things to check before you cut over:
 
-- **Region.** Kernel browsers run in `us-east`. If your loop runs elsewhere, either move it or run it on the [App Platform](/apps/develop) — otherwise you trade container start-up latency for network latency.
+- **Region.** Browsers default to `us-east`. If your loop runs elsewhere, either move it or run it on the [App Platform](/apps/develop) — otherwise you trade container start-up latency for network latency.
 - **Isolation model.** Each Kernel browser is a microVM with its own kernel, so per-browser isolation is stronger than a shared-kernel container. If you were multiplexing tabs across one Chrome to save memory, use more browsers instead.
 
 ## Getting help with a migration
