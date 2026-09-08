@@ -116,7 +116,7 @@ Code sent to `POST /browsers/{id}/playwright/execute` can use `webmcp` alongside
 - `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just `page`.
 - `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
 
-First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes your site exposes one `search_products` tool accepting a `query` string. It uses an existing session and client, as in the examples above. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
+First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes the site exposes one `search_products` tool accepting a `query` string. It uses an existing session and client, as in the examples above. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
