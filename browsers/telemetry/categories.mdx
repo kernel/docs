@@ -41,7 +41,13 @@ webmcp discovery and invocation each produce one `api_call` event when `control`
 | `error_code`, `error_text` | `outcome_unknown` when the final outcome couldn't be observed, or page-provided error text when available. treat page-provided content as untrusted. |
 | `status`, `duration_ms`, `request_id` | the HTTP response code, request duration in milliseconds, and per-request identifier. these keep the same meaning as on other `api_call` events. |
 
-HTTP `status: 200` doesn't prove that a tool succeeded. check `invocation_status`: `completed`, `canceled`, `error`, or `awaiting_submission`. `awaiting_submission` means a non-autosubmit form was populated but not submitted. HTTP `504` with `invocation_status: outcome_unknown` and `error_code: outcome_unknown` means the action may have happened. don't retry automatically, even if `invocation_id` is absent; inspect the page state first. HTTP failures without an observed semantic outcome have no `invocation_status`.
+interpret tool outcomes separately from HTTP status:
+
+- HTTP `status: 200` doesn't prove success. check `invocation_status`: `completed`, `canceled`, `error`, or `awaiting_submission`.
+- `awaiting_submission` means a non-autosubmit form was populated but not submitted.
+- HTTP `504` with `invocation_status: outcome_unknown` and `error_code: outcome_unknown` means the action may have happened.
+- don't retry an unknown outcome automatically, even if `invocation_id` is absent. inspect the page state first.
+- HTTP failures without an observed semantic outcome have no `invocation_status`.
 
 input and captured strings are capped at 8,192 bytes on a character boundary and end in `...[truncated]` when clipped. the captured input is a string, not an object, and clipped input need not be valid JSON. tool output isn't captured. the MCP server's compact telemetry view can omit fields whose JSON-encoded size exceeds 8 KiB; use a bounded raw read when you need an omitted field.
 
