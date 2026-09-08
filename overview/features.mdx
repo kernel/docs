@@ -1,0 +1,81 @@
+---
+title: "All Features"
+description: "Every Kernel capability, and where its reference lives"
+---
+
+One entry per capability. Start here if you're evaluating Kernel or looking for the canonical page on something.
+
+## Browsers
+
+| Feature | What it's for |
+| --- | --- |
+| [Cloud browsers](/introduction/create) | Isolated Chromium in a [microVM](/info/unikernels), created in ~30ms. Headful by default, [headless](/browsers/headless) when you want a lighter, cheaper footprint. |
+| [Browser pools](/browsers/pools) | A fleet of identically-configured browsers kept ready, so acquisition costs nothing. Idle browsers in a pool aren't billed. |
+| [GPU browsers](/browsers/gpu-acceleration) | Hardware-accelerated rendering for WebGL, canvas-heavy pages, and video. |
+| [Standby mode](/browsers/standby) | Suspends an idle browser and stops usage charges without losing session state. |
+| [Termination and timeouts](/browsers/termination) | `timeout_seconds` as the safety net on every browser, up to 72 hours. |
+| [Concurrency and limits](/browsers/concurrency-and-limits) | How many browsers you can run and create at once, and what happens at the limit. |
+
+## Control
+
+| Feature | What it's for |
+| --- | --- |
+| [How you drive the browser](/introduction/driving-the-browser) | The two decisions to make first: which control surface, and where your loop runs. |
+| [Playwright execution](/browsers/playwright-execution) | Send Playwright code, run it inside the browser's VM, get the return value back. The recommended default. |
+| [Computer controls](/browsers/computer-controls) | OS-level mouse, keyboard, and screen primitives — the surface computer-use models already speak. |
+| [Playwright with computer-use fallback](/browsers/playwright-computer-use-fallback) | The recommended agent pattern: script what you can, fall back to pixels when the page fights you. |
+| [Browser Loop](/browsers/browser-loop) | A framework-neutral browser tool catalog for your agent, with per-model compatibility handled. |
+| [WebMCP](/browsers/webmcp) | Call the tools a site publishes to agents. On by default in every Kernel browser. |
+| [File I/O](/browsers/file-io) | Uploads, downloads, and the session's filesystem. |
+| [Shell access](/browsers/ssh) | SSH into the browser VM, run commands, forward ports. |
+| [curl from the session](/browsers/curl) | Issue HTTP requests from inside the browser's network context. |
+
+## Identity and auth
+
+| Feature | What it's for |
+| --- | --- |
+| [Managed auth](/auth/overview) | Kernel performs the login — credentials, MFA, SSO — and keeps the session alive with background health checks and reauthentication. |
+| [Profiles](/auth/profiles) | Persisted browser state (cookies, storage, logins, tabs) you attach to any browser. What managed auth writes into, and useful on its own. |
+| [Credential storage](/auth/credentials) and [vaults](/vaults) | Where credentials live so they never enter your agent's context. |
+| [1Password](/integrations/1password) | Use credentials from your own 1Password vaults for managed auth. |
+| [Payments](/browsers/enable-payments-in-browser-agent) | Let an agent complete a checkout without handling card data. |
+
+## Anti-detection
+
+| Feature | What it's for |
+| --- | --- |
+| [Bot anti-detection](/browsers/bot-detection/overview) | What sites measure, and the configuration that gets through it. |
+| [Stealth mode](/browsers/bot-detection/stealth) | One flag: hardened browser, default ISP proxy, and the managed CAPTCHA solver. |
+| [Proxies](/proxies/overview) | Datacenter, ISP, residential, mobile, or your own. Kernel-provided proxies aren't metered. |
+| [Web bot auth](/browsers/bot-detection/web-bot-auth) | Identify your automation to sites that allow verified bots. |
+
+## Observability
+
+| Feature | What it's for |
+| --- | --- |
+| [Live view](/browsers/live-view) | Watch or take over a running session in the browser, embeddable in your own app. |
+| [Replays](/browsers/replays) | MP4 recordings of a session for debugging, demos, and compliance. |
+| [Telemetry](/browsers/telemetry/overview) | Structured events for navigation, network, CDP commands, CAPTCHA challenges, and proxy errors. |
+| [Performance](/browsers/performance) | Creation latency benchmarks and what slows them down. |
+
+## Platform
+
+| Feature | What it's for |
+| --- | --- |
+| [App Platform](/apps/develop) | Deploy your agent next to its browser and invoke it on demand or on a schedule. |
+| [Projects](/info/projects) | The isolation boundary for resources, access, and limits — including [multi-tenant setups](/info/projects#multi-tenant-patterns). |
+| [API keys](/info/api-keys) | Org-wide or project-scoped credentials. |
+| [Audit logs](/info/audit-logs) | Who did what, searchable and exportable. |
+| [Spending caps](/info/spending-caps) | Stop new work before the bill surprises you. |
+| [Zero data retention](/info/zero-data-retention) | Run without Kernel retaining session content. |
+
+## Ways in
+
+| Surface | Where to start |
+| --- | --- |
+| SDKs (TypeScript, Python, Go) | [Quickstart](/start/quickstart) |
+| [CLI](/reference/cli) | `brew install kernel/tap/kernel` |
+| [MCP server](/reference/mcp-server) | Give any MCP client a cloud browser |
+| [Agent Skills](/skills/overview) | Drop Kernel know-how into your coding agent |
+| [Integrations](/integrations/overview) | Framework- and vendor-specific guides |
+| [REST API](/api-reference/browsers/create-a-browser-session) | OpenAPI 3.1, no SDK required |

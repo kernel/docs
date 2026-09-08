@@ -23,6 +23,32 @@ Your organization must always have **at least one active project**. The API retu
 
 A project must also be empty before it can be deleted. If active resources remain, the API returns `409 Conflict` with code `project_not_empty`; delete or otherwise remove those resources and retry. Organizations without Projects enabled receive `404 Not Found` with code `projects_disabled` from project-management endpoints.
 
+## Multi-tenant patterns
+
+If you hold browser state on behalf of your own end users — one logged-in account per customer,
+per employee, or per store — give each end user their own project. Kernel customers run this at a
+scale of thousands of projects.
+
+**Use one project per end customer.** A project is the isolation boundary for browsers, profiles,
+credentials, proxies, extensions, deployments, and browser pools. One project per end customer means
+one customer's [profiles](/auth/profiles) and [managed auth connections](/auth/overview) can never be
+loaded by a browser created for another, even by mistake.
+
+**Issue a project-scoped API key per tenant.** A scoped key can only see its own project's resources,
+so a bug in tenant routing fails closed with a `403` instead of quietly reading someone else's data.
+See [API keys](#api-keys).
+
+**Cap concurrency per project.** Set an [org-wide default](#set-an-org-wide-default) so a new tenant
+inherits a sane limit, and override it for the tenants that need more. One runaway tenant then can't
+exhaust the org quota for everyone else. Pair it with a per-project [spending cap](/info/spending-caps).
+
+**Name projects after your own tenant ID.** The project name is the join key you'll want in support
+and billing conversations. Store the returned `proj_` ID against your tenant record and pass it as
+`X-Kernel-Project-Id` (or set it once on the client) on every request you make for that tenant.
+
+**Keep one project for your own workloads.** Internal jobs — QA, evals, scheduled maintenance — belong
+in a project of their own, not in a customer's.
+
 ## Scoping Requests to a Project
 
 Pass the `X-Kernel-Project-Id` header with a project ID on any API request to scope it to a specific project. Project names are not accepted in this header. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.

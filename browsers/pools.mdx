@@ -196,7 +196,7 @@ if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseP
 
 ### Timeout behavior
 
-Browsers wait in the browser pool indefinitely until acquired — a browser pool's `timeout_seconds` only starts running once a browser is acquired. From there it behaves like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout): if the browser sits idle, with no CDP or live view connection, for longer than the timeout, it's destroyed rather than returned to the pool, and the pool creates a replacement.
+Browsers wait in the browser pool indefinitely until acquired — a browser pool's `timeout_seconds` (default 600 seconds, max 259200) only starts running once a browser is acquired. From there it behaves like a [regular browser timeout](/browsers/termination#automatic-deletion-via-timeout): if the browser sits idle, with no CDP or live view connection, for longer than the timeout, it's destroyed rather than returned to the pool, and the pool creates a replacement.
 
 As a best practice, release each browser when you're done with it — that returns it to the pool right away. The timeout is there as a backstop for browsers that never get released.
 

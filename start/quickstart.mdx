@@ -1,0 +1,130 @@
+---
+title: "Quickstart"
+description: "Create your first cloud browser, drive it, and hand the rest to your coding agent"
+---
+
+Two paths. Do the first if you're writing the code; do the second if a coding agent is.
+
+<Note>
+You'll need an API key from the [dashboard](https://dashboard.onkernel.com). Set it as `KERNEL_API_KEY` — every SDK, the CLI, and the MCP server read it from the environment.
+</Note>
+
+## Path 1: write it yourself
+
+<Steps>
+<Step title="Install an SDK">
+<CodeGroup>
+```bash TypeScript
+npm install @onkernel/sdk
+```
+
+```bash Python
+pip install kernel
+```
+
+```bash Go
+go get github.com/kernel/kernel-go-sdk
+```
+</CodeGroup>
+</Step>
+
+<Step title="Create a browser and drive it">
+This creates a browser, runs Playwright code inside the browser's VM, returns the result, and cleans up. No local Chromium, no CDP connection to manage.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({ timeout_seconds: 300 });
+console.log('live view:', browser.browser_live_view_url);
+
+try {
+  const { result } = await kernel.browsers.playwright.execute(browser.session_id, {
+    code: `
+      await page.goto('https://news.ycombinator.com');
+      return await page.$$eval('.titleline > a', (as) => as.slice(0, 5).map((a) => a.textContent));
+    `,
+  });
+  console.log(result);
+} finally {
+  await kernel.browsers.deleteByID(browser.session_id);
+}
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(timeout_seconds=300)
+print("live view:", browser.browser_live_view_url)
+
+try:
+    response = kernel.browsers.playwright.execute(
+        browser.session_id,
+        code="""
+          await page.goto('https://news.ycombinator.com');
+          return await page.$$eval('.titleline > a', (as) => as.slice(0, 5).map((a) => a.textContent));
+        """,
+    )
+    print(response.result)
+finally:
+    kernel.browsers.delete_by_id(browser.session_id)
+```
+</CodeGroup>
+
+Open `browser_live_view_url` while it runs and you'll watch the page load.
+</Step>
+
+<Step title="Pick your next decision">
+Two things determine the shape of everything after this: which control surface you use, and where your loop runs. [How you drive the browser](/introduction/driving-the-browser) covers both.
+
+From there:
+
+- Behind a login? [Managed auth](/auth/overview).
+- Getting blocked? [Bot anti-detection](/browsers/bot-detection/overview).
+- Running it repeatedly? [Browser pools](/browsers/pools).
+- Deploying the agent? [App Platform](/apps/develop).
+- Worked examples by job: the [cookbook](/cookbook/overview).
+</Step>
+</Steps>
+
+## Path 2: hand it to your coding agent
+
+Kernel publishes agent-readable surfaces — a docs index, a full docs corpus, official skills, and a hosted MCP server. Rather than pasting three links and hoping, paste this one prompt into Cursor, Claude Code, Codex, or whatever you use. It gets set up and completes a first task.
+
+```text Copy this into your coding agent
+Set up Kernel (cloud browsers for agents) in this project, then complete one task with it.
+
+Context to read first:
+- https://www.kernel.sh/llms.txt — what Kernel is and every machine endpoint
+- https://www.kernel.sh/docs/llms.txt — the docs index; fetch the specific pages you need from it
+- https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-cli/SKILL.md — the Kernel CLI skill
+
+Setup:
+1. Install the CLI: `brew install kernel/tap/kernel` (or `npm install -g @onkernel/cli`). Confirm `kernel --version` >= v0.16.0.
+2. Run `kernel auth`. If it isn't authenticated, run `kernel login`, tell me to finish the browser flow, and poll `kernel auth` every 5s for up to 5 minutes.
+3. Install the Kernel skills for this repo's agent so you keep the CLI and SDK knowledge: `npx skills add kernel/skills`.
+4. Optional, for tool-calling: connect the hosted MCP server at https://mcp.onkernel.com/mcp (streamable HTTP, OAuth).
+
+First task:
+Create a headful browser, print its live view URL for me, navigate to https://news.ycombinator.com,
+return the top 5 story titles, then delete the browser. Use the playwright execution API rather than
+a local Playwright install. Wrap the work in try/finally so the browser is always deleted.
+
+Then tell me which of the three ways to run an agent loop (direct CDP, playwright execution API,
+Kernel App Platform) fits what this project is doing, and why.
+```
+
+### What the agent is reading
+
+| Surface | Size | What it's for |
+| --- | --- | --- |
+| [`kernel.sh/llms.txt`](https://www.kernel.sh/llms.txt) | ~3 KB | Hand-written. What Kernel is, when to use it, every machine endpoint. Start here. |
+| [`kernel.sh/docs/llms.txt`](https://www.kernel.sh/docs/llms.txt) | ~47 KB | Index of every docs page, for fetching the ones a task needs. |
+| [`kernel.sh/docs/llms-full.txt`](https://www.kernel.sh/docs/llms-full.txt) | ~950 KB | The whole docs corpus in one file, for agents with room for it. |
+| [Agent Skills](/skills/overview) | — | Kernel know-how installed into the agent, so it doesn't re-read docs every session. |
+| [MCP server](/reference/mcp-server) | — | Kernel's API as tools, for agents that call tools instead of writing code. |
+| [OpenAPI 3.1](https://www.kernel.sh/openapi.json) | — | For generating a client or calling the REST API directly. |

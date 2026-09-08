@@ -1,0 +1,61 @@
+---
+title: "All Skills"
+description: "Every first-party Kernel agent skill, what it does, and how to install it"
+---
+
+Kernel's skills live in [`kernel/skills`](https://github.com/kernel/skills) and install into Claude Code, Codex, Cursor, and any agent that reads skills. They're shipped as three plugins.
+
+## Install
+
+<CodeGroup>
+```bash Claude Code
+/plugin marketplace add kernel/skills
+/plugin install kernel-cli
+/plugin install kernel-sdks
+/plugin install generate-video
+```
+
+```bash Codex
+codex plugin marketplace add kernel/skills
+codex plugin add kernel-cli@kernel
+codex plugin add kernel-sdks@kernel
+codex plugin add generate-video@kernel
+```
+
+```bash Any agent
+npx skills add kernel/skills
+```
+</CodeGroup>
+
+In Cursor, install the Kernel plugin from **Cursor Settings → Plugins**; it includes all skills, the [MCP server](/reference/mcp-server), and the best-practices rules.
+
+## `kernel-cli` plugin
+
+Browser automation and platform operations through the [CLI](/reference/cli).
+
+| Skill | What it does |
+| --- | --- |
+| `kernel-cli` | Manage cloud browsers, apps, profiles, proxies, managed auth, API keys, projects, and org limits from the CLI. Start here — the other CLI skills assume it. |
+| [`kernel-auth`](/skills/kernel-auth) | Use [managed auth](/auth/overview) correctly: reuse or create connections, complete hosted login without abandoning the task, launch profile-backed browsers, and handle reauthentication safely. |
+| `kernel-agent-browser` | Best practices for [agent-browser](/integrations/vercel/agent-browser) with Kernel browsers — stealth and proxy tuning, profile persistence, iframes, session discovery, cleanup. See [site-specific skills](/skills/site-specific). |
+| `kernel-browser-harness` | Drive a Kernel browser from browser-use's open-source `browser-harness` over [CDP](/introduction/control), including multi-step and parallel sessions. |
+| [`debug-browser-session`](https://github.com/kernel/skills/tree/main/plugins/kernel-cli/skills/debug-browser-session) | Systematically debug a misbehaving session — VM issues, network errors, Chrome crashes, page-load failures, [live view](/browsers/live-view) problems — from the session ID. |
+| [`profile-website-bot-detection`](/skills/bot-detection) | Profile a site's bot-detection vendors and challenge types by comparing stealth and non-stealth browsers. |
+| [`diff-profile-archives`](/skills/profiles) | Diff two [profiles](/auth/profiles) — cookies, storage, preferences, extensions, login state — to explain why one works and the other doesn't. |
+
+## `kernel-sdks` plugin
+
+| Skill | What it does |
+| --- | --- |
+| `kernel-typescript-sdk` | Build automation in TypeScript with [playwright execution](/browsers/playwright-execution) or CDP, profiles, proxies, and reliable session cleanup. |
+| `kernel-python-sdk` | The same for Python, including browser lifecycle and server-side Playwright. |
+
+## `generate-video` plugin
+
+| Skill | What it does |
+| --- | --- |
+| `generate-video` | Render a web page or animated visualization to a smooth MP4 by frame-stepping headless Chromium over CDP and encoding with ffmpeg. |
+
+## Skills for your own sites
+
+The skills above teach an agent about Kernel. To make an agent reliable on a specific website, write a [site-specific skill](/skills/site-specific).

@@ -1,0 +1,96 @@
+---
+title: "Browserbase"
+description: "Move a Browserbase automation to Kernel"
+---
+
+The connection change is one line: swap the Browserbase `connectUrl` for Kernel's `cdp_ws_url`. Everything else is optional — but a few Browserbase concepts have no Kernel equivalent because Kernel handles them differently.
+
+## Concept mapping
+
+| Concept | Browserbase | Kernel |
+| --- | --- | --- |
+| Create a session | `bb.sessions.create({ projectId })` | `kernel.browsers.create()` — no project ID required ([projects](/info/projects) are optional isolation) |
+| CDP endpoint | `session.connectUrl` | `browser.cdp_ws_url` |
+| End a session | `bb.sessions.update(id, { status: 'REQUEST_RELEASE' })` | `kernel.browsers.deleteByID(session_id)`, or let [`timeout_seconds`](/browsers/termination) do it |
+| Live view | Debug URL from `sessions.debug()` | `browser.browser_live_view_url`, returned on create |
+| Recording | Session recording API | [Replays](/browsers/replays) — `replays.start()` / `replays.stop()`, MP4 output |
+| Persisted state | Contexts | [Profiles](/auth/profiles) — `profile: { name, save_changes: true }` |
+| Logging in | Your own credential handling | [Managed auth](/auth/overview) performs and maintains the login |
+| Stealth | Advanced stealth setting | Anti-detection on by default; `stealth: true` adds the managed proxy and CAPTCHA solver |
+| Proxies | Proxy configuration, billed per GB | [Proxies](/proxies/overview), unmetered on Kernel-provided types |
+| Keep-alive | `keepAlive` on the session | [Standby mode](/browsers/standby) — automatic, and idle time isn't billed |
+| Warm sessions | — | [Browser pools](/browsers/pools) |
+| Run your code near the browser | — | [Playwright execution](/browsers/playwright-execution) and the [App Platform](/apps/develop) |
+
+## The connection change
+
+**Browserbase**
+
+```typescript
+import Browserbase from '@browserbasehq/sdk';
+import { chromium } from 'playwright-core';
+
+const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY });
+const session = await bb.sessions.create({ projectId: process.env.BROWSERBASE_PROJECT_ID });
+
+const browser = await chromium.connectOverCDP(session.connectUrl);
+const page = browser.contexts()[0].pages()[0];
+await page.goto('https://example.com');
+await browser.close();
+```
+
+**Kernel**
+
+```typescript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright-core';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create({ timeout_seconds: 600 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const page = browser.contexts()[0].pages()[0];
+await page.goto('https://example.com');
+await browser.close();
+
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+## Then drop the CDP connection entirely
+
+The migration above keeps your CDP round trips. If the automation is a script or an agent tool, [playwright execution](/browsers/playwright-execution) is strictly better: the same Playwright API, running inside the browser's VM, returning values to you.
+
+```typescript
+const { result } = await kernel.browsers.playwright.execute(kernelBrowser.session_id, {
+  code: `
+    await page.goto('https://example.com');
+    return await page.title();
+  `,
+});
+```
+
+No `playwright` install to version-pin, no Chromium download, no connection to reconnect, and no CDP fingerprint on the wire. See [how you drive the browser](/introduction/driving-the-browser) for when to keep CDP anyway.
+
+## Contexts become profiles
+
+A Browserbase context and a Kernel [profile](/auth/profiles) both persist cookies and storage between sessions. Two differences worth knowing:
+
+- **A profile is writable per browser.** Pass `save_changes: true` and the browser writes its state back on exit; leave it off and the profile loads read-only.
+- **Profiles are what [managed auth](/auth/overview) populates.** Instead of scripting the login yourself, create an auth connection against a domain, point it at a profile name, and Kernel performs the login, monitors the session, and reauthenticates supported flows in the background.
+
+```typescript
+const browser = await kernel.browsers.create({
+  profile: { name: 'user-8f21c3', save_changes: true },
+  stealth: true,
+});
+```
+
+## Things to check before cutting over
+
+- **Region.** Kernel browsers run in `us-east`. Co-locate your loop with [playwright execution](/browsers/playwright-execution) or the [App Platform](/apps/develop) if latency matters.
+- **Concurrency and create rate.** Both are per plan and separate from each other — see [concurrency and limits](/browsers/concurrency-and-limits).
+- **Proxy behavior.** Kernel's datacenter proxies rotate per request; ISP proxies are static. If your automation assumed a stable exit IP, use [ISP](/proxies/isp) or a [custom proxy](/proxies/custom).
+
+<Note>
+Moving a large workload? [Talk to us](https://calendly.com/d/d3tn-5kp-5yt) first — pools versus on-demand browsers is usually the decision that matters most, and it depends on your traffic shape.
+</Note>

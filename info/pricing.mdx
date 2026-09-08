@@ -55,7 +55,7 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 
 ## Concurrency limits
 
-Kernel enforces a single concurrency limit covering all browsers you run at once—whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
+Kernel enforces a single concurrency limit covering all browsers you run at once—whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools). Your full limit is available to either API in any mix.
 
 | Feature | Developer | Hobbyist | Start-Up | Enterprise |
 | --- | --- | --- | --- | --- |
@@ -65,7 +65,7 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 | Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
 
 #### Notes
-- Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired—a pool sized to 40 browsers uses 40 of your limit.
+- Reserved capacity in a [browser pool](/browsers/pools) counts toward your concurrency limit whether or not the browsers are currently acquired—a pool sized to 40 browsers uses 40 of your limit.
 - Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
 - Limits are org-wide by default unless stated otherwise.
 
@@ -73,6 +73,14 @@ Kernel enforces a single concurrency limit covering all browsers you run at once
 ## Rate limiting
 
 Kernel enforces per-organization rate limits on API requests. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
+
+Browser creation is rate limited per plan. This is a **create rate**, not a concurrency limit — it caps how fast you can ask for new browsers, independent of how many you can run at once:
+
+| Limit | Developer | Hobbyist | Start-Up | Enterprise |
+| --- | --- | --- | --- | --- |
+| `browsers.create()` requests per org per minute | 10 | 25 | 100 | 250 |
+
+Acquiring a browser from a [browser pool](/browsers/pools) isn't subject to the create rate, because the pool's browsers already exist. If you're creating browsers in bursts, a pool is the better shape — see [Concurrency and limits](/browsers/concurrency-and-limits).
 
 Rate-limited endpoints include these headers on every response:
 

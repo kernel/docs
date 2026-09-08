@@ -1,0 +1,147 @@
+---
+title: "Site-Specific Skills"
+description: "Write a skill that makes your agent reliable on one website"
+---
+
+A general browser agent rediscovers a site on every run: where the login form is, which button submits, how long the dashboard takes to render. A site-specific skill writes that knowledge down once, so the agent starts from what already works.
+
+For a site you automate repeatedly, this is usually what moves reliability the most. Everything below assumes [agent-browser with the Kernel provider](/integrations/vercel/agent-browser) (`agent-browser -p kernel`); the same structure works with the SDKs.
+
+## One skill per domain
+
+Name the skill folder after the site's primary domain — the domain where the automation actually happens:
+
+```
+.claude/skills/kroger.com/SKILL.md
+.claude/skills/amazon.com/SKILL.md
+```
+
+## Skill template
+
+```markdown
+---
+name: <descriptive-name>
+description: <what the skill does>. Use when <trigger conditions>.
+---
+
+# <Site Name>
+
+Uses agent-browser with the Kernel cloud browser provider.
+
+## Configuration
+
+Set these before the first `agent-browser -p kernel` call — the CLI holds state
+between invocations.
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `KERNEL_API_KEY` | **Required.** Your Kernel API key. | (none) |
+| `KERNEL_STEALTH` | Enable [stealth mode](/browsers/bot-detection/stealth). | `true` |
+| `KERNEL_TIMEOUT_SECONDS` | Session timeout in seconds. | `300` |
+| `KERNEL_PROFILE_NAME` | [Profile](/auth/profiles) for persistent cookies and logins. | (none) |
+
+## Login workflow
+
+<the exact steps, with the element refs you found>
+
+## <Workflow name>
+
+<one section per workflow the site needs>
+
+## Cleanup
+
+`agent-browser -p kernel close`
+
+## Notes
+
+<quirks, gotchas, and what didn't work>
+```
+
+When `KERNEL_PROFILE_NAME` is set, the [profile](/auth/profiles) is created if it doesn't exist, and cookies, logins, and session data are saved back to it when the session ends. That's what makes the second run of a skill cheaper than the first.
+
+## Discovering the workflows
+
+Work through the site once, interactively, and write down what you learn.
+
+1. **Open a session** with a profile so the login survives.
+
+   ```bash
+   export KERNEL_PROFILE_NAME=kroger
+   agent-browser -p kernel open https://www.kroger.com
+   ```
+
+2. **Snapshot before every interaction.** Element refs (`@e1`, `@e2`) are session-specific and change after navigation and significant DOM updates.
+
+   ```bash
+   agent-browser -p kernel snapshot -i          # interactive elements only
+   agent-browser -p kernel snapshot             # full accessibility tree
+   ```
+
+3. **Document the login flow.** Most sites are one of three shapes: a single-page form, a two-step form (username, then password), or an OAuth redirect. If bot detection or a strange login page blocks you, don't grind — get the [live view](/browsers/live-view) URL and have a person log in once, then let the profile carry it:
+
+   ```bash
+   kernel browsers list                          # find the session for your profile
+   kernel browsers view <session-id>             # live view URL
+   ```
+
+4. **Walk each workflow the agent will need** — navigate, snapshot, interact, verify — and record the URL patterns, the element refs, the waits, and how you confirm success.
+
+5. **Test each step alone before combining them,** then end to end.
+
+## Techniques worth knowing
+
+**Prefer direct URLs to navigation.** If the site has a stable deep link, use it. `https://www.kroger.com/mypurchases` beats four clicks through a menu.
+
+**Wait on conditions, not clocks.** A fixed sleep is the last resort:
+
+```bash
+agent-browser -p kernel wait --load networkidle
+agent-browser -p kernel wait --url "**/dashboard"
+agent-browser -p kernel wait --text "Success"
+agent-browser -p kernel wait 2000               # last resort
+```
+
+**Fall back to JavaScript for stubborn elements.**
+
+```bash
+agent-browser -p kernel eval "document.querySelector('[data-testid=\"submit\"]').click()"
+```
+
+**Cross-origin iframes need Playwright.** Get the session ID with `kernel browsers list`, then run [playwright execution](/browsers/playwright-execution) against the frame.
+
+**Never put credentials in `SKILL.md`.** Use [managed auth](/auth/overview) or a [profile](/auth/profiles) so the agent never sees them. If a site's flow genuinely needs credentials in the agent's config, keep them in the agent config file and reference them from the skill rather than duplicating the values.
+
+## Patterns by site type
+
+| Site type | Usual shape |
+| --- | --- |
+| E-commerce | Login → account menu → order history; search → product → cart; checkout; pending-order modification |
+| Portal / dashboard | Login (often OAuth) → sidebar navigation → paginated tables → detail modals |
+| Bill payment | Login (sometimes in a modal) → invoice or amount form → stored payment method → receipt capture |
+
+## Kernel best practices to bake in
+
+These apply to every skill you write, and they're the defaults the [Kernel rules file](https://github.com/kernel/skills/blob/main/rules/kernel-best-practices.mdc) installs into your agent:
+
+- Always delete browsers when done — `try`/`finally` so cleanup is guaranteed.
+- Set [`timeout_seconds`](/browsers/termination) on every browser as a safety net.
+- Turn on [stealth](/browsers/bot-detection/stealth) for any site with bot detection.
+- Use a [profile](/auth/profiles) for anything behind a login, with `save_profile_changes: true`.
+- Use `headless: true` when nobody needs to watch.
+- Proxy quality for anti-detection, best to worst: [mobile](/proxies/mobile) → [residential](/proxies/residential) → [ISP](/proxies/isp) → [datacenter](/proxies/datacenter).
+- Never hardcode credentials.
+
+## Measuring whether a skill is actually better
+
+A skill is a prompt, and prompts regress. Once a skill exists, treat it as something to measure rather than something that's done: run the same task set with and without it and compare completion rate, steps, and wall-clock time.
+
+Two Kernel projects do this end to end and are worth reading before you build your own harness:
+
+- [`kernel/pi-skillopt`](https://github.com/kernel/pi-skillopt) — optimizing a skill against a task set.
+- [`kernel/browser-agent-gepa`](https://github.com/kernel/browser-agent-gepa) — GEPA-based optimization of browser automation skills using Kernel cloud browsers.
+
+## Related
+
+- [Bot detection skill](/skills/bot-detection) — find the browser configuration that gets through a site before you write the skill.
+- [Kernel Auth skill](/skills/kernel-auth) — managed auth patterns for logins.
+- [The full guide in `kernel/skills`](https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-agent-browser/references/create-site-specific-skill.md) — the source this page is based on, kept current with the CLI.

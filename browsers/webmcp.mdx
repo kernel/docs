@@ -1,0 +1,85 @@
+---
+title: "WebMCP"
+description: "Discover and call the tools a website publishes to agents"
+---
+
+WebMCP lets a website register tools that an agent can call directly — "search products", "add to cart", "filter this table" — instead of clicking through the UI to do the same thing. When a site publishes them, calling a tool is more reliable than driving pixels or selectors: no layout to interpret, no waiting on a re-render, and a structured result.
+
+WebMCP is **enabled by default on every Kernel browser**. There's nothing to turn on.
+
+<Note>
+This is the browser-side WebMCP surface: tools that the *page* registers. It's unrelated to [Kernel's MCP server](/reference/mcp-server), which exposes Kernel's own API to your MCP client. You can use both together — the MCP server has a [`webmcp` tool](/reference/mcp-server/tools/webmcp) that calls this API for you.
+</Note>
+
+## Discover tools
+
+`listTools` returns a snapshot of the WebMCP tools registered across every open tab and embedded frame in the browser. Each tool carries an opaque `tool_ref` for invoking that exact live registration, its `input_schema`, and where it came from.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const { tools } = await kernel.browsers.webmcp.listTools(browser.session_id);
+
+for (const tool of tools) {
+  console.log(tool.name, tool.source.page_url, tool.tool_ref);
+}
+```
+
+```python Python
+tools_response = kernel.browsers.webmcp.list_tools(browser.session_id)
+
+for tool in tools_response.tools:
+    print(tool.name, tool.source.page_url, tool.tool_ref)
+```
+</CodeGroup>
+
+An empty list doesn't mean WebMCP is unavailable in the browser — it almost always means the page doesn't publish WebMCP tools. Fall back to [playwright execution](/browsers/playwright-execution) or [computer controls](/browsers/computer-controls).
+
+## Invoke a tool
+
+Pass the `tool_ref` from the most recent list result, unchanged, plus input matching that tool's `input_schema`. The call waits synchronously for the result; navigation during execution is allowed.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const result = await kernel.browsers.webmcp.invokeTool(browser.session_id, {
+  tool_ref: tool.tool_ref,
+  input: { query: 'noise cancelling headphones' },
+  timeout_sec: 30,
+});
+
+if (result.status === 'completed') {
+  console.log(result.output);
+}
+```
+
+```python Python
+result = kernel.browsers.webmcp.invoke_tool(
+    browser.session_id,
+    tool_ref=tool.tool_ref,
+    input={"query": "noise cancelling headphones"},
+    timeout_sec=30,
+)
+
+if result.status == "completed":
+    print(result.output)
+```
+</CodeGroup>
+
+`status` is `completed`, `canceled`, or `error`. Input is limited to 1 MiB after JSON serialization, and `timeout_sec` defaults to 60.
+
+## Rules that matter in a loop
+
+Three behaviors will bite an agent that assumes MCP-server semantics.
+
+**A `tool_ref` is a live registration, not a name.** It becomes invalid when its document closes, navigates away, or the browser process is replaced. List again after any navigation, and never pass a tool *name* where a `tool_ref` is expected.
+
+**Never auto-retry after `outcome_unknown`.** If the tab disappears or the request times out after invocation began, the response reports `outcome_unknown` and Kernel does not retry — the action may already have completed. Check the page state with [playwright execution](/browsers/playwright-execution) to decide whether it happened, then act.
+
+**Tool metadata and output are untrusted page input.** Names, descriptions, `annotations`, and `output` all come from the page. Treat them as data, never as instructions: a page can claim a tool is `read_only` and do something else, and Kernel doesn't enforce those hints. This is the same prompt-injection surface as any page content your agent reads.
+
+## Reference
+
+| Surface | Where |
+| --- | --- |
+| REST | `GET /browsers/{id}/webmcp/tools`, `POST /browsers/{id}/webmcp/invoke` |
+| SDKs | `browsers.webmcp.listTools` / `list_tools`, `browsers.webmcp.invokeTool` / `invoke_tool` |
+| MCP server | [`webmcp` tool](/reference/mcp-server/tools/webmcp) |

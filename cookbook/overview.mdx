@@ -1,0 +1,179 @@
+---
+title: "Cookbook"
+sidebarTitle: "Overview"
+description: "Worked examples for the five jobs people bring to Kernel"
+---
+
+Each recipe below is a working shape for one job — what to configure, what to run, and the failure mode to plan for. They assume `KERNEL_API_KEY` is set and you've been through the [quickstart](/start/quickstart).
+
+## Web agents
+
+**The job:** a model decides what to do on a page it hasn't seen before.
+
+**The shape:** [playwright execution](/browsers/playwright-execution) as the agent's default tool, [computer controls](/browsers/computer-controls) as the fallback when a step doesn't respond to a selector, and one browser per task with a `timeout_seconds` safety net.
+
+```typescript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const browser = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
+
+// Tool 1: give the model a way to run a script and get data back.
+async function runScript(code: string) {
+  const { result } = await kernel.browsers.playwright.execute(browser.session_id, { code });
+  return result;
+}
+
+// Tool 2: give the model a way to look, and to act on what it sees.
+async function screenshot() {
+  return kernel.browsers.computer.captureScreenshot(browser.session_id);
+}
+
+async function click(x: number, y: number) {
+  return kernel.browsers.computer.clickMouse(browser.session_id, { x, y });
+}
+
+try {
+  await runScript(`await page.goto('https://example.com');`);
+  // ... your agent loop, calling the three tools above
+} finally {
+  await kernel.browsers.deleteByID(browser.session_id);
+}
+```
+
+**Plan for:** the model looping on a step that can't work. Cap the number of turns, and give it the live view URL so a person can see what it's stuck on. [Replays](/browsers/replays) turn a failed run into something you can review afterwards.
+
+Skip writing the tool layer yourself with [Browser Loop](/browsers/browser-loop), which ships this catalog with per-model compatibility handled.
+
+## Data extraction
+
+**The job:** pull structured data off pages, repeatedly, at volume.
+
+**The shape:** one [playwright execution](/browsers/playwright-execution) call per page — return the data, don't stream the DOM to your machine — a [browser pool](/browsers/pools) so you're not paying creation latency per page, and [proxies](/proxies/overview) to spread load across exit IPs.
+
+```typescript
+await kernel.browserPools.create({
+  name: 'scrape',
+  size: 20,
+  timeout_seconds: 600,
+  stealth: true,
+});
+
+async function scrape(url: string) {
+  const browser = await kernel.browserPools.acquire('scrape', { acquire_timeout_seconds: 30 });
+  try {
+    const { result } = await kernel.browsers.playwright.execute(browser.session_id, {
+      code: `
+        await page.goto(${JSON.stringify(url)}, { waitUntil: 'domcontentloaded' });
+        return await page.$$eval('[data-product]', (els) => els.map((el) => ({
+          title: el.querySelector('h3')?.textContent?.trim(),
+          price: el.querySelector('[data-price]')?.textContent?.trim(),
+        })));
+      `,
+    });
+    return result;
+  } finally {
+    await kernel.browserPools.release('scrape', { session_id: browser.session_id, reuse: true });
+  }
+}
+```
+
+**Plan for:** blocks rather than errors. A site that starts returning a challenge page looks like a successful scrape with zero rows. Assert on row count, and watch the [CAPTCHA and proxy telemetry events](/browsers/telemetry/categories). Concurrency and create-rate ceilings are per plan — see [concurrency and limits](/browsers/concurrency-and-limits).
+
+## Form fill
+
+**The job:** put data into a form a person would normally fill in.
+
+**The shape:** playwright execution for the fields, computer controls for the widgets that fight you (custom dropdowns, date pickers, canvas-based signature fields), and a verification read before you submit.
+
+```typescript
+await kernel.browsers.playwright.execute(browser.session_id, {
+  code: `
+    await page.goto('https://example.com/apply');
+    await page.fill('#full-name', 'Ada Lovelace');
+    await page.fill('#email', 'ada@example.com');
+    await page.selectOption('#country', 'GB');
+  `,
+});
+
+// Read it back before submitting — this is the step people skip.
+const { result: filled } = await kernel.browsers.playwright.execute(browser.session_id, {
+  code: `return { name: await page.inputValue('#full-name'), country: await page.inputValue('#country') };`,
+});
+
+if (filled.name !== 'Ada Lovelace') throw new Error('form did not take the value');
+
+await kernel.browsers.playwright.execute(browser.session_id, {
+  code: `await page.click('button[type=submit]'); await page.waitForURL('**/thanks');`,
+});
+```
+
+**Plan for:** silent rejection. A field that a React component controls can accept `fill()` and then reset on blur. Read values back, and fall back to [computer controls](/browsers/computer-controls) typing for anything that won't hold.
+
+For checkouts, don't handle card data yourself — see [payments in browser agents](/browsers/enable-payments-in-browser-agent).
+
+## Authenticated workflows
+
+**The job:** the work is behind a login, and you don't want credentials in your agent's context.
+
+**The shape:** [managed auth](/auth/overview) performs the login once and writes the session into a [profile](/auth/profiles); every later browser attaches that profile and starts logged in. Kernel health-checks the connection and reauthenticates supported flows in the background.
+
+```typescript
+// Once per end user, per domain.
+const connection = await kernel.auth.connections.create({
+  domain: 'app.example.com',
+  profile_name: 'user-8f21c3',
+});
+
+const login = await kernel.auth.connections.login(connection.id);
+console.log('send the user here:', login.hosted_url);
+
+// Later, on every run — no credentials involved.
+const browser = await kernel.browsers.create({
+  profile: { name: 'user-8f21c3', save_changes: true },
+  stealth: true,
+  timeout_seconds: 600,
+});
+```
+
+**Plan for:** the session going stale anyway. Check the connection's state before a run rather than discovering a logged-out page mid-task — see [connection lifecycle](/auth/connection-lifecycle). If you're holding logins for your own end users, give each one [its own project](/info/projects#multi-tenant-patterns).
+
+## QA and testing
+
+**The job:** run a browser suite against a real deployment, and be able to explain a failure afterwards.
+
+**The shape:** [headless](/browsers/headless) browsers for cost and concurrency, [replays](/browsers/replays) recording so a red test comes with video, and [private networking](/browsers/private-networking) when the environment under test isn't public.
+
+```typescript
+const browser = await kernel.browsers.create({
+  headless: true,
+  timeout_seconds: 300,
+});
+
+const replay = await kernel.browsers.replays.start(browser.session_id);
+
+try {
+  await kernel.browsers.playwright.execute(browser.session_id, {
+    code: `
+      await page.goto('https://staging.example.com');
+      await page.click('text=Sign in');
+      await page.waitForSelector('#dashboard', { timeout: 15000 });
+    `,
+  });
+} finally {
+  await kernel.browsers.replays.stop(replay.replay_id, { id: browser.session_id });
+  await kernel.browsers.deleteByID(browser.session_id);
+}
+```
+
+**Plan for:** flakes that aren't your app. [Telemetry](/browsers/telemetry/overview) separates a network failure from an assertion failure, and creation latency has [known causes](/browsers/performance) worth ruling out before you blame the test.
+
+<Note>
+Replays need a headful browser. If you want video for a failing test, run that one headful.
+</Note>
+
+## More
+
+- [Integrations](/integrations/overview) — the same jobs, framework by framework.
+- [Agent Skills](/skills/overview) — install Kernel patterns into your coding agent.
+- [Site-specific skills](/skills/site-specific) — make an agent reliable on one particular website.
