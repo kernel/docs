@@ -7,9 +7,22 @@ All Kernel browsers ship with anti-detection optimizations by default — you do
 Enabling `stealth` mode adds two managed services on top:
 
 1. **Default proxy** — traffic routes through a static [ISP proxy](/proxies/isp), providing a stable exit IP for the session.
-2. **Automatic CAPTCHA solver** — solves [reCAPTCHAs](https://www.google.com/recaptcha/api2/demo), Cloudflare challenges, and similar tests automatically.
+2. **Automatic CAPTCHA solver** — detects and solves supported challenge types automatically.
 
 Both are opt-out so you can [bring your own](#bring-your-own-proxy-or-captcha-solver) where it makes sense.
+
+Supported challenge types:
+
+| Challenge | Solved automatically |
+| --- | --- |
+| [reCAPTCHA v2](https://www.google.com/recaptcha/api2/demo) (checkbox and invisible) | ✅ |
+| reCAPTCHA v3 and reCAPTCHA Enterprise | ✅ |
+| Cloudflare Turnstile and Cloudflare interstitial challenges | ✅ |
+| GeeTest | ✅ |
+| Image-to-text challenges | ✅ |
+| [hCaptcha](/browsers/bot-detection/hcaptcha) | Beta, opt-in per organization |
+
+Anything not in this table isn't solved for you. Challenge outcomes are reported as [telemetry events](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) you can watch from your automation.
 
 ### IP Rotation Behavior
 

@@ -50,6 +50,18 @@ Emulates native keyboard and mouse input directly at the OS level and includes h
 ### [GPU Acceleration](/browsers/gpu-acceleration)
 Many detection systems fingerprint canvas and WebGL rendering output and cross-check it against the claimed GPU. Software-rendered browsers produce pixel hashes that don't match any real consumer GPU, which is a strong bot signal on sites with rendering-based fingerprinting. GPU-enabled Kernel browsers render through real hardware, producing output consistent with a normal user's device.
 
+## Why the same site behaves differently
+
+Websites differ widely in how aggressively they detect and challenge automation, and the same site can behave differently depending on how you approach it. There's no fixed list of supported and unsupported sites — it's more useful to know what drives the friction.
+
+What tends to increase it:
+
+- **High volume or high concurrency** — many requests from one exit IP raise the block rate. Spread load across [proxies](/proxies/overview) and reuse [profiles](/auth/profiles).
+- **Aggressive detection vendors** (Cloudflare, DataDome, PerimeterX, Imperva, Akamai) — these can challenge even anonymous page loads. Turn on [stealth mode](/browsers/bot-detection/stealth), and prefer [computer controls](/browsers/computer-controls) for interaction.
+- **A CDP connection** — an attached debugger is one of the cheapest automation signals a page can read. See [how you drive the browser](/introduction/driving-the-browser).
+
+For workflows behind a login, [managed auth](/auth/overview) keeps sessions authenticated across runs for supported login flows, which avoids repeating the riskiest part of the automation.
+
 ## Getting Started
 
 Before you start automating your workflow, we recommend that you manually test your website to understand how it behaves with Kernel's browsers. Here's how to do that:
@@ -97,7 +109,7 @@ Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotati
 
 ### Datacenter proxies
 
-[Datacenter proxies](/proxies/datacenter) are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+[Datacenter proxies](/proxies/datacenter) are the fastest option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
 
 ### Which to use
 

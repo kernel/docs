@@ -1,0 +1,38 @@
+---
+title: "Why KERNEL"
+description: "What Kernel gives you that a Chrome process doesn't"
+---
+
+Kernel runs Chromium as infrastructure: an isolated, GPU-capable browser you create in milliseconds, drive over four protocols, watch live, record, authenticate, and throw away. If your agent or automation needs a real browser and you'd rather not operate a browser fleet, this is what Kernel replaces.
+
+## Why not just run Chrome yourself?
+
+You can. Running one Chrome locally is easy, and it's the right call while you're prototyping. The work starts when the automation has to run unattended, more than once, at more than one at a time.
+
+| What you hit | Running it yourself | On Kernel |
+| --- | --- | --- |
+| Start-up latency | Cold container pull plus Chromium launch — seconds per task | P50 30ms browser creation ([benchmarks](https://www.kernel.sh/benchmarks)), or zero-wait acquisition from a [browser pool](/browsers/pools) |
+| Isolation | One compromised page shares a kernel with everything else on the box | Each browser is a [microVM](/info/unikernels) with its own kernel, filesystem, and network egress |
+| Idle cost | You pay for the container while the agent thinks | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last activity |
+| Bot detection | You maintain the patches, the fingerprints, and a proxy contract | [Anti-detection](/browsers/bot-detection/overview) on every browser, plus a managed solver and [proxies](/proxies/overview) that aren't metered |
+| Logins | Credentials end up in your agent's context or in a secret store you now own | [Managed auth](/auth/overview) logs in, keeps sessions warm, and hands your agent a [profile](/auth/profiles) — no credentials in the loop |
+| Debugging a failure | Reproduce it locally and hope | [Live view](/browsers/live-view), [replays](/browsers/replays), and [telemetry](/browsers/telemetry/overview) for the session that actually failed |
+| Scaling | Autoscaling group, image pipeline, cleanup jobs, orphan reaper | `browsers.create()`, or a pool with a fill rate |
+
+## Why Kernel over another browser API
+
+Three things are structural rather than roadmap.
+
+**MicroVM isolation, not containers.** Every browser gets its own kernel via [unikernel-based virtualization](/info/unikernels). That's what makes both the isolation story and the 30ms start possible at the same time, and it's why [file I/O](/browsers/file-io), [shell access](/browsers/ssh), and GPU access are available inside a session at all.
+
+**Your loop can run next to the browser.** The [Playwright execution API](/browsers/playwright-execution) runs your code inside the browser's VM, and the [App Platform](/apps/overview) deploys your whole agent there. No round trip per action, no CDP connection to babysit, and no CDP fingerprint on the wire. See [how you drive the browser](/introduction/driving-the-browser) for how to choose.
+
+**Auth is a product, not a cookie jar.** [Managed auth](/auth/overview) handles the login, MFA prompts, SSO redirects, and background reauthentication, then persists the result as a profile your agent attaches to any browser. Most platforms hand you cookie storage and stop there.
+
+## When Kernel isn't the answer
+
+If the site you need has a real API, use the API. Browsers are the right tool when the work only exists behind a UI — a portal with no API, a checkout flow, a document you can only reach after logging in, or a task that a computer-use model has to see to do.
+
+<Card title="See all products" href="/overview/products" horizontal>
+  One entry per product, each linking to its canonical page.
+</Card>

@@ -1,0 +1,66 @@
+---
+title: "Concurrency and Limits"
+description: "How many browsers you can run, how fast you can create them, and what each one gets"
+---
+
+Three separate limits shape a scaled workload, and they're easy to confuse. Concurrency caps how many browsers exist at once. The create rate caps how fast you can ask for new ones. Per-browser resources cap what one browser can do.
+
+## Concurrency
+
+One org-wide limit covers every browser you're running, whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools). The full limit is available to either API in any mix.
+
+| Plan | Concurrent browsers |
+| --- | --- |
+| Developer | 5 |
+| Hobbyist | 10 |
+| Start-Up | 150 |
+| Enterprise | Custom |
+
+Two things count against it that people don't expect:
+
+- **Reserved pool capacity counts whether or not it's acquired.** A pool sized to 40 browsers uses 40 of your limit for as long as it exists.
+- **Browsers in [standby](/browsers/standby) count.** Standby stops usage charges, not the concurrency slot. Delete the browser to release it.
+
+Set per-project caps if you're splitting one org limit across teams, environments, or [tenants](/info/projects#multi-tenant-patterns) — see [project concurrency limits](/info/projects#concurrency-limits).
+
+## Create rate
+
+Browser creation is separately rate limited per plan. This caps how fast you can create browsers, independent of how many you may run:
+
+| Plan | `browsers.create()` requests per org per minute |
+| --- | --- |
+| Developer | 10 |
+| Hobbyist | 25 |
+| Start-Up | 100 |
+| Enterprise | 250 |
+
+Acquiring from a [browser pool](/browsers/pools) isn't subject to the create rate — the pool's browsers already exist. If your traffic arrives in bursts, that's the reason to use a pool even when your concurrency headroom is fine.
+
+### What happens at the limit
+
+Exceeding the create rate returns `429 Too Many Requests` with a `Retry-After` header, and rate-limited responses carry `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+
+All Kernel SDKs retry a `429` up to 2 times, honoring `Retry-After`. If retries are exhausted, the SDK raises a typed `RateLimitError` carrying the response headers, so you can apply your own backoff. Queue on your side rather than tightening the retry loop: a `429` means the org is over budget for the minute, so retrying faster doesn't help.
+
+If you're hitting the ceiling in normal operation, [contact us](https://calendly.com/d/d3tn-5kp-5yt) — the limit is raisable.
+
+## Per-browser resources
+
+| Resource | Headful | Headless |
+| --- | --- | --- |
+| Memory | 8 GB | 1 GB |
+
+Memory is the practical ceiling on how many tabs and how heavy a page one browser handles. A [headless](/browsers/headless) browser at 1 GB is sized for short-lived, single-page, high-concurrency automation; open a dozen heavy tabs in one and Chromium will start killing renderers. If your workload wants many concurrent pages, spread it across more browsers — that's what concurrency is for — rather than more tabs in one.
+
+[GPU acceleration](/browsers/gpu-acceleration) is a separate browser type with its own [usage rate](/info/pricing#usage-rates), available on Start-Up and Enterprise.
+
+## Other limits worth knowing
+
+| Limit | Where |
+| --- | --- |
+| Browser `timeout_seconds` (default 60, max 259200 / 72h) | [Termination](/browsers/termination) |
+| Pool `timeout_seconds` (default 600) and fill rate | [Browser pools](/browsers/pools) |
+| App invocation concurrency, per plan and per app | [Pricing and limits](/info/pricing#concurrency-limits) |
+| Managed auth health check interval, per plan | [Connection lifecycle](/auth/connection-lifecycle) |
+| Replay retention, extensions, projects, per plan | [Pricing and limits](/info/pricing#managed-infrastructure) |
+| Monthly spend | [Spending caps](/info/spending-caps) |

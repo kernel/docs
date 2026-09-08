@@ -1,0 +1,85 @@
+---
+title: "How You Drive the Browser"
+sidebarTitle: "How You Drive the Browser"
+description: "Two decisions to make before you write any automation: which control surface, and where your loop runs"
+---
+
+Before you write a line of automation you're making two choices. They're independent, but the first constrains the second, and neither is obvious from the API surface.
+
+1. **How you drive the browser** — the control surface your code (or your model) uses to act on the page.
+2. **Where the loop runs** — the machine your decision-making code runs on, relative to the browser.
+
+## 1. How you drive the browser
+
+Kernel browsers accept four control surfaces. Pick by what's driving the page, not by what you know best.
+
+| Surface | Use it when | Trade-off |
+| --- | --- | --- |
+| [Playwright execution](/browsers/playwright-execution) | **Default.** You know what to do on the page — navigate, fill, extract, upload. | Needs a selector or a DOM path that exists. |
+| [Computer controls](/browsers/computer-controls) | **Recommended fallback.** A model is looking at pixels, or the page can't be driven programmatically. | Slower per step, and the model has to see the state to act. |
+| [CDP](/introduction/control) | You have an existing Playwright, Puppeteer, or CDP codebase to point at Kernel. | Adds a protocol fingerprint and a network hop — see below. |
+| [WebDriver BiDi](/introduction/control) | You need the W3C standard protocol. | Smaller client ecosystem. |
+
+The recommended pattern for agents is [Playwright execution with a computer-use fallback](/browsers/playwright-computer-use-fallback): script the deterministic steps, hand the page to a computer-use model when a step doesn't respond to a selector.
+
+### Why the choice matters on hardened sites
+
+CDP is what Playwright and Puppeteer speak, and anti-bot vendors actively scan for its signatures — an attached debugger is one of the cheapest automation signals a page can read. Computer controls carry no CDP connection at all, so there's no protocol fingerprint to leak. That's why they're the stronger option on sites with aggressive detection, and it's why Kernel's own [managed auth](/auth/overview) drives logins with coordinate-based input rather than CDP.
+
+How much this matters is site-specific, and worth testing before you commit to an approach — see [why the same site behaves differently](/browsers/bot-detection/overview#why-the-same-site-behaves-differently).
+
+## 2. Where the loop runs
+
+Your loop is whatever decides the next action: a script, an agent, a model. It can run in three places.
+
+<Tabs>
+  <Tab title="Your own infrastructure">
+    Connect to `cdp_ws_url` (or `webdriver_ws_url`) from wherever your code already runs. Any CDP client works, and there's no lock-in.
+
+    **Costs:** a network round trip per action, disconnects to handle, screenshot and DOM bandwidth, and the CDP fingerprint above. Fine for low-frequency or deterministic work; it's the shape that hurts most in a vision loop.
+
+    CDP connection notes if you take this path:
+
+    - CDP connections are meant to be long-lived but may eventually close. WebSocket connections typically stay active for up to an hour, after which they may close automatically. The browser session is unaffected — reconnect to the same `cdp_ws_url` to continue.
+    - Browsers persist independently of CDP. Depending on your [timeout](/browsers/termination) configuration, a browser keeps running even after its CDP connection closes.
+    - Implement reconnect logic. Network interruptions and lifecycle events can close a CDP session; detect the disconnect and re-establish the connection.
+  </Tab>
+  <Tab title="Kernel's Playwright execution API">
+    Send code, not commands. Each call runs co-located in the browser's VM against the live session, so state carries across calls and an agent can drive the page turn by turn — one tool call per step, structured data back.
+
+    **Costs:** the code you send has to be self-contained per call. Nothing to install, no connection to manage, and [Patchright](/browsers/bot-detection/stealth) is on by default.
+
+    ```typescript
+    const { result } = await kernel.browsers.playwright.execute(browser.session_id, {
+      code: `
+        await page.goto('https://news.ycombinator.com');
+        return await page.$$eval('.titleline > a', (as) => as.map((a) => a.textContent));
+      `,
+    });
+    ```
+  </Tab>
+  <Tab title="Kernel App Platform">
+    Deploy the whole agent next to the browser with the [App Platform](/apps/overview). Your code and the browser are in the same region, invoked on demand or on a schedule, with no infrastructure of your own.
+
+    **Costs:** your agent has to be deployable as a Kernel app. Worth it once the automation is long-running, stateful, or triggered by events rather than by a person.
+  </Tab>
+</Tabs>
+
+### Where computer use fits
+
+A computer-use agent answers the first question, not the second — it still has to run its loop somewhere. And because every turn ships a screenshot instead of a small script, running that loop off-platform is far more expensive than for a Playwright-driven agent: you pay image bandwidth and a round trip on every step of the loop.
+
+So computer use is the strongest case for co-locating your loop with the browser. Model inference sits with the model vendor either way; what you're deciding is where the screenshot-and-act loop lives.
+
+## Putting it together
+
+| Your automation | Control surface | Where the loop runs |
+| --- | --- | --- |
+| Scheduled scrape of a known page | Playwright execution | Anywhere — one call, one result |
+| Agent doing multi-step work on a normal site | Playwright execution, computer-use fallback | Playwright execution API, or App Platform once it's long-running |
+| Agent on a site with aggressive detection | Computer controls | App Platform |
+| Existing Playwright suite you're migrating | CDP | Your own CI, then move hot paths to Playwright execution |
+
+<Card title="Control reference" href="/introduction/control" horizontal>
+  Working examples of all four control surfaces.
+</Card>

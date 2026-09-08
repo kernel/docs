@@ -1,0 +1,38 @@
+---
+title: "Enterprise"
+description: "Security, compliance, HIPAA, and zero data retention on Kernel's Enterprise plan"
+---
+
+What changes on the Enterprise plan, and where the artifacts live.
+
+## Compliance posture
+
+Kernel maintains an information security program that substantially conforms to the ISO/IEC 27002 control framework, with active certifications across **SOC 2 Type II, HIPAA, ISO 27001, and GDPR**. The [security practices](/security) page covers product security, infrastructure security, organizational security, and incident response in full, and the [shared responsibility model](/shared-responsibility-model) covers the split between what Kernel secures and what you do.
+
+Reports and security artifacts are available through the [trust center](https://trust.kernel.sh).
+
+## HIPAA
+
+Kernel signs a **BAA on the Enterprise plan**. Each browser runs in its own [microVM](/info/unikernels) with its own kernel and filesystem, which is the isolation boundary the BAA rests on. Pair it with [zero data retention](/info/zero-data-retention) if PHI must not persist after a session ends.
+
+## Zero data retention
+
+[ZDR](/info/zero-data-retention) is Enterprise-only and configured per organization. With it enabled, Kernel suppresses persistence of session recordings, live view streams, and telemetry, so session data isn't retained after the browser terminates. It's scoped per surface — tell us which ones you need suppressed.
+
+## What else the Enterprise plan includes
+
+| | Enterprise |
+| --- | --- |
+| Concurrency and create rate | Custom — see [concurrency and limits](/browsers/concurrency-and-limits) |
+| [Replay](/browsers/replays) retention | Custom |
+| [Audit logs](/info/audit-logs) | Search, export, and continuous export to S3 |
+| [Projects](/info/projects) | Unlimited, including [multi-tenant setups](/info/projects#multi-tenant-patterns) |
+| [Proxies](/proxies/overview) and [GPU browsers](/browsers/gpu-acceleration) | Included, with BYO proxy support |
+| [Support](/info/support) | Tiered, with a private Slack channel and defined response times |
+| Data processing | [DPA](/dpa) |
+
+Full plan comparison is on [pricing and limits](/info/pricing).
+
+## Talk to us
+
+Scoping an enterprise deployment, a BAA, or ZDR starts with a conversation: [contact sales](https://calendly.com/d/d3tn-5kp-5yt).

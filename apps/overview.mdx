@@ -1,0 +1,36 @@
+---
+title: "Overview"
+description: "Kernel's serverless platform for running agents next to their browsers"
+---
+
+The App Platform runs your code on Kernel. You deploy a codebase, register the functions you want to call, and invoke them on demand, on a schedule, or from your own backend — no sandboxes to provision and no infrastructure to operate.
+
+The reason to use it is co-location. Your code runs in the same place as the Kernel browsers it creates, which removes the problems a remote CDP connection introduces:
+
+- **Lower latency** — no network round trip between your code and the page.
+- **Better reliability** — far fewer unexpected disconnects mid-run.
+- **Higher throughput** — no bandwidth bottleneck on data-heavy operations like screenshots.
+
+That matters most for computer-use agents, where every turn ships a screenshot. See [how you drive the browser](/introduction/driving-the-browser) for the full comparison against running your loop on your own infrastructure or using the [playwright execution API](/browsers/playwright-execution).
+
+## Apps, actions, and invocations
+
+| Object | What it is |
+| --- | --- |
+| **App** | A codebase deployed on Kernel, in TypeScript or Python. |
+| **Action** | An invokable entry point in an app. Actions can call ordinary methods, and an app can have many actions. |
+| **Invocation** | A single execution of an action. Triggered via API or CLI, scheduled as a job, or run on demand. |
+
+An invocation ends when its code finishes. Terminating an invocation also destroys any browsers it created.
+
+## When to reach for it
+
+Use the App Platform when the automation is long-running, stateful, event-triggered, or a computer-use loop. For a single scripted interaction with a page, [playwright execution](/browsers/playwright-execution) is simpler — send code, get the result, no deployment.
+
+<Card title="Build, deploy, and operate" href="/apps/build-deploy-operate" horizontal>
+  Write an app, deploy it, invoke it, and monitor what it's doing.
+</Card>
+
+<Tip>
+  Install the [MCP server](/reference/mcp-server) to give your coding agent the `search_docs` tool while it writes your app.
+</Tip>

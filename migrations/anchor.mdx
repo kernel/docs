@@ -1,0 +1,56 @@
+---
+title: "Anchor"
+description: "Move an Anchor Browser automation to Kernel"
+---
+
+Anchor and Kernel overlap most on authentication: both treat logged-in browser sessions as a product rather than a cookie jar. The mapping is mostly one-to-one, and the connection change is one line.
+
+## Concept mapping
+
+| Concept | Anchor | Kernel |
+| --- | --- | --- |
+| Create a session | `client.sessions.create()` | `kernel.browsers.create()` |
+| CDP endpoint | Session CDP URL | `browser.cdp_ws_url` |
+| End a session | Delete the session | `kernel.browsers.deleteByID(session_id)`, or let [`timeout_seconds`](/browsers/termination) expire |
+| Live view / takeover | Session live view URL | `browser.browser_live_view_url`, embeddable — see [live view](/browsers/live-view) |
+| Managed login | Managed auth | [Managed auth](/auth/overview) — connection per domain, written into a profile |
+| Hosted login UI | Embedded auth UI | [Hosted login UI](/auth/hosted-ui), or [your own React flow](/auth/react) / [programmatic flow](/auth/programmatic) |
+| Stored identity | Identities | [Profiles](/auth/profiles) |
+| Recording | Session recording | [Replays](/browsers/replays) |
+| Stealth | Stealth session option | Anti-detection by default; `stealth: true` adds the managed proxy and solver |
+| Proxies | Session proxy config | [Proxies](/proxies/overview), unmetered on Kernel-provided types |
+| Task-shaped API | Tasks | Use [playwright execution](/browsers/playwright-execution) for scripted steps and [computer controls](/browsers/computer-controls) for model-driven ones — see [how you drive the browser](/introduction/driving-the-browser) |
+| Warm sessions | — | [Browser pools](/browsers/pools) |
+| Deploy your agent | — | [App Platform](/apps/overview) |
+
+## Moving the auth setup
+
+This is the part worth doing carefully, because it's where the two products differ in shape. On Kernel:
+
+1. A **connection** binds one domain's authentication state to a named **profile**.
+2. Kernel performs the login — hosted UI, your own UI, or programmatically — and writes the session into that profile.
+3. Kernel health-checks the connection and reauthenticates supported flows in the background.
+4. Any browser you create with `profile: { name }` starts logged in, for every domain connected to that profile.
+
+```typescript
+const connection = await kernel.auth.connections.create({
+  domain: 'app.example.com',
+  profile_name: 'user-8f21c3',
+});
+
+const login = await kernel.auth.connections.login(connection.id);
+console.log('send the user here:', login.hosted_url);
+
+const browser = await kernel.browsers.create({
+  profile: { name: 'user-8f21c3', save_changes: true },
+  stealth: true,
+});
+```
+
+One profile can hold many domains, which is how you map one end user to one profile — see [multiple auth connections per profile](/auth/profiles#multiple-auth-connections-per-profile). If you hold accounts for your own customers, also read [multi-tenant patterns](/info/projects#multi-tenant-patterns).
+
+## Things to check
+
+- **Reauthentication is not universal.** Passkey-only flows aren't supported, and some sites need per-site configuration. See the [managed auth FAQ](/auth/overview#faq) and test your flow before cutting over.
+- **Health check cadence is per plan.** See [pricing and limits](/info/pricing#concurrency-limits).
+- **Concurrency and create rate are separate limits.** See [concurrency and limits](/browsers/concurrency-and-limits).

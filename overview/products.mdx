@@ -1,0 +1,55 @@
+---
+title: "See All Products"
+description: "Every Kernel product, and where its canonical documentation lives"
+---
+
+One entry per product. Start here if you're evaluating Kernel or looking for the canonical page on something.
+
+## [Managed auth](/auth/overview)
+
+Kernel performs the login for you — credentials, MFA, SSO redirects, account and organization pickers — then keeps the session alive with background health checks and reauthentication for supported flows. Credentials never enter your agent's context or your codebase. Log in through Kernel's [hosted UI](/auth/hosted-ui), [your own React flow](/auth/react), or [programmatically](/auth/programmatic).
+
+## [Stealth](/browsers/bot-detection/stealth)
+
+Every Kernel browser ships with anti-detection defaults. One flag adds a static ISP proxy and the managed CAPTCHA solver on top. The [bot anti-detection guide](/browsers/bot-detection/overview) covers what sites measure and which configuration gets through.
+
+## [Proxies](/proxies/overview)
+
+Datacenter, ISP, residential, mobile, or [your own](/proxies/custom). Create a proxy once and reuse it across sessions, hot-swap it on a running browser, and bypass it per host. Kernel-provided proxies aren't metered or billed.
+
+## [Browser pools](/browsers/pools)
+
+A fixed set of identically-configured browsers that Kernel keeps ready, so acquiring one costs nothing and isn't subject to the [create rate](/browsers/concurrency-and-limits#create-rate). Idle browsers in a pool incur no usage charges.
+
+## [GPU browsers](/browsers/gpu-acceleration)
+
+Hardware-accelerated rendering for WebGL, canvas-heavy pages, and video — and a stronger fingerprint, since software-rendered output doesn't match any real consumer GPU.
+
+## [Profiles](/auth/profiles)
+
+Persisted browser state — cookies, local storage, logins, history, open tabs — that you attach to any browser by name. What [managed auth](/auth/overview) writes into, and useful on its own for anything that has to survive between runs.
+
+## [Browser telemetry](/browsers/telemetry/overview)
+
+Structured events for navigation, network requests and failures, CDP commands, CAPTCHA challenges, and [proxy errors](/proxies/overview#proxy-errors). [Stream them live](/browsers/telemetry/streaming) or read them after a session is gone.
+
+## [Replays and live view](/browsers/live-view)
+
+Watch a running session in your browser or embed it in your own app, hand control to a person mid-run, and record any session as an MP4 [replay](/browsers/replays) for debugging, demos, or compliance.
+
+## [App Platform](/apps/overview)
+
+Deploy your agent next to its browser and invoke it on demand, on a schedule, or from your own backend. Co-location removes the per-action round trip, the disconnects, and the screenshot bandwidth that a remote CDP connection costs you.
+
+---
+
+## Ways in
+
+| Surface | Where to start |
+| --- | --- |
+| SDKs (TypeScript, Python, Go) | [Quickstart](/start/quickstart) |
+| [CLI](/reference/cli) | `brew install kernel/tap/kernel` |
+| [MCP server](/reference/mcp-server) | Give any MCP client a cloud browser |
+| [Agent Skills](/skills/overview) | Drop Kernel know-how into your coding agent |
+| [Integrations](/integrations/overview) | Framework- and vendor-specific guides |
+| [REST API](/api-reference/browsers/create-a-browser-session) | OpenAPI 3.1, no SDK required |

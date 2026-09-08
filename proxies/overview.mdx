@@ -247,6 +247,25 @@ client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
 For ISP and datacenter proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
 </Info>
 
+## Proxy errors
+
+When the proxy layer can't complete a request, Kernel serves an HTTP `502` with an
+`X-Kernel-Proxy-Error` response header carrying a stable error code, plus a readable error page
+in the browser. The status stays `502` for every code, so branch on the header rather than the
+status. The same failures are also emitted as `proxy_error` [telemetry events](/browsers/telemetry/categories) with the matching code.
+
+| `X-Kernel-Proxy-Error` | What happened | What to do |
+| --- | --- | --- |
+| `destination_blocked` | Kernel policy blocked the connection — internal or private destination addresses are rejected before dialing. | Use a public destination. If you set a [custom proxy](/proxies/custom), check that its own endpoint isn't a private address. Retrying won't help. |
+| `provider_blacklisted` | The upstream proxy provider refuses this destination. | Switch proxy, switch proxy type, or drop the proxy. Your automation isn't the problem. |
+| `provider_unreachable` | The upstream provider couldn't reach the destination. | Retry in a few seconds, confirm the site is up, then try a different proxy. |
+| `upstream_timeout` | The upstream provider didn't answer inside Kernel's deadline. | Retry. If it keeps timing out, try a different proxy. |
+| `upstream_dns_failure` | The upstream proxy host couldn't be resolved. | Retry. If it persists, check a custom proxy's hostname or switch to a Kernel-managed proxy. |
+| `upstream_connect_failed` | The connection to the destination failed. | Retry; verify a custom proxy's host, port, and credentials; confirm the destination is reachable without the proxy. |
+| `proxy_unavailable` | A failure inside Kernel's proxy layer. | Retry. Leave your configuration alone, and [contact support](/info/support) with the code and session ID if it persists. |
+
+An unrecognized code behaves like `upstream_connect_failed`: retry, then check your proxy configuration.
+
 ## Bypass hosts
 
 Configure specific hostnames to bypass the proxy and connect through Kernel-managed direct egress. This is useful for metadata endpoints or reducing latency for trusted domains.

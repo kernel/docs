@@ -1,0 +1,864 @@
+---
+title: "Build, Deploy, and Operate"
+description: "Write a Kernel app, deploy it, invoke its actions, and monitor what they're doing"
+---
+
+Everything you do with an app after you've read the [overview](/apps/overview): write it, deploy it, invoke it, watch it, stop it. Install the SDK for your language first.
+
+<CodeGroup>
+```bash Typescript/Javascript
+npm install @onkernel/sdk
+```
+
+```bash Python
+uv pip install kernel
+```
+</CodeGroup>
+
+## Create an app
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel, { type KernelContext } from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const app = kernel.app('my-app-name');
+```
+
+```python Python
+from kernel import Kernel, App, KernelContext
+
+kernel = Kernel()
+app = App("my-app-name")
+```
+</CodeGroup>
+
+Then define and register an action you want to invoke.
+
+## Register actions
+
+### Action parameters
+
+Action methods receive two parameters:
+
+- `runtimeContext` — contextual information Kernel provides during execution.
+- `payload` — optional runtime data you provide when invoking the action (max 64 KB). See [payload parameter](#payload-parameter).
+
+Register an action either inline or by defining it first — both are below.
+
+### Inline definition (recommended)
+
+<CodeGroup>
+```typescript Typescript/Javascript
+app.action('my-action-name', async (ctx: KernelContext, payload) => {
+  const { tshirt_size, color, shipping_address } = payload;
+  // Your action logic here
+  return { order_id: 'example-order-id' };
+});
+```
+
+```python Python
+@app.action("my-action-name")
+async def my_action_method(ctx: KernelContext, payload):
+    tshirt_size = payload["tshirt_size"]
+    color = payload["color"]
+    shipping_address = payload["shipping_address"]
+    # Your action logic here
+    return {"order_id": "example-order-id"}
+```
+</CodeGroup>
+
+### Define then register
+
+This approach is better for larger apps, unit testing, and team collaboration since functions can be tested independently and reused across multiple actions.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const myActionMethod = async (ctx: KernelContext, payload) => {
+  const { tshirt_size, color, shipping_address } = payload;
+  // Your action logic here
+  return { order_id: 'example-order-id' };
+};
+
+app.action('my-action-name', myActionMethod);
+```
+
+```python Python
+async def my_action_method(ctx: KernelContext, payload):
+    tshirt_size = payload["tshirt_size"]
+    color = payload["color"]
+    shipping_address = payload["shipping_address"]
+    # Your action logic here
+    return {"order_id": "example-order-id"}
+
+app.action("my-action-name")(my_action_method)
+```
+</CodeGroup>
+
+### Return values
+
+Action methods can return values, which will be included in the invocation's final response.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const myActionMethod = async (runtimeContext, payload) => {
+  const { tshirt_size, color, shipping_address } = payload;
+  // ...
+  return {
+    order_id: "example-order-id",
+  }
+};
+```
+
+```python Python
+def my_action_method(runtime_context, payload):
+    tshirt_size, color, shipping_address = (
+        payload["tshirt_size"],
+        payload["color"],
+        payload["shipping_address"]
+    )
+    # ...
+    return {"order_id": "example-order-id"}
+```
+</CodeGroup>
+
+## Build a browser automation
+
+To implement a browser automation or web agent, instantiate an app and define an action that creates a Kernel browser.
+
+<Info>
+  Kernel browsers launch with a default context and page. Make sure to access
+  the [existing context and
+  page](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp)
+  (`contexts()[0]` and `pages()[0]`), rather than trying to create a new one.
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel, { type KernelContext } from '@onkernel/sdk';
+import { chromium } from 'playwright';
+
+const kernel = new Kernel();
+const app = kernel.app('browser-automation');
+
+app.action('get-page-title', async (ctx: KernelContext, payload) => {
+  const kernelBrowser = await kernel.browsers.create({
+    invocation_id: ctx.invocation_id,
+  });
+
+  const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+  const context = browser.contexts()[0] || (await browser.newContext());
+  const page = context.pages()[0] || (await context.newPage());
+
+  try {
+    await page.goto('https://www.google.com');
+    const title = await page.title();
+    return { title };
+  } finally {
+    await browser.close();
+  }
+});
+```
+
+```python Python
+from kernel import Kernel, App, KernelContext
+from playwright.async_api import async_playwright
+
+kernel = Kernel()
+app = App("browser-automation")
+
+@app.action("get-page-title")
+async def get_page_title(ctx: KernelContext, payload):
+    kernel_browser = kernel.browsers.create(invocation_id=ctx.invocation_id)
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+        context = browser.contexts[0] if browser.contexts else await browser.new_context()
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        try:
+            await page.goto("https://www.google.com")
+            title = await page.title()
+            return {"title": title}
+        finally:
+            await browser.close()
+```
+</CodeGroup>
+
+<Info>
+  Web agent frameworks sometimes require environment variables (e.g. LLM API keys). Set them as [environment variables](#environment-variables) when you deploy.
+</Info>
+
+## Deploy your app
+
+There are no configuration files to manage and no CI/CD pipeline to build. Once an app is deployed, you can schedule its actions, run them from other contexts, and run the same action many times in parallel.
+
+### From a local directory
+
+Use our CLI from the root directory of your project:
+```bash
+kernel deploy <entrypoint_file_name>
+```
+
+**Notes**
+
+- The `entrypoint_file_name` is the file where you [created the app](#create-an-app).
+- Include a `.gitignore` file to exclude dependency folders like `node_modules` and `.venv`.
+
+### From GitHub
+
+You can deploy a Kernel app directly from a public or private GitHub repository using the Kernel CLI. No need to clone or manually push code.
+
+```bash
+kernel deploy github \
+  --url https://github.com/<owner>/<repo> \
+  --ref <branch|tag|commit> \
+  --entrypoint <path/to/entrypoint> \
+  [--path <optional/subdir>] \
+  [--github-token <token>] \
+  [--env KEY=value ...] \
+  [--env-file .env] \
+  [--version latest] \
+  [--force]
+```
+
+**Notes**
+- **`--path` vs `--entrypoint`:** Use `--path` to specify a subdirectory within the repo (useful for monorepos), and `--entrypoint` for the path to your app's entry file relative to that directory (or repo root if no `--path` is specified).
+- The CLI automatically downloads and extracts the GitHub source code and uploads your app for deployment.
+- For private repositories, provide a `--github-token` or set the `GITHUB_TOKEN` environment variable.
+
+### Environment variables
+
+You can set environment variables for your app using the `--env` flag. For example:
+
+<CodeGroup>
+```bash Typescript/Javascript (inline)
+kernel deploy my_app.ts --env MY_ENV_VAR=my_value # Can add multiple env vars delimited by space
+```
+
+```bash Typescript/Javascript (from file)
+kernel deploy my_app.ts --env-file .env
+```
+
+```bash Python (inline)
+kernel deploy my_app.py --env MY_ENV_VAR=my_value # Can add multiple env vars delimited by space
+```
+
+```bash Python (from file)
+kernel deploy my_app.py --env-file .env
+```
+</CodeGroup>
+
+#### Reserved environment variables
+
+Kernel injects a few environment variables into every deployment and its invocations. These names are **reserved** — if you set them via `--env` or `--env-file`, Kernel overrides your value, so setting them has no effect:
+
+- `KERNEL_API_KEY` — a per-deployment API key Kernel mints at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
+- `ENTRYPOINT_RELPATH` — set by the platform to locate your entrypoint.
+
+**Using a different key for your app's calls**
+
+You can't change `KERNEL_API_KEY` itself, but you can have your app authenticate with a different key — say a long-lived org- or project-scoped key that outlives any single deployment. Put it in a **non-reserved** variable and pass it to the client explicitly:
+
+<CodeGroup>
+```python Python
+import os
+from kernel import Kernel
+
+# Use your own key from a non-reserved var instead of the injected deployment key.
+client = Kernel(api_key=os.environ["MY_KERNEL_API_KEY"])
+```
+
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const client = new Kernel({ apiKey: process.env.MY_KERNEL_API_KEY });
+```
+</CodeGroup>
+
+Now the API calls your app makes go out as your key. The deployment key stays in place for Kernel's own use — running the invocation and reporting its result — so your key only needs permissions for the calls you actually make.
+
+### Deployment notes
+
+- **The dependency manifest (`package.json` for JS/TS, `pyproject.toml` for Python) must be present in the root directory of your project.**
+- **For JS/TS apps, set `"type": "module"` in your `package.json`.**
+- View deployment logs using: `kernel deploy logs <deployment_id> --follow`
+- If you encounter a 500 error during deployment, verify that your entrypoint file name and extension are correct (e.g., `app.py` not `app` or `app.js`).
+- Kernel assumes the root directory contains at least this file structure:
+
+<CodeGroup>
+```bash Typescript/Javascript
+project-root/
+  ├─ .gitignore # Exclude dependency folders like node_modules
+  ├─ my_app.ts # Entrypoint file (can be located in a subdirectory, e.g. src/my_app.ts)
+  ├─ package.json
+  ├─ tsconfig.json # If using TypeScript
+  └─ bun.lock | package-lock.json | pnpm-lock.yaml # One of these lockfiles
+```
+
+```bash Python
+project-root/
+  ├─ .gitignore # Exclude dependency folders like .venv
+  ├─ my_app.py # Entrypoint file
+  └─ pyproject.toml
+```
+</CodeGroup>
+
+```bash
+# Successful deployment CLI output
+SUCCESS  Compressed files
+SUCCESS  Deployment successful
+SUCCESS  App "my_app.ts" deployed with action(s): [my-action]
+INFO  Invoke with: kernel invoke my-app my-action --payload '{...}'
+SUCCESS  Total deployment time: 2.78s
+```
+
+Once deployed, you can [invoke](#invoke-an-action) your app from anywhere.
+
+## Secrets
+
+There are two ways to get secrets and API keys into your app.
+
+### Deployment environment variables
+
+Deploy your app with secrets as [environment variables](#environment-variables). Your app can then access them at runtime.
+
+You can set environment variables in two ways:
+
+- **`--env` flag**: Pass individual key-value pairs directly in the command
+- **`--env-file` flag**: Load variables from a `.env` file
+
+```bash
+# Using --env flag for individual variables
+kernel deploy my_app.ts --env OPENAI_API_KEY=sk-... --env ANTHROPIC_API_KEY=sk-ant-...
+
+# Using --env-file to load from a file
+kernel deploy my_app.ts --env-file .env
+
+# Combine both approaches
+kernel deploy my_app.ts --env-file .env --env OPENAI_API_KEY=sk-...
+```
+
+Then access the variables in your app:
+
+<CodeGroup>
+```typescript TypeScript
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+
+app.action('ai-action', async (ctx: KernelContext) => {
+  // Access API keys from environment variables
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  // Use the clients...
+});
+```
+
+```python Python
+import os
+from anthropic import Anthropic
+from openai import OpenAI
+
+@app.action("ai-action")
+async def ai_action(ctx: KernelContext):
+    # Access API keys from environment variables
+    anthropic = Anthropic(
+        api_key=os.environ.get("ANTHROPIC_API_KEY"),
+    )
+
+    openai = OpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+    # Use the clients...
+```
+</CodeGroup>
+
+### Runtime variables
+
+For use cases where different API keys are needed per invocation (such as platforms using end-user keys), pass the secrets at runtime using the [payload parameter](#payload-parameter).
+
+Use encryption standards in your app to protect sensitive data.
+
+<CodeGroup>
+```typescript TypeScript
+import OpenAI from "openai";
+
+app.action('ai-action', async (ctx: KernelContext, payload) => {
+  // Decrypt the API key passed at runtime
+  const apiKey = decrypt(payload.encryptedApiKey);
+
+  const openai = new OpenAI({
+    apiKey: apiKey,
+  });
+
+  // Use the client with the user's API key...
+});
+```
+
+```python Python
+from openai import OpenAI
+
+@app.action("ai-action")
+async def ai_action(ctx: KernelContext, payload):
+    # Decrypt the API key passed at runtime
+    api_key = decrypt(payload["encryptedApiKey"])
+
+    openai = OpenAI(
+        api_key=api_key,
+    )
+
+    # Use the client with the user's API key...
+```
+</CodeGroup>
+
+## Invoke an action
+
+### Via API
+
+You can invoke your app by making a `POST` request to Kernel's API or via the CLI. Both support passing a payload. **For automations and agents that take longer than 100 seconds, use [async invocations](#asynchronous-invocations).**
+
+<Info>Synchronous invocations time out after 100 seconds.</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const invocation = await kernel.invocations.create({
+  action_name: 'analyze',
+  app_name: 'my-app',
+  version: '1.0.0',
+});
+
+console.log(invocation.id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+invocation = kernel.invocations.create(
+    action_name="analyze",
+    app_name="my-app",
+    version="1.0.0",
+)
+print(invocation.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.New(ctx, kernel.InvocationNewParams{
+		ActionName: "analyze",
+		AppName:    "my-app",
+		Version:    "1.0.0",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(invocation.ID)
+}
+```
+</CodeGroup>
+
+#### Asynchronous invocations
+
+For long running jobs, use asynchronous invocations to trigger Kernel actions without waiting for the result. You can then stream real-time [status updates](#streaming-status-updates) for the result.
+
+<Info>Asynchronous invocations time out after 15 minutes by default but can be configured to last up to 1 hour by setting the optional `async_timeout_seconds` parameter during invocation.</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const invocation = await kernel.invocations.create({
+  async: true,
+  action_name: 'analyze',
+  app_name: 'my-app',
+  version: '1.0.0',
+});
+
+console.log(invocation.id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+invocation = kernel.invocations.create(
+    action_name="analyze",
+    app_name="my-app",
+    version="1.0.0",
+    async_=True,
+)
+print(invocation.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.New(ctx, kernel.InvocationNewParams{
+		Async:      kernel.Bool(true),
+		ActionName: "analyze",
+		AppName:    "my-app",
+		Version:    "1.0.0",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(invocation.ID)
+}
+```
+</CodeGroup>
+
+### Via CLI
+
+Invoke an app action immediately via the CLI:
+
+```bash
+kernel invoke <app_name> <action_name>
+```
+
+#### Payload parameter
+
+`--payload` allows you to invoke the action with specified parameters. This enables your action to receive and handle dynamic inputs at runtime. For example:
+
+<Info>
+Payloads are stringified JSON and have a maximum size of 4.5 MB.
+</Info>
+
+```bash
+kernel invoke <app_name> <action_name>
+    --payload '{"tshirt_size": "small", "color": "black", "shipping_address": "2 Mint Plz, San Francisco CA 94103"}'
+```
+
+See [action parameters](#action-parameters) for how to read the payload in your action method.
+
+#### Return values
+
+If your action specifies a [return value](#return-values), the invocation returns its value once it completes. (The Kernel CLI uses asynchronous invocations under the hood)
+
+## Monitor an invocation
+
+Once an app is deployed and invoked, monitor it by streaming events for real-time updates or polling for periodic checks.
+
+<Info>
+  An invocation ends once its code execution finishes.
+</Info>
+
+### Streaming status updates
+
+For real-time status monitoring, use `follow` to [stream invocation events](https://kernel.sh/docs/api-reference/invocations/stream-invocation-events-via-sse). This provides immediate updates as your invocation progresses and is more efficient than polling.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const response = await kernel.invocations.follow('id');
+console.log(response);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+response = kernel.invocations.follow(id="id")
+print(response)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	stream := client.Invocations.FollowStreaming(ctx, "id", kernel.InvocationFollowParams{})
+	defer stream.Close()
+
+	for stream.Next() {
+		event := stream.Current()
+		if event.Event == "invocation_state" {
+			fmt.Println(event.Invocation.Status)
+		}
+	}
+	if err := stream.Err(); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+#### Example
+
+Here's an example showing how to handle streaming status updates:
+
+```typescript Typescript/Javascript
+const result = await kernel.invocations.retrieve(invocation.id);
+const follow = await kernel.invocations.follow(result.id);
+
+for await (const evt of follow) {
+  if (evt.event === 'invocation_state') {
+    console.log(`Status: ${evt.invocation.status}`);
+
+    if (evt.invocation.status === 'succeeded') {
+      console.log('Invocation completed successfully');
+      if (evt.invocation.output) {
+        console.log('Result:', JSON.parse(evt.invocation.output));
+      }
+      break;
+    } else if (evt.invocation.status === 'failed') {
+      console.log('Invocation failed');
+      if (evt.invocation.status_reason) {
+        console.log('Error:', evt.invocation.status_reason);
+      }
+      break;
+    }
+  } else if (evt.event === 'error') {
+    console.error('Error:', evt.error.message);
+    break;
+  }
+}
+```
+
+### Polling status updates
+
+Alternatively, you can poll the status endpoint using `retrieve` to check the invocation status periodically.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const invocation = await kernel.invocations.retrieve('rr33xuugxj9h0bkf1rdt2bet');
+console.log(invocation.status);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+invocation = kernel.invocations.retrieve("rr33xuugxj9h0bkf1rdt2bet")
+print(invocation.status)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.Get(ctx, "rr33xuugxj9h0bkf1rdt2bet")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(invocation.Status)
+}
+```
+</CodeGroup>
+
+## Logs
+
+### Via API
+
+After you [invoke](#invoke-an-action) an action, you can stream the invocation's logs in real time:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const logs = await kernel.invocations.follow(invocation_id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+logs = kernel.invocations.follow(invocation_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	logs := client.Invocations.FollowStreaming(ctx, "inv_123", kernel.InvocationFollowParams{})
+	defer logs.Close()
+
+	for logs.Next() {
+		event := logs.Current()
+		if event.Event == "log" {
+			fmt.Println(event.Message)
+		}
+	}
+	if err := logs.Err(); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+<Info>Log lines will be truncated to 64KiB. For large payloads write data to external storage and log a reference instead.</Info>
+
+#### Example
+
+Here's an example showing how to handle streaming logs:
+
+```typescript Typescript/Javascript
+const follow = await kernel.invocations.follow(invocation.id);
+
+for await (const evt of follow) {
+  if (evt.event === 'log') {
+    console.log(`[${evt.timestamp}] ${evt.message}`);
+  } else if (evt.event === 'error') {
+    console.error('Error:', evt.error.message);
+    break;
+  } else if (evt.event === 'invocation_state') {
+    if (evt.invocation.status === 'succeeded' || evt.invocation.status === 'failed') {
+      break;
+    }
+  }
+}
+```
+
+### Via CLI
+
+You can also stream the logs to your terminal via the CLI:
+
+```bash
+kernel logs <app_name> --follow
+```
+
+If you don't specify `--follow`, the logs will print to the terminal until 3 seconds of inactivity and then stops.
+
+You can get logs for a specific invocation by adding:
+```
+-i --invocation <invocation id>    Show logs for a specific invocation of the app.
+```
+
+## Stop an invocation
+
+You can terminate a running invocation. This is useful for stopping automations or agents stuck in an infinite loop.
+
+<Info>
+Terminating an invocation also destroys any browsers associated with it.
+</Info>
+
+### Via API
+You can stop an invocation by setting its status to `failed`. This will cancel the invocation and mark it as terminated.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const invocation = await kernel.invocations.update('invocation_id', {
+  status: 'failed',
+  output: JSON.stringify({ error: 'Invocation cancelled by user' }),
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+invocation = kernel.invocations.update(
+    id="invocation_id",
+    status="failed",
+    output='{"error":"Invocation cancelled by user"}',
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.Update(ctx, "invocation_id", kernel.InvocationUpdateParams{
+		Status: kernel.InvocationUpdateParamsStatusFailed,
+		Output: kernel.String(`{"error":"Invocation cancelled by user"}`),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = invocation
+}
+```
+</CodeGroup>
+
+### Via CLI
+Use `ctrl-c` in the terminal tab where you launched the invocation.

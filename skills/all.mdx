@@ -1,0 +1,88 @@
+---
+title: "All Skills"
+description: "Every Kernel agent skill, mirrored from skills.sh"
+---
+
+Kernel publishes 20 agent skills. They install into Claude Code, Codex, Cursor, and anything else that reads skills, and they're listed on [skills.sh/kernel/skills](https://skills.sh/kernel/skills).
+
+## Install
+
+<CodeGroup>
+```bash Claude Code
+/plugin marketplace add kernel/skills
+/plugin install kernel-cli
+/plugin install kernel-sdks
+/plugin install generate-video
+```
+
+```bash Codex
+codex plugin marketplace add kernel/skills
+codex plugin add kernel-cli@kernel
+codex plugin add kernel-sdks@kernel
+codex plugin add generate-video@kernel
+```
+
+```bash Any agent
+npx skills add kernel/skills
+```
+
+```bash One skill only
+npx skills add kernel/skills --skill kernel-cli
+```
+</CodeGroup>
+
+In Cursor, install the Kernel plugin from **Cursor Settings → Plugins**; it includes the skills, the [MCP server](/reference/mcp-server), and Kernel's best-practice rules.
+
+## Getting started and SDKs
+
+| Skill | What it does |
+| --- | --- |
+| `kernel-cli` | Command-line access to the whole platform — browsers, apps, profiles, proxies, managed auth, API keys, projects, org limits. Load this one first; the other CLI skills assume it. |
+| `kernel-typescript-sdk` | Build automation in TypeScript with [playwright execution](/browsers/playwright-execution) or CDP, persist state with [profiles](/auth/profiles), route through [proxies](/proxies/overview), and clean up sessions reliably. |
+| `kernel-python-sdk` | The same for Python, including browser lifecycle, server-side Playwright, and explicit proxy handling. |
+
+## Browser control and platform
+
+| Skill | What it does |
+| --- | --- |
+| `kernel-browser-management` | Create and manage sandboxed cloud browsers — custom configurations, session lifecycle, cleanup. |
+| `kernel-browser-pools` | Use [pre-warmed pools](/browsers/pools) for fast acquisition in high-throughput automation. |
+| `kernel-computer-controls` | OS-level mouse, keyboard, and screen control via [computer controls](/browsers/computer-controls), for interaction that doesn't go through browser APIs. |
+| `kernel-profiles` | Persist cookies, local storage, and history across sessions with [profiles](/auth/profiles). |
+| `kernel-proxies` | Route traffic through [proxies](/proxies/overview) for geo-targeting, privacy, or testing. |
+| `kernel-extensions` | Manage Chrome [extensions](/browsers/extensions) — ad blocking, auth extensions, testing extension behavior. |
+| `kernel-filesystem-ops` | Upload, download, read, and write files in the browser VM with [file I/O](/browsers/file-io). |
+| `kernel-process-execution` | Run arbitrary commands inside the browser VM — install tooling, run auxiliary services. |
+| `kernel-replays` | Record sessions as [video replays](/browsers/replays) for debugging, demos, or compliance. |
+| `kernel-app-deployment` | Deploy serverless TypeScript or Python apps to the [App Platform](/apps/overview) and invoke their actions with payloads. |
+
+## Auth
+
+| Skill | What it does |
+| --- | --- |
+| [`kernel-auth`](/skills/kernel-auth) | Acquire a reusable authenticated profile with [managed auth](/auth/overview), then hand off to the browser-control method that fits the task. Owns authentication and the handoff. |
+
+## Agent frameworks
+
+| Skill | What it does |
+| --- | --- |
+| `kernel-agent-browser` | Best practices for [agent-browser](/integrations/vercel/agent-browser) with the Kernel provider (`-p kernel`) — stealth and proxy tuning, profile persistence, iframes, session discovery, cleanup. See [site-specific skills](/skills/site-specific). |
+| `kernel-browser-harness` | Drive a Kernel browser from browser-use's open-source `browser-harness` over CDP, including multi-step and parallel sessions. |
+
+## Debugging and analysis
+
+| Skill | What it does |
+| --- | --- |
+| `debug-browser-session` | Diagnose a misbehaving session from its ID — status, screenshots, page state, VM logs, network connectivity, and telemetry that stays readable after the session is deleted. |
+| [`profile-website-bot-detection`](/skills/bot-detection) | Identify a site's bot-detection vendors, products, and challenge types, comparing stealth against non-stealth browsers. |
+| [`diff-profile-archives`](/skills/profiles) | Diff two [profiles](/auth/profiles) — cookies, storage, preferences, extensions, login state — to explain why one works and the other doesn't. |
+
+## Media
+
+| Skill | What it does |
+| --- | --- |
+| `generate-video` | Turn a web page or animated scene into a smooth, deterministic MP4 by driving headless Chromium off an injected virtual clock and encoding with ffmpeg. |
+
+## Skills for your own sites
+
+The skills above teach an agent about Kernel. To make an agent reliable on a website you care about, write a [site-specific skill](/skills/site-specific).

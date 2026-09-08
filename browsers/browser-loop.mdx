@@ -1,0 +1,87 @@
+---
+title: "Browser Loop"
+description: "A framework-neutral browser tool catalog for your agent, executed against a Kernel browser"
+---
+
+Browser Loop gives your agent browser tools. You pick the tools, it supplies the declarations each model provider accepts, executes every action against a [Kernel browser](/introduction/create), and returns plain objects your existing agent loop can use.
+
+It's open source ([`kernel/browser-loop`](https://github.com/kernel/browser-loop), MIT) and published as [`@onkernel/browser-loop`](https://www.npmjs.com/package/@onkernel/browser-loop).
+
+Reach for it when you're building an agent and don't want to write the translation layer between "the model asked to click at (420, 280)" and an actual browser action. If you're driving the browser yourself from a script, use [Playwright execution](/browsers/playwright-execution) or [computer controls](/browsers/computer-controls) directly.
+
+## What it handles
+
+Frontier models expose browser and computer control differently: native computer-use declarations, predefined browser action sets, ordinary function tools, different coordinate systems, different screenshot and result contracts. Every one of them still expects you to run a real browser, translate each action into an SDK call, and capture the right feedback so the model can verify the action landed.
+
+Browser Loop does that and stops there. It doesn't supply an agent class, a session format, or a UI — your framework already has those.
+
+- **Framework-neutral tool catalog.** Tool identities (`kloop.*.v1`) and model-facing names are byte-identical across bindings, so transcripts and evals stay comparable.
+- **Kernel-browser execution.** Canonical actions run through Kernel's computer API or a raw-CDP executor against a session with your [profile](/auth/profiles) and [proxy](/proxies/overview).
+- **Per-model compatibility.** Provider transforms compose only the declarations and request fields the tools you selected require.
+- **A pi binding and extension**, with Eve and AI SDK bindings next.
+
+## Install
+
+```bash
+npm install @onkernel/browser-loop
+```
+
+## Build an agent
+
+`attach()` binds a browser once; `compile()` turns a (model, tools) pair into plain agent objects.
+
+```typescript
+import Kernel from '@onkernel/sdk';
+import { Agent } from '@earendil-works/pi-agent-core';
+import { loop } from '@onkernel/browser-loop';
+import { attach } from '@onkernel/browser-loop/pi';
+
+const client = new Kernel();
+const browser = await client.browsers.create({ stealth: true });
+const kb = attach({ client, browser });
+
+const { model, agentTools, models } = kb.compile({
+  model: 'anthropic:claude-opus-5',
+  tools: [...loop.toolsets.browser(), loop.tools.browser.act()],
+});
+
+const agent = new Agent({
+  streamFn: (selected, context, options) => models.streamSimple(selected, context, options),
+  initialState: { model, tools: [...agentTools], systemPrompt: 'Use the supplied browser tools.' },
+});
+
+try {
+  await agent.prompt('Open example.com and report the heading.');
+} finally {
+  await kb.dispose();
+  await client.browsers.deleteByID(browser.session_id);
+}
+```
+
+The compiled `model` and `agentTools` have to reach the agent together: selecting a provider-native browser or computer surface can change the transport the model needs, and that's derived from the tools you chose.
+
+## Check which tools a model accepts
+
+Not every model accepts every tool, and two providers' native surfaces can't coexist. Ask instead of guessing — and rebuild the menu after each change rather than caching a per-tool verdict:
+
+```typescript
+import { loopToolMenu } from '@onkernel/browser-loop';
+import { getLoopModel } from '@onkernel/browser-loop/pi';
+
+for (const entry of loopToolMenu(getLoopModel('openai:gpt-5.6-sol'))) {
+  console.log(entry.label, entry.available ? 'ok' : `unavailable: ${entry.unavailableReason}`);
+}
+```
+
+## Try it from a terminal first
+
+The pi extension contributes the same tools to a pi session, so you can find out which tools and which model actually work for your use case before deploying anything. Same catalog, same tool identities, same model knowledge as the SDK path:
+
+```bash
+pi install npm:@onkernel/browser-loop
+pi -p --browser-tools browser,browser-act "open example.com and report the heading"
+```
+
+<Card title="Repository and architecture docs" href="https://github.com/kernel/browser-loop" horizontal>
+  Harness variant, swapping tools on a running session, and tool contexts.
+</Card>

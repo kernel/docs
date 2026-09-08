@@ -9,7 +9,7 @@
     { "source": "/auth/agent/overview", "destination": "/auth/overview" },
     { "source": "/auth/agent/hosted-ui", "destination": "/auth/hosted-ui" },
     { "source": "/auth/agent/programmatic", "destination": "/auth/programmatic" },
-    { "source": "/auth/agent/faq", "destination": "/auth/faq" },
+    { "source": "/auth/agent/faq", "destination": "/auth/overview#faq" },
     { "source": "/browsers/hardware-acceleration", "destination": "/browsers/gpu-acceleration" },
     { "source": "/integrations/computer-use", "destination": "/integrations/computer-use/overview" },
     { "source": "/integrations/claude", "destination": "/integrations/claude/overview" },
@@ -21,7 +21,7 @@
     { "source": "/browsers/pools/overview", "destination": "/browsers/pools" },
     { "source": "/browsers/pools/faq", "destination": "/browsers/pools" },
     { "source": "/introduction", "destination": "/" },
-    { "source": "/quickstart", "destination": "/" },
+    { "source": "/quickstart", "destination": "/start/quickstart" },
     { "source": "/home", "destination": "/" },
     { "source": "/llm.md", "destination": "/integrations/stripe-projects" },
     { "source": "/llm-browser.md", "destination": "/integrations/stripe-projects-browser" },
@@ -30,7 +30,19 @@
     { "source": "/integrations/payments/link", "destination": "/integrations/payments/stripe-link" },
     { "source": "/vaults/payments", "destination": "/browsers/enable-payments-in-browser-agent" },
     { "source": "/browsers/pay-through-browser-checkout", "destination": "/browsers/enable-payments-in-browser-agent" },
-    { "source": "/browsers/add-payments-to-browser-agent", "destination": "/browsers/enable-payments-in-browser-agent" }
+    { "source": "/browsers/add-payments-to-browser-agent", "destination": "/browsers/enable-payments-in-browser-agent" },
+    { "source": "/browsers/faq", "destination": "/browsers/performance" },
+    { "source": "/auth/faq", "destination": "/auth/overview#faq" },
+    { "source": "/apps", "destination": "/apps/overview" },
+    { "source": "/apps/develop", "destination": "/apps/overview" },
+    { "source": "/apps/deploy", "destination": "/apps/build-deploy-operate#deploy-your-app" },
+    { "source": "/apps/invoke", "destination": "/apps/build-deploy-operate#invoke-an-action" },
+    { "source": "/apps/stop", "destination": "/apps/build-deploy-operate#stop-an-invocation" },
+    { "source": "/apps/secrets", "destination": "/apps/build-deploy-operate#secrets" },
+    { "source": "/apps/status", "destination": "/apps/build-deploy-operate#monitor-an-invocation" },
+    { "source": "/apps/logs", "destination": "/apps/build-deploy-operate#logs" },
+    { "source": "/cookbook/overview", "destination": "/overview/use-cases" },
+    { "source": "/overview/features", "destination": "/overview/products" }
   ],
   "theme": "palm",
   "appearance": {
@@ -84,203 +96,265 @@
             "group": "Overview",
             "pages": [
               "index",
-              "introduction/create",
-              "introduction/control",
-              "introduction/observe",
-              "introduction/scale"
+              "overview/why-kernel",
+              "overview/products",
+              {
+                "group": "How it works",
+                "pages": [
+                  "info/concepts",
+                  "introduction/driving-the-browser",
+                  "info/unikernels",
+                  {
+                    "group": "Configure",
+                    "pages": [
+                      "introduction/create",
+                      "browsers/termination",
+                      "browsers/standby",
+                      "browsers/headless",
+                      "browsers/viewport",
+                      "browsers/gpu-acceleration",
+                      "browsers/extensions",
+                      "browsers/chrome-policies",
+                      "browsers/private-networking",
+                      {
+                        "group": "Bot anti-detection",
+                        "pages": [
+                          "browsers/bot-detection/overview",
+                          "browsers/bot-detection/stealth",
+                          "browsers/bot-detection/hcaptcha",
+                          "browsers/bot-detection/web-bot-auth",
+                          "bots",
+                          {
+                            "group": "Proxies",
+                            "pages": [
+                              "proxies/overview",
+                              "proxies/isp",
+                              "proxies/residential",
+                              "proxies/mobile",
+                              "proxies/datacenter",
+                              "proxies/custom"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Control",
+                    "pages": [
+                      "introduction/control",
+                      "browsers/computer-controls",
+                      "browsers/playwright-execution",
+                      "browsers/playwright-computer-use-fallback",
+                      "browsers/file-io",
+                      "browsers/curl",
+                      "browsers/ssh",
+                      {
+                        "group": "Managed auth",
+                        "pages": [
+                          "auth/overview",
+                          {
+                            "group": "Integration types",
+                            "pages": [
+                              "auth/hosted-ui",
+                              "auth/react",
+                              "auth/programmatic"
+                            ]
+                          },
+                          "auth/configuration",
+                          "auth/connection-lifecycle",
+                          "auth/credentials"
+                        ]
+                      },
+                      "auth/profiles",
+                      "browsers/browser-loop",
+                      "browsers/webmcp",
+                      "vaults",
+                      "browsers/enable-payments-in-browser-agent"
+                    ]
+                  },
+                  {
+                    "group": "Observe",
+                    "pages": [
+                      "introduction/observe",
+                      "browsers/live-view",
+                      "browsers/replays",
+                      {
+                        "group": "Telemetry",
+                        "pages": [
+                          "browsers/telemetry/overview",
+                          "browsers/telemetry/categories",
+                          "browsers/telemetry/streaming"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Scale",
+                    "pages": [
+                      "introduction/scale",
+                      "browsers/pools",
+                      "browsers/performance",
+                      "browsers/concurrency-and-limits"
+                    ]
+                  },
+                  {
+                    "group": "Manage",
+                    "pages": [
+                      "info/projects",
+                      "info/api-keys",
+                      "info/audit-logs"
+                    ]
+                  }
+                ]
+              },
+              "overview/use-cases"
             ]
           },
           {
-            "group": "Working with your browser",
+            "group": "Start building",
             "pages": [
               {
-                "group": "Basics",
-                "expanded": true,
+                "group": "Quickstarts",
                 "pages": [
-                  "browsers/live-view",
-                  "browsers/termination",
-                  "browsers/standby",
-                  "browsers/headless",
-                  "info/projects"
+                  "start/quickstart",
+                  "integrations/browser-use",
+                  "integrations/stagehand",
+                  "integrations/claude/claude-agent-sdk",
+                  "integrations/claude/claude-code-and-desktop",
+                  "integrations/computer-use/anthropic",
+                  "integrations/vercel/agent-browser"
                 ]
               },
               {
-                "group": "Intermediate",
-                "expanded": true,
+                "group": "Agent Skills",
                 "pages": [
-                  "browsers/replays",
-                  "browsers/viewport",
-                  "browsers/gpu-acceleration",
-                  {
-                    "group": "Auth",
-                    "pages": [
-                      "auth/overview",
-                      {
-                        "group": "Integration Types",
-                        "pages": [
-                          "auth/hosted-ui",
-                          "auth/react",
-                          "auth/programmatic"
-                        ]
-                      },
-                      "auth/configuration",
-                      "auth/connection-lifecycle",
-                      "auth/credentials",
-                      "auth/profiles",
-                      "auth/faq"
-                    ]
-                  },
-                  "vaults",
-                  "info/api-keys",
-                  "info/audit-logs",
-                  "browsers/file-io",
-                  "browsers/curl",
-                  "browsers/ssh",
-                  "browsers/computer-controls",
-                  "browsers/playwright-execution",
-                  "browsers/playwright-computer-use-fallback",
-                  "browsers/enable-payments-in-browser-agent"
+                  "skills/overview",
+                  "skills/all",
+                  "skills/site-specific",
+                  "skills/bot-detection",
+                  "skills/profiles",
+                  "skills/kernel-auth"
                 ]
               },
               {
-                "group": "Advanced",
-                "expanded": true,
+                "group": "Integrations",
                 "pages": [
+                  "integrations/overview",
                   {
-                    "group": "Bot Anti-Detection",
+                    "group": "Agent frameworks",
                     "pages": [
-                      "browsers/bot-detection/overview",
-                      "browsers/bot-detection/stealth",
-                      "browsers/bot-detection/hcaptcha",
-                      {
-                        "group": "Proxies",
-                        "pages": [
-                          "proxies/overview",
-                          "proxies/custom",
-                          "proxies/residential",
-                          "proxies/mobile",
-                          "proxies/isp",
-                          "proxies/datacenter"
-                        ]
-                      },
-                      "browsers/bot-detection/web-bot-auth",
-                      "bots"
+                      "integrations/browser-use",
+                      "integrations/stagehand",
+                      "integrations/hermes-agent",
+                      "integrations/vibium"
                     ]
                   },
-                  "browsers/extensions",
-                  "browsers/private-networking",
-                  "browsers/chrome-policies",
                   {
-                    "group": "Telemetry",
+                    "group": "Claude",
+                    "icon": "/images/integration-icons/claude.svg",
                     "pages": [
-                      "browsers/telemetry/overview",
-                      "browsers/telemetry/categories",
-                      "browsers/telemetry/streaming"
+                      "integrations/claude/overview",
+                      "integrations/claude/claude-code-and-desktop",
+                      "integrations/claude/claude-agent-sdk",
+                      "integrations/claude/claude-managed-agents"
                     ]
                   },
-                  "browsers/pools"
+                  {
+                    "group": "Computer use models",
+                    "icon": "/images/integration-icons/computer-cursor-rounded.svg",
+                    "pages": [
+                      "integrations/computer-use/overview",
+                      "integrations/computer-use/anthropic",
+                      "integrations/computer-use/gemini",
+                      "integrations/computer-use/openai",
+                      "integrations/computer-use/yutori",
+                      "integrations/computer-use/openagi",
+                      "integrations/computer-use/tzafon"
+                    ]
+                  },
+                  {
+                    "group": "Vercel",
+                    "icon": "/images/integration-icons/vercel.svg",
+                    "pages": [
+                      "integrations/vercel/overview",
+                      "integrations/vercel/agent-browser",
+                      "integrations/vercel/ai-sdk",
+                      "integrations/vercel/marketplace",
+                      "integrations/vercel/eve-extension",
+                      "integrations/vercel/foreman",
+                      "integrations/vercel/fx"
+                    ]
+                  },
+                  {
+                    "group": "Credentials and payments",
+                    "pages": [
+                      "integrations/1password",
+                      "integrations/payments/overview",
+                      "integrations/payments/stripe-link",
+                      "integrations/payments/agentcard"
+                    ]
+                  },
+                  {
+                    "group": "Deployment and runtimes",
+                    "pages": [
+                      "integrations/valtown",
+                      "integrations/terraform"
+                    ]
+                  },
+                  {
+                    "group": "Provisioning and billing",
+                    "icon": "/images/integration-icons/stripe.svg",
+                    "pages": [
+                      "integrations/stripe-projects",
+                      "integrations/stripe-projects-browser"
+                    ]
+                  },
+                  {
+                    "group": "Observability",
+                    "pages": [
+                      "integrations/laminar"
+                    ]
+                  }
                 ]
               },
               {
-                "group": "FAQ",
+                "group": "App Platform",
                 "pages": [
-                  "browsers/performance"
+                  "apps/overview",
+                  "apps/build-deploy-operate"
+                ]
+              },
+              {
+                "group": "Migrate to Kernel",
+                "pages": [
+                  "migrations/self-hosted",
+                  "migrations/browserbase",
+                  "migrations/steel",
+                  "migrations/browser-use",
+                  "migrations/anchor",
+                  "migrations/hyperbrowser",
+                  "migrations/scrapybara"
                 ]
               }
             ]
           },
           {
-            "group": "Integrations",
+            "group": "Plans & enterprise",
             "pages": [
-              "integrations/overview",
-              "integrations/browser-use",
+              "info/pricing",
+              "info/spending-caps",
               {
-                "group": "Claude",
-                "icon": "/images/integration-icons/claude.svg",
+                "group": "Enterprise",
                 "pages": [
-                  "integrations/claude/overview",
-                  "integrations/claude/claude-code-and-desktop",
-                  "integrations/claude/claude-agent-sdk",
-                  "integrations/claude/claude-managed-agents"
+                  "info/enterprise",
+                  "security",
+                  "info/zero-data-retention"
                 ]
               },
-              {
-                "group": "Computer Use Models",
-                "icon": "/images/integration-icons/computer-cursor-rounded.svg",
-                "pages": [
-                  "integrations/computer-use/overview",
-                  "integrations/computer-use/anthropic",
-                  "integrations/computer-use/gemini",
-                  "integrations/computer-use/openagi",
-                  "integrations/computer-use/openai",
-                  "integrations/computer-use/tzafon",
-                  "integrations/computer-use/yutori"
-                ]
-              },
-              {
-                "group": "Payments",
-                "icon": "/images/integration-icons/payments.svg",
-                "pages": [
-                  "integrations/payments/overview",
-                  "integrations/payments/stripe-link",
-                  "integrations/payments/agentcard"
-                ]
-              },
-              "integrations/hermes-agent",
-              "integrations/laminar",
-              "integrations/stagehand",
-              {
-                "group": "Stripe Projects",
-                "icon": "/images/integration-icons/stripe.svg",
-                "pages": [
-                  "integrations/stripe-projects",
-                  "integrations/stripe-projects-browser"
-                ]
-              },
-              "integrations/terraform",
-              "integrations/valtown",
-              {
-                "group": "Vercel",
-                "icon": "/images/integration-icons/vercel.svg",
-                "pages": [
-                  "integrations/vercel/overview",
-                  "integrations/vercel/agent-browser",
-                  "integrations/vercel/ai-sdk",
-                  "integrations/vercel/marketplace",
-                  "integrations/vercel/eve-extension",
-                  "integrations/vercel/foreman",
-                  "integrations/vercel/fx"
-                ]
-              },
-              "integrations/vibium",
-              "integrations/1password"
-            ]
-          },
-          {
-            "group": "Migrations",
-            "pages": [
-              "migrations/scrapybara"
-            ]
-          },
-          {
-            "group": "deploying your agent",
-            "pages": [
-              "apps/develop",
-              "apps/deploy",
-              "apps/invoke",
-              "apps/stop",
-              "apps/secrets",
-              "apps/status",
-              "apps/logs"
-            ]
-          },
-          {
-            "group": "Agent Skills",
-            "pages": [
-              "skills/overview",
-              "skills/bot-detection",
-              "skills/profiles",
-              "skills/kernel-auth"
+              "info/trust-center",
+              "info/support",
+              "info/contact-sales"
             ]
           },
           {
@@ -288,18 +362,6 @@
             "pages": [
               "community/github",
               "community/discord"
-            ]
-          },
-          {
-            "group": "Info",
-            "pages": [
-              "browsers/faq",
-              "info/concepts",
-              "info/zero-data-retention",
-              "info/pricing",
-              "info/spending-caps",
-              "info/support",
-              "info/unikernels"
             ]
           }
         ]
@@ -373,6 +435,7 @@
               "reference/mcp-server/tools/manage-proxies",
               "reference/mcp-server/tools/manage-extensions",
               "reference/mcp-server/tools/manage-apps",
+              "reference/mcp-server/tools/webmcp",
               "reference/mcp-server/tools/computer-action",
               "reference/mcp-server/tools/execute-playwright-code",
               "reference/mcp-server/tools/manage-replays",
