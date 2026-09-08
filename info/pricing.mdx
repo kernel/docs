@@ -14,13 +14,24 @@ With Kernel, you only pay for what you use and nothing more. You don't pay for i
 
 ## Usage Rates
 
-| Browser type | Price ($/sec) |
+| Usage type | Price ($/sec) |
 | --- | --- |
-| Headful | 0.0001333336 |
-| Headless | 0.0000166667 |
-| Headful + GPU acceleration | 0.0008000016 |
+| Headful browser | 0.0001333336 |
+| Headless browser | 0.0000166667 |
+| Headful browser + GPU acceleration | 0.0008000016 |
+| App invocation | 0.0000666668 |
 
 > Included monthly credits apply to usage costs only.
+
+### App invocation usage
+
+App invocations are billed for active compute time, not per API call. The invocation rate above is based on the current 4 GB memory allocation at $0.0000166667 per GB-second.
+
+Billing starts when your code begins executing and stops when it finishes. You aren't charged for queued time, deploying an app, or leaving a deployed app idle. Failed and canceled invocations still accrue charges for the time they ran.
+
+Browsers created by an invocation are billed separately for their active runtime at the browser rates above. Services your code calls, such as an LLM API, also bill you independently.
+
+The app invocation limits below are concurrency limits, not a number of invocations included with your plan.
 
 
 ### Pricing calculator
