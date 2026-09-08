@@ -15,6 +15,8 @@
     encodeURIComponent(PIXEL_KEY) +
     "&v=1.1.0";
   var JURISDICTION_URL = "/api/c15t/show-consent-banner";
+  var HANDOFF_PARAM = "ca_device_id";
+  var HANDOFF_DOMAIN = "onkernel.com";
 
   // true granted, false declined, null no decision recorded yet.
   function storedConsent() {
@@ -83,9 +85,35 @@
     window.addEventListener("popstate", onNavigate);
   }
 
+  // The device ID is stored per-domain, and the docs link to dashboard sign-up
+  // in several places, so without this the ad click that led to a signup is
+  // never credited. Hand ours over on the way out; the dashboard reads it back.
+  function handOffDeviceIdOnNavigation() {
+    document.addEventListener(
+      "click",
+      function (event) {
+        var link = event.target.closest && event.target.closest("a[href]");
+        if (!link || typeof window.ca.getDeviceId !== "function") return;
+
+        var url = new URL(link.href, window.location.href);
+        if (
+          url.hostname !== HANDOFF_DOMAIN &&
+          !url.hostname.endsWith("." + HANDOFF_DOMAIN)
+        ) {
+          return;
+        }
+
+        url.searchParams.set(HANDOFF_PARAM, window.ca.getDeviceId());
+        link.href = url.toString();
+      },
+      { capture: true }
+    );
+  }
+
   function start() {
     load();
     trackNavigations();
+    handOffDeviceIdOnNavigation();
   }
 
   var stored = storedConsent();
