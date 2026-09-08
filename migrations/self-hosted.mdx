@@ -1,0 +1,71 @@
+---
+title: "Self-Hosted"
+description: "Move a self-hosted Chrome fleet to Kernel"
+---
+
+If you run your own Chrome — in Docker, on Kubernetes, or as a process on a box — migrating is less about API calls and more about deleting infrastructure.
+
+## What you stop operating
+
+| What you operate today | On Kernel |
+| --- | --- |
+| Container image with Chromium and its dependencies | Nothing. Browsers are created from Kernel's image. |
+| Autoscaler and warm-pool logic | [Browser pools](/browsers/pools), or `browsers.create()` at [~30ms](/browsers/performance) |
+| Orphan and zombie process reaping | [`timeout_seconds`](/browsers/termination) on every browser |
+| Per-container memory tuning | Fixed [per-browser resources](/browsers/concurrency-and-limits#per-browser-resources): 8 GB headful, 1 GB headless |
+| A patched or stealth-plugin Chromium build | [Anti-detection](/browsers/bot-detection/overview) on every browser, [stealth mode](/browsers/bot-detection/stealth) for the managed proxy and solver |
+| Proxy contracts and rotation code | [Proxies](/proxies/overview), unmetered, or [bring your own](/proxies/custom) |
+| VNC or noVNC sidecar for debugging | [Live view](/browsers/live-view) and [replays](/browsers/replays) |
+| Your own metrics pipeline for browser events | [Telemetry](/browsers/telemetry/overview) |
+| A VPN or bastion so the browser can reach internal services | [Private networking](/browsers/private-networking) |
+| Cookie jars and login scripts | [Profiles](/auth/profiles) and [managed auth](/auth/overview) |
+
+## The connection change
+
+Whatever you point Playwright or Puppeteer at today becomes a Kernel `cdp_ws_url`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create({ timeout_seconds: 600 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const page = browser.contexts()[0].pages()[0];
+await page.goto('https://example.com');
+
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+from playwright.sync_api import sync_playwright
+
+kernel = Kernel()
+kernel_browser = kernel.browsers.create(timeout_seconds=600)
+
+with sync_playwright() as p:
+    browser = p.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+    page = browser.contexts[0].pages[0]
+    page.goto("https://example.com")
+
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
+## Then make these three changes
+
+That gets you running. The benefit is in what comes next, in this order:
+
+1. **Stop connecting over CDP for the hot path.** [Playwright execution](/browsers/playwright-execution) runs your code inside the browser's VM: no round trip per action, no connection to keep alive, and no CDP fingerprint for anti-bot vendors to read. See [how you drive the browser](/introduction/driving-the-browser).
+2. **Replace your session-state handling with [profiles](/auth/profiles)**, and your login scripts with [managed auth](/auth/overview).
+3. **Delete your warm-pool code.** [Browser pools](/browsers/pools) hold pre-configured browsers with a fill rate, and idle pool browsers aren't billed.
+
+## Two things to check before cutting over
+
+- **Region.** Browsers default to `us-east`. If your loop runs elsewhere, either move it or run it on the [App Platform](/apps/overview) — otherwise you trade container start-up latency for network latency.
+- **Isolation model.** Each Kernel browser is a [microVM](/info/unikernels) with its own kernel, so per-browser isolation is stronger than a shared-kernel container. If you were multiplexing tabs across one Chrome to save memory, use more browsers instead.
+
+If you're moving a large or unusual fleet, [talk to us](https://calendly.com/d/d3tn-5kp-5yt) — its shape usually determines whether pools, on-demand browsers, or the App Platform is the right target.

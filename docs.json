@@ -33,7 +33,16 @@
     { "source": "/browsers/add-payments-to-browser-agent", "destination": "/browsers/enable-payments-in-browser-agent" },
     { "source": "/browsers/faq", "destination": "/browsers/performance" },
     { "source": "/auth/faq", "destination": "/auth/overview#faq" },
-    { "source": "/migrations/scrapybara", "destination": "/migrations/overview" }
+    { "source": "/apps", "destination": "/apps/overview" },
+    { "source": "/apps/develop", "destination": "/apps/overview" },
+    { "source": "/apps/deploy", "destination": "/apps/build-deploy-operate#deploy-your-app" },
+    { "source": "/apps/invoke", "destination": "/apps/build-deploy-operate#invoke-an-action" },
+    { "source": "/apps/stop", "destination": "/apps/build-deploy-operate#stop-an-invocation" },
+    { "source": "/apps/secrets", "destination": "/apps/build-deploy-operate#secrets" },
+    { "source": "/apps/status", "destination": "/apps/build-deploy-operate#monitor-an-invocation" },
+    { "source": "/apps/logs", "destination": "/apps/build-deploy-operate#logs" },
+    { "source": "/cookbook/overview", "destination": "/overview/use-cases" },
+    { "source": "/overview/features", "destination": "/overview/products" }
   ],
   "theme": "palm",
   "appearance": {
@@ -88,7 +97,7 @@
             "pages": [
               "index",
               "overview/why-kernel",
-              "overview/features",
+              "overview/products",
               {
                 "group": "How it works",
                 "pages": [
@@ -134,11 +143,12 @@
                     "group": "Control",
                     "pages": [
                       "introduction/control",
-                      "browsers/playwright-execution",
                       "browsers/computer-controls",
+                      "browsers/playwright-execution",
                       "browsers/playwright-computer-use-fallback",
-                      "browsers/browser-loop",
-                      "browsers/webmcp",
+                      "browsers/file-io",
+                      "browsers/curl",
+                      "browsers/ssh",
                       {
                         "group": "Managed auth",
                         "pages": [
@@ -157,11 +167,10 @@
                         ]
                       },
                       "auth/profiles",
+                      "browsers/browser-loop",
+                      "browsers/webmcp",
                       "vaults",
-                      "browsers/enable-payments-in-browser-agent",
-                      "browsers/file-io",
-                      "browsers/curl",
-                      "browsers/ssh"
+                      "browsers/enable-payments-in-browser-agent"
                     ]
                   },
                   {
@@ -185,8 +194,8 @@
                     "pages": [
                       "introduction/scale",
                       "browsers/pools",
-                      "browsers/concurrency-and-limits",
-                      "browsers/performance"
+                      "browsers/performance",
+                      "browsers/concurrency-and-limits"
                     ]
                   },
                   {
@@ -198,14 +207,25 @@
                     ]
                   }
                 ]
-              }
+              },
+              "overview/use-cases"
             ]
           },
           {
             "group": "Start building",
             "pages": [
-              "start/quickstart",
-              "cookbook/overview",
+              {
+                "group": "Quickstarts",
+                "pages": [
+                  "start/quickstart",
+                  "integrations/browser-use",
+                  "integrations/stagehand",
+                  "integrations/claude/claude-agent-sdk",
+                  "integrations/claude/claude-code-and-desktop",
+                  "integrations/computer-use/anthropic",
+                  "integrations/vercel/agent-browser"
+                ]
+              },
               {
                 "group": "Agent Skills",
                 "pages": [
@@ -226,7 +246,8 @@
                     "pages": [
                       "integrations/browser-use",
                       "integrations/stagehand",
-                      "integrations/hermes-agent"
+                      "integrations/hermes-agent",
+                      "integrations/vibium"
                     ]
                   },
                   {
@@ -275,20 +296,24 @@
                     ]
                   },
                   {
-                    "group": "Provisioning and billing",
-                    "icon": "/images/integration-icons/stripe.svg",
+                    "group": "Deployment and runtimes",
                     "pages": [
-                      "integrations/stripe-projects",
-                      "integrations/stripe-projects-browser",
+                      "integrations/valtown",
                       "integrations/terraform"
                     ]
                   },
                   {
-                    "group": "More integrations",
+                    "group": "Provisioning and billing",
+                    "icon": "/images/integration-icons/stripe.svg",
                     "pages": [
-                      "integrations/laminar",
-                      "integrations/vibium",
-                      "integrations/valtown"
+                      "integrations/stripe-projects",
+                      "integrations/stripe-projects-browser"
+                    ]
+                  },
+                  {
+                    "group": "Observability",
+                    "pages": [
+                      "integrations/laminar"
                     ]
                   }
                 ]
@@ -296,20 +321,20 @@
               {
                 "group": "App Platform",
                 "pages": [
-                  "apps/develop",
-                  "apps/deploy",
-                  "apps/invoke",
-                  "apps/stop",
-                  "apps/secrets",
-                  "apps/status",
-                  "apps/logs"
+                  "apps/overview",
+                  "apps/build-deploy-operate"
                 ]
               },
               {
                 "group": "Migrate to Kernel",
                 "pages": [
-                  "migrations/overview",
-                  "migrations/browserbase"
+                  "migrations/self-hosted",
+                  "migrations/browserbase",
+                  "migrations/steel",
+                  "migrations/browser-use",
+                  "migrations/anchor",
+                  "migrations/hyperbrowser",
+                  "migrations/scrapybara"
                 ]
               }
             ]
@@ -319,9 +344,17 @@
             "pages": [
               "info/pricing",
               "info/spending-caps",
-              "security",
-              "info/zero-data-retention",
-              "info/support"
+              {
+                "group": "Enterprise",
+                "pages": [
+                  "info/enterprise",
+                  "security",
+                  "info/zero-data-retention"
+                ]
+              },
+              "info/trust-center",
+              "info/support",
+              "info/contact-sales"
             ]
           },
           {

@@ -20,7 +20,7 @@ The connection change is one line: swap the Browserbase `connectUrl` for Kernel'
 | Proxies | Proxy configuration, billed per GB | [Proxies](/proxies/overview), unmetered on Kernel-provided types |
 | Keep-alive | `keepAlive` on the session | [Standby mode](/browsers/standby) — automatic, and idle time isn't billed |
 | Warm sessions | — | [Browser pools](/browsers/pools) |
-| Run your code near the browser | — | [Playwright execution](/browsers/playwright-execution) and the [App Platform](/apps/develop) |
+| Run your code near the browser | — | [Playwright execution](/browsers/playwright-execution) and the [App Platform](/apps/overview) |
 
 ## The connection change
 
@@ -87,7 +87,7 @@ const browser = await kernel.browsers.create({
 
 ## Things to check before cutting over
 
-- **Region.** Browsers default to `us-east`. Co-locate your loop with [playwright execution](/browsers/playwright-execution) or the [App Platform](/apps/develop) if latency matters.
+- **Region.** Browsers default to `us-east`. Co-locate your loop with [playwright execution](/browsers/playwright-execution) or the [App Platform](/apps/overview) if latency matters.
 - **Concurrency and create rate.** Both are per plan and separate from each other — see [concurrency and limits](/browsers/concurrency-and-limits).
 - **Proxy behavior.** Kernel's datacenter proxies rotate per request; ISP proxies are static. If your automation assumed a stable exit IP, use [ISP](/proxies/isp) or a [custom proxy](/proxies/custom).
 

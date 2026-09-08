@@ -1,0 +1,51 @@
+---
+title: "Steel"
+description: "Move a Steel automation to Kernel"
+---
+
+Steel and Kernel both hand you a hosted Chromium over CDP, so the connection swap is one line. The differences worth planning for are what happens around the session.
+
+## Concept mapping
+
+| Concept | Steel | Kernel |
+| --- | --- | --- |
+| Create a session | `client.sessions.create()` | `kernel.browsers.create()` |
+| CDP endpoint | Session `websocketUrl` | `browser.cdp_ws_url` |
+| Release a session | `client.sessions.release(id)` | `kernel.browsers.deleteByID(session_id)`, or let [`timeout_seconds`](/browsers/termination) expire |
+| Live session viewer | Session viewer URL | `browser.browser_live_view_url`, returned on create |
+| Persisted state | Session context / credentials | [Profiles](/auth/profiles), populated and maintained by [managed auth](/auth/overview) |
+| Stealth | Stealth session flag | Anti-detection by default; `stealth: true` adds the managed proxy and CAPTCHA solver |
+| CAPTCHA solving | Session solver option | Included with [stealth mode](/browsers/bot-detection/stealth) |
+| Proxies | Session proxy, billed per GB | [Proxies](/proxies/overview), unmetered on Kernel-provided types |
+| Files | Session files API | [File I/O](/browsers/file-io) |
+| Extensions | Session extensions | [Extensions](/browsers/extensions) |
+| Warm sessions | — | [Browser pools](/browsers/pools) |
+| Run code beside the browser | — | [Playwright execution](/browsers/playwright-execution), [App Platform](/apps/overview) |
+| Self-hosting | Open-source Steel server | Not applicable — see [migrating from self-hosted](/migrations/self-hosted) if that's what you run today |
+
+## The connection change
+
+```typescript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright-core';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const page = browser.contexts()[0].pages()[0];
+await page.goto('https://example.com');
+await browser.close();
+
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+## What to change next
+
+- **Stop connecting over CDP for the hot path.** [Playwright execution](/browsers/playwright-execution) runs your code inside the browser's VM and returns values, with no connection to manage and no CDP fingerprint on the wire. See [how you drive the browser](/introduction/driving-the-browser).
+- **Replace credential handling with [managed auth](/auth/overview).** Kernel performs the login, keeps the session warm with health checks, and writes the result into a [profile](/auth/profiles) your browsers attach.
+- **Use a [pool](/browsers/pools) for repeated work.** Pool acquisition skips both browser creation and the per-plan [create rate](/browsers/concurrency-and-limits#create-rate).
+
+<Note>
+If you were self-hosting Steel to control cost or data residency, read [zero data retention](/info/zero-data-retention) and [security practices](/security) before you plan the move.
+</Note>

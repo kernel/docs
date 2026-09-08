@@ -1,0 +1,51 @@
+---
+title: "Browser Use"
+description: "Point a Browser Use agent at Kernel browsers"
+---
+
+Browser Use is an agent framework, not a browser host — so there's nothing to port. You keep your agent code and change where its browser comes from.
+
+If you're running Browser Use against its own cloud, or against a local Chromium, this is the change.
+
+## Point the agent at a Kernel browser
+
+<CodeGroup>
+```python Python
+from browser_use import Agent, BrowserSession
+from kernel import Kernel
+
+kernel = Kernel()
+kernel_browser = kernel.browsers.create(stealth=True, timeout_seconds=600)
+
+session = BrowserSession(cdp_url=kernel_browser.cdp_ws_url)
+
+agent = Agent(
+    task="Find the top story on Hacker News and summarize it",
+    browser_session=session,
+)
+
+try:
+    await agent.run()
+finally:
+    kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+</CodeGroup>
+
+The full setup, including the model configuration and running it on the [App Platform](/apps/overview), is on the [Browser Use integration page](/integrations/browser-use).
+
+## What you gain
+
+| | Local Chromium | Browser Use Cloud | Kernel |
+| --- | --- | --- | --- |
+| Where it runs | Your machine | Managed | Managed, [microVM](/info/unikernels) per browser |
+| Watch a run | Your screen | Session viewer | [Live view](/browsers/live-view) and [replays](/browsers/replays) |
+| Logins | Your own cookie handling | Saved sessions | [Managed auth](/auth/overview) and [profiles](/auth/profiles) |
+| Bot detection | Whatever you patch in | Managed | [Anti-detection](/browsers/bot-detection/overview) by default, [stealth](/browsers/bot-detection/stealth), [proxies](/proxies/overview) |
+| Co-locating the agent | — | — | [App Platform](/apps/overview) |
+| Per-step telemetry | — | — | [Telemetry](/browsers/telemetry/overview) |
+
+## Things to check
+
+- **Keep the default context and page.** Kernel browsers launch with one already open. Browser Use handles this, but custom harness code should use `contexts()[0]` / `pages()[0]` rather than creating new ones.
+- **Set `timeout_seconds`.** An agent that stalls shouldn't leave a browser running — see [termination](/browsers/termination).
+- **Concurrency is per plan.** Running many agents at once is bounded by [concurrency and limits](/browsers/concurrency-and-limits).

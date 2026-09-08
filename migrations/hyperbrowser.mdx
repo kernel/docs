@@ -1,0 +1,53 @@
+---
+title: "Hyperbrowser"
+description: "Move a Hyperbrowser automation to Kernel"
+---
+
+Hyperbrowser and Kernel are close in shape: create a session, get a CDP endpoint, drive it. The connection swap is one line; the rest of this page is what to do with the parts that don't map exactly.
+
+## Concept mapping
+
+| Concept | Hyperbrowser | Kernel |
+| --- | --- | --- |
+| Create a session | `client.sessions.create()` | `kernel.browsers.create()` |
+| CDP endpoint | Session `wsEndpoint` | `browser.cdp_ws_url` |
+| Stop a session | `client.sessions.stop(id)` | `kernel.browsers.deleteByID(session_id)`, or let [`timeout_seconds`](/browsers/termination) expire |
+| Live view | Session live URL | `browser.browser_live_view_url`, returned on create |
+| Persisted state | Profiles | [Profiles](/auth/profiles), populated by [managed auth](/auth/overview) |
+| Stealth and CAPTCHA solving | Session options | Anti-detection by default; `stealth: true` adds the managed proxy and solver |
+| Proxies | Session proxy options | [Proxies](/proxies/overview), unmetered on Kernel-provided types |
+| Extensions | Session extensions | [Extensions](/browsers/extensions) |
+| Recording | Session recording | [Replays](/browsers/replays) |
+| Sandboxes / code execution | Sandboxes | [App Platform](/apps/overview) for deployed agents, [playwright execution](/browsers/playwright-execution) for one-off code, [shell access](/browsers/ssh) and [process execution](/browsers/ssh) inside the browser VM |
+| Scraping and crawling endpoints | Scrape / crawl / extract APIs | No managed crawler — drive the pages yourself with [playwright execution](/browsers/playwright-execution). The [cookbook](/overview/use-cases#data-extraction) has the pattern |
+| Agent endpoints | Browser Use / Claude computer use hosted agents | Bring your own loop — see the [integrations](/integrations/overview) for Browser Use, Stagehand, and computer-use models |
+| Warm sessions | — | [Browser pools](/browsers/pools) |
+
+## The connection change
+
+```typescript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright-core';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const page = browser.contexts()[0].pages()[0];
+await page.goto('https://example.com');
+await browser.close();
+
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+## The two gaps to plan for
+
+**No managed scrape/crawl/extract endpoints.** If you were calling a one-shot scrape API, the Kernel equivalent is a [playwright execution](/browsers/playwright-execution) call that navigates and returns the data you want — one call per page, structured result, no DOM shipped over the network. For volume, put it behind a [browser pool](/browsers/pools).
+
+**No hosted agent endpoints.** You run the loop. That's a real difference in effort, and it buys you model choice and the ability to run the loop [next to the browser](/introduction/driving-the-browser). [Browser Loop](/browsers/browser-loop) gives you the tool catalog and per-model compatibility so you're not writing the translation layer.
+
+## Things to check
+
+- **Region.** Browsers default to `us-east`.
+- **Concurrency and create rate** are separate per-plan limits — see [concurrency and limits](/browsers/concurrency-and-limits).
+- **Per-browser memory** is 8 GB headful, 1 GB headless. If you multiplexed many tabs into one session, use more browsers instead.
