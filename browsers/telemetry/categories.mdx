@@ -13,7 +13,7 @@ These categories report on the session itself rather than page content.
 
 | Category | Captures | Event types |
 | --- | --- | --- |
-| `control` | Actions that drive the browser: computer-control calls, Playwright code execution, screenshots and clipboard access, plus browser-control commands sent over the CDP proxy | `api_call`, `cdp_command` |
+| `control` | Actions that drive the browser: computer-control calls, Playwright code execution, WebMCP discovery and invocation, screenshots and clipboard access, plus browser-control commands sent over the CDP proxy | `api_call`, `cdp_command` |
 | `platform` | Calls that manage the VM rather than drive the browser: recording lifecycle, filesystem, process execution, log streaming, scale-to-zero, telemetry, display and browser configuration, and extension uploads | `platform_api_call` |
 | `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
 | `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
@@ -24,6 +24,28 @@ These categories report on the session itself rather than page content.
 <Note>
 `control` reports one `cdp_command` for each supported browser-control command it can classify from the CDP proxy - input gestures, navigation, dialogs, file selection, screenshots, and every command phase, including `mouseMoved`, `keyUp`, and `char`. It doesn't report arbitrary CDP traffic; general inspection traffic such as most DOM and Runtime commands isn't classified as browser control. The command stream isn't sampled, coalesced, or reordered.
 </Note>
+
+### Inspect WebMCP calls
+
+webmcp discovery and invocation each produce one `api_call` event when `control` telemetry is enabled. `operation_id` uses the browser API handler name: `GetWebMCPTools` or `InvokeWebMCPTool`.
+
+`GetWebMCPTools` has no parameters. its event contains only `request_id`, `operation_id`, HTTP `status`, and `duration_ms`. the tool catalog is not captured.
+
+`InvokeWebMCPTool` adds these optional fields on browser images that support invocation details:
+
+| Fields | Meaning |
+| --- | --- |
+| `tool_ref`, `tool_name`, `tool_source` | the submitted registration reference, resolved name, and source window/tab/page URL with an optional frame. the source is observed before invocation, so navigation during the call doesn't change attribution. |
+| `input`, `timeout_sec` | JSON-serialized input and the explicitly supplied timeout. the timeout is absent when you use the default. input can be absent when validation rejects the request before processing it. |
+| `invocation_id`, `invocation_status` | the invocation identifier when observed and its semantic outcome. neither is guaranteed on a failed request. |
+| `error_code`, `error_text` | `outcome_unknown` when the final outcome couldn't be observed, or page-provided error text when available. treat page-provided content as untrusted. |
+| `status`, `duration_ms`, `request_id` | the HTTP response code, request duration in milliseconds, and per-request identifier. these keep the same meaning as on other `api_call` events. |
+
+HTTP `status: 200` doesn't prove that a tool succeeded. check `invocation_status`: `completed`, `canceled`, `error`, or `awaiting_submission`. `awaiting_submission` means a non-autosubmit form was populated but not submitted. HTTP `504` with `invocation_status: outcome_unknown` and `error_code: outcome_unknown` means the action may have happened. don't retry automatically, even if `invocation_id` is absent; inspect the page state first. HTTP failures without an observed semantic outcome have no `invocation_status`.
+
+input and captured strings are capped at 8,192 bytes on a character boundary and end in `...[truncated]` when clipped. the captured input is a string, not an object, and clipped input need not be valid JSON. tool output isn't captured. the MCP server's compact telemetry view can omit fields whose JSON-encoded size exceeds 8 KiB; use a bounded raw read when you need an omitted field.
+
+calls to `webmcp.listTools()` or `webmcp.invokeTool()` inside Playwright execution produce their own events in addition to the enclosing `ExecutePlaywrightCode` event. these are separate requests with separate request IDs, not duplicate tool invocations. count only events whose `data.operation_id` is `InvokeWebMCPTool` when counting invocation requests.
 
 ### Reduce CDP command volume
 
@@ -123,7 +145,7 @@ It isn't directly settable. It flows automatically whenever any of the browser-a
 
 ## Data sensitivity
 
-Telemetry is off by default. The default set isn't limited to session metadata: `control` records the source you submit for Playwright execution and sanitized arguments for supported browser-control commands, while `captcha` can record the host and path of the page where a solve ran. The browser-activity categories capture what flows through the page, which is your own browser's data and can include credentials and personal information.
+Telemetry is off by default. The default set isn't limited to session metadata: `control` records the source you submit for Playwright execution, WebMCP invocation input and source URLs, and sanitized arguments for supported browser-control commands, while `captcha` can record the host and path of the page where a solve ran. The browser-activity categories capture what flows through the page, which is your own browser's data and can include credentials and personal information.
 
 | Category | Can contain sensitive data |
 | --- | --- |
@@ -132,7 +154,7 @@ Telemetry is off by default. The default set isn't limited to session metadata: 
 | `page` | Page URLs and titles, which can embed tokens or identifiers in query strings or fragments. |
 | `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
 | `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
-| `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. `cdp_command` carries sanitized arguments such as the method and phase, coordinates, counts, flags, and named keys such as `Enter` and `Tab`. Typed text, file paths, scripts, templates, dialog input, and autofill values aren't captured; navigation commands retain only the URL scheme, not the host, path, query, or fragment. |
+| `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. WebMCP invocation events also capture input, tool/source metadata and error text, with captured strings capped at 8,192 bytes. Arguments and source URLs can contain credentials or personal data; clipping isn't redaction. Discovery records no tool catalog, and invocation records no output. `cdp_command` carries sanitized arguments such as the method and phase, coordinates, counts, flags, and named keys such as `Enter` and `Tab`. Typed text, file paths, scripts, templates, dialog input, and autofill values aren't captured; navigation commands retain only the URL scheme, not the host, path, query, or fragment. |
 | `captcha` | Captcha type, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
 | `platform`, `connection`, `system`, `monitor` | Session and VM metadata only (VM-management calls, connection and health events). No page content. |
 
@@ -140,10 +162,10 @@ Captured events are persisted and can be replayed by [resuming the stream](/brow
 
 Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text), and `cdp_command` reports text lengths rather than the text itself. Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
 
-If you capture `control` and run Playwright code, pass credentials in through variables your snippet reads rather than as literals in the submitted source, so the captured `code` doesn't carry them.
+If you capture `control` and run Playwright code, pass credentials in through variables your snippet reads rather than as literals in the submitted source, so the captured `code` doesn't carry them. this doesn't prevent capture when those variables are passed as WebMCP invocation input. disable `control` if you can't persist those arguments or the tool's source URLs.
 
 <Warning>
-If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured. `control` and `captcha` stay available; keep regulated values out of the Playwright source you submit, and disable `captcha` if the page host or path identifies regulated data.
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured. `control` and `captcha` stay available; keep regulated values out of the Playwright source you submit and WebMCP invocation input/source URLs, or disable `control` for those calls. disable `captcha` if the page host or path identifies regulated data.
 
 If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
