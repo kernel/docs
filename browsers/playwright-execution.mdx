@@ -107,7 +107,7 @@ Your code has access to these objects:
 - `page` - The current page instance
 - `context` - The browser context
 - `browser` - The browser instance
-- `webmcp` - Frozen browser-wide helpers for discovering and invoking [WebMCP tools](/browsers/webmcp)
+- `webmcp` - Helper for discovering and invoking [WebMCP tools](/browsers/webmcp)
 
 ## WebMCP helpers
 
@@ -116,27 +116,23 @@ Code sent to `POST /browsers/{id}/playwright/execute` can use `webmcp` alongside
 - `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just `page`.
 - `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
 
-First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes your page registers a top-level `search_products` tool accepting a `query` string. It uses an existing session and client, as in the examples above. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
+First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes your site exposes one `search_products` tool accepting a `query` string. It uses an existing session and client, as in the examples above. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 const response = await kernel.browsers.playwright.execute(sessionId, {
   code: `
     const tools = await webmcp.listTools();
-    const matches = tools.filter(tool =>
-      tool.name === 'search_products' &&
-      tool.source.page_url === page.url().split('#')[0] &&
-      tool.source.frame === null
-    );
-    if (matches.length !== 1) return { tools };
+    const tool = tools.find(tool => tool.name === 'search_products');
+    if (!tool) return { tools };
     const invocation = await webmcp.invokeTool(
-      matches[0].tool_ref,
+      tool.tool_ref,
       { query: 'running shoes' },
-      { timeoutSec: 30 }
+      { timeoutSec: 5 }
     );
     return { invocation, tools: await webmcp.listTools() };
   `,
-  timeout_sec: 60,
+  timeout_sec: 10,
 }, { maxRetries: 0 });
 console.log(response);
 ```
@@ -146,26 +142,22 @@ response = kernel.with_options(max_retries=0).browsers.playwright.execute(
     session_id,
     code="""
         const tools = await webmcp.listTools();
-        const matches = tools.filter(tool =>
-          tool.name === 'search_products' &&
-          tool.source.page_url === page.url().split('#')[0] &&
-          tool.source.frame === null
-        );
-        if (matches.length !== 1) return { tools };
+        const tool = tools.find(tool => tool.name === 'search_products');
+        if (!tool) return { tools };
         const invocation = await webmcp.invokeTool(
-          matches[0].tool_ref,
+          tool.tool_ref,
           { query: 'running shoes' },
-          { timeoutSec: 30 }
+          { timeoutSec: 5 }
         );
         return { invocation, tools: await webmcp.listTools() };
     """,
-    timeout_sec=60,
+    timeout_sec=10,
 )
 print(response)
 ```
 </CodeGroup>
 
-Keep the outer execution budget (`timeout_sec`) longer than the helper's `timeoutSec` to leave time for discovery and reading the result. Check `response.success` for execution failures and `invocation.status` for the tool's terminal status (`completed`, `canceled`, or `error`).
+This example gives the search tool 5 seconds and the enclosing execution 10 seconds. Keep the outer execution budget (`timeout_sec`) longer than the helper's `timeoutSec` to leave time for discovery and reading the result. [Choose timeouts for the work you're sending](#timeout-configuration), rather than using the default for every request. Check `response.success` for execution failures and `invocation.status` for the tool's terminal status (`completed`, `canceled`, or `error`).
 
 WebMCP request errors surface in `response.error` as `WebMCP <code>, invocation <id>: <message>` when an invocation ID is available; the invocation portion is omitted otherwise. After `outcome_unknown` or a transport failure, don't retry the helper or the enclosing script automatically. Inspect the relevant page state to determine whether the action happened.
 
@@ -225,7 +217,17 @@ fmt.Println(response.Result) // map[title:Example Domain url:https://example.com
 
 ## Timeout configuration
 
-Set a custom timeout (default is 60 seconds, max is 300 seconds):
+Set `timeout_sec` for the work each request performs. The API defaults to 60 seconds and allows up to 300 seconds, but most short scripts don't need that budget. Start with:
+
+| Work | Suggested execution timeout |
+|------|-----------------------------|
+| Read the current page's title, text, or accessibility snapshot; list WebMCP tools | 5 seconds |
+| Navigate to a page or discover and invoke a quick WebMCP tool | 10 seconds |
+| Run a slower tool or a multi-step interaction | Budget for the expected duration of the whole script |
+
+These are starting points, not guarantees about a site's speed. Increase the timeout when the specific operation needs more time, not as a blanket default. For WebMCP, set the tool's `timeoutSec` below the outer execution budget. A timeout doesn't prove a tool had no effect; follow the [unknown-outcome guidance](/browsers/webmcp#handle-an-unknown-outcome) before taking further action.
+
+For a single navigation followed by a title read, start with 10 seconds:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -236,19 +238,19 @@ const response = await kernel.browsers.playwright.execute(
       await page.goto('https://example.com');
       return await page.title();
     `,
-    timeout_sec: 120
+    timeout_sec: 10
   }
 );
 ```
 
 ```python Python
 response = kernel.browsers.playwright.execute(
-    id=session_id,
+    session_id,
     code="""
-        await page.goto('https://example.com')
-        return await page.title()
+        await page.goto('https://example.com');
+        return await page.title();
     """,
-    timeout_sec=120
+    timeout_sec=10,
 )
 ```
 
@@ -258,7 +260,7 @@ response, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.Brows
 		await page.goto('https://example.com');
 		return await page.title();
 	`,
-	TimeoutSec: kernel.Int(120),
+	TimeoutSec: kernel.Int(10),
 })
 if err != nil {
 	panic(err)
@@ -373,7 +375,8 @@ const response = await kernel.browsers.playwright.execute(
         JSON.stringify(window.localStorage)
       );
       return { cookies, localStorage };
-    `
+    `,
+    timeout_sec: 5
   }
 );
 ```

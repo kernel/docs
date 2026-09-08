@@ -91,7 +91,7 @@ An empty `tools` array means there are no tools in the current snapshot. The sit
 
 ## Identify the tab or frame
 
-Use `source` to select the intended registration, not just its name:
+If multiple tabs or frames expose the same tool name, use `source` to select the intended registration:
 
 | Field | Meaning |
 |-------|---------|
@@ -108,24 +108,18 @@ Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and 
 
 The serialized `input` is limited to **1 MiB**. The raw JSON request body is limited to **1 MiB plus 4 KiB** for the request envelope.
 
-The focused snippets below reuse the client and session variables above; place the Go snippet inside `main`. They assume your application at `https://shop.example.com/products` registers a top-level `search_products` tool accepting `{ "query": "running shoes" }`. Replace this illustrative URL, tool name, and input with values you've verified for your site. Each snippet refreshes discovery and requires exactly one matching registration rather than choosing an arbitrary tab.
+The focused snippets below reuse the client and session variables above; place the Go snippet inside `main`. They assume your site exposes one `search_products` tool accepting `{ "query": "running shoes" }`. Replace the tool name and input with values you've verified for your site. The examples allow 5 seconds for this search; choose a timeout appropriate for your tool's expected duration.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 const { tools } = await kernel.browsers.webmcp.listTools(sessionId);
-const matches = tools.filter(tool =>
-  tool.name === 'search_products' &&
-  tool.source.page_url === 'https://shop.example.com/products' &&
-  tool.source.frame === null
-);
-if (matches.length !== 1) {
-  throw new Error('Expected one search tool; inspect the current tools and sources');
-}
+const tool = tools.find(tool => tool.name === 'search_products');
+if (!tool) throw new Error('Search tool not found');
 
 const result = await kernel.browsers.webmcp.invokeTool(sessionId, {
-  tool_ref: matches[0].tool_ref,
+  tool_ref: tool.tool_ref,
   input: { query: 'running shoes' },
-  timeout_sec: 60,
+  timeout_sec: 5,
 });
 if (result.status !== 'completed') {
   throw new Error(`${result.invocation_id}: ${result.status}: ${result.error_text ?? ''}`);
@@ -135,20 +129,15 @@ console.log(result.output);
 
 ```python Python
 snapshot = kernel.browsers.webmcp.list_tools(session_id)
-matches = [
-    tool for tool in snapshot.tools
-    if tool.name == "search_products"
-    and tool.source.page_url == "https://shop.example.com/products"
-    and tool.source.frame is None
-]
-if len(matches) != 1:
-    raise RuntimeError("Expected one search tool; inspect the current tools and sources")
+tool = next((tool for tool in snapshot.tools if tool.name == "search_products"), None)
+if tool is None:
+    raise RuntimeError("Search tool not found")
 
 result = kernel.browsers.webmcp.invoke_tool(
     session_id,
-    tool_ref=matches[0].tool_ref,
+    tool_ref=tool.tool_ref,
     input={"query": "running shoes"},
-    timeout_sec=60,
+    timeout_sec=5,
 )
 if result.status != "completed":
     raise RuntimeError(f"{result.invocation_id}: {result.status}: {result.error_text}")
@@ -160,23 +149,22 @@ snapshot, err = client.Browsers.Webmcp.ListTools(ctx, sessionID)
 if err != nil {
 	panic(err)
 }
-var matches []kernel.Tool
+var toolRef string
 for _, tool := range snapshot.Tools {
-	if tool.Name == "search_products" &&
-		tool.Source.PageURL == "https://shop.example.com/products" &&
-		tool.Source.JSON.Frame.Raw() == "null" {
-		matches = append(matches, tool)
+	if tool.Name == "search_products" {
+		toolRef = tool.ToolRef
+		break
 	}
 }
-if len(matches) != 1 {
-	panic("Expected one search tool; inspect the current tools and sources")
+if toolRef == "" {
+	panic("Search tool not found")
 }
 
 result, err := client.Browsers.Webmcp.InvokeTool(ctx, sessionID, kernel.BrowserWebmcpInvokeToolParams{
 	InvokeRequest: kernel.InvokeRequestParam{
-		ToolRef:    matches[0].ToolRef,
+		ToolRef:    toolRef,
 		Input:      map[string]any{"query": "running shoes"},
-		TimeoutSec: kernel.Int(60),
+		TimeoutSec: kernel.Int(5),
 	},
 })
 if err != nil {
@@ -189,22 +177,19 @@ fmt.Println(result.Output)
 ```
 
 ```bash curl
-# Requires jq. Stop if discovery fails or the registration is ambiguous.
+# Requires jq. Stop if discovery fails or the tool isn't found.
 set -euo pipefail
 
 TOOLS=$(curl --fail-with-body --silent --show-error \
   "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/tools" \
   -H "Authorization: Bearer $KERNEL_API_KEY")
 TOOL_REF=$(printf '%s' "$TOOLS" | jq -er '
-  [.tools[] | select(
-    .name == "search_products" and
-    .source.page_url == "https://shop.example.com/products" and
-    .source.frame == null
-  )] | if length == 1 then .[0].tool_ref else error("Expected one search tool") end
+  [.tools[] | select(.name == "search_products")][0].tool_ref
+  // error("Search tool not found")
 ')
 
 jq -n --arg ref "$TOOL_REF" \
-  '{tool_ref: $ref, input: {query: "running shoes"}, timeout_sec: 60}' | \
+  '{tool_ref: $ref, input: {query: "running shoes"}, timeout_sec: 5}' | \
   curl --fail-with-body --silent --show-error \
     "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/invoke" \
     -H "Authorization: Bearer $KERNEL_API_KEY" \
