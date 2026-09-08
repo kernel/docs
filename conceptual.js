@@ -19,12 +19,15 @@
   var HANDOFF_DOMAIN = "onkernel.com";
 
   // true granted, false declined, null no decision recorded yet.
+  //
+  // c15t omits false values from its cookie rather than writing them, so a
+  // decline is the absence of the key. Any stored consent record therefore
+  // means a decision was made, and a missing category in one means no.
   function storedConsent() {
     try {
       var cookie = document.cookie.match(/(?:^|;\s*)c15t=([^;]*)/);
       if (cookie && cookie[1]) {
-        if (cookie[1].indexOf("c." + CONSENT_CATEGORY + ":1") !== -1) return true;
-        if (cookie[1].indexOf("c." + CONSENT_CATEGORY + ":0") !== -1) return false;
+        return cookie[1].indexOf("c." + CONSENT_CATEGORY + ":1") !== -1;
       }
     } catch (e) {}
 
@@ -32,9 +35,8 @@
       var raw = localStorage.getItem("c15t");
       if (raw) {
         var parsed = JSON.parse(raw);
-        var consents = parsed && parsed.consents;
-        if (consents && typeof consents[CONSENT_CATEGORY] === "boolean") {
-          return consents[CONSENT_CATEGORY];
+        if (parsed && parsed.consents) {
+          return parsed.consents[CONSENT_CATEGORY] === true;
         }
       }
     } catch (e) {}
