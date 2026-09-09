@@ -3,7 +3,7 @@ title: "Process Execution"
 description: "Run commands and manage processes inside a browser VM"
 ---
 
-Every Kernel browser runs inside its own single-tenant VM with a full Linux environment alongside Chromium. Process execution lets you run arbitrary commands in that VM — install a tool, inspect files, run a script, or drive a co-located agent — without leaving the session.
+Every Kernel browser runs inside its own VM with a full Linux environment alongside Chromium. Process execution lets you run arbitrary commands in that VM — install a tool, inspect files, run a script, or drive a co-located agent — without leaving the session.
 
 ## Run a command synchronously
 
@@ -52,12 +52,15 @@ Use `cwd` to set a working directory, `env` to pass environment variables, `as_u
 
 `process.spawn` starts a command without waiting for it to finish, returning a `process_id` you use to manage it afterward. This is the right call for long-running processes — a server, a watcher script, an interactive shell.
 
+<Warning>
+If your long-running process is a server, pick a port yourself and don't assume it's free — the VM's own infrastructure (live view, CDP, the playwright daemon) already listens on several, including `8080`, `9222`–`9225`, `8888`, `10001`, and `10002`.
+</Warning>
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 const spawned = await kernel.browsers.process.spawn(browser.session_id, {
-  command: 'python3',
-  args: ['-m', 'http.server', '8080'],
-  cwd: '/tmp',
+  command: 'sh',
+  args: ['-c', 'while true; do echo "tick $(date +%s)"; sleep 5; done'],
 });
 
 console.log('process_id', spawned.process_id);
@@ -66,9 +69,8 @@ console.log('process_id', spawned.process_id);
 ```python Python
 spawned = kernel.browsers.process.spawn(
     browser.session_id,
-    command="python3",
-    args=["-m", "http.server", "8080"],
-    cwd="/tmp",
+    command="sh",
+    args=["-c", 'while true; do echo "tick $(date +%s)"; sleep 5; done'],
 )
 
 print("process_id", spawned.process_id)
@@ -160,11 +162,18 @@ kernel.browsers.process.stdin(
 
 ### Resize a PTY
 
-If the process was spawned with `allocate_tty: true`, resize its terminal to match a live view or client window:
+Resizing only works on a process spawned with `allocate_tty: true` — calling it on a plain process returns a 400. Match the terminal to a live view or client window:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-await kernel.browsers.process.resize(spawned.process_id, {
+const shell = await kernel.browsers.process.spawn(browser.session_id, {
+  command: 'sh',
+  allocate_tty: true,
+  cols: 80,
+  rows: 24,
+});
+
+await kernel.browsers.process.resize(shell.process_id, {
   id_or_name: browser.session_id,
   cols: 120,
   rows: 40,
@@ -172,8 +181,16 @@ await kernel.browsers.process.resize(spawned.process_id, {
 ```
 
 ```python Python
+shell = kernel.browsers.process.spawn(
+    browser.session_id,
+    command="sh",
+    allocate_tty=True,
+    cols=80,
+    rows=24,
+)
+
 kernel.browsers.process.resize(
-    spawned.process_id,
+    shell.process_id,
     id_or_name=browser.session_id,
     cols=120,
     rows=40,
@@ -204,7 +221,7 @@ kernel.browsers.process.kill(
 
 ## Root and per-user execution
 
-Pass `as_root: true` or `as_user: "<name>"` on `exec` or `spawn` to control which user the command runs as. This is safe because a Kernel browser is a single-tenant [unikernel VM](/security#2-4-security-features) with no shared host kernel — root inside your session has no path to other customers or platform infrastructure.
+Pass `as_root: true` or `as_user: "<name>"` on `exec` or `spawn` to control which user the command runs as. This is safe because a Kernel browser is a [unikernel VM](/security#2-4-security-features) with no shared host kernel — root inside your session has no path to other customers or platform infrastructure.
 
 ## Via CLI
 
