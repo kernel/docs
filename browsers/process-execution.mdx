@@ -1,0 +1,239 @@
+---
+title: "Process Execution"
+description: "Run commands and manage processes inside a browser VM"
+---
+
+Every Kernel browser runs inside its own single-tenant VM with a full Linux environment alongside Chromium. Process execution lets you run arbitrary commands in that VM — install a tool, inspect files, run a script, or drive a co-located agent — without leaving the session.
+
+## Run a command synchronously
+
+`process.exec` runs a command and blocks until it exits or times out. `stdout_b64` and `stderr_b64` are base64-encoded, and `exit_code` tells you whether it succeeded.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({});
+
+const result = await kernel.browsers.process.exec(browser.session_id, {
+  command: 'ls',
+  args: ['-la', '/tmp'],
+});
+
+console.log(Buffer.from(result.stdout_b64 ?? '', 'base64').toString());
+console.log('exit code', result.exit_code);
+```
+
+```python Python
+import base64
+
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create()
+
+result = kernel.browsers.process.exec(
+    browser.session_id,
+    command="ls",
+    args=["-la", "/tmp"],
+)
+
+print(base64.b64decode(result.stdout_b64 or "").decode())
+print("exit code", result.exit_code)
+```
+</CodeGroup>
+
+Use `cwd` to set a working directory, `env` to pass environment variables, `as_user`/`as_root` to control privileges, and `timeout_sec` to cap execution time.
+
+## Run a command in the background
+
+`process.spawn` starts a command without waiting for it to finish, returning a `process_id` you use to manage it afterward. This is the right call for long-running processes — a server, a watcher script, an interactive shell.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const spawned = await kernel.browsers.process.spawn(browser.session_id, {
+  command: 'python3',
+  args: ['-m', 'http.server', '8080'],
+  cwd: '/tmp',
+});
+
+console.log('process_id', spawned.process_id);
+```
+
+```python Python
+spawned = kernel.browsers.process.spawn(
+    browser.session_id,
+    command="python3",
+    args=["-m", "http.server", "8080"],
+    cwd="/tmp",
+)
+
+print("process_id", spawned.process_id)
+```
+</CodeGroup>
+
+Pass `allocate_tty: true` to attach a pseudo-terminal for interactive shells, with `cols`/`rows` to set its initial size.
+
+## Manage a running process
+
+### Check status
+
+Poll for whether a spawned process is still running, and its resource usage:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const status = await kernel.browsers.process.status(spawned.process_id, {
+  id_or_name: browser.session_id,
+});
+
+console.log(status.state, status.exit_code);
+```
+
+```python Python
+status = kernel.browsers.process.status(
+    spawned.process_id,
+    id_or_name=browser.session_id,
+)
+
+print(status.state, status.exit_code)
+```
+</CodeGroup>
+
+### Stream stdout and stderr
+
+Read output from a spawned process as it happens over server-sent events:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const stream = await kernel.browsers.process.stdoutStream(spawned.process_id, {
+  id_or_name: browser.session_id,
+});
+
+for await (const chunk of stream) {
+  if (chunk.event === 'exit') {
+    console.log('exited with', chunk.exit_code);
+    break;
+  }
+  console.log(chunk.stream, Buffer.from(chunk.data_b64 ?? '', 'base64').toString());
+}
+```
+
+```python Python
+import base64
+
+with kernel.browsers.process.stdout_stream(
+    spawned.process_id, id_or_name=browser.session_id
+) as stream:
+    for chunk in stream:
+        if chunk.event == "exit":
+            print("exited with", chunk.exit_code)
+            break
+        print(chunk.stream, base64.b64decode(chunk.data_b64 or "").decode())
+```
+</CodeGroup>
+
+### Write to stdin
+
+Send base64-encoded input to a running process, e.g. to answer an interactive prompt:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.process.stdin(spawned.process_id, {
+  id_or_name: browser.session_id,
+  data_b64: Buffer.from('y\n').toString('base64'),
+});
+```
+
+```python Python
+import base64
+
+kernel.browsers.process.stdin(
+    spawned.process_id,
+    id_or_name=browser.session_id,
+    data_b64=base64.b64encode(b"y\n").decode(),
+)
+```
+</CodeGroup>
+
+### Resize a PTY
+
+If the process was spawned with `allocate_tty: true`, resize its terminal to match a live view or client window:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.process.resize(spawned.process_id, {
+  id_or_name: browser.session_id,
+  cols: 120,
+  rows: 40,
+});
+```
+
+```python Python
+kernel.browsers.process.resize(
+    spawned.process_id,
+    id_or_name=browser.session_id,
+    cols=120,
+    rows=40,
+)
+```
+</CodeGroup>
+
+### Kill a process
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.process.kill(spawned.process_id, {
+  id_or_name: browser.session_id,
+  signal: 'TERM',
+});
+```
+
+```python Python
+kernel.browsers.process.kill(
+    spawned.process_id,
+    id_or_name=browser.session_id,
+    signal="TERM",
+)
+```
+</CodeGroup>
+
+`signal` accepts `TERM`, `KILL`, `INT`, or `HUP`.
+
+## Root and per-user execution
+
+Pass `as_root: true` or `as_user: "<name>"` on `exec` or `spawn` to control which user the command runs as. This is safe because a Kernel browser is a single-tenant [unikernel VM](/security#2-4-security-features) with no shared host kernel — root inside your session has no path to other customers or platform infrastructure.
+
+## Via CLI
+
+The [CLI](/reference/cli/browsers#process-control) exposes the same operations:
+
+```bash
+# Synchronous
+kernel browsers process exec <session-id> --command ls --args -la
+
+# Background, then inspect
+kernel browsers process spawn <session-id> --command python3 --args -m --args http.server
+kernel browsers process status <session-id> <process-id>
+kernel browsers process kill <session-id> <process-id>
+```
+
+## Example: co-locating an agent with its browser
+
+Driving a browser from outside the VM means every tool call is a round trip through Kernel's API. Process execution lets you flip that around: upload an agent binary into the VM with [File I/O](/browsers/file-io), then run it alongside Chromium so it talks to the VM's local Playwright endpoint over loopback instead. See the [fx co-located agent cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/fx-colocated-agent) for a full working example.
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="File I/O" icon="folder" href="/browsers/file-io">
+    Upload and download files from a browser VM
+  </Card>
+  <Card title="SSH Access" icon="terminal" href="/browsers/ssh">
+    Open an interactive SSH session for debugging
+  </Card>
+  <Card title="CLI reference" icon="square-terminal" href="/reference/cli/browsers#process-control">
+    All `kernel browsers process` subcommands and flags
+  </Card>
+</CardGroup>
