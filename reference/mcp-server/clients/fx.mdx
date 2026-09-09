@@ -3,6 +3,18 @@ title: "fx"
 description: "Connect fx to the Kernel MCP server"
 ---
 
+<Warning>
+OAuth currently fails for fx, interactively or otherwise, with:
+
+```text
+MCP authentication for 'kernel' was rejected: expected issuer "https://mcp.onkernel.com" but
+the authorization response returned issuer "https://clerk.onkernel.com". fx stopped before token
+exchange.
+```
+
+Until it's resolved, [connect with an API key](#connect-with-an-api-key-workaround) instead of OAuth.
+</Warning>
+
 ## Install with the Kernel CLI
 
 Run the following command:
@@ -42,3 +54,30 @@ Then authenticate with Kernel:
 ```
 
 Authorize access in the browser window that opens. You can then run `/mcp list` to verify that Kernel is connected.
+
+<Note>This is also the path that would otherwise be needed for headless or scripted use — `/mcp auth` needs a browser, so `fx ask`, `fx acp`, and CI can't complete it even once the OAuth issuer bug above is fixed. Use the API-key workaround below for those regardless.</Note>
+
+## Connect with an API key (workaround)
+
+Get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys), export it, and reference it from `~/.fx/mcp.json` with `bearer_token_env` instead of `oauth`:
+
+```json
+{
+  "mcp": {
+    "kernel": {
+      "type": "http",
+      "url": "https://mcp.onkernel.com/mcp",
+      "bearer_token_env": "KERNEL_API_KEY"
+    }
+  }
+}
+```
+
+```bash
+export KERNEL_API_KEY='<project-scoped-key>'
+fx
+```
+
+This works for both interactive and headless/scripted sessions (`fx ask`, `fx acp`, CI). `kernel mcp install --target fx` always writes the OAuth config, so switch to `bearer_token_env` by hand.
+
+<Note>fx rejects a literal `Authorization` header in a static `headers` field (the format other MCP clients use for API-key auth) to keep credentials out of the profile file. `bearer_token_env` is the fx-specific equivalent — it points at an environment variable instead of embedding the token.</Note>
