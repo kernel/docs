@@ -49,6 +49,12 @@
 
     // measure-v1.js reads __CA_CONFIG once at init, so it has to be set before
     // the loader injects it. Both flags are off in the shipped pixel config.
+    //
+    // respectDNT takes effect: the pixel checks it before every event.
+    // anonymizeIP currently does not — the shipped script defines it and never
+    // reads it, and resolves the visitor's full address from the vendor's IP
+    // endpoint to send as client_ip regardless. It's set here so it applies if
+    // the vendor implements it; until then full-IP processing is what happens.
     window.__CA_CONFIG = window.__CA_CONFIG || {};
     window.__CA_CONFIG.respectDNT = true;
     window.__CA_CONFIG.anonymizeIP = true;
@@ -72,7 +78,10 @@
       var path = location.pathname + location.search;
       if (path === lastPath) return;
       lastPath = path;
-      if (window.ca) window.ca("track", "page_view");
+      // Consent can be withdrawn on the marketing site while a docs page stays
+      // open. There's no consent UI here to react to, so every navigation
+      // re-reads the decision rather than trusting the one made at page load.
+      if (window.ca && storedConsent() !== false) window.ca("track", "page_view");
     }
 
     ["pushState", "replaceState"].forEach(function (method) {
@@ -96,6 +105,7 @@
       function (event) {
         var link = event.target.closest && event.target.closest("a[href]");
         if (!link || typeof window.ca.getDeviceId !== "function") return;
+        if (storedConsent() === false) return;
 
         var url = new URL(link.href, window.location.href);
         if (
