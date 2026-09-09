@@ -74,12 +74,15 @@ The live view URL can be embedded in an iframe to integrate the browser view int
 
     To enable clipboard sharing, add `allow="autoplay; clipboard-read; clipboard-write"` to the iframe element.
 
-If your application uses a **Content Security Policy (CSP)**, you'll need to add the following directives to allow the live view iframe and its WebSocket connection:
+Kernel serves live views from `*.onkernel.com:8443` and `*.kernel.sh:8443`. If your application uses a **Content Security Policy (CSP)**, you must add the following directives to allow the live view iframe and its WebSocket connection:
 
 ```
-frame-src https://*.onkernel.com:8443;
+frame-src https://*.onkernel.com:8443
+          https://*.kernel.sh:8443;
 connect-src https://*.onkernel.com:8443
-            wss://*.onkernel.com:8443;
+            wss://*.onkernel.com:8443
+            https://*.kernel.sh:8443
+            wss://*.kernel.sh:8443;
 ```
 </Info>
 

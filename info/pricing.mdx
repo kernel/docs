@@ -14,14 +14,14 @@ With Kernel, you only pay for what you use and nothing more. You don't pay for i
 
 ## Usage Rates
 
-| Browser type | Price ($/sec) |
+| Usage type | Price ($/sec) |
 | --- | --- |
-| Headful | 0.0001333336 |
-| Headless | 0.0000166667 |
-| Headful + GPU acceleration | 0.0008000016 |
+| Headful browser | 0.0001333336 |
+| Headless browser | 0.0000166667 |
+| Headful browser + GPU acceleration | 0.0008000016 |
+| App invocation | 0.0000666668 |
 
 > Included monthly credits apply to usage costs only.
-
 
 ### Pricing calculator
 
@@ -43,6 +43,7 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 | SOC2 compliance | ✅ | ✅ | ✅ | ✅ |
 | Browser replays | 1 day | 7 days | 30 days | Custom |
 | Managed auth connections | 3 | unlimited | unlimited | unlimited |
+| Vaults | 3 | unlimited | unlimited | unlimited |
 | Custom browser extensions | 1 | 1 | unlimited | unlimited |
 | Projects | 1 | 1 | unlimited | unlimited |
 | Support | Discord | Email | Email | Shared Slack |
@@ -89,6 +90,15 @@ If you need higher rate limits, [contact us](https://calendly.com/d/d3tn-5kp-5yt
 
 ## FAQ
 
+<Accordion title="How are app invocations charged?">
+App invocations are billed for active compute time, not per API call. The invocation rate in [Usage Rates](#usage-rates) is based on the current 4 GB memory allocation at $0.0000166667 per GB-second.
+
+Billing starts when your code begins executing and stops when it finishes. You aren't charged for queued time, deploying an app, or leaving a deployed app idle. Failed and canceled invocations still accrue charges for the time they ran.
+
+Browsers created by an invocation are billed separately for their active runtime at the browser rates above. Services your code calls, such as an LLM API, also bill you independently.
+
+The [app invocation limits](#concurrency-limits) are concurrency limits, not a number of invocations included with your plan.
+</Accordion>
 <Accordion title="how can i control my team's usage spending?">
   see this guide on [spending controls](/info/spending-caps).
 </Accordion>
@@ -101,10 +111,13 @@ If you need higher rate limits, [contact us](https://calendly.com/d/d3tn-5kp-5yt
   Note: A browser pool counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
 </Accordion>
 <Accordion title="How is Managed Auth charged?">
-Managed Auth is included on all plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
+Managed Auth is included on all plans with no per-connection fees. It uses browser sessions for login, health checks, and eligible automatic reauthentication. These count toward your browser usage and concurrency like any other browser session.
 
 Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
 </Accordion>
 <Accordion title="What do regional browsers cost?">
 Regional browsers are charged at the same usage rates as our default, US-based browsers.
+</Accordion>
+<Accordion title="Does it cost money to use Vaults and Agentic Payments?">
+Free users can create up to three vaults. Unlimited vaults are included in paid plans. There are no surcharges to use Kernel's agentic payments products.
 </Accordion>
