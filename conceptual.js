@@ -50,6 +50,12 @@
     // measure-v1.js reads __CA_CONFIG once at init, so it has to be set before
     // the loader injects it. Both flags are off in the shipped pixel config.
     //
+    // trackPageViews and trackUnload are what let the consent re-check below
+    // mean anything. Left on, the vendor emits a page view at init and installs
+    // scroll, click and form-submit listeners, all routed through its own
+    // internal track() rather than through ours — none of which we can gate.
+    // Off, the script emits nothing on its own and every event is one we sent.
+    //
     // respectDNT takes effect: the pixel checks it before every event.
     // anonymizeIP currently does not — the shipped script defines it and never
     // reads it, and resolves the visitor's full address from the vendor's IP
@@ -58,6 +64,8 @@
     window.__CA_CONFIG = window.__CA_CONFIG || {};
     window.__CA_CONFIG.respectDNT = true;
     window.__CA_CONFIG.anonymizeIP = true;
+    window.__CA_CONFIG.trackPageViews = false;
+    window.__CA_CONFIG.trackUnload = false;
 
     window.ca = function () {
       (window.ca.q = window.ca.q || []).push(arguments);
@@ -67,6 +75,9 @@
     script.async = true;
     script.src = LOADER_SRC;
     document.head.appendChild(script);
+
+    // The vendor's own page view is off, so the landing one is ours to send.
+    window.ca("track", "page_view");
   }
 
   // The pixel sends one page_view on init and has no router hooks, so docs
