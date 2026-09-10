@@ -24,7 +24,7 @@ resolved.
 
 <Note>
   vaults are in preview. the initial release supports `wallet` and `card` items
-  for [stripe link](/integrations/payments/stripe-link) and
+  for [link by stripe](/integrations/payments/stripe-link) and
   [agentcard](/integrations/payments/agentcard). here, provider means the
   credential provider connected to the vault, not the merchant's payment
   processor. the vault model isn't limited to payments, but no other item types
@@ -35,11 +35,14 @@ resolved.
 
 ### Values do not come back through the api
 
-sensitive values do not have a read path through the vault api. item responses
-return non-sensitive specifications, state, masks, aliases, actions, and events,
-but not the underlying value. for the initial payment integrations, a
-provider-hosted flow collects the user's payment method and the provider-backed
-card reaches the vault without passing through your application or agent.
+sensitive payment values do not have a read path through the vault api. item
+responses return specifications, state, masks, aliases, actions, and events,
+but not the underlying value.
+
+for link, KERNEL stores oauth credentials and approved one-use card
+data with kms-backed envelope encryption. for agentcard, the underlying card
+remains with agentcard. both providers connect the user's payment method through
+a hosted flow, without passing card data through your application or agent.
 
 ### Agents use aliases
 
@@ -142,7 +145,12 @@ retrieve an item before acting on it. responses expose these fields and advertis
 | `expanded`                               | requested live data; not persisted on the item       |
 | `expires_at`, `created_at`, `updated_at` | item timestamps when present                         |
 
-when `action` is present, complete it in a trusted user-facing surface. invoke only operations listed in `available_operations`, and request only expansions listed in `available_expansions`. don't hard-code provider transitions from a previous response.
+when `action` is present, complete it in a trusted user-facing surface. treat an
+action url as a short-lived bearer link: bind it to the authenticated user,
+vault, and item, and don't log it or put it in model context. invoke only
+operations listed in `available_operations`, and request only expansions listed
+in `available_expansions`. don't hard-code provider transitions from a previous
+response.
 
 item reads accept `wait` values from 0–60 seconds. a read returns early when the item no longer has an unresolved authorization or approval transition. event reads support the same maximum wait and return an ordered array. use the last event `id` as the `after` cursor for newer events.
 
@@ -157,7 +165,7 @@ connects an end user's payment method through a provider-hosted flow. a card ite
 then publishes aliases that an attached browser can enter into a web checkout.
 authorization and payment handoff happen outside the browser vm.
 
-stripe link and agentcard are credential providers, not merchant payment
+link and agentcard are credential providers, not merchant payment
 processors. at the browser form layer, both work with any web checkout that
 accepts standard card details, and the merchant's processor doesn't need to be
 stripe. end-to-end handoff requires the outgoing request to match a native
@@ -165,13 +173,13 @@ processor adapter. the current adapters cover request formats used by stripe,
 shopify, square, recurly, and razorpay; see [checkout and processor
 coverage](/integrations/payments/overview#checkout-and-processor-coverage).
 
-stripe link creates a one-use card for an approved purchase. agentcard keeps a
+link creates a one-use card for an approved purchase. agentcard keeps a
 reusable card item and requests approval for each checkout. wallet connection,
 authorization, provider handoff, and checkout observations are recorded as
 immutable events without card data.
 
 read the [payments overview](/integrations/payments/overview) for the shared
-lifecycle or use the [stripe link](/integrations/payments/stripe-link) and
+lifecycle or use the [link by stripe](/integrations/payments/stripe-link) and
 [agentcard](/integrations/payments/agentcard) provider guides.
 
 ## Initial item specifications

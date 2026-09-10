@@ -3,7 +3,9 @@ title: "overview"
 description: "Add payments to a browser agent without exposing card data to your application, agent, or browser"
 ---
 
-your browser agent can complete a web checkout without bringing your application, agent, or browser into pci dss scope. a provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc.
+your browser agent can complete a web checkout without exposing the card number
+or cvc to your application, agent, or browser. this design reduces card-data
+exposure and avoids expanding pci dss scope.
 
 <span className="kernel-brand-name">KERNEL</span> connects that payment method
 to a [vault](/vaults), returns non-secret aliases, and resolves those aliases at
@@ -12,7 +14,7 @@ page creates its normal payment request.
 <span className="kernel-brand-name">KERNEL</span> handles authorization and
 payment handoff outside the browser.
 
-stripe link and agentcard are credential providers, not merchant payment
+link and agentcard are credential providers, not merchant payment
 processors. at the browser form layer, both work with any web checkout that
 accepts standard card details, and the merchant's processor does not need to be
 stripe. end-to-end handoff also requires the outgoing payment request to match a
@@ -32,7 +34,7 @@ both credential providers use the same integration shape:
 each vault must contain at most one wallet item for each provider. before
 showing a provider connection option, list the vault's items. if that provider
 already has a wallet in any state, hide the add option and reuse or recover the
-existing item. when both stripe link and agentcard wallets exist, show both as
+existing item. when both link and agentcard wallets exist, show both as
 configured and do not offer either provider again.
 
 ```mermaid
@@ -52,11 +54,11 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 
 <CardGroup cols={2}>
   <Card
-    title="stripe link"
+    title="link by stripe"
     href="/integrations/payments/stripe-link"
     icon="link"
   >
-    collect a stripe link wallet and approve a one-use credential for a specific
+    collect a link wallet and approve a one-use credential for a specific
     purchase.
   </Card>
   <Card
@@ -70,12 +72,12 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 </CardGroup>
 
 <Note>
-  stripe link and agentcard identify where the credential comes from and how the
+  link and agentcard identify where the credential comes from and how the
   user approves it. choose between them based on that lifecycle, not the
   merchant processor. processor-adapter coverage is the same for both.
 </Note>
 
-| behavior                  | stripe link                                              | agentcard                                                           |
+| behavior                  | link by stripe                                            | agentcard                                                           |
 | ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
 | purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
@@ -83,7 +85,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | reuse                     | card item and aliases are consumed on first substitution | cards can be reused for recurring and one-time purchases            |
 | environment               | live only                                                | configured agentcard credential; not exposed through the vault api  |
 
-choose [stripe link](https://hypeship.dev/integrations/payments/stripe-link) when each purchase requires a newly approved, single-use credential. choose [agentcard](https://hypeship.dev/integrations/payments/agentcard) when one enrolled card must support multiple purchases, with separate approval for each.
+choose [link by stripe](https://hypeship.dev/integrations/payments/stripe-link) when each purchase requires a newly approved, single-use credential. choose [agentcard](https://hypeship.dev/integrations/payments/agentcard) when one enrolled card must support multiple purchases, with separate approval for each.
 
 both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
 
@@ -91,7 +93,7 @@ both integrations may provide additional benefits, including card rewards and ch
 
 <span className="kernel-brand-name">KERNEL</span> currently includes native
 adapters for these checkout request formats. all five adapters are enabled for
-both stripe link and agentcard.
+both link and agentcard.
 
 | merchant processor or platform | recognized HTTPS `POST` request formats                                                                                                                                                     |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,8 +103,8 @@ both stripe link and agentcard.
 | recurly                        | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
 | razorpay                       | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
 
-for example, a browser can enter stripe link or agentcard aliases into a Shopify
-checkout. Shopify remains the merchant platform; stripe link or agentcard
+for example, a browser can enter link or agentcard aliases into a Shopify
+checkout. Shopify remains the merchant platform; link or agentcard
 supplies the credential and approval flow.
 
 the outgoing request must contain the complete alias set and match the adapter's
@@ -119,7 +121,7 @@ we can prioritize its adapter and validate a real checkout.
 
 ## Why use KERNEL handoff
 
-- integrate with one <span className="kernel-brand-name">KERNEL</span> vault api for both stripe link and agentcard.
+- integrate with one <span className="kernel-brand-name">KERNEL</span> vault api for both link by stripe and agentcard.
 - let <span className="kernel-brand-name">KERNEL</span> intercept recognized payment requests at egress, including requests from embedded payment frames, instead of maintaining cdp interception or page-routing logic in your agent.
 - verify the project, browser session, vault attachment, item, aliases, and lifecycle state before handoff, then record the payment lifecycle in vault audit events.
 - keep the underlying credential outside your application, agent, and browser through aliases and provider-hosted enrollment and approval.
@@ -139,7 +141,7 @@ real processors and measuring reliability are active priorities.
 
 ## Next step
 
-configure [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent) to attach the vault and give payment aliases to your agent.
+configure [link by stripe](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent) to attach the vault and give payment aliases to your agent.
 
 the provider pages show the CLI commands for creating wallets and cards. once
 the card item is ready, the shared CLI flow is:
