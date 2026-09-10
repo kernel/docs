@@ -119,7 +119,7 @@ for evt in kernel.invocations.follow("rr33xuugxj9h0bkf1rdt2bet"):
 
 A failed invocation has two distinct fields:
 
-- `status_reason`: A nonempty, customer-safe failure summary. It's present when `status` is `failed` and omitted for other statuses. Recognized failures, such as timeouts or startup failures, receive specific summaries. Unrecognized failures receive `"Invocation failed. See output for details."`; failures with no recorded reason receive `"Invocation failed; no failure reason was recorded."`.
+- `status_reason`: A nonempty, customer-safe failure summary. It's present when `status` is `failed` and omitted for other statuses. Recognized messages, such as timeout or startup failure messages, receive specific summaries. Unrecognized failures receive `"Invocation failed. See output for details."`; failures with no recorded reason receive `"Invocation failed; no failure reason was recorded."`.
 - `output`: The original action result or detailed failure output. It's optional and often JSON-encoded, but failures can contain plain text. Don't assume that every failure output can be parsed as JSON.
 
 These rules apply to streaming events, retrieval, listing, and synchronous invocation responses. The first failed `invocation_state` event includes `status_reason`. Historical invocations also receive a summary when you retrieve or stream them; no rerun is needed. During rollout, if `status_reason` is absent, inspect `output` for the recorded error.
@@ -134,7 +134,7 @@ For example, a timeout returns these fields alongside the invocation's ID and ot
 }
 ```
 
-Use `status_reason` to display the failure and inspect `output` separately for diagnostics. Reason text can change; don't use it as a stable identifier for retry decisions.
+Use `status_reason` to display the failure and inspect `output` separately for diagnostics. Summaries match the recorded error text, which can come from either the platform or your action code. A matching message doesn't establish where the failure originated. Reason text can change; don't use it as a stable identifier for retry decisions.
 
 <Warning>
   Detailed output can contain sensitive application data, including account details or credentials. Restrict access and redact it before sharing or logging it. Failure summaries don't copy arbitrary application errors or internal traces.
