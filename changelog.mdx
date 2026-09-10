@@ -9,6 +9,24 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="September 11" tags={["Product", "Docs"]}>
+## Product updates
+
+- Launched **payments for browser agents**: agents can now complete a purchase on a merchant's existing checkout page without exposing card data to your application, agent, or browser. [Vaults](/vaults) are a new primitive that grants a browser session permission to use a payment method without revealing the underlying credential — the agent fills the checkout form with aliases, and Kernel substitutes or authorizes the real credential at browser egress. Card numbers and CVCs stay out of the agent's context, your logs, and session recordings, which helps you avoid expanding your PCI DSS scope. Two native wallet integrations ship with it: [Link by Stripe](/integrations/payments/stripe-link) for single-use credential substitution, and [AgentCard](/integrations/payments/agentcard) for authorized request handoff. The merchant keeps its existing checkout and does not integrate with Kernel.
+- Added `kernel vaults` commands to the [CLI](https://github.com/kernel/cli) for creating vaults, connecting wallets, requesting cards, and observing item state and events, plus `kernel browsers create --vault` to attach a vault to a session. The [MCP server](/reference/mcp-server) exposes the same vault payment operations as tools, gated on organization entitlements with curated errors and scoped operation hints.
+- Added `kernel browsers webmcp` list and invoke commands to the [CLI](https://github.com/kernel/cli), so you can discover and call a site's WebMCP tools directly from your terminal.
+- Expanded browser session telemetry to capture iframe and worker activity through shared target tracking, giving you fuller visibility into what runs inside a session.
+- New browser sessions created from the dashboard now have [telemetry](/browsers/telemetry/overview) enabled by default. Saved and explicitly edited telemetry configurations are unchanged.
+- Improved Live View keyboard and clipboard handling for smoother interactive control: embedded views no longer trigger clipboard permission prompts, keyboard focus is preserved on hybrid devices, and phantom key repeats are eliminated. Pressing keys now accepts shorthand like `Ctrl+-`, normalized to the `minus` keysym, and an invalid key sequence returns a `400` validation error instead of a `500`, so clients no longer retry input that cannot succeed.
+
+## Documentation updates
+
+- Documented [Vaults](/vaults) and [browser payments](/integrations/payments/overview), including checkout and payment-processor support, app-invocation billing, and Vault payment security guidance, and added them to the [pricing page](/info/pricing).
+- Added a new [Cookbooks](/cookbooks) tab with 13 end-to-end recipes — AI SDK, Browser Use, Claude computer use and managed agents, e2b, Eve x Foreman, Eve x Managed Auth, Mastra, Modal, Stagehand, Tinker, and Vibium — plus a Common Patterns section for the Playwright computer-use fallback and browser payments.
+- Added regional browsers to the [pricing page](/info/pricing).
+- Added a canonical [network access allowlist](/info/network-access) reference for configuring egress.
+</Update>
+
 <Update label="September 4" tags={["Product", "Docs"]}>
 ## Product updates
 
