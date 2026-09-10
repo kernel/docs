@@ -3,21 +3,23 @@ title: "Enable Payments in a Browser Agent"
 description: "Give a browser agent provider-backed payment aliases and complete a web checkout without exposing card data"
 ---
 
-you're building a browser agent. you can add payments without bringing your application, agent, or browser into pci dss scope.
+you're building a browser agent. you can add payments without exposing the card
+number or cvc to your application, agent, or browser. this design may help limit
+pci dss scope; confirm your exact scope with your compliance advisor or qsa.
 
-create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [stripe link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
+create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link by stripe](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
 
-stripe link and agentcard are credential providers, not merchant payment
+link by stripe and agentcard are credential providers, not merchant payment
 processors. at the browser form layer, both work with any web checkout that
 accepts standard card details, and the merchant's processor does not need to be
 stripe. end-to-end handoff also requires the outgoing request to match one of the
 [native processor adapters](/integrations/payments/overview#checkout-and-processor-coverage).
 
-you can use either [stripe link](/integrations/payments/stripe-link) or
+you can use either [link by stripe](/integrations/payments/stripe-link) or
 [agentcard](/integrations/payments/agentcard). choose based on how the payment
 credential is created and when the user approves it:
 
-|                 | stripe link                                                       | agentcard                                                                        |
+|                 | link by stripe                                                     | agentcard                                                                        |
 | --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
 | approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
@@ -32,8 +34,8 @@ to run either path with a coding agent that has access to the <span className="k
 
 <CodeGroup>
 
-```text stripe link
-use the KERNEL cli to complete the following checkout with stripe link. use cli
+```text link by stripe
+use the KERNEL cli to complete the following checkout with link by stripe. use cli
 commands rather than sdk or direct api calls.
 
 a vault groups items. wallet and card are the payment item types. a card item
@@ -41,7 +43,7 @@ references a wallet item in the same vault, so create the wallet before the
 card.
 
 1. create or retrieve a vault named `user-12345`.
-2. list the vault's items and locate its only stripe link wallet. require its
+2. list the vault's items and locate its only link by stripe wallet. require its
    status to be `connected` and reuse it. if none exists, more than one exists,
    or an action is present, stop and ask me to resolve wallet setup outside this
    agent. do not create another wallet or print, return, or open an action url.
@@ -139,7 +141,7 @@ this guide starts after you have an existing browser agent. it changes how you p
 - install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
 - use a low-value web checkout you control whose outgoing payment request matches a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage). the merchant processor doesn't need to be stripe.
-- stripe link card creation is live-only. agentcard mode comes from the integration's configured credential.
+- link by stripe card creation is live-only. agentcard mode comes from the integration's configured credential.
 - for agentcard, keep an application-owned `AGENTCARD_MODE` deployment setting and fail closed unless it explicitly matches the sandbox or live environment you intend to use. the vault api does not return this mode.
 
 <Warning>
@@ -218,7 +220,7 @@ items by `spec.provider`, and apply this flow:
 | `connected`                      | hide the add option, show the provider as connected, and reuse the existing wallet                     |
 | any other state                  | hide the add option and show the existing state; recover it or use an explicit remove-and-replace flow |
 
-if both stripe link and agentcard wallets exist, hide both provider add options.
+if both link by stripe and agentcard wallets exist, hide both provider add options.
 recheck this condition in your trusted controller immediately before wallet
 creation so a stale ui cannot submit a second wallet.
 
@@ -263,9 +265,9 @@ updating a card item:
 4. stop when any value is missing, cannot be verified, or disagrees. do not create or update a card item and do not invoke authorization.
 5. show the independently verified values to the end user and wait for explicit confirmation.
 6. freeze that verified, confirmed purchase object. derive the card specification and any authorization request from that same object. do not accept replacement values from the agent after confirmation.
-7. for stripe link, list the connected wallet's payment methods and let the end user select one. for agentcard, pin an enrolled card or let the end user choose during approval.
-8. ask KERNEL to prepare a card item on the end user's behalf. stripe link requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. the item refers to the connected wallet; it is not the end user's real card.
-9. for stripe link, invoke the advertised `authorize` operation using the same verified purchase object, then present any returned approval action to the end user. agentcard begins authorization after the browser submits checkout.
+7. for link by stripe, list the connected wallet's payment methods and let the end user select one. for agentcard, pin an enrolled card or let the end user choose during approval.
+8. ask KERNEL to prepare a card item on the end user's behalf. link by stripe requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. the item refers to the connected wallet; it is not the end user's real card.
+9. for link by stripe, invoke the advertised `authorize` operation using the same verified purchase object, then present any returned approval action to the end user. agentcard begins authorization after the browser submits checkout.
 10. wait for the card item to become `ready`, then pass only its aliases to the browser agent.
 
 <Warning>
@@ -470,7 +472,7 @@ the agent can fill both top-level fields and payment fields embedded in iframes.
 
 ## 5. Keep approval and observation outside the agent
 
-start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for stripe link and provides item events after credential substitution.
+start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for link by stripe and provides item events after credential substitution.
 
 the example uses `presentProviderAction`, an application-owned function. it
 must publish the action only to an authenticated session for the end user who
@@ -630,7 +632,7 @@ use item state, item events, the checkout page, and the merchant's order record 
 | `payment_succeeded`                                                       | verify that the merchant created the expected order                                             |
 | `payment_requires_action`                                                 | continue the existing merchant flow without resubmitting payment                                |
 | `payment_processing`                                                      | wait for the existing payment and inspect the merchant's status                                 |
-| stripe link `consumed`, `credential_submitted`, or `credential_tokenized` | confirm processor and merchant state; credential use alone does not prove purchase success      |
+| link by stripe `consumed`, `credential_submitted`, or `credential_tokenized` | confirm processor and merchant state; credential use alone does not prove purchase success      |
 | agentcard `ready` or authorization `approved`                             | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
 | decline, expiry, rejection, failure, abandonment, or `payment_unknown`    | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
 
