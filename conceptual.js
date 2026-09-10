@@ -17,6 +17,56 @@
   var JURISDICTION_URL = "/api/c15t/show-consent-banner";
   var HANDOFF_PARAM = "ca_device_id";
   var HANDOFF_DOMAIN = "onkernel.com";
+  // Calendly's opaque passthrough. A booking happens on their domain, so
+  // ca_device_id would never reach us; salesforce_uuid surfaces in the
+  // invitee.created webhook instead. The UTM slots carry real campaign data.
+  var CALENDLY_DOMAIN = "calendly.com";
+  var CALENDLY_PARAM = "salesforce_uuid";
+
+  // Honouring Do Not Track has to cover the whole integration, not just the
+  // vendor's events. respectDNT stops the pixel sending, but it doesn't stop
+  // getDeviceId() minting an identifier or the handoff carrying it to another
+  // domain, so nothing loads at all when the header is set.
+  function doNotTrackEnabled() {
+    return (
+      navigator.doNotTrack === "1" ||
+      navigator.msDoNotTrack === "1" ||
+      window.doNotTrack === "1"
+    );
+  }
+
+  function handoffParamFor(url) {
+    if (
+      url.hostname === HANDOFF_DOMAIN ||
+      url.hostname.endsWith("." + HANDOFF_DOMAIN)
+    ) {
+      return HANDOFF_PARAM;
+    }
+    if (
+      url.hostname === CALENDLY_DOMAIN ||
+      url.hostname.endsWith("." + CALENDLY_DOMAIN)
+    ) {
+      return CALENDLY_PARAM;
+    }
+    return null;
+  }
+
+  // A click rewrites the anchor in place, so a decorated href outlives it. A
+  // later decline stops new rewrites but leaves the identifier sitting in the
+  // DOM, so it has to be taken back out.
+  function undecorateLinks() {
+    var links = document.querySelectorAll("a[href]");
+    for (var i = 0; i < links.length; i++) {
+      try {
+        var url = new URL(links[i].href, window.location.href);
+        var param = handoffParamFor(url);
+        if (!param || !url.searchParams.has(param)) continue;
+
+        url.searchParams.delete(param);
+        links[i].href = url.toString();
+      } catch (e) {}
+    }
+  }
 
   // true granted, false declined, null no decision recorded yet.
   //
@@ -89,10 +139,16 @@
       var path = location.pathname + location.search;
       if (path === lastPath) return;
       lastPath = path;
+
       // Consent can be withdrawn on the marketing site while a docs page stays
       // open. There's no consent UI here to react to, so every navigation
       // re-reads the decision rather than trusting the one made at page load.
-      if (window.ca && storedConsent() !== false) window.ca("track", "page_view");
+      if (storedConsent() === false) {
+        undecorateLinks();
+        return;
+      }
+
+      if (window.ca) window.ca("track", "page_view");
     }
 
     ["pushState", "replaceState"].forEach(function (method) {
@@ -116,17 +172,16 @@
       function (event) {
         var link = event.target.closest && event.target.closest("a[href]");
         if (!link || typeof window.ca.getDeviceId !== "function") return;
-        if (storedConsent() === false) return;
-
-        var url = new URL(link.href, window.location.href);
-        if (
-          url.hostname !== HANDOFF_DOMAIN &&
-          !url.hostname.endsWith("." + HANDOFF_DOMAIN)
-        ) {
+        if (storedConsent() === false) {
+          undecorateLinks();
           return;
         }
 
-        url.searchParams.set(HANDOFF_PARAM, window.ca.getDeviceId());
+        var url = new URL(link.href, window.location.href);
+        var param = handoffParamFor(url);
+        if (!param) return;
+
+        url.searchParams.set(param, window.ca.getDeviceId());
         link.href = url.toString();
       },
       { capture: true }
@@ -138,6 +193,8 @@
     trackNavigations();
     handOffDeviceIdOnNavigation();
   }
+
+  if (doNotTrackEnabled()) return;
 
   var stored = storedConsent();
   if (stored !== null) {
