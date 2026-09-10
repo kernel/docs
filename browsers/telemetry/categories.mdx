@@ -109,11 +109,15 @@ These categories report what's happening in the page. Capturing any of them atta
 | `network` | Network requests, responses, and failures | `network_request`, `network_response`, `network_loading_failed`, `network_idle`, `proxy_error` |
 | `page` | Navigation and page lifecycle, including performance signals and renderer crashes | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_crashed`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
 | `interaction` | Browser-native input in the page (clicks, keys, scroll) | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
-| `screenshot` | Periodic screenshots of the session | `monitor_screenshot` |
+| `screenshot` | Periodic screenshots of the session. Headful only | `monitor_screenshot` |
 
 <Note>
 `interaction` events are browser-native DOM events observed in the page, not calls to the [computer-control](/browsers/computer-controls) API (those are reported by the `control` category).
 </Note>
+
+<Warning>
+`screenshot` captures the browser's display, so it can't capture the page on a [headless](/browsers/headless) session. Enabling it there is accepted but won't give you usable frames. To capture frames headless, take them through your automation framework instead — Playwright's `page.screenshot()` renders in the page and needs no display.
+</Warning>
 
 ### The monitor category
 

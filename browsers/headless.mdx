@@ -53,5 +53,7 @@ func main() {
 </CodeGroup>
 
 <Info>
-    [Live View](/browsers/live-view) and [Replays](/browsers/replays) are not available in headless mode.
+    [Live View](/browsers/live-view) and [Replays](/browsers/replays) are not available in headless mode. Both capture the browser's display, which headless doesn't have. The same applies to the `screenshot` [telemetry category](/browsers/telemetry/categories) and to [computer controls](/browsers/computer-controls) screenshots.
+
+    To capture what a headless page looked like, take screenshots through your automation framework — Playwright's `page.screenshot()` renders in the page and works without a display. Every other telemetry category works headless.
 </Info>
