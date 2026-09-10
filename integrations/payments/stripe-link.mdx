@@ -5,12 +5,12 @@ description: "use link by stripe to approve a one-use payment credential for a b
 
 [link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential with kms-backed envelope encryption, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
 
-link by stripe is the credential provider, not the merchant's payment processor. at
+link is the credential provider, not the merchant's payment processor. at
 the browser form layer, it works with any web checkout that accepts standard
 card details, and the merchant's processor doesn't need to be stripe. end-to-end
 handoff also requires the outgoing request to match a [native processor
 adapter](/integrations/payments/overview#checkout-and-processor-coverage). for
-example, you can use a link by stripe credential in a Shopify checkout.
+example, you can use a link credential in a Shopify checkout.
 
 ## Before you start
 
@@ -52,7 +52,7 @@ kernel vaults create --name user-12345
 
 ## Connect a wallet
 
-before showing a link by stripe connection option, list the vault's items. if a
+before showing a link connection option, list the vault's items. if a
 link wallet already exists in any state, reuse it and do not let the user add
 another. show its existing action or status instead. the api makes item keys
 unique but does not currently enforce one wallet per provider, so the ui must

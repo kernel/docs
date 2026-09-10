@@ -37,12 +37,9 @@ resolved.
 
 sensitive payment values do not have a read path through the vault api. item
 responses return specifications, state, masks, aliases, actions, and events,
-but not the underlying value. these response fields are not general-purpose
-secret storage. do not put card numbers, cvc, passwords, api keys, oauth codes,
-or other secrets in item keys, specifications, metadata, merchant fields,
-context, or events.
+but not the underlying value.
 
-for link by stripe, KERNEL stores oauth credentials and approved one-use card
+for link, KERNEL stores oauth credentials and approved one-use card
 data with kms-backed envelope encryption. for agentcard, the underlying card
 remains with agentcard. both providers connect the user's payment method through
 a hosted flow, without passing card data through your application or agent.
@@ -168,7 +165,7 @@ connects an end user's payment method through a provider-hosted flow. a card ite
 then publishes aliases that an attached browser can enter into a web checkout.
 authorization and payment handoff happen outside the browser vm.
 
-link by stripe and agentcard are credential providers, not merchant payment
+link and agentcard are credential providers, not merchant payment
 processors. at the browser form layer, both work with any web checkout that
 accepts standard card details, and the merchant's processor doesn't need to be
 stripe. end-to-end handoff requires the outgoing request to match a native
@@ -176,7 +173,7 @@ processor adapter. the current adapters cover request formats used by stripe,
 shopify, square, recurly, and razorpay; see [checkout and processor
 coverage](/integrations/payments/overview#checkout-and-processor-coverage).
 
-link by stripe creates a one-use card for an approved purchase. agentcard keeps a
+link creates a one-use card for an approved purchase. agentcard keeps a
 reusable card item and requests approval for each checkout. wallet connection,
 authorization, provider handoff, and checkout observations are recorded as
 immutable events without card data.
