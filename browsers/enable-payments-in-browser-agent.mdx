@@ -4,8 +4,7 @@ description: "Give a browser agent provider-backed payment aliases and complete 
 ---
 
 you're building a browser agent. you can add payments without exposing the card
-number or cvc to your application, agent, or browser. this design may help limit
-pci dss scope; confirm your exact scope with your compliance advisor or qsa.
+number or cvc to your application, agent, or browser.
 
 create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link by stripe](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
 
