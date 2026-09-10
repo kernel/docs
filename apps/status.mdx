@@ -65,6 +65,7 @@ func main() {
 
 Here's an example showing how to handle streaming status updates:
 
+<CodeGroup>
 ```typescript Typescript/Javascript
 const result = await kernel.invocations.retrieve(invocation.id);
 const follow = await kernel.invocations.follow(result.id);
@@ -80,10 +81,7 @@ for await (const evt of follow) {
       }
       break;
     } else if (evt.invocation.status === 'failed') {
-      console.log('Invocation failed');
-      if (evt.invocation.status_reason) {
-        console.log('Error:', evt.invocation.status_reason);
-      }
+      console.error(evt.invocation.status_reason ?? 'Invocation failed.');
       break;
     }
   } else if (evt.event === 'error') {
@@ -92,6 +90,55 @@ for await (const evt of follow) {
   }
 }
 ```
+
+```python Python
+import json
+
+from kernel import Kernel
+
+kernel = Kernel()
+
+for evt in kernel.invocations.follow("rr33xuugxj9h0bkf1rdt2bet"):
+    if evt.event == "invocation_state":
+        invocation = evt.invocation
+        print(f"Status: {invocation.status}")
+        if invocation.status == "succeeded":
+            if invocation.output:
+                print("Result:", json.loads(invocation.output))
+            break
+        if invocation.status == "failed":
+            print(invocation.status_reason or "Invocation failed.")
+            break
+    elif evt.event == "error":
+        print("Error:", evt.error.message)
+        break
+```
+</CodeGroup>
+
+## Failure details
+
+A failed invocation has two distinct fields:
+
+- `status_reason`: A nonempty, customer-safe failure summary. It's present when `status` is `failed` and omitted for other statuses. Recognized failures, such as timeouts or startup failures, receive specific summaries. Unrecognized failures receive `"Invocation failed. See output for details."`; failures with no recorded reason receive `"Invocation failed; no failure reason was recorded."`.
+- `output`: The original action result or detailed failure output. It's optional and often JSON-encoded, but failures can contain plain text. Don't assume that every failure output can be parsed as JSON.
+
+These rules apply to streaming events, retrieval, listing, and synchronous invocation responses. The first failed `invocation_state` event includes `status_reason`. Historical invocations also receive a summary when you retrieve or stream them; no rerun is needed. During rollout, if `status_reason` is absent, inspect `output` for the recorded error.
+
+For example, a timeout returns these fields alongside the invocation's ID and other metadata:
+
+```json
+{
+  "status": "failed",
+  "status_reason": "Invocation timed out after 900 seconds.",
+  "output": "{\"error\":\"timed out after 900 seconds\"}"
+}
+```
+
+Use `status_reason` to display the failure and inspect `output` separately for diagnostics. Reason text can change; don't use it as a stable identifier for retry decisions.
+
+<Warning>
+  Detailed output can contain sensitive application data, including account details or credentials. Restrict access and redact it before sharing or logging it. Failure summaries don't copy arbitrary application errors or internal traces.
+</Warning>
 
 ## Polling Status Updates
 
