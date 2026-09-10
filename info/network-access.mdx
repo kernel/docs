@@ -11,7 +11,8 @@ Allow only the destinations used by your integration. Apply the Live View and re
 
 | Feature | Destinations | Port | Protocol |
 | --- | --- | --- | --- |
-| API, SDKs, and CLI | `api.onkernel.com` | `443` | HTTPS |
+| API, SDKs, and authenticated CLI requests | `api.onkernel.com` | `443` | HTTPS |
+| CLI authentication (`kernel login`) | `auth.onkernel.com`, `dashboard.onkernel.com` | `443` | HTTPS |
 | CDP, WebDriver BiDi, Live View, replays, and app connections | `*.onkernel.com`, `*.kernel.sh` | `8443` | HTTPS and secure WebSocket (WSS) |
 | Live View media negotiation | `stun.relay.metered.ca` | `80` | STUN over UDP |
 | Live View media relay | `global.relay.metered.ca` | `443` | TURN over UDP or TLS/TCP |
@@ -50,7 +51,8 @@ frame-src https://*.onkernel.com:8443
 
 ## Troubleshooting blocked connections
 
-- If API or SDK requests time out, verify access to `api.onkernel.com:443`.
+- If API, SDK, or authenticated CLI requests time out, verify access to `api.onkernel.com:443`.
+- If `kernel login` doesn't complete, verify access to `auth.onkernel.com:443` and `dashboard.onkernel.com:443`.
 - If browser creation succeeds but CDP, WebDriver BiDi, or Live View won't connect, verify access to both wildcard domains on port `8443`.
 - If Live View loads but remains disconnected or doesn't show video, verify access to the STUN and TURN destinations.
 - If the replay player loads but a recording doesn't play, verify access to the replay file destination.
