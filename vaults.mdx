@@ -182,6 +182,30 @@ read the [payments overview](/integrations/payments/overview) for the shared
 lifecycle or use the [link by stripe](/integrations/payments/stripe-link) and
 [agentcard](/integrations/payments/agentcard) provider guides.
 
+## provider configurations
+
+use KERNEL-managed credentials by default. if you need your own client, follow
+the optional setup in [link](/integrations/payments/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/payments/agentcard#bring-your-own-agentcard-oauth-client). a named
+provider configuration stores your application's `client_id` and `client_secret`,
+not an end user's wallet grant. credentials are encrypted at rest; secrets are
+never returned.
+
+configurations are organization-scoped and shared across projects, unlike
+project-scoped vaults. create, update, and delete require organization-scoped
+authentication; project-scoped api keys receive `403`. names are unique within
+the organization, and duplicate creates return `409` without replacing secrets.
+
+- **selection:** choose exactly one config `id` or `name` when creating a wallet. the cli accepts `--provider-config-id` or `--provider-config-name`; responses resolve names to ids.
+- **binding:** the wallet's configuration is immutable, and cards inherit it. renaming a config preserves bindings.
+- **rotation:** updating `client_secret` affects all bound wallets. provider, client id, and agentcard mode cannot change; changing clients requires a new config and new wallets.
+- **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
+- **recovery:** `recovery_required` means a card's provider outcome is unresolved. it stops item wait loops and blocks new authorization, checkout, and deletion of the card or its parent wallet/vault.
+
+for recovery, inspect existing evidence and contact the provider or support when
+manual reconciliation is needed. there is no reset operation; deletion is not
+payment recovery.
+
 ## Initial item specifications
 
 the initial release accepts these `spec` fields. fields not listed here are rejected.
@@ -190,8 +214,12 @@ the initial release accepts these `spec` fields. fields not listed here are reje
 
 | provider  | required fields                                                                                    | optional fields                                                            |
 | --------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client.type: 'kernel_managed'` | none                                                                       |
-| agentcard | `provider: 'agentcard'`                                                                            | `user_id` for a user already enrolled through a wallet in the organization |
+| link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
+| agentcard | `provider: 'agentcard'` | `provider_config`; `user_id` for a user already enrolled in the organization under the same configuration |
+
+the default link client is `{type: 'kernel_managed'}`. for your own client, set
+`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
+and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
 for payment settings ui, enforce at most one wallet per provider in each vault.
 the api currently enforces uniqueness by item key, not by wallet provider, so a
@@ -231,8 +259,8 @@ wallet status values are:
 
 card status values are:
 
-- link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`
-- agentcard: `requested`, `ready`, `pending_approval`, `degraded`
+- link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
+- agentcard: `requested`, `ready`, `pending_approval`, `degraded`, `recovery_required`
 
 card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
 

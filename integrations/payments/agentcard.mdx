@@ -528,3 +528,28 @@ merchant created the expected order. return `indeterminate` when the sources
 disagree or the merchant record is unavailable, and don't retry automatically.
 
 pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
+
+# bring-your-own agentcard oauth client
+
+the flow above uses KERNEL-managed credentials. to use your own oauth client,
+register a [provider configuration](/vaults#provider-configurations) with
+organization-scoped authentication. `agentcard-client.json` must contain
+`client_id` and `client_secret`. keep it readable only by its owner (for example,
+mode `0600`) and outside the agent's accessible files.
+
+```bash CLI
+kernel vault-provider-configs create --name checkout-agentcard --provider agentcard \
+  --credentials-file "$HOME/.config/kernel/agentcard-client.json"
+```
+
+unlike the KERNEL-managed wallet response, this config response exposes
+`test_mode` (`true` means sandbox, `false` means live). verify that it matches
+your expected mode, then reference the config when creating the wallet:
+
+```bash CLI
+kernel vaults wallets create user-12345 agentcard-wallet --provider agentcard \
+  --provider-config-name checkout-agentcard --spec '{}' --open
+```
+
+run `--open` only in a trusted, human-operated terminal. complete the returned
+hosted enrollment action, then continue with card creation above.
