@@ -76,11 +76,11 @@ kernel vaults wallets create user-12345 link-wallet --provider link \
 ```
 
 this replaces the wallet-connection step below. a successful import returns a
-`connected` wallet; continue with payment-method selection. client credentials
-alone do not connect a user. config registration does not verify the link
-client secret; import verifies access to payment methods, not refresh-token
-validity. KERNEL owns refresh-token rotation after import, so your backend must
-stop refreshing that grant.
+`connected` wallet; continue with payment-method selection.
+
+- **registration:** client credentials alone do not connect a user. config registration does not verify the link client secret.
+- **import:** KERNEL verifies access to payment methods, not refresh-token validity.
+- **rotation:** KERNEL owns refresh-token rotation after import. your backend must stop refreshing that grant.
 
 repeating wallet creation never replaces its grant. if an imported wallet
 becomes unusable, obtain a fresh grant and import it under a new wallet key for

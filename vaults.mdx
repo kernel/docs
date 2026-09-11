@@ -196,21 +196,15 @@ project-scoped vaults. create, update, and delete require organization-scoped
 authentication; project-scoped api keys receive `403`. names are unique within
 the organization, and duplicate creates return `409` without replacing secrets.
 
-select exactly one config `id` or `name` when creating a wallet. the cli accepts
-`--provider-config-id` or `--provider-config-name`. responses resolve names to
-ids; the wallet's binding is immutable, and cards inherit it from their wallet.
-renaming a config does not change existing bindings. updates can rename the
-config or rotate `client_secret`; rotation affects all bound wallets. provider,
-client id, and agentcard mode cannot change. changing clients requires a new
-configuration and new wallets.
+- **selection:** choose exactly one config `id` or `name` when creating a wallet. the cli accepts `--provider-config-id` or `--provider-config-name`; responses resolve names to ids.
+- **binding:** the wallet's configuration is immutable, and cards inherit it. renaming a config preserves bindings.
+- **rotation:** updating `client_secret` affects all bound wallets. provider, client id, and agentcard mode cannot change; changing clients requires a new config and new wallets.
+- **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
+- **recovery:** `recovery_required` means a card's provider outcome is unresolved. it stops item wait loops and blocks new authorization, checkout, and deletion of the card or its parent wallet/vault.
 
-deletion returns `409` while any non-deleted item references the config, even
-if disconnected. it does not delete the external oauth client or revoke
-unrelated grants. cards in `recovery_required` retain an unresolved provider
-outcome, stop item wait loops, and block new authorization, checkout, and deletion
-of the card or its parent wallet/vault. inspect existing evidence and contact
-the provider or support when manual reconciliation is needed; there is no reset
-operation, and deletion is not payment recovery.
+for recovery, inspect existing evidence and contact the provider or support when
+manual reconciliation is needed. there is no reset operation; deletion is not
+payment recovery.
 
 ## Initial item specifications
 
