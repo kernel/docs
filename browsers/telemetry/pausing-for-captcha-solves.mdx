@@ -214,7 +214,7 @@ function describe(source: Verdict["source"], status: string, joined: boolean, ou
   <Step title="Wire it to the agent">
     `harness.on("tool_call", …)` is awaited before the tool is dispatched, so returning from it late holds the action and returning `{ block: true, reason }` replaces it with a message the model reads. That is cheaper than aborting the turn and it stops the action *before* it reaches the page.
 
-    The page probe is a read-only Playwright snippet. Its result is what decides whether the agent is interrupted at all — a cleared page just resumes with no extra turn.
+    The page probe is a read-only Playwright snippet. Its result is what decides whether the agent is interrupted at all — a cleared page just resumes with no extra turn. That decision checks `tokenPresent`, not just `widgets`: a solved reCAPTCHA or hCaptcha widget commonly stays rendered on the page, so a response token is the signal that the challenge is actually behind the agent, not the widget disappearing.
 
     `gate.close()` runs before the browser is deleted, so the detached telemetry loop from step one gets torn down instead of hanging on a connection to a session that no longer exists.
 
@@ -231,7 +231,7 @@ return await page.evaluate(() => {
     widgets: Object.entries(groups)
       .filter(([, sel]) => [...document.querySelectorAll(sel)].some(onScreen))
       .map(([name]) => name),
-    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"]')]
+    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"], [name="h-captcha-response"]')]
       .some((el) => el.value.length > 0),
   };
 });
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
 			gate.reset();
 			console.log(`[captcha] ${verdict.source}:${verdict.status} — ${verdict.message}`);
 			// Telemetry decides what to say; the page decides whether to interrupt.
-			if (verdict.page.widgets.length === 0) return undefined;
+			if (verdict.page.widgets.length === 0 || verdict.page.tokenPresent) return undefined;
 			return { block: true, reason: verdict.message };
 		});
 
@@ -445,7 +445,7 @@ return await page.evaluate(() => {
     widgets: Object.entries(groups)
       .filter(([, sel]) => [...document.querySelectorAll(sel)].some(onScreen))
       .map(([name]) => name),
-    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"]')]
+    tokenPresent: [...document.querySelectorAll('[name="cf-turnstile-response"], [name="g-recaptcha-response"], [name="h-captcha-response"]')]
       .some((el) => el.value.length > 0),
   };
 });
@@ -489,7 +489,7 @@ async function main(): Promise<void> {
 			gate.reset();
 			console.log(`[captcha] ${verdict.source}:${verdict.status} — ${verdict.message}`);
 			// Telemetry decides what to say; the page decides whether to interrupt.
-			if (verdict.page.widgets.length === 0) return undefined;
+			if (verdict.page.widgets.length === 0 || verdict.page.tokenPresent) return undefined;
 			return { block: true, reason: verdict.message };
 		});
 
