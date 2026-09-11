@@ -53,7 +53,7 @@ The four snippets below are one file, `captcha-gate.ts`, in order.
   <Step title="Read the events">
     Three maps, one per thing the telemetry can tell you, all keyed so nothing depends on arrival order. `joinable` is the important one: it holds only the `challenge_id`s that actually appeared on a task event, which are the only ones a challenge result may be attributed to.
 
-    A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed.
+    A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed. That only works while the task is still in `tasks`, though — once `reset` has cleared it, a late start for the same `task_id` would otherwise look like a brand-new one. `settled` remembers which IDs `reset` already cleared, so a late arrival for one is dropped instead of reopening an episode the agent has already been told about.
 
     The stream's `AbortController` is saved so the gate can close it later — the loop runs detached from the caller, and leaving it open past the browser's deletion keeps the process alive waiting on a connection that will never produce another event.
 
@@ -100,6 +100,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
+	// task_ids and challenge_ids already reported and cleared by reset(), so a
+	// late-arriving duplicate for one of them -- delivery is unordered, a start
+	// can arrive after its own result -- isn't mistaken for a new episode.
+	const settled = new Set<string>();
 	let streamController: AbortController | undefined;
 
 	void (async () => {
@@ -108,21 +112,21 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !settled.has(event.data.task_id)) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id) {
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !settled.has(event.data.task_id)) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id) {
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !settled.has(event.data.challenge_id)) {
 				challenges.set(event.data.challenge_id, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
@@ -188,8 +192,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			const covered = Boolean(joinedResult());
 			for (const [id, t] of tasks) {
 				if (isOpen(t) && !covered) continue;
+				settled.add(id);
 				tasks.delete(id);
 			}
+			for (const id of challenges.keys()) settled.add(id);
 			challenges.clear();
 			if (openTasks().length === 0) joinable.clear();
 		},
@@ -354,6 +360,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
+	// task_ids and challenge_ids already reported and cleared by reset(), so a
+	// late-arriving duplicate for one of them -- delivery is unordered, a start
+	// can arrive after its own result -- isn't mistaken for a new episode.
+	const settled = new Set<string>();
 	let streamController: AbortController | undefined;
 
 	void (async () => {
@@ -362,21 +372,21 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !settled.has(event.data.task_id)) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id) {
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !settled.has(event.data.task_id)) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id) {
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !settled.has(event.data.challenge_id)) {
 				challenges.set(event.data.challenge_id, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
@@ -426,8 +436,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			const covered = Boolean(joinedResult());
 			for (const [id, t] of tasks) {
 				if (isOpen(t) && !covered) continue;
+				settled.add(id);
 				tasks.delete(id);
 			}
+			for (const id of challenges.keys()) settled.add(id);
 			challenges.clear();
 			if (openTasks().length === 0) joinable.clear();
 		},
