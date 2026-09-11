@@ -22,6 +22,12 @@ native <span className="kernel-brand-name">KERNEL</span> processor adapter.
 
 ## How payments work
 
+start with KERNEL-managed credentials. bringing your own client is optional:
+see [link setup](/integrations/payments/stripe-link#before-you-start) or
+[agentcard setup](/integrations/payments/agentcard#before-you-start). with your
+own link client, your backend must handle user oauth and securely import the
+grant instead of using KERNEL's hosted connection flow.
+
 both credential providers use the same integration shape:
 
 1. create a vault for the user or task.
@@ -31,7 +37,9 @@ both credential providers use the same integration shape:
 5. give the aliases to the agent and let it complete the merchant's checkout.
 6. complete any provider-hosted approval and inspect item events alongside the merchant's order state.
 
-each vault must contain at most one wallet item for each provider. before
+for normal setup, keep at most one wallet item for each provider in a vault.
+imported link grant recovery uses an explicit cutover to a new wallet while
+unresolved old items are retained; see the optional link setup above. before
 showing a provider connection option, list the vault's items. if that provider
 already has a wallet in any state, hide the add option and reuse or recover the
 existing item. when both link and agentcard wallets exist, show both as
@@ -83,7 +91,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
 | payment handoff           | one-use credential substituted at egress                 | agentcard executes the request and returns the response             |
 | reuse                     | card item and aliases are consumed on first substitution | cards can be reused for recurring and one-time purchases            |
-| environment               | live only                                                | configured agentcard credential; not exposed through the vault api  |
+| environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode` |
 
 choose [link by stripe](https://hypeship.dev/integrations/payments/stripe-link) when each purchase requires a newly approved, single-use credential. choose [agentcard](https://hypeship.dev/integrations/payments/agentcard) when one enrolled card must support multiple purchases, with separate approval for each.
 

@@ -20,6 +20,9 @@ we can prioritize its adapter and validate a real checkout.
 
 ## Before you start
 
+use KERNEL-managed credentials for the default flow below. you can optionally
+register your own application credentials before enrolling a wallet.
+
 create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
 
 <CodeGroup>
@@ -56,13 +59,42 @@ kernel vaults create --name user-12345
 
 </CodeGroup>
 
-the vault api does not expose whether the configured agentcard credential is
-sandbox or live. `AGENTCARD_MODE` is an application-owned assertion, not a
-value read from KERNEL. set it from the deployment configuration that owns the
-agentcard credential, show the mode in internal checkout controls, and fail
-closed when it is missing or does not match the environment you intend to use.
-set `AGENTCARD_MODE=sandbox` instead only when that deployment uses a sandbox
-credential.
+`AGENTCARD_MODE` is your application's expected mode. for KERNEL-managed
+credentials, confirm the deployment's mode before using aliases; the wallet
+response does not expose it. for your own configuration, compare it with the
+returned `test_mode` (`true` means sandbox, `false` means live). fail closed if
+the actual mode is unknown or differs from your expected mode.
+
+<Accordion title="use your own application credentials (optional)">
+
+register once with organization-scoped authentication. the protected json file
+must contain `client_id` and `client_secret`. keep it readable only by its owner
+(for example, mode `0600`) and outside the agent's accessible files. do not put
+credentials in shell arguments; `--credentials-file -` also accepts stdin from
+a trusted secret source.
+
+```bash CLI
+kernel vault-provider-configs create --name checkout-agentcard --provider agentcard \
+  --credentials-file "$HOME/.config/kernel/agentcard-client.json"
+kernel vault-provider-configs get checkout-agentcard -o json
+```
+
+verify `test_mode` before enrollment, then select this configuration instead of
+using the default wallet-creation example below:
+
+```bash CLI
+kernel vaults wallets create user-12345 agentcard-wallet --provider agentcard \
+  --provider-config-name checkout-agentcard --spec '{}' --open
+```
+
+run `--open` only in a trusted, human-operated terminal outside the agent.
+KERNEL obtains application access tokens using `client_credentials` and returns
+the hosted enrollment action; you don't implement an oauth redirect handler.
+mode comes from the credentials, not a per-wallet or per-card test flag.
+see [provider configurations](/vaults#provider-configurations) for binding,
+rotation, and deletion rules.
+
+</Accordion>
 
 ## Lifecycle
 
@@ -177,7 +209,7 @@ kernel vaults items get user-12345 agentcard-wallet --wait 60
   contain the action url.
 </Warning>
 
-`spec.user_id` can reuse a user who was already enrolled through another wallet in your organization. it cannot reference an arbitrary agentcard user.
+`spec.user_id` can reuse a user who was already enrolled through another wallet in your organization under the same provider configuration. it cannot reference an arbitrary agentcard user.
 
 ## Create a card item
 

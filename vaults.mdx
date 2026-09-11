@@ -182,6 +182,36 @@ read the [payments overview](/integrations/payments/overview) for the shared
 lifecycle or use the [link by stripe](/integrations/payments/stripe-link) and
 [agentcard](/integrations/payments/agentcard) provider guides.
 
+## provider configurations
+
+use KERNEL-managed credentials by default. if you need your own client, follow
+the optional setup in [link](/integrations/payments/stripe-link#before-you-start)
+or [agentcard](/integrations/payments/agentcard#before-you-start). a named
+provider configuration stores your application's `client_id` and `client_secret`,
+not an end user's wallet grant. credentials are encrypted at rest; secrets are
+never returned.
+
+configurations are organization-scoped and shared across projects, unlike
+project-scoped vaults. create, update, and delete require organization-scoped
+authentication; project-scoped api keys receive `403`. names are unique within
+the organization, and duplicate creates return `409` without replacing secrets.
+
+select exactly one config `id` or `name` when creating a wallet. the cli accepts
+`--provider-config-id` or `--provider-config-name`. responses resolve names to
+ids; the wallet's binding is immutable, and cards inherit it from their wallet.
+renaming a config does not change existing bindings. updates can rename the
+config or rotate `client_secret`; rotation affects all bound wallets. provider,
+client id, and agentcard mode cannot change. changing clients requires a new
+configuration and new wallets.
+
+deletion returns `409` while any non-deleted item references the config, even
+if disconnected. it does not delete the external oauth client or revoke
+unrelated grants. cards in `recovery_required` retain an unresolved provider
+outcome, stop item wait loops, and block new authorization, checkout, and deletion
+of the card or its parent wallet/vault. inspect existing evidence and contact
+the provider or support when manual reconciliation is needed; there is no reset
+operation, and deletion is not payment recovery.
+
 ## Initial item specifications
 
 the initial release accepts these `spec` fields. fields not listed here are rejected.
@@ -190,14 +220,19 @@ the initial release accepts these `spec` fields. fields not listed here are reje
 
 | provider  | required fields                                                                                    | optional fields                                                            |
 | --------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client.type: 'kernel_managed'` | none                                                                       |
-| agentcard | `provider: 'agentcard'`                                                                            | `user_id` for a user already enrolled through a wallet in the organization |
+| link      | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
+| agentcard | `provider: 'agentcard'` | `provider_config`; `user_id` for a user already enrolled in the organization under the same configuration |
 
-for payment settings ui, enforce at most one wallet per provider in each vault.
-the api currently enforces uniqueness by item key, not by wallet provider, so a
-different key can create a second wallet for the same provider. list items before
+the default link client is `{type: 'kernel_managed'}`. for your own client, set
+`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
+and supply `authorization.tokens` with `access_token` and `refresh_token`.
+
+for normal setup, enforce at most one wallet per provider in each vault.
+the api enforces uniqueness by item key, not wallet provider. list items before
 rendering provider options, hide the add option whenever that provider already
-has a wallet in any state, and reuse or recover the existing item.
+has a wallet in any state, and reuse or recover the existing item. imported link
+grant recovery is an exception: use an [explicit cutover](/integrations/payments/stripe-link#before-you-start)
+to a new wallet for future purchases while retaining unresolved old items.
 
 ### Cards
 
@@ -231,8 +266,8 @@ wallet status values are:
 
 card status values are:
 
-- link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`
-- agentcard: `requested`, `ready`, `pending_approval`, `degraded`
+- link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
+- agentcard: `requested`, `ready`, `pending_approval`, `degraded`, `recovery_required`
 
 card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
 
