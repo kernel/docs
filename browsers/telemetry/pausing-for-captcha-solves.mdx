@@ -533,7 +533,8 @@ Durations come straight from each event's `duration_ms`, which is authoritative;
 - **`TASK_SETTLE_MS` and `CHALLENGE_GRACE_MS` are the safety net.** Events can be absent, so both waits are bounded and the gate falls through to the page rather than stalling. Raise `TASK_SETTLE_MS` if your solves routinely run longer than 20s.
 - **Challenge results aren't emitted for every widget type.** Turnstile, for instance, reports task events only, so the task-plus-page path is the one that runs there.
 - **One episode at a time.** The gate resets after each verdict; overlapping visible challenges from the same provider aren't split apart, and the telemetry docs note Kernel's own event model can't always attribute a result in that case either.
-- **The page probe is best-effort.** It reads the DOM for known widget markers and a response token. A site that renders its challenge somewhere those selectors miss will fall back to the telemetry verdict alone.
+- **The page probe is best-effort.** It reads the DOM for known widget markers and a response token. A site that renders its challenge somewhere those selectors miss won't be held past the logged message alone.
+- **Press-and-hold has no selector at all.** It emits `captcha_challenge_result` telemetry like reCAPTCHA and hCaptcha, but `PROBE`'s `groups` has no entry for it, so `widgets` never reports one -- the tool-call handler treats that as clear and lets the agent proceed even while the challenge is still open. Add a selector for your target's specific implementation if you need it to actually hold.
 
 ## Next steps
 
