@@ -33,7 +33,10 @@ Pin `@earendil-works/pi-agent-core` to the version `@onkernel/browser-loop` depe
 
 ```bash
 npm install @onkernel/browser-loop @onkernel/sdk @earendil-works/pi-agent-core@0.83.0 tsx
+npm pkg set type=module
 ```
+
+`@earendil-works/pi-agent-core` ships ESM only. Without `type: module` in `package.json`, `tsx` resolves `captcha-gate.ts`'s import of it as CommonJS and fails immediately with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
 
 Every run needs a `KERNEL_API_KEY` and a provider key for whichever model `LOOP_MODEL` points at (`anthropic:claude-sonnet-5` by default, so `ANTHROPIC_API_KEY`):
 
