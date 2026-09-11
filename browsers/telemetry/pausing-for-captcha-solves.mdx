@@ -218,6 +218,8 @@ function describe(source: Verdict["source"], status: string, joined: boolean, ou
 
     `gate.close()` runs before the browser is deleted, so the detached telemetry loop from step one gets torn down instead of hanging on a connection to a session that no longer exists.
 
+    The gate only speaks up when telemetry gives it something to report. Since any event can be absent, the system prompt keeps a fallback instruction for the case where nothing ever arrives — the model still knows to wait out a captcha it can see but the gate never heard about.
+
 ```ts captcha-gate.ts
 const PROBE = `
 return await page.evaluate(() => {
@@ -265,7 +267,10 @@ async function main(): Promise<void> {
 			models: compiled.models,
 			tools: [...compiled.tools],
 			activeToolNames: compiled.tools.map((tool) => tool.name),
-			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+			systemPrompt:
+				"Use the supplied browser tools to complete the task efficiently. If you see a captcha or " +
+				"similar challenge and nothing has told you otherwise, wait for it to be solved automatically " +
+				"before acting.",
 		});
 		compiled.activate(harness);
 
@@ -479,7 +484,10 @@ async function main(): Promise<void> {
 			models: compiled.models,
 			tools: [...compiled.tools],
 			activeToolNames: compiled.tools.map((tool) => tool.name),
-			systemPrompt: "Use the supplied browser tools to complete the task efficiently.",
+			systemPrompt:
+				"Use the supplied browser tools to complete the task efficiently. If you see a captcha or " +
+				"similar challenge and nothing has told you otherwise, wait for it to be solved automatically " +
+				"before acting.",
 		});
 		compiled.activate(harness);
 
