@@ -53,7 +53,7 @@ The four snippets below are one file, `captcha-gate.ts`, in order.
   <Step title="Read the events">
     Three maps, one per thing the telemetry can tell you, all keyed so nothing depends on arrival order. `joinable` is the important one: it holds only the `challenge_id`s that actually appeared on a task event, which are the only ones a challenge result may be attributed to.
 
-    A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed. That only works while the task is still in `tasks`, though — once `reset` has cleared it, a late start for the same `task_id` would otherwise look like a brand-new one. `settled` remembers which IDs `reset` already cleared, so a late arrival for one is dropped instead of reopening an episode the agent has already been told about.
+    A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed. That only works while the task is still in `tasks`, though — once `reset` has cleared it, a late start for the same `task_id` would otherwise look like a brand-new one. `settledAt` remembers when `reset` cleared each ID, so a late arrival within `TASK_SETTLE_MS` of that is dropped instead of reopening an episode the agent has already been told about. Past that window the same ID is treated as fresh again, since Kernel can reuse a `challenge_id` when an episode continues across a page reload.
 
     The stream's `AbortController` is saved so the gate can close it later — the loop runs detached from the caller, and leaving it open past the browser's deletion keeps the process alive waiting on a connection that will never produce another event.
 
@@ -100,10 +100,17 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
-	// task_ids and challenge_ids already reported and cleared by reset(), so a
-	// late-arriving duplicate for one of them -- delivery is unordered, a start
-	// can arrive after its own result -- isn't mistaken for a new episode.
-	const settled = new Set<string>();
+	// task_ids and challenge_ids reported and cleared by reset(), each stamped
+	// with when that happened. A late-arriving duplicate within TASK_SETTLE_MS
+	// of that -- delivery is unordered, a start can arrive after its own
+	// result -- is dropped instead of reopening an already-told episode. Past
+	// that window it's treated as fresh, since Kernel can reuse the same
+	// challenge_id when an episode continues across a page reload.
+	const settledAt = new Map<string, number>();
+	const isSettled = (id: string) => {
+		const at = settledAt.get(id);
+		return at !== undefined && Date.now() - at < TASK_SETTLE_MS;
+	};
 	let streamController: AbortController | undefined;
 
 	void (async () => {
@@ -112,21 +119,21 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id && !settled.has(event.data.task_id)) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(event.data.task_id)) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !settled.has(event.data.task_id)) {
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(event.data.task_id)) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !settled.has(event.data.challenge_id)) {
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !isSettled(event.data.challenge_id)) {
 				challenges.set(event.data.challenge_id, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
@@ -190,12 +197,13 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			// solver may still be working via a follow-up task resolve() hasn't
 			// seen close out.
 			const covered = Boolean(joinedResult());
+			const now = Date.now();
 			for (const [id, t] of tasks) {
 				if (isOpen(t) && !covered) continue;
-				settled.add(id);
+				settledAt.set(id, now);
 				tasks.delete(id);
 			}
-			for (const id of challenges.keys()) settled.add(id);
+			for (const id of challenges.keys()) settledAt.set(id, now);
 			challenges.clear();
 			if (openTasks().length === 0) joinable.clear();
 		},
@@ -360,10 +368,17 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
-	// task_ids and challenge_ids already reported and cleared by reset(), so a
-	// late-arriving duplicate for one of them -- delivery is unordered, a start
-	// can arrive after its own result -- isn't mistaken for a new episode.
-	const settled = new Set<string>();
+	// task_ids and challenge_ids reported and cleared by reset(), each stamped
+	// with when that happened. A late-arriving duplicate within TASK_SETTLE_MS
+	// of that -- delivery is unordered, a start can arrive after its own
+	// result -- is dropped instead of reopening an already-told episode. Past
+	// that window it's treated as fresh, since Kernel can reuse the same
+	// challenge_id when an episode continues across a page reload.
+	const settledAt = new Map<string, number>();
+	const isSettled = (id: string) => {
+		const at = settledAt.get(id);
+		return at !== undefined && Date.now() - at < TASK_SETTLE_MS;
+	};
 	let streamController: AbortController | undefined;
 
 	void (async () => {
@@ -372,21 +387,21 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id && !settled.has(event.data.task_id)) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(event.data.task_id)) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !settled.has(event.data.task_id)) {
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(event.data.task_id)) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
 				task.captchaType = event.data.captcha_type ?? task.captchaType;
 				tasks.set(event.data.task_id, task);
 				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !settled.has(event.data.challenge_id)) {
+			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !isSettled(event.data.challenge_id)) {
 				challenges.set(event.data.challenge_id, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
@@ -434,12 +449,13 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			// solver may still be working via a follow-up task resolve() hasn't
 			// seen close out.
 			const covered = Boolean(joinedResult());
+			const now = Date.now();
 			for (const [id, t] of tasks) {
 				if (isOpen(t) && !covered) continue;
-				settled.add(id);
+				settledAt.set(id, now);
 				tasks.delete(id);
 			}
-			for (const id of challenges.keys()) settled.add(id);
+			for (const id of challenges.keys()) settledAt.set(id, now);
 			challenges.clear();
 			if (openTasks().length === 0) joinable.clear();
 		},
@@ -567,6 +583,7 @@ Durations come straight from each event's `duration_ms`, which is authoritative;
 - **One episode at a time.** The gate resets after each verdict; overlapping visible challenges from the same provider aren't split apart, and the telemetry docs note Kernel's own event model can't always attribute a result in that case either.
 - **The page probe is best-effort.** It reads the DOM for known widget markers and a response token. A site that renders its challenge somewhere those selectors miss won't be held past the logged message alone.
 - **Press-and-hold has no selector at all.** It emits `captcha_challenge_result` telemetry like reCAPTCHA and hCaptcha, but `PROBE`'s `groups` has no entry for it, so `widgets` never reports one -- the tool-call handler treats that as clear and lets the agent proceed even while the challenge is still open. Add a selector for your target's specific implementation if you need it to actually hold.
+- **A reload within `TASK_SETTLE_MS` of the last verdict can still be missed.** `settledAt` treats an ID as fresh again once that window passes, so a genuinely new outcome for a reused `challenge_id` eventually gets through -- but if the reload happens sooner than that, its result is indistinguishable from a stale duplicate and gets dropped.
 
 ## Next steps
 
