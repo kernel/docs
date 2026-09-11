@@ -144,8 +144,8 @@ this guide starts after you have an existing browser agent. it changes how you p
 - for agentcard, keep an application-owned `AGENTCARD_MODE` setting and verify it against the credential's mode. customer-owned configs return `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. fail closed if the mode is unknown or mismatched.
 
 use KERNEL-managed credentials by default. optional client setup belongs in your
-trusted backend, not the browser agent: see [link](/integrations/payments/stripe-link#before-you-start)
-or [agentcard](/integrations/payments/agentcard#before-you-start).
+trusted backend, not the browser agent: see [link](/integrations/payments/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/payments/agentcard#bring-your-own-agentcard-oauth-client).
 
 <Warning>
   keep wallet collection and payment approval outside the agent. show hosted
@@ -212,14 +212,9 @@ user or agent.
 
 ### Once per end user and provider
 
-imported link grant recovery requires an
-[explicit cutover](/integrations/payments/stripe-link#before-you-start) to a new
-wallet for future purchases. retain unresolved old items and select the new
-wallet explicitly rather than applying the single-wallet lookup below.
-
-for default setup, your payment settings ui must allow at most one wallet item
-for each provider in a vault. list the vault's items before rendering provider
-controls, group wallet items by `spec.provider`, and apply this flow:
+your payment settings ui must allow at most one wallet item for each provider in
+a vault. list the vault's items before rendering provider controls, group wallet
+items by `spec.provider`, and apply this flow:
 
 | existing wallet for the provider | ui behavior                                                                                            |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------ |

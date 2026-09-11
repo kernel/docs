@@ -14,10 +14,6 @@ example, you can use a link credential in a Shopify checkout.
 
 ## Before you start
 
-use KERNEL's oauth client unless you need to own the integration. the default
-flow below lets KERNEL construct the authorization url, handle the redirect,
-and manage the user's oauth grant.
-
 create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
 
 <CodeGroup>
@@ -43,53 +39,6 @@ kernel vaults create --name user-12345
 ```
 
 </CodeGroup>
-
-<Accordion title="use your own oauth client (optional)">
-
-bringing your own client means implementing the user authorization flow in your
-trusted backend instead of using KERNEL's `link_oauth` action:
-
-1. construct the authorization url with state and a pkce challenge, and show it only to the authenticated human connecting their link wallet.
-2. register your backend's redirect uri with the provider, not KERNEL's callback. validate the returned state against that user's authorization attempt.
-3. exchange the authorization code with stripe from your backend, using the original pkce verifier and your client credentials. never expose the client secret, verifier, or returned tokens to the agent, browser code, urls, or logs.
-4. create the KERNEL wallet item with the resulting access and refresh tokens from that same grant, under your registered provider configuration.
-
-register the application credentials once using organization-scoped
-authentication. the protected json file must contain `client_id` and
-`client_secret`; do not put either value in shell arguments.
-
-```bash CLI
-kernel vault-provider-configs create --name checkout-link --provider link \
-  --credentials-file "$HOME/.config/kernel/link-client.json"
-```
-
-then import the user's grant from your trusted backend or human-operated
-terminal. `link-grant.json` must contain `access_token` and `refresh_token` from
-that grant, with a currently valid access token. use files readable only by
-their owner (for example, mode `0600`), outside the agent's accessible files.
-both file flags also accept `-` for stdin from a trusted secret source.
-
-```bash CLI
-kernel vaults wallets create user-12345 link-wallet --provider link \
-  --provider-config-name checkout-link --spec '{}' \
-  --tokens-file "$HOME/.config/kernel/link-grant.json"
-```
-
-this replaces the wallet-connection step below. a successful import returns a
-`connected` wallet; continue with payment-method selection.
-
-- **registration:** client credentials alone do not connect a user. config registration does not verify the link client secret.
-- **import:** KERNEL verifies access to payment methods, not refresh-token validity.
-- **rotation:** KERNEL owns refresh-token rotation after import. your backend must stop refreshing that grant.
-
-repeating wallet creation never replaces its grant. if an imported wallet
-becomes unusable, obtain a fresh grant and import it under a new wallet key for
-future purchases. retain old items with uncertain payments; do not replay those
-payments or rebind their cards. use an explicit cutover rather than the default
-one-wallet setup below. see [provider configurations](/vaults#provider-configurations)
-for binding, rotation, and deletion rules.
-
-</Accordion>
 
 ## Lifecycle
 
@@ -393,3 +342,37 @@ substituted, not that the processor accepted the payment or the merchant created
 an order.
 
 don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect item events and the merchant's order state first.
+
+# bring-your-own link oauth client
+
+prefer KERNEL's oauth client for the flow above. with your own client, your
+backend must construct the human-facing authorization url, manage state and
+pkce, and handle the redirect. register your backend's callback with stripe,
+validate the returned state, and exchange the code using the original pkce
+verifier and client credentials. keep the client secret, verifier, and tokens
+out of agent context, browser code, urls, and logs.
+
+register a [provider configuration](/vaults#provider-configurations) with
+organization-scoped authentication. `link-client.json` must contain `client_id`
+and `client_secret`. keep credential and token files readable only by their
+owner (for example, mode `0600`) and outside the agent's accessible files.
+
+```bash CLI
+kernel vault-provider-configs create --name checkout-link --provider link \
+  --credentials-file "$HOME/.config/kernel/link-client.json"
+```
+
+create the wallet using that config and the grant from your backend's token
+exchange. `link-grant.json` must contain `access_token` and `refresh_token` from
+the same grant, with a currently valid access token. run this from your trusted
+backend or a human-operated terminal, not the agent:
+
+```bash CLI
+kernel vaults wallets create user-12345 link-wallet --provider link \
+  --provider-config-name checkout-link --spec '{}' \
+  --tokens-file "$HOME/.config/kernel/link-grant.json"
+```
+
+successful import returns a `connected` wallet; continue with payment-method
+selection. KERNEL takes over refresh-token rotation, so your backend must stop
+refreshing that grant.
