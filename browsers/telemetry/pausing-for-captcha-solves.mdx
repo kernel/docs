@@ -137,7 +137,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
     A task counts as open while it has no terminal status and is still inside its deadline — that deadline is what stops a missing `captcha_solve_result` from holding the agent forever. `until` is the only waiting primitive, and it always takes a timeout.
 
 ```ts captcha-gate.ts
-	const openTasks = () => [...tasks.values()].filter((t) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS);
+	const isOpen = (t: Outcome & { openedAt: number }) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS;
+	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
 
 	async function until(done: () => boolean, timeoutMs: number) {
@@ -150,7 +151,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
   <Step title="Resolve an outcome">
     `resolve` settles what it can, waits a bounded interval for a challenge-level result *only* when a task actually carried a `challenge_id`, then reads the page and picks the best available source: an attributable challenge result, then any challenge result (labelled as a page observation rather than a join), then task results, then the page alone.
 
-    `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone.
+    `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone. It has to catch *every* settled task, not just failures: a successful task-only result (Turnstile's usual path) and a task whose deadline lapsed with no result at all are both settled outcomes the agent needs to hear about.
 
 ```ts captcha-gate.ts
 	async function resolve(): Promise<Verdict> {
@@ -173,7 +174,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		/** A task the solver accepted has no terminal result yet. */
 		holding: () => openTasks().length > 0,
 		/** A terminal outcome is recorded that the agent hasn't been told about. */
-		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => t.status && t.status !== "success"),
+		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
 			tasks.clear();
@@ -368,7 +369,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		}
 	})();
 
-	const openTasks = () => [...tasks.values()].filter((t) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS);
+	const isOpen = (t: Outcome & { openedAt: number }) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS;
+	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
 
 	async function until(done: () => boolean, timeoutMs: number) {
@@ -396,7 +398,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		/** A task the solver accepted has no terminal result yet. */
 		holding: () => openTasks().length > 0,
 		/** A terminal outcome is recorded that the agent hasn't been told about. */
-		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => t.status && t.status !== "success"),
+		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
 			tasks.clear();
