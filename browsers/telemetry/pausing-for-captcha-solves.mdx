@@ -154,6 +154,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 
     `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone. It has to catch *every* settled task, not just failures: a successful task-only result (Turnstile's usual path) and a task whose deadline lapsed with no result at all are both settled outcomes the agent needs to hear about.
 
+    `reset` only clears a task once something actually covers it — a terminal status of its own, or a challenge result for the episode it belongs to. A task the solver hasn't finished with survives, so `holding` stays true and the next tool call keeps waiting on it instead of losing track of a solve that's still in progress.
+
 ```ts captcha-gate.ts
 	async function resolve(): Promise<Verdict> {
 		// A challenge result covers every task under it, so stop waiting once one lands.
@@ -178,9 +180,18 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
-			tasks.clear();
+			// A challenge result covers every task under it, open or not, so an
+			// open task isn't preserved once its challenge already resolved --
+			// only when there's no other signal covering it yet, meaning the
+			// solver may still be working via a follow-up task resolve() hasn't
+			// seen close out.
+			const covered = Boolean(joinedResult());
+			for (const [id, t] of tasks) {
+				if (isOpen(t) && !covered) continue;
+				tasks.delete(id);
+			}
 			challenges.clear();
-			joinable.clear();
+			if (openTasks().length === 0) joinable.clear();
 		},
 		/** Stop the telemetry stream. Call before deleting the browser. */
 		close: () => streamController?.abort(),
@@ -407,9 +418,18 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
-			tasks.clear();
+			// A challenge result covers every task under it, open or not, so an
+			// open task isn't preserved once its challenge already resolved --
+			// only when there's no other signal covering it yet, meaning the
+			// solver may still be working via a follow-up task resolve() hasn't
+			// seen close out.
+			const covered = Boolean(joinedResult());
+			for (const [id, t] of tasks) {
+				if (isOpen(t) && !covered) continue;
+				tasks.delete(id);
+			}
 			challenges.clear();
-			joinable.clear();
+			if (openTasks().length === 0) joinable.clear();
 		},
 		/** Stop the telemetry stream. Call before deleting the browser. */
 		close: () => streamController?.abort(),
