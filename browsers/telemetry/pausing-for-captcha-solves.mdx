@@ -54,6 +54,8 @@ The four snippets below are one file, `captcha-gate.ts`, in order.
 
     A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed.
 
+    The stream's `AbortController` is saved so the gate can close it later — the loop runs detached from the caller, and leaving it open past the browser's deletion keeps the process alive waiting on a connection that will never produce another event.
+
 ```ts captcha-gate.ts
 /**
  * Pause a browser-loop agent while Kernel's captcha solver works, and tell it
@@ -97,9 +99,11 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
+	let streamController: AbortController | undefined;
 
 	void (async () => {
 		const stream = await kernel.browsers.telemetry.stream(sessionId);
+		streamController = stream.controller;
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
@@ -176,6 +180,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			challenges.clear();
 			joinable.clear();
 		},
+		/** Stop the telemetry stream. Call before deleting the browser. */
+		close: () => streamController?.abort(),
 	};
 }
 
@@ -208,6 +214,8 @@ function describe(source: Verdict["source"], status: string, joined: boolean, ou
     `harness.on("tool_call", …)` is awaited before the tool is dispatched, so returning from it late holds the action and returning `{ block: true, reason }` replaces it with a message the model reads. That is cheaper than aborting the turn and it stops the action *before* it reaches the page.
 
     The page probe is a read-only Playwright snippet. Its result is what decides whether the agent is interrupted at all — a cleared page just resumes with no extra turn.
+
+    `gate.close()` runs before the browser is deleted, so the detached telemetry loop from step one gets torn down instead of hanging on a connection to a session that no longer exists.
 
 ```ts captcha-gate.ts
 const PROBE = `
@@ -273,6 +281,7 @@ async function main(): Promise<void> {
 		const final = await harness.prompt(task);
 		for (const block of final.content) if (block.type === "text") console.log(block.text);
 	} finally {
+		gate.close();
 		await kb.dispose();
 		await kernel.browsers.deleteByID(browser.session_id);
 	}
@@ -327,9 +336,11 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const challenges = new Map<string, Outcome & { status: string }>();
 	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
+	let streamController: AbortController | undefined;
 
 	void (async () => {
 		const stream = await kernel.browsers.telemetry.stream(sessionId);
+		streamController = stream.controller;
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
@@ -392,6 +403,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 			challenges.clear();
 			joinable.clear();
 		},
+		/** Stop the telemetry stream. Call before deleting the browser. */
+		close: () => streamController?.abort(),
 	};
 }
 
@@ -481,6 +494,7 @@ async function main(): Promise<void> {
 		const final = await harness.prompt(task);
 		for (const block of final.content) if (block.type === "text") console.log(block.text);
 	} finally {
+		gate.close();
 		await kb.dispose();
 		await kernel.browsers.deleteByID(browser.session_id);
 	}
