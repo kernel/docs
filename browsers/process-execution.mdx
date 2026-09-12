@@ -1,9 +1,23 @@
 ---
 title: "Process Execution"
-description: "Run commands and manage processes inside a browser VM"
+description: "Run commands and manage processes alongside the browser"
 ---
 
-Every Kernel browser runs inside its own VM with a full Linux environment alongside Chromium. Process execution lets you run arbitrary commands in that VM — install a tool, inspect files, run a script, or drive a co-located agent — without leaving the session.
+every KERNEL browser runs in a full linux environment. playwright controls what happens in the page; process execution lets you run commands, scripts, and binaries alongside the browser.
+
+use process execution when your browser automation needs software or system access outside a playwright callback. code running alongside the browser can access the same files and local browser services, so you can process downloads without transferring them to your application first, run existing command-line tools, or keep a high-frequency agent loop close to the browser.
+
+use `process.exec` for bounded commands where you need the result before continuing. use `process.spawn` for agents, servers, watchers, interactive shells, and other long-running processes. after spawning a process, you can inspect its status, stream its output, send input, resize its pty, or terminate it.
+
+if your task only needs the `page`, `context`, and `browser` objects, use [playwright execution](/browsers/playwright-execution). use process execution when you need an executable, operating-system tools, a long-running process, or direct filesystem access. for workloads that need their own deployment and invocation lifecycle, use [KERNEL apps](/apps).
+
+## common production patterns
+
+- **co-locate an agent with its browser.** browser agents often make many small tool calls. upload an agent binary with [file i/o](/browsers/file-io), run it alongside chromium, and point it at the local playwright endpoint to remove a round trip through KERNEL's public api from each call. see the [fx co-located agent cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/fx-colocated-agent) for an end-to-end example.
+- **process downloads before retrieving them.** unpack archives, extract text from documents, resize images, or compress a directory while the files are still alongside the browser, then retrieve only the final artifacts with file i/o.
+- **run existing command-line tools.** upload a pinned binary or script and call it from the same workflow instead of rewriting it as browser automation code.
+- **start a session-local helper.** run a local server, callback handler, or file watcher for as long as the browser task needs it.
+- **inspect failed browser tasks.** run tools such as `curl`, `ps`, and `ls` to inspect network responses, running processes, logs, and downloaded files before the browser is deleted.
 
 ## Run a command synchronously
 
@@ -236,10 +250,6 @@ kernel browsers process spawn <session-id> --command python3 --args -m --args ht
 kernel browsers process status <session-id> <process-id>
 kernel browsers process kill <session-id> <process-id>
 ```
-
-## Example: co-locating an agent with its browser
-
-Driving a browser from outside the VM means every tool call is a round trip through Kernel's API. Process execution lets you flip that around: upload an agent binary into the VM with [File I/O](/browsers/file-io), then run it alongside Chromium so it talks to the VM's local Playwright endpoint over loopback instead. See the [fx co-located agent cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/fx-colocated-agent) for a full working example.
 
 ## Related
 
