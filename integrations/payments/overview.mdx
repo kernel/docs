@@ -22,6 +22,12 @@ native <span className="kernel-brand-name">KERNEL</span> processor adapter.
 
 ## How payments work
 
+use KERNEL-managed credentials by default. if you need to use your own oauth
+client, choose the customer-managed setup near the start of the
+[link](/integrations/payments/stripe-link#choose-an-oauth-client) or
+[agentcard](/integrations/payments/agentcard#choose-an-oauth-client) guide before
+you create a wallet.
+
 both credential providers use the same integration shape:
 
 1. create a vault for the user or task.
@@ -83,7 +89,7 @@ the card number and cvc stay outside the agent-controlled environment. the brows
 | purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
 | payment handoff           | one-use credential substituted at egress                 | agentcard executes the request and returns the response             |
 | reuse                     | card item and aliases are consumed on first substitution | cards can be reused for recurring and one-time purchases            |
-| environment               | live only                                                | configured agentcard credential; not exposed through the vault api  |
+| environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
 choose [link by stripe](https://hypeship.dev/integrations/payments/stripe-link) when each purchase requires a newly approved, single-use credential. choose [agentcard](https://hypeship.dev/integrations/payments/agentcard) when one enrolled card must support multiple purchases, with separate approval for each.
 

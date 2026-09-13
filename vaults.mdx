@@ -200,11 +200,6 @@ the organization, and duplicate creates return `409` without replacing secrets.
 - **binding:** the wallet's configuration is immutable, and cards inherit it. renaming a config preserves bindings.
 - **rotation:** updating `client_secret` affects all bound wallets. provider, client id, and agentcard mode cannot change; changing clients requires a new config and new wallets.
 - **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
-- **recovery:** `recovery_required` means a card's provider outcome is unresolved. it stops item wait loops and blocks new authorization, checkout, and deletion of the card or its parent wallet/vault.
-
-for recovery, inspect existing evidence and contact the provider or support when
-manual reconciliation is needed. there is no reset operation; deletion is not
-payment recovery.
 
 ## Initial item specifications
 
@@ -261,6 +256,12 @@ card status values are:
 
 - link: `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
 - agentcard: `requested`, `ready`, `pending_approval`, `degraded`, `recovery_required`
+
+`recovery_required` means a card's provider outcome is unresolved. it stops
+item wait loops and blocks new authorization, checkout, and deletion of the
+card or its parent wallet or vault. inspect existing evidence and contact the
+provider or support when manual reconciliation is needed. there is no reset
+operation; deletion is not payment recovery.
 
 card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
 

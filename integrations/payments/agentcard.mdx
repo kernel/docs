@@ -56,13 +56,158 @@ kernel vaults create --name user-12345
 
 </CodeGroup>
 
-the vault api does not expose whether the configured agentcard credential is
-sandbox or live. `AGENTCARD_MODE` is an application-owned assertion, not a
-value read from KERNEL. set it from the deployment configuration that owns the
-agentcard credential, show the mode in internal checkout controls, and fail
-closed when it is missing or does not match the environment you intend to use.
-set `AGENTCARD_MODE=sandbox` instead only when that deployment uses a sandbox
-credential.
+for KERNEL-managed credentials, the vault api does not expose whether the
+agentcard credential is sandbox or live. customer-owned provider configuration
+responses expose `test_mode`, as shown below. `AGENTCARD_MODE` remains an
+application-owned assertion in both cases: show it in internal checkout
+controls and fail closed when it is missing or does not match the credential.
+
+## Choose an oauth client
+
+use KERNEL's oauth client by default. if you bring your own client, complete the
+setup below before following the shared payment lifecycle.
+
+### bring your own agentcard oauth client
+
+register a [provider configuration](/vaults#provider-configurations) once for
+your organization. configurations are shared across projects, so authenticate
+this step with an [organization-scoped api key](/info/api-keys). project-scoped
+credentials can reference an existing configuration when creating a wallet, but
+can't create, update, or delete configurations.
+
+keep the client credentials outside the agent's accessible files. the SDK
+examples read them from backend environment variables. for the CLI, create a
+protected file readable only by its owner (for example, mode `0600`):
+
+```json agentcard-client.json
+{
+  "client_id": "example-client-id",
+  "client_secret": "example-client-secret"
+}
+```
+
+<CodeGroup>
+
+```typescript TypeScript
+const orgKernel = new Kernel({
+  apiKey: process.env.KERNEL_ORG_API_KEY!,
+});
+const agentcardConfig = await orgKernel.vaultProviderConfigs.create({
+  name: "checkout-agentcard",
+  provider: "agentcard",
+  credentials: {
+    client_id: process.env.AGENTCARD_CLIENT_ID!,
+    client_secret: process.env.AGENTCARD_CLIENT_SECRET!,
+  },
+});
+
+if (
+  agentcardConfig.provider !== "agentcard" ||
+  agentcardConfig.test_mode !== (agentcardMode === "sandbox")
+) {
+  throw new Error("agentcard credential mode does not match AGENTCARD_MODE");
+}
+```
+
+```python Python
+org_kernel = Kernel(api_key=os.environ["KERNEL_ORG_API_KEY"])
+agentcard_config = org_kernel.vault_provider_configs.create(
+    name="checkout-agentcard",
+    provider="agentcard",
+    credentials={
+        "client_id": os.environ["AGENTCARD_CLIENT_ID"],
+        "client_secret": os.environ["AGENTCARD_CLIENT_SECRET"],
+    },
+)
+
+if (
+    agentcard_config.provider != "agentcard"
+    or agentcard_config.test_mode != (agentcard_mode == "sandbox")
+):
+    raise RuntimeError("agentcard credential mode does not match AGENTCARD_MODE")
+```
+
+```bash CLI
+# run with KERNEL_API_KEY set to an organization-scoped key
+kernel vault-provider-configs create \
+  --name checkout-agentcard \
+  --provider agentcard \
+  --credentials-file "$HOME/.config/kernel/agentcard-client.json"
+```
+
+</CodeGroup>
+
+the response exposes `test_mode` (`true` means sandbox, `false` means live).
+verify it against `AGENTCARD_MODE`. then create the wallet with the
+project-scoped `kernel` client and `vault` from
+[Before you start](#before-you-start). CLI users should restore their
+project-scoped `KERNEL_API_KEY` before running the wallet command.
+
+<CodeGroup>
+
+```typescript TypeScript
+let wallet = await kernel.vaults.items.upsert("agentcard-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "agentcard",
+    provider_config: { name: agentcardConfig.name },
+  },
+});
+
+if (wallet.action?.name === "card_enrollment") {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: wallet,
+  });
+}
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "agentcard-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "agentcard",
+        "provider_config": {"name": agentcard_config.name},
+    },
+)
+
+if wallet.action is not None and wallet.action.name == "card_enrollment":
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=wallet,
+    )
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    wait=60,
+)
+```
+
+```bash CLI
+kernel vaults wallets create user-12345 agentcard-wallet \
+  --provider agentcard \
+  --provider-config-name checkout-agentcard \
+  --spec '{}' \
+  --open
+kernel vaults items get user-12345 agentcard-wallet --wait 60
+```
+
+</CodeGroup>
+
+the SDK examples use the authenticated action-presentation contract described
+in [Enroll a card](#enroll-a-card). run CLI `--open` only in a trusted,
+human-operated terminal. after the user completes enrollment, repeat the
+bounded wallet read until its status is `connected` or your application
+deadline expires. then continue with [Create a card item](#create-a-card-item).
 
 ## Lifecycle
 
@@ -77,6 +222,10 @@ credential.
 the card item returns to `ready` after an authorization settles and can be used for another separately approved purchase. only one authorization can be pending on an item at a time.
 
 ## Enroll a card
+
+this section shows wallet creation with KERNEL-managed credentials. if you
+connected a wallet with your own client above, continue with
+[Create a card item](#create-a-card-item).
 
 before showing an agentcard enrollment option, list the vault's items. if an
 agentcard wallet already exists in any state, reuse it and do not let the user
@@ -528,28 +677,3 @@ merchant created the expected order. return `indeterminate` when the sources
 disagree or the merchant record is unavailable, and don't retry automatically.
 
 pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
-
-# bring-your-own agentcard oauth client
-
-the flow above uses KERNEL-managed credentials. to use your own oauth client,
-register a [provider configuration](/vaults#provider-configurations) with
-organization-scoped authentication. `agentcard-client.json` must contain
-`client_id` and `client_secret`. keep it readable only by its owner (for example,
-mode `0600`) and outside the agent's accessible files.
-
-```bash CLI
-kernel vault-provider-configs create --name checkout-agentcard --provider agentcard \
-  --credentials-file "$HOME/.config/kernel/agentcard-client.json"
-```
-
-unlike the KERNEL-managed wallet response, this config response exposes
-`test_mode` (`true` means sandbox, `false` means live). verify that it matches
-your expected mode, then reference the config when creating the wallet:
-
-```bash CLI
-kernel vaults wallets create user-12345 agentcard-wallet --provider agentcard \
-  --provider-config-name checkout-agentcard --spec '{}' --open
-```
-
-run `--open` only in a trusted, human-operated terminal. complete the returned
-hosted enrollment action, then continue with card creation above.
