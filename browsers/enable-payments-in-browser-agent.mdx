@@ -23,7 +23,7 @@ credential is created and when the user approves it:
 | card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
 | approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
 | reuse           | card item and aliases are consumed after the first native handoff | card item and aliases return to `ready`; every checkout requires approval        |
-| mode            | live only                                                         | deployment credential; the vault api doesn't expose sandbox or live mode         |
+| mode            | live only                                                         | credential-defined; customer-owned configs expose `test_mode`                    |
 
 agentcard is backed by a card the user enrolls, but the agent and browser still
 enter aliases rather than the underlying card details. those details remain
@@ -141,7 +141,11 @@ this guide starts after you have an existing browser agent. it changes how you p
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
 - use a low-value web checkout you control whose outgoing payment request matches a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage). the merchant processor doesn't need to be stripe.
 - link card creation is live-only. agentcard mode comes from the integration's configured credential.
-- for agentcard, keep an application-owned `AGENTCARD_MODE` deployment setting and fail closed unless it explicitly matches the sandbox or live environment you intend to use. the vault api does not return this mode.
+- for agentcard, keep an application-owned `AGENTCARD_MODE` setting and verify it against the credential's mode. customer-owned configs return `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. fail closed if the mode is unknown or mismatched.
+
+use KERNEL-managed credentials by default. optional client setup belongs in your
+trusted backend, not the browser agent: see [link](/integrations/payments/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/payments/agentcard#bring-your-own-agentcard-oauth-client).
 
 <Warning>
   keep wallet collection and payment approval outside the agent. show hosted
@@ -634,6 +638,7 @@ use item state, item events, the checkout page, and the merchant's order record 
 | link `consumed`, `credential_submitted`, or `credential_tokenized` | confirm processor and merchant state; credential use alone does not prove purchase success      |
 | agentcard `ready` or authorization `approved`                             | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
 | decline, expiry, rejection, failure, abandonment, or `payment_unknown`    | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
+| `recovery_required` | stop; reconcile the unresolved provider outcome. do not retry or delete the item or its parent wallet/vault |
 
 use the merchant order record as the authority for whether the expected order
 was created and paid. require its merchant, amount, currency, and items to match
