@@ -53,12 +53,36 @@ func main() {
 ## Query parameters
 
 The `browser_live_view_url` supports additional query parameters to customize the live view:
-- `readOnly` (bool): when set to `true`, the view will be non-interactive.
+- `readOnly` (bool): when set to `true`, the view is non-interactive. This is a display option, not a
+  security control — see [Treat the URL as a credential](#treat-the-url-as-a-credential).
 
 Example:
 ```
 https://api.onkernel.com/browser/live/<TOKEN>?readOnly=true
 ```
+
+## Treat the URL as a credential
+
+A live view URL grants control of that browser session. Anyone who holds it can drive the browser, so
+handle it the way you'd handle an API key rather than a link.
+
+Two properties to design around:
+
+- **`readOnly` is a display option, not a security boundary.** It makes the embedded view
+  non-interactive for the person looking at it. Don't rely on it to constrain what a recipient can do
+  with the URL.
+- **Deleting the browser is how you revoke access.** The URL stays valid while the browser exists,
+  independently of whether anyone is watching — see [URL lifetime](#url-lifetime) below.
+
+Embedding the live view in your own application is the intended use, and it's how most human-in-the-loop
+flows work. What matters is that your application decides who reaches it: serve the URL from your
+backend behind your own authorization rather than passing it to an end user or sharing it in a link.
+
+<Warning>
+If your end users complete steps themselves — entering a password, clearing MFA, approving a prompt —
+gate the live view behind your own authentication and scope each session to one user. A URL that leaks
+exposes that browser's session, including anything it is signed in to.
+</Warning>
 
 ## Embedding in an iframe
 

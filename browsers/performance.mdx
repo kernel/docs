@@ -31,3 +31,70 @@ Certain browser configurations trigger Chromium to restart, which can take sever
 4. Browser pool refill rate
 
 Browser pools fill at a [specified rate](https://www.kernel.sh/docs/api-reference/browser-pools/create-a-browser-pool#body-fill-rate-per-minute). Read about browser pool lifecycle best practices [here](/browsers/pools#how-browser-pools-work).
+### Page load latency
+
+Browser creation is one number; how long a page takes to become *actionable* is another, and the wait
+condition you pick dominates it. Measured against a production workload:
+
+| Page type | `domcontentloaded` + selector | `load` |
+|-----------|-------------------------------|--------|
+| Homepage | 2.6s | 6.6s |
+| Product page | 5.4s | 8.6s |
+
+`networkidle` did not resolve within an additional 10s budget on either page type.
+
+Wait on `domcontentloaded` plus the exact selector for the step you're about to take:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.playwright.execute(
+  kernelBrowser.session_id,
+  {
+    code: `
+      await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#results');
+      return await page.title();
+    `
+  }
+);
+```
+
+```python Python
+response = kernel.browsers.playwright.execute(
+    id=kernel_browser.session_id,
+    code="""
+        await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#results');
+        return await page.title();
+    """
+)
+```
+
+```go Go
+response, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `
+		await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+		await page.waitForSelector('#results');
+		return await page.title();
+	`,
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+Why the other two cost you:
+
+- **`load`** waits for subresources you don't need. Third-party advertising and analytics tags routinely
+  keep loading for seconds after the content you care about is present, and `load` makes you wait for
+  all of it.
+- **`networkidle`** can never resolve on a long-dwell single-page app, where background activity
+  continues for as long as the page is open.
+
+<Warning>
+The recommendation is not "always use `domcontentloaded`". It's `domcontentloaded` **plus the exact
+selector for your next step** — a content-heavy page can reach an app-ready state well after
+`domContentLoaded` fires, and a bare `domcontentloaded` wait can hand you a page your selector isn't
+on yet.
+</Warning>
