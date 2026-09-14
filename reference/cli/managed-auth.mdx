@@ -19,6 +19,7 @@ Create a managed auth connection for a profile and domain.
 | `--health-check-interval <seconds>` | Seconds between health checks (300–86400). |
 | `--no-health-checks` | Disable periodic health checks. |
 | `--no-auto-reauth` | Disable automatic reauthentication attempts after an expired session is detected. |
+| `--region <region>` | Browser region for login, health-check, and reauthentication sessions: `us-east`, `eu-west`, or `ap-southeast`. Defaults to `us-east`. |
 | `--proxy-id <id>` | Proxy ID to use. |
 | `--proxy-name <name>` | Proxy name to use. |
 | `--credential-provider <name>` | External credential provider name. |
@@ -52,6 +53,7 @@ Start a login flow and return a hosted URL for authentication.
 
 | Flag | Description |
 |------|-------------|
+| `--region <region>` | Region override for this login only. Omit it to inherit the connection region. |
 | `--proxy-id <id>` | Proxy ID to use for this login. |
 | `--proxy-name <name>` | Proxy name to use for this login. |
 | `--telemetry <spec>` | Override telemetry for this login only, merged with the connection's config. Pass `all`, `off`, or a comma-separated category list like `console,network`. |
@@ -110,6 +112,7 @@ Update connection settings such as login URL, health checks, credential source, 
 | `--health-check-interval <seconds>` | Seconds between health checks. |
 | `--health-checks` / `--no-health-checks` | Enable or disable periodic health checks. |
 | `--auto-reauth` / `--no-auto-reauth` | Enable or disable automatic reauthentication attempts after an expired session is detected. |
+| `--region <region>` | Region for browser sessions created after the update: `us-east`, `eu-west`, or `ap-southeast`. Active sessions don't move. |
 | `--proxy-id <id>` | Proxy ID to use. |
 | `--proxy-name <name>` | Proxy name to use. |
 | `--credential-provider <name>` | External credential provider name. |

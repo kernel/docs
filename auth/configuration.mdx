@@ -96,6 +96,77 @@ _ = auth
 ```
 </CodeGroup>
 
+## Browser Region
+
+Set `browser.region` to choose where Managed Auth runs the connection's initial login, health checks, and automatic reauthentication. Choose from `us-east`, `eu-west`, and `ap-southeast`. Region selection is available on [Start-Up and Enterprise plans](/info/pricing); omitted values default to `us-east`.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  browser: { region: 'eu-west' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    browser={"region": "eu-west"},
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Browser: kernel.ManagedAuthBrowserConfigParam{
+			Region: kernel.ManagedAuthBrowserConfigRegionEuWest,
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+Updating `browser.region` changes the connection default for browsers created afterward. It doesn't move or restart an active login, health check, or reauthentication browser.
+
+You can override the connection region for one login without changing its default:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  browser: { region: 'ap-southeast' },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    browser={"region": "ap-southeast"},
+)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	Browser: kernel.ManagedAuthBrowserConfigParam{
+		Region: kernel.ManagedAuthBrowserConfigRegionApSoutheast,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
+
 ## SSO/OAuth Support
 
 Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
@@ -375,6 +446,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `auto_reauth` | Whether a failed scheduled health check is allowed to attempt automatic re-authentication |
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
+| `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.

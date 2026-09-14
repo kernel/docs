@@ -12,7 +12,7 @@ Choose from `us-east`, `eu-west`, and `ap-southeast`.
 Region selection is available on [Start-Up and Enterprise plans](/info/pricing), at the same usage rates as default browsers. If you omit `region` when creating a browser or pool, it defaults to `us-east`.
 
 <Note>
-Regional browsers support CPU browsers and browser pools. Regional support for GPU browsers, Managed Auth, Apps, and Invocations is coming soon.
+Regional browsers support CPU browsers, browser pools, and Managed Auth. Regional support for GPU browsers, Apps, and Invocations is coming soon.
 </Note>
 
 ## Create a regional browser
@@ -75,6 +75,37 @@ Connect using the returned `cdp_ws_url` as usual. Your existing Playwright or CD
 You can also choose **Region** in the browser configuration dialog in the [dashboard](https://dashboard.onkernel.com) before launching a browser.
 
 A browser's region is fixed when you create it. To use a different region, create a new browser.
+
+## Run Managed Auth in a region
+
+A Managed Auth connection stores a default browser region for its initial login, health checks, and automatic reauthentication. In the dashboard, choose **Region** under **Advanced options** when you create a connection, or under **Browser defaults** when you edit one.
+
+With the CLI, pass `--region` when you create or update a connection:
+
+```bash
+kernel auth connections create \
+  --domain example.com \
+  --profile-name my-profile \
+  --region eu-west
+
+kernel auth connections update conn_01k3m8v2c9w4n7q6 \
+  --region ap-southeast
+```
+
+For one login in a different region, pass `--region` to `kernel auth connections login`. The override applies only to that login.
+
+The MCP server exposes the same behavior through `browser_region` on `manage_auth_connections`:
+
+```json
+{
+  "action": "create",
+  "domain": "example.com",
+  "profile_name": "my-profile",
+  "browser_region": "eu-west"
+}
+```
+
+For the secure login panel, pass `region` to `open_auth_login`. See [Connection Configuration](/auth/configuration#browser-region) for SDK examples and update semantics.
 
 ## Create a regional browser pool
 
