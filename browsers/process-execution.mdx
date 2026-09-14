@@ -13,7 +13,7 @@ if your task only needs to control the page itself, use one of Kernel's [browser
 
 ## common production patterns
 
-- **co-locate an agent with its browser.** browser agents often make many small tool calls. upload an agent binary with [file i/o](/browsers/file-io), run it alongside chromium, and connect it to the browser's local control endpoint to remove a round trip through KERNEL's public api from each call. see the [fx co-located agent cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/fx-colocated-agent) for an end-to-end example.
+- **co-locate an agent with its browser.** browser agents often make many small tool calls. upload an agent binary with [file i/o](/browsers/file-io), run it alongside chromium, and point it at the local playwright daemon to remove a round trip through KERNEL's public api from each call. see the [fx co-located agent cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/fx-colocated-agent) for an end-to-end example.
 - **process downloads before retrieving them.** unpack archives, extract text from documents, resize images, or compress a directory while the files are still alongside the browser, then retrieve only the final artifacts with file i/o.
 - **run existing command-line tools.** upload a pinned binary or script and call it from the same workflow instead of rewriting it as browser automation code.
 - **start a session-local helper.** run a local server, callback handler, or file watcher for as long as the browser task needs it.
