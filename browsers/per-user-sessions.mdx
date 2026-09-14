@@ -1,0 +1,184 @@
+---
+title: "Per-User Sessions"
+description: "Run one authenticated browser per end user when your application owns the credentials"
+---
+
+When your application signs in your own users — you hold their credentials, or they enter them
+themselves — each user needs browser state that's isolated from every other user. This guide covers
+that shape: where the state lives, how to avoid corrupting it, how to keep cold starts off your
+latency budget, and what a per-user session costs.
+
+If you'd rather Kernel perform the login and keep it healthy for you, use
+[Managed Auth](/auth/overview) instead. Everything below assumes you're doing the login yourself.
+
+## Give each user their own profile
+
+A [profile](/auth/profiles) is the unit of per-user state: it carries cookies and local storage into
+a browser. Create one per user, drive your own login flow in a browser that references it, and set
+`save_changes` so the resulting session is written back when the browser is deleted.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.profiles.create({ name: 'user-8f21c3' });
+
+const kernelBrowser = await kernel.browsers.create({
+  profile: { name: 'user-8f21c3', save_changes: true },
+});
+
+// ... run your login flow as this user ...
+
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+kernel.profiles.create(name="user-8f21c3")
+
+kernel_browser = kernel.browsers.create(
+    profile={"name": "user-8f21c3", "save_changes": True},
+)
+
+# ... run your login flow as this user ...
+
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```go Go
+if _, err := client.Profiles.New(ctx, kernel.ProfileNewParams{
+	Name: kernel.String("user-8f21c3"),
+}); err != nil {
+	panic(err)
+}
+
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String("user-8f21c3"),
+		SaveChanges: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+// ... run your login flow as this user ...
+
+if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+State is written on browser deletion, not on `browser.close()` — see [Profiles](/auth/profiles).
+
+Keep one profile per user per target site rather than accumulating every site a user touches into a
+single profile. Large profiles carry more cookies and origins, and that slows browser startup on
+every later session.
+
+## Keep one writer per profile
+
+Saving replaces a profile's entire stored state — it doesn't merge. If two browsers use the same
+profile with `save_changes: true`, the one that ends last wins and the other user's work is lost
+silently. In a per-user deployment the symptom is a user who appears to get logged out at random.
+
+Run exactly one writer per profile at a time, and omit `save_changes` on everything else so parallel
+work reads the profile without racing to write it. Before you start a writer, check for an existing
+one — [Prevent concurrent profile writes](/auth/profiles#prevent-concurrent-profile-writes) has the
+query and examples.
+
+<Warning>
+That check and the browser creation are separate requests. If more than one of your workers can
+start a session for the same user, hold your own lock or lease across both operations.
+</Warning>
+
+## Serve many users from one browser pool
+
+Per-user traffic is bursty, so cold start is the latency your users feel.
+[Browser pools](/browsers/pools) keep warm browsers ready, but a profile attached to a pool is
+shared and read-only, which is the opposite of what you need here.
+
+Create the pool with no profile, attach the user's profile after you acquire a browser, and release
+with `reuse: false`. See
+[Per-user profiles with browser pools](/browsers/pools#per-user-profiles-with-browser-pools) for the
+full example.
+
+<Warning>
+Releasing with `reuse: true` hands that user's logged-in browser to whoever acquires next. Always
+release per-user browsers with `reuse: false`.
+</Warning>
+
+## Share a live view with your user
+
+You might want your user to finish a step themselves — entering a password, clearing MFA, or
+approving a prompt. [Live view](/browsers/live-view) is how you show them the browser, but treat the
+URL as a credential rather than a link.
+
+- **The live view URL grants control of that browser.** Anyone who has it can drive the session.
+- **`readOnly` is a display option, not a security boundary.** It makes the embedded view
+  non-interactive. Don't rely on it to stop a recipient from acting on the browser.
+- **Don't hand the URL to a user directly.** Serve it from your own backend behind your own
+  authorization, or embed it in a page you control, so you decide who reaches it and for how long.
+- **Deleting the browser is how you revoke access.** The URL stays usable while the browser exists,
+  independent of whether anyone is watching.
+
+Because each browser belongs to one user, a URL that leaks exposes only that user's session — which
+is another reason to keep pooled browsers on `reuse: false`.
+
+## Understand what an idle user costs
+
+A browser enters [standby](/browsers/standby) after five seconds with no CDP client, live view, or
+computer-controls call in flight. State is preserved and usage costs stop, so a per-user browser
+that's waiting on its user is cheap to leave running. You don't need to tear a session down and
+rebuild it to avoid paying for idle time.
+
+Two things to plan around:
+
+- [GPU-accelerated browsers](/browsers/gpu-acceleration) don't support standby, so an idle
+  GPU browser keeps costing you. Reach for GPU only when a workload needs it.
+- Standby starts the browser's [timeout](/browsers/termination#automatic-deletion-via-timeout)
+  countdown, and `timeout_seconds` defaults to **60**. A browser waiting on its user is deleted a
+  minute later unless you raise it. Set it to cover how long you're willing to hold a session open —
+  the maximum is 259200 (72 hours).
+
+To attribute cost per user, tag sessions at creation and break usage down by tag later.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  profile: { name: 'user-8f21c3', save_changes: true },
+  timeout_seconds: 1800,
+  tags: { end_user: 'user-8f21c3', workflow: 'inbox-triage' },
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    profile={"name": "user-8f21c3", "save_changes": True},
+    timeout_seconds=1800,
+    tags={"end_user": "user-8f21c3", "workflow": "inbox-triage"},
+)
+```
+
+```go Go
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String("user-8f21c3"),
+		SaveChanges: kernel.Bool(true),
+	},
+	TimeoutSeconds: kernel.Int(1800),
+	Tags: kernel.Tags{
+		"end_user": "user-8f21c3",
+		"workflow": "inbox-triage",
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+## Before you go to production
+
+- One profile per user per site, populated by your own login flow.
+- One writer per profile, with your own lock around the check and the create.
+- Pools created without a profile; attach after acquire, release with `reuse: false`.
+- Live view URLs served from your backend, never handed to a user directly.
+- A `timeout_seconds` that matches how long a user's session may stay open, and tags on every browser.
