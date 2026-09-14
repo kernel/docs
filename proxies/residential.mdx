@@ -8,12 +8,6 @@ Residential proxies route traffic through real residential IP addresses. They su
 Residential proxies use **rotating exit IPs** — each new connection may route through a different residential IP address within your targeted region. This is because residential traffic is routed through real consumer devices that may go offline at any time, so the network assigns a new available exit node per connection. This means different browser tabs or requests to different websites within the same session can show different public IPs. If you need a consistent IP address across all connections, use an [ISP proxy](/proxies/isp) instead.
 </Info>
 
-## `.gov` support
-
-Residential proxies created on or after September 9, 2026 with no targeting, country-only targeting, or US state targeting automatically route `.gov` requests through a compatible upstream provider. City-targeted proxies support `.gov` when Kernel validates the route at creation. ZIP, ASN, non-US state, and older proxies may return `restricted_route_unavailable`. Other traffic continues through the standard residential route.
-
-You can [check proxy health](/proxies/overview#check-proxy-health) against a `.gov` URL before starting a browser.
-
 ## IP Rotation Behavior
 
 Residential proxies assign a new exit IP for each new TCP connection. In practice:
@@ -323,6 +317,12 @@ ZIP code targeting is US-only and cannot be combined with `state` or `city`. The
 <Warning>
 Not all ZIP codes have available residential IPs. If a ZIP code is unavailable, proxy creation will fail with a message suggesting alternatives: a nearby ZIP, city/state targeting, or country-only targeting.
 </Warning>
+
+## `.gov` support
+
+Residential proxies created on or after September 9, 2026 with no targeting, country-only targeting, or US state targeting automatically route `.gov` requests through a compatible upstream provider. City-targeted proxies support `.gov` when Kernel validates the route at creation. ZIP, ASN, non-US state, and older proxies may return `restricted_route_unavailable`. Other traffic continues through the standard residential route.
+
+You can [check proxy health](/proxies/overview#check-proxy-health) against a `.gov` URL before starting a browser.
 
 ## Bypass hosts
 
