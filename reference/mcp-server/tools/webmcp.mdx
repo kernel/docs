@@ -47,7 +47,9 @@ For a discovered search tool whose schema accepts a `query`, invoke with argumen
 }
 ```
 
-The result includes `invocation_id` and `status` (`completed`, `canceled`, or `error`), with optional `output` and `error_text`. Check the status before treating the invocation as successful.
+The result includes `invocation_id` and `status` (`completed`, `canceled`, `error`, or `awaiting_submission`), with optional `output` and `error_text`. Check the status before treating the action as complete.
+
+`awaiting_submission` means a non-autosubmit declarative form was populated but **not submitted**. The output is `{ "form_populated": true, "submitted": false }`. Inspect the form, obtain any required confirmation, then submit through `execute_playwright_code` or `computer_action` and inspect the resulting page. Don't call `invoke` again to submit it. See [handling a populated form](/browsers/webmcp#handle-a-populated-form).
 
 A `tool_ref` expires when its document closes or is replaced by navigation. List tools again before selecting the next invocation. Navigation after invocation begins is allowed.
 

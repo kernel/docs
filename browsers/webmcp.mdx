@@ -17,7 +17,7 @@ For the page-author side, see the [Chrome for Developers WebMCP documentation](h
 
 Call `GET /browsers/{id_or_name}/webmcp/tools` for a browser-wide snapshot across every open tab and embedded frame. The API and SDKs return an object containing a `tools` array.
 
-These examples use an existing browser named `catalog`. Open your target website in that browser first, and set `KERNEL_API_KEY` in your environment. Use Kernel SDK version **0.100.0 or later** for TypeScript, Python, and Go.
+These examples use an existing browser named `catalog`. Open your target website in that browser first, and set `KERNEL_API_KEY` in your environment. Use the latest Kernel SDK for TypeScript, Python, or Go, with support for all four invocation statuses below.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -121,10 +121,13 @@ const result = await kernel.browsers.webmcp.invokeTool(sessionId, {
   input: { query: 'running shoes' },
   timeout_sec: 5,
 });
-if (result.status !== 'completed') {
+if (result.status === 'awaiting_submission') {
+  console.log('Form populated, not submitted. Inspect it and confirm before submitting.');
+} else if (result.status === 'completed') {
+  console.log(result.output);
+} else {
   throw new Error(`${result.invocation_id}: ${result.status}: ${result.error_text ?? ''}`);
 }
-console.log(result.output);
 ```
 
 ```python Python
@@ -139,9 +142,12 @@ result = kernel.browsers.webmcp.invoke_tool(
     input={"query": "running shoes"},
     timeout_sec=5,
 )
-if result.status != "completed":
+if result.status == "awaiting_submission":
+    print("Form populated, not submitted. Inspect it and confirm before submitting.")
+elif result.status == "completed":
+    print(result.output)
+else:
     raise RuntimeError(f"{result.invocation_id}: {result.status}: {result.error_text}")
-print(result.output)
 ```
 
 ```go Go
@@ -170,10 +176,14 @@ result, err := client.Browsers.Webmcp.InvokeTool(ctx, sessionID, kernel.BrowserW
 if err != nil {
 	panic(err)
 }
-if result.Status != kernel.InvocationResultStatusCompleted {
+switch result.Status {
+case kernel.InvocationResultStatusAwaitingSubmission:
+	fmt.Println("Form populated, not submitted. Inspect it and confirm before submitting.")
+case kernel.InvocationResultStatusCompleted:
+	fmt.Println(result.Output)
+default:
 	panic(fmt.Sprintf("%s: %s: %s", result.InvocationID, result.Status, result.ErrorText))
 }
-fmt.Println(result.Output)
 ```
 
 ```bash curl
@@ -188,13 +198,20 @@ TOOL_REF=$(printf '%s' "$TOOLS" | jq -er '
   // error("Search tool not found")
 ')
 
-jq -n --arg ref "$TOOL_REF" \
+RESULT=$(jq -n --arg ref "$TOOL_REF" \
   '{tool_ref: $ref, input: {query: "running shoes"}, timeout_sec: 5}' | \
   curl --fail-with-body --silent --show-error \
     "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/invoke" \
     -H "Authorization: Bearer $KERNEL_API_KEY" \
     -H "Content-Type: application/json" \
-    --data-binary @-
+    --data-binary @-) || { printf '%s\n' "$RESULT" >&2; exit 1; }
+printf '%s\n' "$RESULT" | jq .
+case $(printf '%s' "$RESULT" | jq -r .status) in
+  completed) ;;
+  awaiting_submission)
+    echo 'Form populated, not submitted. Inspect it and confirm before submitting.' ;;
+  *) exit 1 ;;
+esac
 ```
 </CodeGroup>
 
@@ -208,7 +225,36 @@ A completed invocation returns HTTP 200 with a result such as:
 }
 ```
 
-HTTP 200 means you received a terminal result, not necessarily that the tool succeeded. Check `status`: it can be `completed`, `canceled`, or `error`. `output` and `error_text` are optional; the output shape depends on the page's tool.
+HTTP 200 doesn't always mean the action is complete. Check `status`:
+
+| Status | Meaning |
+|--------|---------|
+| `completed` | The tool finished. Read its `output`. |
+| `canceled` | The invocation was canceled. Inspect the page before deciding what to do next. |
+| `error` | The tool reported an error. Read `error_text` when present. |
+| `awaiting_submission` | A non-autosubmit declarative form was populated but **not submitted**. Inspect and submit it separately. |
+
+`output` and `error_text` are optional. The output shape depends on the tool, except for the populated-form result below.
+
+## Handle a populated form
+
+For a declarative form without autosubmit, invocation can return:
+
+```json
+{
+  "invocation_id": "inv_search_example",
+  "status": "awaiting_submission",
+  "output": { "form_populated": true, "submitted": false }
+}
+```
+
+This is neither a failure nor a completed submission. The HTTP request has returned, but the form still needs to be submitted:
+
+1. Inspect the populated form in the relevant tab or frame using Playwright or the live view.
+2. Obtain any confirmation required for the action.
+3. Submit the existing form through Playwright or computer interaction, then inspect the resulting page to verify the action completed.
+
+Don't invoke the tool again to submit it; that would start another invocation. Unlike `outcome_unknown`, `awaiting_submission` reports a known state: the form was populated and hasn't been submitted.
 
 ## Tool reference lifecycle
 

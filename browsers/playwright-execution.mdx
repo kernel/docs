@@ -130,6 +130,9 @@ const response = await kernel.browsers.playwright.execute(sessionId, {
       { query: 'running shoes' },
       { timeoutSec: 5 }
     );
+    if (invocation.status === 'awaiting_submission') {
+      return { invocation, next_step: 'Inspect the form, confirm, then submit without reinvoking.' };
+    }
     return { invocation, tools: await webmcp.listTools() };
   `,
   timeout_sec: 10,
@@ -149,6 +152,9 @@ response = kernel.with_options(max_retries=0).browsers.playwright.execute(
           { query: 'running shoes' },
           { timeoutSec: 5 }
         );
+        if (invocation.status === 'awaiting_submission') {
+          return { invocation, next_step: 'Inspect the form, confirm, then submit without reinvoking.' };
+        }
         return { invocation, tools: await webmcp.listTools() };
     """,
     timeout_sec=10,
@@ -157,7 +163,9 @@ print(response)
 ```
 </CodeGroup>
 
-This example gives the search tool 5 seconds and the enclosing execution 10 seconds. Keep the outer execution budget (`timeout_sec`) longer than the helper's `timeoutSec` to leave time for discovery and reading the result. [Choose timeouts for the work you're sending](#timeout-configuration), rather than using the default for every request. Check `response.success` for execution failures and `invocation.status` for the tool's terminal status (`completed`, `canceled`, or `error`).
+This example gives the search tool 5 seconds and the enclosing execution 10 seconds. Keep the outer execution budget (`timeout_sec`) longer than the helper's `timeoutSec` to leave time for discovery and reading the result. [Choose timeouts for the work you're sending](#timeout-configuration), rather than using the default for every request. Check `response.success` for execution failures and `invocation.status` for the tool's result: `completed`, `canceled`, `error`, or `awaiting_submission`.
+
+`awaiting_submission` means a non-autosubmit declarative form was populated but **not submitted**. Inspect the form in its tab or frame, obtain any required confirmation, then submit through Playwright or computer interaction and verify the resulting page. Don't invoke the tool again to submit it. See [handling a populated form](/browsers/webmcp#handle-a-populated-form).
 
 WebMCP request errors surface in `response.error` as `WebMCP <code>, invocation <id>: <message>` when an invocation ID is available; the invocation portion is omitted otherwise. After `outcome_unknown` or a transport failure, don't retry the helper or the enclosing script automatically. Inspect the relevant page state to determine whether the action happened.
 
