@@ -98,7 +98,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Kernel is now a connector in the [Vercel Connect](https://vercel.com/connect) registry: `vercel connect create kernel --connection-method mcp` pre-fills the MCP URL, auth type, and branding, and brokers per-user OAuth so no Kernel API key touches your app.
 - Added a nested `proxy` object to the browser API, taking exactly one of `mode`, `id`, or `name`. Egress and stealth are now independent: an explicit [proxy](/proxies/overview) changes only where traffic exits and never toggles stealth or the CAPTCHA solver. `proxy_id` and `disable_default_proxy` are deprecated.
 - Added [private browser networking](/browsers/private-networking): `network.private_hosts` names the hosts and CIDRs a browser or browser pool should reach directly through the session's own network — for a VPN or tunnel inside the VM — while everything else keeps using Kernel-managed egress.
-- Expanded [managed auth](/auth/overview) with a nested `browser` configuration on connections covering `stealth`, `proxy`, and `telemetry`, applied as the default for every browser a connection launches. Set `browser.stealth` to `false` to skip stealth mode and the CAPTCHA solver. The older `proxy`, `proxy_id`, and `browser_telemetry` fields are deprecated.
+- Expanded [managed auth](/auth/managed-auth) with a nested `browser` configuration on connections covering `stealth`, `proxy`, and `telemetry`, applied as the default for every browser a connection launches. Set `browser.stealth` to `false` to skip stealth mode and the CAPTCHA solver. The older `proxy`, `proxy_id`, and `browser_telemetry` fields are deprecated.
 - Improved fingerprint coherence in [stealth-mode browsers](/browsers/bot-detection/stealth): the WebGL renderer persona now applies on GPU hosts as well as software-rendered ones, and storage quota, network information, and speech voices report plausible per-host values.
 - Browser responses now include `profile_save_changes`, so you can tell which sessions loaded a [profile](/auth/profiles) read-write and coordinate a single writer.
 - Fixed egress reliability issues: large downloads no longer truncate mid-body under backpressure, WebSocket and TURN traffic pass through unchanged, and origins that omit their intermediate certificate now verify the way Chrome does.
@@ -143,7 +143,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Released [`@onkernel/eve-extension`](https://github.com/kernel/eve-extension) v0.1.3, a Kernel-powered browser extension for Vercel's Eve agent.
 - Published a [Codex plugin](https://github.com/kernel/skills) packaging for the Kernel [skills](https://github.com/kernel/skills) repo, so Codex users can install the full Kernel skill set the same way Claude Code and Cursor users can.
 - Added a `get_telemetry` action to the [MCP server](/reference/mcp-server)'s `manage_browsers` tool for reading archived [browser telemetry](/browsers/telemetry/overview) — including for deleted sessions and events captured before telemetry was turned off — with category filters, time windows, and pagination.
-- Expanded [managed auth](/auth/overview): [browser telemetry](/browsers/telemetry/overview) is now configurable per connection and captured on timeline events, the health-check interval is adjustable from the dashboard, and health checks and their replays now appear on the connection timeline alongside logins and re-auths.
+- Expanded [managed auth](/auth/managed-auth): [browser telemetry](/browsers/telemetry/overview) is now configurable per connection and captured on timeline events, the health-check interval is adjustable from the dashboard, and health checks and their replays now appear on the connection timeline alongside logins and re-auths.
 - Extended [`@onkernel/cua-agent`](https://github.com/kernel/cua) with Claude Opus 5 and Moonshot Kimi K3 computer-use providers, semantic browser waits (`waitFor` conditions instead of fixed sleeps), verified browser action plans, and gated Anthropic's native `computer_20260701` / `browser_20260701` tools by model.
 - Added named markers to browser [replay recordings](/browsers/replays), exposed as MP4 chapters so playback jumps directly to key moments.
 - Extended the [CLI](https://github.com/kernel/cli) `browser-pools` commands with telemetry configuration, matching `browsers create`/`update`.
@@ -172,7 +172,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Improved cold-start performance: reduced Chromium restart time, and cut ~5s off session creation for profile-restore paths by fixing a chromium-launcher port check that blocked on stale sockets.
 - Set the default fill-rate for new [browser pools](/browsers/pools) created from the dashboard or [CLI](https://github.com/kernel/cli) to 25%, so pools warm up more predictably out of the box.
 - [`refresh_on_profile_update`](/browsers/pools) now defaults to `true` when a browser pool has a profile attached, and auto-unsets when the profile is removed, so pooled sessions stay in sync with the underlying profile without manual configuration.
-- Expanded [managed auth](/auth/overview): the dashboard can now manage credential fields and TOTP secrets directly, and reauth now selects an already signed-in account on the SSO account chooser, so re-authentications can complete without human intervention when the browser is already signed in.
+- Expanded [managed auth](/auth/managed-auth): the dashboard can now manage credential fields and TOTP secrets directly, and reauth now selects an already signed-in account on the SSO account chooser, so re-authentications can complete without human intervention when the browser is already signed in.
 - Shipped a Cmd+K command palette to the dashboard for jump-to-anywhere navigation.
 - Published [`hermes-browser-plugin`](https://github.com/kernel/hermes-browser-plugin), a new Kernel cloud browser provider plugin for Hermes Agent.
 - Improved [just-html](https://github.com/kernel/just-html) with section deeplinks, comment permalinks, and a public integration-discovery metadata endpoint, so shared docs are easier to navigate, link, and index by agents.
@@ -284,7 +284,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Exposed API key management in the Node, Python, and Go SDKs. Create, list, retrieve, update, and delete keys on `/org/api_keys` programmatically.
 - Promoted `can_reauth_reason` on `ManagedAuth` to a typed enum (14 documented values like `requires_totp_without_secret`, `no_viable_plans`, `requires_external_action`) so SDK consumers can branch on it directly instead of string comparisons.
 - Added an **Auto Re-Auth** / **Needs Human** capability chip to each row on the dashboard `/auth` page, with a tooltip mapping each `can_reauth_reason` to a human-readable explanation.
-- Added TOTP secret key support to [managed auth](/auth/overview) credentials, so one-time passwords are generated automatically during login and re-authentication. No human intervention required.
+- Added TOTP secret key support to [managed auth](/auth/managed-auth) credentials, so one-time passwords are generated automatically during login and re-authentication. No human intervention required.
 - Updated the live view loading screen to a progress bar for clearer visual feedback during browser startup.
 - The `/projects/*` endpoints are now routed under `/org/projects/*`. The previous paths are deprecated.
 
@@ -303,14 +303,14 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added auto standby to browser pool instances — pools can now automatically suspend when idle and resume on the next incoming request, reducing costs without manual intervention.
 - Launched new browser configuration options on `browsers.create()` and browser pool definitions: [`chrome_policy`](/browsers/pools/policy-json) and `start_url` for opening directly to a specified URL on launch. The corresponding `--start-url` flag is available in the [CLI](https://github.com/kernel/cli).
 - Exposed full [Projects](/info/projects) CRUD in the public API, so projects can be created, updated, and deleted programmatically alongside the existing list endpoint.
-- Managed auth improvements: Added health check and automatic re-authentication controls to the [managed auth API](/auth/overview), letting you configure check intervals and reauth triggers per connection. Sessions are now automatically recorded — when a connection enters `NEEDS_AUTH` on the dashboard, a "View last login attempt" link routes directly to the session replay, and /auth rows now show a re-auth capability chip. Also, broader SSO and OAuth provider coverage, support for Google's two-step mobile prompt flow, per-connection post-login wait configuration (`post_login.wait_ms`), automatic SSO provider brand icons in auth dialogs, MFA alternatives displayed on the external action waiting screen, and a post-login browser refresh before the profile snapshot is captured for cleaner saved sessions.
+- Managed auth improvements: Added health check and automatic re-authentication controls to the [managed auth API](/auth/managed-auth), letting you configure check intervals and reauth triggers per connection. Sessions are now automatically recorded — when a connection enters `NEEDS_AUTH` on the dashboard, a "View last login attempt" link routes directly to the session replay, and /auth rows now show a re-auth capability chip. Also, broader SSO and OAuth provider coverage, support for Google's two-step mobile prompt flow, per-connection post-login wait configuration (`post_login.wait_ms`), automatic SSO provider brand icons in auth dialogs, MFA alternatives displayed on the external action waiting screen, and a post-login browser refresh before the profile snapshot is captured for cleaner saved sessions.
 - Extended `proxy.check()` with an optional `url` parameter for testing reachability against a specific target domain before assigning the proxy. This is useful for catching proxies that pass generic health checks but are blocked on your target site.
 - End of life'd persistent browsers. If you were using persistence, we suggest [`timeout_seconds`](/browsers/termination) with [Profiles](/auth/profiles).
 
 ## Documentation updates
 
 - Added a new [hCaptcha](/browsers/bot-detection/hcaptcha) page documenting beta support for hCaptcha solving.
-- Refreshed [managed auth](/auth/overview) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
+- Refreshed [managed auth](/auth/managed-auth) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
 - Clarified that managed residential proxy IPs are stable within a session but are not guaranteed to persist across sessions.
 - Updated the [Yutori integration guide](/integrations/computer-use/yutori) to Navigator n1.5.
 - Clarified that profile updates do not propagate to idle browser pool instances — pools must be recycled for profile changes to take effect.
@@ -319,11 +319,11 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="May 8" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Released [`@onkernel/managed-auth-react`](https://github.com/kernel/managed-auth-react), a drop-in React component library for embedding [managed auth](/auth/overview) flows directly into your app. Ship a Kernel-powered login experience without rebuilding the credential entry, MFA, and SSO dialogs yourself.
+- Released [`@onkernel/managed-auth-react`](https://github.com/kernel/managed-auth-react), a drop-in React component library for embedding [managed auth](/auth/managed-auth) flows directly into your app. Ship a Kernel-powered login experience without rebuilding the credential entry, MFA, and SSO dialogs yourself.
 - Added a [Docker Sandboxes mixin kit](https://github.com/kernel/docker-sbx-kit) for running Kernel inside Docker's AI sandboxes (`sbx`). The kit ships the [Kernel CLI](https://github.com/kernel/cli), Claude Code [skills](https://github.com/kernel/skills), and a proxy-managed auth header pre-configured, so agents inside the sandbox can call the Kernel API while your real `KERNEL_API_KEY` stays on the host.
 - Extended [Projects](/info/projects): profile, browser pool, extension, and credential names are now scoped per-project, and the `GET /projects` API and dashboard project selector support server-side search and pagination.
-- Made the [1Password](/integrations/1password) credential dropdown searchable in [managed auth](/auth/overview) dialogs.
-- Improved [managed auth](/auth/overview) autofill reliability on multi-step sign-in pages.
+- Made the [1Password](/integrations/1password) credential dropdown searchable in [managed auth](/auth/managed-auth) dialogs.
+- Improved [managed auth](/auth/managed-auth) autofill reliability on multi-step sign-in pages.
 - Added `-o json` output to `kernel browsers playwright execute` in the [CLI](https://github.com/kernel/cli), matching the other `browsers` subcommands, so script runs can be piped into other tooling.
 
 ## Documentation updates
@@ -397,7 +397,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Documented MFA token auto-retry behavior for [managed auth](/auth/overview) sessions.
+- Documented MFA token auto-retry behavior for [managed auth](/auth/managed-auth) sessions.
 - Added a new [policy.json](/browsers/pools/policy-json) page to the Reserved Browsers documentation.
 - Clarified that [profiles](/auth/profiles) can have multiple auth connections.
 - Added a Headful + GPU acceleration option to the [pricing calculator](/info/pricing#pricing-calculator).
@@ -417,7 +417,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added [API rate limiting](/info/pricing#rate-limiting) documentation.
 - Documented the [`disable_default_proxy`](/browsers/bot-detection/stealth) option for stealth browsers.
 - Updated [live view embedding](/browsers/live-view) docs with iframe focus tips, clipboard sharing guidance, and CSP configuration.
-- Documented [managed auth re-authentication triggers](/auth/overview).
+- Documented [managed auth re-authentication triggers](/auth/managed-auth).
 </Update>
 
 <Update label="March 27" tags={["Product", "Docs"]}>
@@ -433,7 +433,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Documentation updates
 
 - Added an FAQ entry for [debugging managed auth sessions](/auth/faq#how-do-i-debug-a-managed-auth-session).
-- Updated [Managed Auth](/auth/overview) documentation to cover CUA support, the PATCH endpoint, and auto-allowed SSO domains.
+- Updated [Managed Auth](/auth/managed-auth) documentation to cover CUA support, the PATCH endpoint, and auto-allowed SSO domains.
 </Update>
 
 <Update label="March 20" tags={["Product", "Docs"]}>
@@ -450,7 +450,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added new docs for [GPU acceleration](/browsers/gpu-acceleration).
 - Added [ZIP code targeting](/proxies/residential) documentation for residential proxies.
 - Clarified [download behavior](/browsers/file-io) for programmatic file downloads.
-- Reorganized documentation to make [Managed Auth](/auth/overview) and [Browser Pools](/browsers/pools) more prominent and accessible.
+- Reorganized documentation to make [Managed Auth](/auth/managed-auth) and [Browser Pools](/browsers/pools) more prominent and accessible.
 </Update>
 
 <Update label="March 13" tags={["Product", "Docs"]}>
@@ -476,7 +476,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added support for [mobile and tablet viewports](/browsers/viewport), enabling browser automation at phone and tablet screen sizes.
 - Added a `kernel status` command to the [CLI](https://github.com/kernel/cli) for checking API and service health at a glance.
 - Added a `--force` flag to `kernel browsers update` for [resizing the viewport](/browsers/viewport) during an active recording, which gracefully stops and restarts the recording.
-- Improved [Managed Auth](/auth/overview) MFA handling by resolving MFA options by label, type, or display string for more reliable multi-factor authentication flows.
+- Improved [Managed Auth](/auth/managed-auth) MFA handling by resolving MFA options by label, type, or display string for more reliable multi-factor authentication flows.
 - Enhanced auth connection output in the [CLI](https://github.com/kernel/cli) with richer details from `kernel auth connections get` and `kernel auth connections list`.
 - Added a Pool column and `--query` flag to `kernel browsers list` in the [CLI](https://github.com/kernel/cli) for easier filtering and identification of pooled browsers.
 - Updated the Anthropic computer use [template](https://github.com/kernel/cli/tree/main/pkg/templates) to default to use claude-sonnet-4-6 for improved agent performance.
@@ -518,7 +518,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 - Added mouse position tracking to the [CLI](https://github.com/kernel/cli), enabling retrieval of current mouse coordinates.
 - Updated Yutori computer use [templates](https://github.com/kernel/cli/tree/main/pkg/templates) to support the n1-latest model for improved agent performance.
-- Updated [Managed Auth](/auth/overview) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
+- Updated [Managed Auth](/auth/managed-auth) by adding subdomain-based sign-in support, better error handling for `401 Unauthorized` and `410 Gone` responses, and enhanced error messaging with structured error codes and actionable guidance.
 - Improved browser display by auto-toggling Chromium app mode on small viewports for a cleaner, more immersive experience.
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
@@ -530,7 +530,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 <YouTubeVideo videoId="lK3YR8qzeH4" title="Introducing Managed Auth" />
 - Launched [Web Bot Auth](/browsers/bot-detection/web-bot-auth) in partnership with Vercel, enabling agents to cryptographically sign requests and prove they're legitimate instead of getting blocked by bot detection. 
-- Released [Managed Auth](/auth/overview), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
+- Released [Managed Auth](/auth/managed-auth), simplifying authentication by securely logging into any site without custom auth flows or exposing credentials to the LLM, and maintaining up-to-date credentials.
 - Added a `POST /computer/batch` [endpoint](https://kernel.sh/docs/api-reference/browsers/execute-a-batch-of-computer-actions-sequentially) for executing multiple computer actions in a single API call, reducing round-trip latency for complex automations.
 - Improved the [CLI](https://github.com/onkernel/cli) by adding new commands for managing auth connections, supporting `-o json` output for `kernel ssh --setup-only`, allowing pool names as positional arguments in `kernel browser-pools create`, and enabling file exclusions when publishing extensions.
 - Improved input reliability with context-aware timing in key press and mouse drag operations.
@@ -538,7 +538,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 - Clarified [pricing](/info/pricing) for headful browser sessions.
-- Added comprehensive [Managed Auth](/auth/overview) documentation, including billing guidance.
+- Added comprehensive [Managed Auth](/auth/managed-auth) documentation, including billing guidance.
 </Update>
 
 <Update label="February 6" tags={["Product", "Docs"]}>

@@ -6,7 +6,7 @@
     { "source": "/careers/backend-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/engineer-new-grad", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/customer-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
-    { "source": "/auth/agent/overview", "destination": "/auth/overview" },
+    { "source": "/auth/agent/overview", "destination": "/auth/managed-auth" },
     { "source": "/auth/agent/hosted-ui", "destination": "/auth/hosted-ui" },
     { "source": "/auth/agent/programmatic", "destination": "/auth/programmatic" },
     { "source": "/auth/agent/faq", "destination": "/auth/faq" },
@@ -117,23 +117,29 @@
                     "pages": [
                       "auth/overview",
                       {
-                        "group": "Integration Types",
+                        "group": "Managed Auth",
                         "pages": [
+                          "auth/managed-auth",
                           "auth/hosted-ui",
                           "auth/react",
-                          "auth/programmatic"
+                          "auth/programmatic",
+                          "auth/configuration",
+                          "auth/connection-lifecycle",
+                          "auth/credentials",
+                          "auth/faq"
                         ]
                       },
-                      "auth/configuration",
-                      "auth/connection-lifecycle",
-                      "auth/credentials",
-                      "auth/profiles",
-                      "auth/faq"
+                      {
+                        "group": "Vaults + Credential Fill",
+                        "pages": [
+                          "auth/credential-fill",
+                          "vaults/credentials",
+                          "vaults/fill",
+                          "browsers/use-vault-credentials-in-browser-agent"
+                        ]
+                      },
+                      "auth/profiles"
                     ]
-                  },
-                  {
-                    "group": "Vaults",
-                    "pages": ["vaults/overview", "vaults/credentials", "vaults/fill"]
                   },
                   "config-registry",
                   "info/api-keys",
@@ -227,6 +233,7 @@
                 "icon": "/images/integration-icons/payments.svg",
                 "pages": [
                   "integrations/payments/overview",
+                  "vaults/overview",
                   "integrations/payments/stripe-link",
                   "integrations/payments/agentcard"
                 ]
