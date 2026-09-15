@@ -148,6 +148,21 @@ table code {
   border-radius: 0 !important;
 }
 
+/* inline code */
+.prose code:not(pre *),
+article code:not(pre *),
+code:not(pre *) {
+  padding: 1px 4px !important;
+  background-color: transparent !important;
+  border: 1px solid #D0D2D9 !important;
+}
+
+html.dark .prose code:not(pre *),
+html.dark article code:not(pre *),
+html.dark code:not(pre *) {
+  border-color: rgba(237, 238, 240, 0.10) !important;
+}
+
 /* first column bold for reference tables */
 .prose table tbody td:first-child,
 article table tbody td:first-child,
@@ -311,4 +326,24 @@ html.dark .callout[class*="yellow"] svg {
 
 html.dark #navigation-items img[src*="/images/integration-icons/"] {
   filter: invert(1);
+}
+
+/* cookbooks: sidebar entries under /cookbooks/ are external GitHub links (url frontmatter),
+   so hide pagination that would point at them */
+#pagination a[href^="/cookbooks/"] {
+  display: none;
+}
+
+/* cookbooks card category label — matches the site eyebrow/type setup in the reference */
+.cookbook-tag {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  opacity: 0.72;
+  margin-bottom: 0.5rem;
+}
+
+html.dark .cookbook-tag {
+  color: rgba(237, 238, 240, 0.7);
 }
