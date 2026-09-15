@@ -3,7 +3,7 @@ title: "Config Registry"
 description: "Find browser and proxy settings that can reach the site you want to automate"
 ---
 
-**status:** preview
+**status:** <Badge color="yellow">preview</Badge>
 
 give the config registry a public url and it returns browser and proxy settings that have worked for that site. if we don't have a recommendation yet, you can start an analysis against the live site and poll for the result.
 
@@ -52,14 +52,11 @@ a null `recommendation` means the registry doesn't have a usable answer for this
 const started = await kernel.configRegistry.resolve({
   url: 'https://www.kernel.sh/docs',
 });
-if (!started.analysis) {
-  throw new Error('analysis did not start');
-}
 
 let result = started;
 while (result.analysis?.status === 'running') {
   await new Promise((resolve) => setTimeout(resolve, 5000));
-  result = await kernel.configRegistry.analyses.retrieve(started.analysis.id);
+  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
 }
 
 if (result.recommendation?.type === 'recommendation') {
@@ -70,11 +67,7 @@ if (result.recommendation?.type === 'recommendation') {
 ```
 
 ```python Python
-import time
-
 started = kernel.config_registry.resolve(url="https://www.kernel.sh/docs")
-if not started.analysis:
-    raise RuntimeError("analysis did not start")
 
 result = started
 while result.analysis and result.analysis.status == "running":
@@ -159,9 +152,9 @@ a completed analysis is a stable historical record. retrieving its id always ret
 
 ## evaluate a recommendation
 
-the dashboard marks recommendations for the exact url as **Recommended** and host or domain fallbacks as **Inferred**. test an inferred recommendation against your workload before relying on it.
-
 check the success rate, number of trials, and last-tested time to decide whether the evidence is strong and recent enough for your use case. run another analysis when you want fresher evidence.
+
+<span className="kernel-brand-name">KERNEL</span> first uses evidence for the most specific matching target, then returns its top choice as the `recommendation`. if several configurations have equally strong evidence, `working_configurations` lists them in preference order with `recommendation` first. ties favor your requested proxy country, then the default country.
 
 ## tailor an analysis to your workload
 
@@ -202,3 +195,31 @@ started = kernel.config_registry.resolve(
 ### use the guidance
 
 an analysis may also return short guidance based on what it observed while navigating the site. guidance can still be useful when no configuration worked because it describes what got in the way and what to try next; use it as a starting point for your agent's instructions.
+
+<CodeGroup>
+
+```typescript TypeScript
+// assuming you've started an analysis
+let result = started;
+while (result.analysis?.status === 'running') {
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
+}
+
+if (result.guidance) {
+  console.log(result.guidance);
+}
+```
+
+```python Python
+# assuming you've started an analysis
+result = started
+while result.analysis and result.analysis.status == "running":
+    time.sleep(5)
+    result = kernel.config_registry.analyses.retrieve(started.analysis.id)
+
+if result.guidance:
+    print(result.guidance)
+```
+
+</CodeGroup>
