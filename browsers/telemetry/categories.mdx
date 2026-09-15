@@ -49,7 +49,12 @@ interpret tool outcomes separately from HTTP status:
 - don't retry an unknown outcome automatically, even if `invocation_id` is absent. inspect the page state first.
 - HTTP failures without an observed semantic outcome have no `invocation_status`.
 
-input and captured strings are capped at 8,192 bytes on a character boundary and end in `...[truncated]` when clipped. the captured input is a string, not an object, and clipped input need not be valid JSON. tool output isn't captured. the MCP server's compact telemetry view can omit fields whose JSON-encoded size exceeds 8 KiB; use a bounded raw read when you need an omitted field.
+Captured values have these limits:
+
+- `input` and other captured strings are capped at 8,192 bytes on a character boundary and end in `...[truncated]` when clipped.
+- Captured `input` is a string, not an object, and clipped input need not be valid JSON.
+- Tool output isn't captured.
+- The MCP server's compact telemetry view can omit fields whose JSON-encoded size exceeds 8 KiB; use a bounded raw read when you need an omitted field.
 
 calls to `webmcp.listTools()` or `webmcp.invokeTool()` inside Playwright execution produce their own events in addition to the enclosing `ExecutePlaywrightCode` event. these are separate requests with separate request IDs, not duplicate tool invocations. count only events whose `data.operation_id` is `InvokeWebMCPTool` when counting invocation requests.
 
