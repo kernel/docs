@@ -1,63 +1,66 @@
 ---
 title: "Vaults"
-description: "Let browser agents use sensitive values without exposing them to the agent or browser"
+description: "Group credentials and payment items, collect values, and control their use by attached browsers"
 ---
 
 **status:** <Badge color="yellow">preview</Badge>
 
-browser agents become more useful when they can finish tasks that require
-sensitive values: checking out with a card, signing in with a password, or
-completing a form with identity data. handing those values to an agent exposes
-them to model context, logs, page scripts, extensions, devtools, screenshots,
-and browser replay. withholding them keeps the agent from finishing the task.
+<span className="kernel-brand-name">KERNEL</span> vaults group typed items that
+an attached browser can use. add a `credential` item for login or other
+non-payment credentials, or use provider-backed `wallet` and `card` items for
+payments. sensitive values aren't returned by the vault api.
 
-<span className="kernel-brand-name">KERNEL</span> vaults let an attached browser
-session use a sensitive value without revealing that value to the agent or the
-browser vm. the agent receives a non-sensitive stand-in called an alias. the
-browser submits the alias, and <span className="kernel-brand-name">KERNEL</span>
-resolves it at egress after the request leaves the browser vm.
+there are two browser handoff paths. [fill](/vaults/fill) writes real values into
+selected browser inputs and returns value-free outcomes. payment aliases are
+non-sensitive stand-ins that KERNEL resolves at egress, outside the browser.
+choose the path deliberately: their exposure boundaries differ.
 
-vaults are a general primitive for separating what an agent can use from what it
-can see. typed items describe provider-backed values, aliases give agents usable
-stand-ins, and immutable browser bindings control where those aliases can be
-resolved.
+<Warning>
+  fill isn't secret isolation from the browser. an agent with unrestricted
+  browser access, page scripts, or extensions can read values after filling.
+  only the alias-based payment path keeps the underlying values outside the browser.
+</Warning>
 
 <Note>
-  vaults are in preview. the initial release supports `wallet` and `card` items
-  for [link by stripe](/integrations/payments/stripe-link) and
-  [agentcard](/integrations/payments/agentcard). here, provider means the
-  credential provider connected to the vault, not the merchant's payment
-  processor. the vault model isn't limited to payments, but no other item types
-  or credential providers are supported in this release.
+  vaults are in preview. supported item types are `credential`, `wallet`, and
+  `card`. wallet and card providers are [link by stripe](/integrations/payments/stripe-link)
+  and [agentcard](/integrations/payments/agentcard), not merchant payment processors.
+  credential items don't require a provider or wallet.
 </Note>
 
 ## How vaults work
 
-### Values do not come back through the api
+### Sensitive values do not come back through the api
 
-sensitive payment values do not have a read path through the vault api. item
-responses return specifications, state, masks, aliases, actions, and events,
-but not the underlying value.
+sensitive values do not have a read path through the vault api. item responses
+return definitions, safe state, actions, and events. payment items can also
+return masks and aliases. credential fields marked `sensitive: false` return
+their populated values in `state.fields`; explicitly use that setting for
+ordinary usernames and email addresses.
 
 for link, KERNEL stores oauth credentials and approved one-use card
 data with kms-backed envelope encryption. for agentcard, the underlying card
 remains with agentcard. both providers connect the user's payment method through
 a hosted flow, without passing card data through your application or agent.
 
-### Agents use aliases
+### Fill or use payment aliases
 
-each item can publish non-sensitive, format-valid aliases. in the initial
-release, a card item can return a luhn-valid 16-digit number, a three-digit cvc,
-and an expiry month and year. these values pass client-side checkout validation
-but cannot resolve unless the browser session and vault are bound together.
+ready credential items can advertise `fill`. your
+controller supplies field names and selectors; KERNEL writes the values into
+the attached browser. fill doesn't submit a form or confirm the site's acceptance.
+
+payment card items can also publish non-sensitive, format-valid aliases: a
+luhn-valid 16-digit number, a three-digit cvc, and an expiry month and year.
+these pass client-side checkout validation but can't resolve unless the browser
+session and vault are bound together. credential items don't publish aliases.
 
 ### Vaults attach to browser sessions
 
 attach one or more vaults when you create a browser. the binding cannot change
-for the life of the session and is enforced outside the browser vm. the agent
-uses aliases like any other form input.
+for the life of the session and is enforced outside the browser vm. the binding
+is required for both fill and alias resolution.
 
-### Substitution happens at egress
+### Alias substitution happens at egress
 
 the <span className="kernel-brand-name">KERNEL</span> egress layer runs outside
 the browser vm. when it recognizes a request containing an alias, it verifies
@@ -70,11 +73,11 @@ check does not match.
 
 | resource           | technical behavior                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
-| vault              | resource with an immutable `name` that groups provider-backed items                                 |
-| item               | typed, provider-backed value addressed by an immutable `key`; initial types are `wallet` and `card` |
+| vault              | resource with an immutable `name` that groups typed items                                 |
+| item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, or `card` |
 | alias              | non-sensitive, format-valid stand-in returned in item state; aliases belong to an item              |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                  |
-| operation          | explicit api action advertised in `available_operations`; the initial operation type is `authorize` |
+| operation          | api action advertised in `available_operations`: `collect`, `authorize`, `prepare_checkout`, or `fill`, when eligible |
 | expansion          | live provider data advertised in `available_expansions`; the initial expansion is `payment_methods` |
 | event              | immutable item observation with `id`, `name`, optional `browser_id`, `data`, and `created_at`       |
 | browser attachment | vault reference fixed when the browser is created                                                   |
@@ -82,7 +85,9 @@ check does not match.
 ```mermaid
 flowchart LR
   T[trusted collection surface] --> I[vault item]
-  I --> A[non-sensitive alias]
+  I --> F[fill real values]
+  F --> B[attached browser session]
+  I --> A[non-sensitive payment alias]
   A --> B[attached browser session]
   I --> E[egress resolution]
   B --> E
@@ -118,7 +123,7 @@ kernel browsers create --vault user-12345 -o json
 
 the `vaults` array supports up to 20 references. each reference accepts exactly one of `id` or `name`, and attachments cannot change after browser creation. a browser and vault must belong to the same project.
 
-attachment grants the browser access to the vault, not to a selected set of items. items created later in the same vault are available to every attached browser in that project. use separate vaults when browser tasks must not share access. deleting a vault or item invalidates its provider-backed values and aliases.
+attachment grants the browser access to the vault, not to a selected set of items. items created later in the same vault are available to every attached browser in that project. use separate vaults when browser tasks must not share access. deleting a vault or item prevents further use through that resource. it doesn't undo values already filled into a browser or actions already performed by a site.
 
 ## Api behavior
 
@@ -130,15 +135,16 @@ kernel vaults get user-12345 -o json
 kernel vaults items list user-12345 -o json
 ```
 
-item keys are immutable and accept 1–255 letters, numbers, `.`, `_`, and `-`. creating an item at an existing key succeeds only when its type, provider, and specification match the existing item and its lifecycle permits retrieval. otherwise, the api returns a conflict.
+item keys are immutable and accept 1–255 letters, numbers, `.`, `_`, and `-`. creating an item at an existing key succeeds only when its type, specification, and provider, where applicable, match the existing item and its lifecycle permits retrieval. otherwise, the api returns a conflict.
 
 retrieve an item before acting on it. responses expose these fields and advertise what the current state permits:
 
 | field                                    | behavior                                             |
 | ---------------------------------------- | ---------------------------------------------------- |
 | `id`, `key`, `type`                      | stable item identity; `key` and `type` cannot change |
-| `spec`                                   | provider-specific input saved with the item          |
-| `state`                                  | provider-specific status and non-secret output       |
+| `spec`                                   | type-specific definition saved with the item          |
+| `state`                                  | type-specific status and safe output       |
+| `version`                                | credential item revision used for updates and observing edits |
 | `action`                                 | current user action, when one is required            |
 | `available_operations`                   | operations valid in the current state                |
 | `available_expansions`                   | live provider data the item can request              |
@@ -147,20 +153,23 @@ retrieve an item before acting on it. responses expose these fields and advertis
 
 when `action` is present, complete it in a trusted user-facing surface. treat an
 action url as a short-lived bearer link: bind it to the authenticated user,
-vault, and item, and don't log it or put it in model context. invoke only
+vault, and item, and don't log it. in application integrations, present the link
+directly to the user rather than putting it in model context. invoke only
 operations listed in `available_operations`, and request only expansions listed
 in `available_expansions`. don't hard-code provider transitions from a previous
 response.
 
-item reads accept `wait` values from 0–60 seconds. a read returns early when the item no longer has an unresolved authorization or approval transition. event reads support the same maximum wait and return an ordered array. use the last event `id` as the `after` cursor for newer events.
+item reads accept `wait` values from 0–60 seconds. payment reads return early when the item no longer has an unresolved authorization or approval transition. credential reads wait for readiness, not edits to an already-ready item; observe its `version` to detect changes. event reads support the same maximum wait and return an ordered array. use the last event `id` as the `after` cursor for newer events.
 
 deleting a vault invalidates every item and alias it contains.
 
 see the [vaults api reference](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-a-vault-by-immutable-name) for endpoints and complete request and response schemas.
 
-## Payments first
+## Payment items
 
-the initial release applies the vault primitive to browser checkout. a wallet
+the payment lifecycle below describes aliases.
+
+a wallet
 connects an end user's payment method through a provider-hosted flow. a card item
 then publishes aliases that an attached browser can enter into a web checkout.
 authorization and payment handoff happen outside the browser vm.
@@ -201,9 +210,9 @@ the organization, and duplicate creates return `409` without replacing secrets.
 - **rotation:** updating `client_secret` affects all bound wallets. provider, client id, and agentcard mode cannot change; changing clients requires a new config and new wallets.
 - **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
 
-## Initial item specifications
+## Payment item specifications
 
-the initial release accepts these `spec` fields. fields not listed here are rejected.
+wallet and card items accept these `spec` fields. fields not listed here are rejected. for the separate credential field schema, see [credential items](/vaults/credentials).
 
 ### Wallets
 
@@ -243,7 +252,7 @@ card updates replace the complete `spec`; they are not partial merges. link card
 deleting a card consumes its aliases and clears any stored provider value.
 deleting a wallet also invalidates its dependent cards.
 
-## Initial payment actions, states, and aliases
+## Payment actions, states, and aliases
 
 `action.name` can be `link_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
 
@@ -265,15 +274,9 @@ operation; deletion is not payment recovery.
 
 card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
 
-## What's next
+## Next steps
 
-the data model is deliberately generic: a vault holds typed items, each item has
-a provider-specific specification and state, and each item can publish aliases.
-payments are the first application of that model.
-
-we plan to extend the same primitive to credentials, identity documents, and
-other sensitive fields. those item types could let an agent sign in without
-seeing the password or complete an application without seeing a government
-identifier. they are not available in the preview release.
-
-to complete a checkout with the item types available today, follow [Enable Payments in a Browser Agent](/browsers/enable-payments-in-browser-agent).
+- [credential items](/vaults/credentials): define fields, collect values, and update them safely.
+- [fill browser fields](/vaults/fill): map credential fields to browser inputs and handle outcomes.
+- [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
+- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): connect a wallet and complete an alias-based checkout.
