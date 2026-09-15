@@ -100,14 +100,14 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Added [private browser networking](/browsers/private-networking): `network.private_hosts` names the hosts and CIDRs a browser or browser pool should reach directly through the session's own network — for a VPN or tunnel inside the VM — while everything else keeps using Kernel-managed egress.
 - Expanded [managed auth](/auth/overview) with a nested `browser` configuration on connections covering `stealth`, `proxy`, and `telemetry`, applied as the default for every browser a connection launches. Set `browser.stealth` to `false` to skip stealth mode and the CAPTCHA solver. The older `proxy`, `proxy_id`, and `browser_telemetry` fields are deprecated.
 - Improved fingerprint coherence in [stealth-mode browsers](/browsers/bot-detection/stealth): the WebGL renderer persona now applies on GPU hosts as well as software-rendered ones, and storage quota, network information, and speech voices report plausible per-host values.
-- Browser responses now include `profile_save_changes`, so you can tell which sessions loaded a [profile](/auth/profiles) read-write and coordinate a single writer.
+- Browser responses now include `profile_save_changes`, so you can tell which sessions loaded a [profile](/browsers/profiles) read-write and coordinate a single writer.
 - Fixed egress reliability issues: large downloads no longer truncate mid-body under backpressure, WebSocket and TURN traffic pass through unchanged, and origins that omit their intermediate certificate now verify the way Chrome does.
 - Extended the [CLI](https://github.com/kernel/cli) (v0.27.0–v0.29.0) with `--private-host` network flags, extension checksums in output, explicit clear controls for browser-pool settings, and persistent OAuth project scope.
 
 ## Documentation updates
 
 - Documented [private browser networking](/browsers/private-networking), including `private_hosts` semantics for browsers and browser pools.
-- Added [safe profile writes](/auth/profiles) and clarified the `save_changes` requirement for [per-user pool profiles](/browsers/pools).
+- Added [safe profile writes](/browsers/profiles/concurrency) and clarified the `save_changes` requirement for [per-user pool profiles](/browsers/pools).
 - Added a guide for [reading the static IP of an ISP proxy](/proxies/isp) via `ip_address`.
 - Switched managed auth examples to SSE, updated the [Eve extension guide](/integrations/vercel/eve-extension) to use the Kernel connector registry entry, and swapped the Claude Code integration to the official [Claude directory connector](/integrations/claude/claude-code-and-desktop).
 - Added kiosk mode as the first [viewport](/browsers/viewport) recommendation and clarified that viewport sets window size, not page viewport.
@@ -157,7 +157,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Documentation updates
 
 - Published new integration guides for [Claude Code + Desktop](/integrations/claude/claude-code-and-desktop), the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), and the [Vercel Eve extension](/integrations/vercel/eve-extension).
-- Documented [custom proxy CA bundles](/proxies/custom) for BYO MITM setups, [audit log search and export](/info/audit-logs), [per-user profile persistence through browser pools](/browsers/pools/overview), and [managed auth tab ownership](/auth/profiles).
+- Documented [custom proxy CA bundles](/proxies/custom) for BYO MITM setups, [audit log search and export](/info/audit-logs), [per-user profile persistence through browser pools](/browsers/pools/overview), and [managed auth tab ownership](/browsers/profiles/save-and-reuse#control-the-starting-tab).
 - Added a [bots and agents overview](/bots) and reframed the "Unsupported Websites" FAQ entry as bot-detection education.
 - Refreshed the reference docs with [`execute_playwright_code` passthrough](/reference/mcp-server/tools/execute-playwright-code) and the new [`manage_replays`](/reference/mcp-server/tools/manage-replays) MCP tool, plus a [CLI reference](/reference/cli) sync with the current command set.
 - Added a Chrome policy use case for blocking DevTools, reorganized [Chrome Policies](/browsers/chrome-policies) into an Advanced section, and added [browser telemetry to the pricing feature matrix](/info/pricing).
@@ -305,7 +305,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Exposed full [Projects](/info/projects) CRUD in the public API, so projects can be created, updated, and deleted programmatically alongside the existing list endpoint.
 - Managed auth improvements: Added health check and automatic re-authentication controls to the [managed auth API](/auth/overview), letting you configure check intervals and reauth triggers per connection. Sessions are now automatically recorded — when a connection enters `NEEDS_AUTH` on the dashboard, a "View last login attempt" link routes directly to the session replay, and /auth rows now show a re-auth capability chip. Also, broader SSO and OAuth provider coverage, support for Google's two-step mobile prompt flow, per-connection post-login wait configuration (`post_login.wait_ms`), automatic SSO provider brand icons in auth dialogs, MFA alternatives displayed on the external action waiting screen, and a post-login browser refresh before the profile snapshot is captured for cleaner saved sessions.
 - Extended `proxy.check()` with an optional `url` parameter for testing reachability against a specific target domain before assigning the proxy. This is useful for catching proxies that pass generic health checks but are blocked on your target site.
-- End of life'd persistent browsers. If you were using persistence, we suggest [`timeout_seconds`](/browsers/termination) with [Profiles](/auth/profiles).
+- End of life'd persistent browsers. If you were using persistence, we suggest [`timeout_seconds`](/browsers/termination) with [Profiles](/browsers/profiles).
 
 ## Documentation updates
 
@@ -399,7 +399,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 - Documented MFA token auto-retry behavior for [managed auth](/auth/overview) sessions.
 - Added a new [policy.json](/browsers/pools/policy-json) page to the Reserved Browsers documentation.
-- Clarified that [profiles](/auth/profiles) can have multiple auth connections.
+- Clarified that [profiles](/browsers/profiles) can have multiple auth connections.
 - Added a Headful + GPU acceleration option to the [pricing calculator](/info/pricing#pricing-calculator).
 </Update>
 
@@ -611,7 +611,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="December 12" tags={["Product", "Docs"]}>
 ## Product updates
 - Refreshed our [Vercel template](https://kernel-nextjs-template.vercel.app/) with an enhanced UI and AI agent example
-- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/auth/profiles#3-use-the-browser,-then-close-it-to-persist-the-state); added `name` field to browsers for easier identification
+- Deprecated the "persistent" feature from browsers in favor of using extended `timeout_seconds` with [Profiles](/browsers/profiles/save-and-reuse#3-use-and-delete-the-browser); added `name` field to browsers for easier identification
 - Unified browser creation tools by porting [Create Kernel App](/reference/cli/create) functionality into the Kernel CLI
 - Improved replay videos to include full video length metadata, enabling timestamp navigation and deep linking
 

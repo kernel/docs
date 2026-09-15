@@ -1,0 +1,170 @@
+---
+title: "Browser Profile Patterns for AI Agents"
+sidebarTitle: "Patterns for AI Agents"
+description: "Choose a browser profile architecture for agent workflows, users, accounts, and parallel workers"
+---
+
+Choose profile boundaries based on who owns the browser identity and which process can write durable state. Don't use one shared writable profile for unrelated users, accounts, or concurrent agents.
+
+## Choose a profile topology
+
+| Workflow | Profile topology | Writer model |
+| --- | --- | --- |
+| One recurring agent | One profile for the workflow | The active run writes when it finishes |
+| SaaS product acting for end users | One profile per user or connected account | One writer per profile |
+| Parallel workers with a common baseline | One shared read-only profile | A separate setup job updates the baseline |
+| Multi-site workflow for one identity | One profile with several Managed Auth connections | Managed Auth or one workflow writer |
+| Independent agents with durable state | One profile per agent | Each agent writes only its own profile |
+
+## Resume a workflow across runs
+
+Use one profile for a recurring workflow when the next run needs cookies, site data, tabs, or preferences created by the previous run.
+
+1. Start the active run with `save_changes: true`.
+2. Complete the browser work.
+3. Delete the Kernel browser to save its complete state.
+4. Load the profile when the next run starts.
+
+Only one run can safely write at a time. If runs can overlap, serialize them or use a separate profile for each run. See [Sharing and concurrency](/browsers/profiles/concurrency).
+
+## Map users or accounts to profiles
+
+When your product acts for many users, give each user or connected account its own profile. This keeps identities isolated and makes ownership explicit.
+
+Use one profile per **user** when all of that user's accounts are intentionally available in the same browser. Use one profile per **connected account** when accounts need separate cookies, proxies, permissions, or lifecycles.
+
+<CodeGroup>
+```typescript TypeScript
+const userId = 'user-8f21c3';
+
+const browser = await kernel.browsers.create({
+  profile: {
+    name: userId,
+    save_changes: true,
+  },
+  stealth: true,
+});
+```
+
+```python Python
+user_id = "user-8f21c3"
+
+browser = await kernel.browsers.create(
+    profile={
+        "name": user_id,
+        "save_changes": True,
+    },
+    stealth=True,
+)
+```
+
+```go Go
+userID := "user-8f21c3"
+
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String(userID),
+		SaveChanges: kernel.Bool(true),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+## Reuse one identity across sites
+
+A profile can contain Managed Auth connections for several domains. Use this when one agent workflow needs the same end user's authenticated state across multiple sites.
+
+<CodeGroup>
+```typescript TypeScript
+const profileName = 'user-8f21c3';
+
+await kernel.auth.connections.create({
+  domain: 'gmail.com',
+  profile_name: profileName,
+});
+
+await kernel.auth.connections.create({
+  domain: 'github.com',
+  profile_name: profileName,
+});
+
+const browser = await kernel.browsers.create({
+  profile: { name: profileName },
+  stealth: true,
+});
+```
+
+```python Python
+profile_name = "user-8f21c3"
+
+await kernel.auth.connections.create(
+    domain="gmail.com",
+    profile_name=profile_name,
+)
+
+await kernel.auth.connections.create(
+    domain="github.com",
+    profile_name=profile_name,
+)
+
+browser = await kernel.browsers.create(
+    profile={"name": profile_name},
+    stealth=True,
+)
+```
+
+```go Go
+profileName := "user-8f21c3"
+
+for _, domain := range []string{"gmail.com", "github.com"} {
+	_, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+		ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+			Domain:      domain,
+			ProfileName: profileName,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String(profileName),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+Managed Auth changes the saved tab state when it logs in or reauthenticates. Set `start_url` when your agent must begin on a specific page. See [Control the starting tab](/browsers/profiles/save-and-reuse#control-the-starting-tab).
+
+## Seed parallel workers
+
+Use a shared read-only profile when many agents need the same starting environment but shouldn't contribute changes back to it.
+
+- Prepare the baseline with one designated writer.
+- Start workers without `save_changes`.
+- Give a worker its own profile if it needs durable output.
+- Use a consistent proxy with the profile when maintaining a stable site identity matters.
+
+This model works well for repeatable test fixtures, preconfigured preferences, and authenticated read-only jobs.
+
+## Refresh authentication safely
+
+A browser doesn't receive authentication state saved after it starts. When Managed Auth refreshes a profile, new browsers load the refreshed state, but active browsers keep their original snapshot.
+
+For an active workflow, choose one of these approaches:
+
+- Finish the current task, delete the browser, and start another browser with the refreshed profile.
+- If the browser started without a profile, load the profile into it and reconnect after Chromium restarts.
+- Give the agent access to a [vault](/vaults/overview) so it can navigate reauthentication itself.
+
+Don't expect one browser's refreshed cookies to merge automatically into other running browsers.
