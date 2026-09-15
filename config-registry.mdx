@@ -1,0 +1,225 @@
+---
+title: "Config Registry"
+description: "Find browser and proxy settings that can reach the site you want to automate"
+---
+
+**status:** <Badge color="yellow">preview</Badge>
+
+give the config registry a public url and it returns browser and proxy settings that have worked for that site. if we don't have a recommendation yet, you can start an analysis against the live site and poll for the result.
+
+recommendations are advisory. you decide whether to use them, and <span className="kernel-brand-name">KERNEL</span> won't create a browser or proxy until you ask it to.
+
+<Note>
+  the config registry is available in preview for hobbyist plans and up. [email support@kernel.sh](mailto:support@kernel.sh?subject=Config%20Registry%20preview%20access) to enable it for your organization.
+</Note>
+
+## get a recommended configuration
+
+### 1. look up an existing recommendation
+
+`lookup` returns immediately from the registry's current knowledge. it doesn't visit the site, start an analysis, or change any data.
+
+<CodeGroup>
+
+```typescript TypeScript
+const result = await kernel.configRegistry.lookup({
+  url: 'https://www.kernel.sh/docs',
+});
+
+if (result.recommendation?.type === 'recommendation') {
+  console.log(result.recommendation.browser, result.recommendation.proxy);
+}
+```
+
+```python Python
+result = kernel.config_registry.lookup(url="https://www.kernel.sh/docs")
+
+if result.recommendation and result.recommendation.type == "recommendation":
+    print(result.recommendation.browser, result.recommendation.proxy)
+```
+
+</CodeGroup>
+
+a null `recommendation` means the registry doesn't have a usable answer for this url yet. it doesn't mean the site is unreachable. call `resolve` to run an analysis.
+
+### 2. run an analysis when needed
+
+`resolve` starts an analysis or joins one already running for the same url. analysis usually takes several minutes. the initial response has a null `recommendation`, so poll the returned analysis id until its status is no longer `running`.
+
+<CodeGroup>
+
+```typescript TypeScript
+const started = await kernel.configRegistry.resolve({
+  url: 'https://www.kernel.sh/docs',
+});
+
+let result = started;
+while (result.analysis?.status === 'running') {
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
+}
+
+if (result.recommendation?.type === 'recommendation') {
+  console.log(result.recommendation);
+} else {
+  console.log(result.analysis?.status, result.recommendation);
+}
+```
+
+```python Python
+started = kernel.config_registry.resolve(url="https://www.kernel.sh/docs")
+
+result = started
+while result.analysis and result.analysis.status == "running":
+    time.sleep(5)
+    result = kernel.config_registry.analyses.retrieve(started.analysis.id)
+
+if result.recommendation and result.recommendation.type == "recommendation":
+    print(result.recommendation)
+else:
+    print(result.analysis.status if result.analysis else None, result.recommendation)
+```
+
+</CodeGroup>
+
+the terminal analysis statuses are `completed`, `failed`, `canceled`, and `expired`. when an analysis finishes without a recommendation, inspect `recommendation` and `analysis.failure` for the reason and retry guidance.
+
+### 3. create a browser with the recommendation
+
+pass `recommendation.browser` directly into browser creation.
+
+<CodeGroup>
+
+```typescript TypeScript
+const { recommendation } = await kernel.configRegistry.lookup({
+  url: 'https://www.kernel.sh/docs',
+});
+if (recommendation?.type !== 'recommendation') {
+  throw new Error('no recommendation yet');
+}
+
+// do this once, then store and reuse proxy.id
+const proxy =
+  recommendation.proxy.mode === 'managed'
+    ? await kernel.proxies.create({
+        ...recommendation.proxy.create,
+        name: 'config-registry-kernel-docs',
+      })
+    : null;
+
+const browser = await kernel.browsers.create({
+  ...recommendation.browser,
+  proxy: proxy ? { id: proxy.id } : { mode: 'direct' },
+});
+```
+
+```python Python
+result = kernel.config_registry.lookup(url="https://www.kernel.sh/docs")
+recommendation = result.recommendation
+if not recommendation or recommendation.type != "recommendation":
+    raise RuntimeError("no recommendation yet")
+
+# do this once, then store and reuse proxy.id
+proxy = None
+if recommendation.proxy.mode == "managed":
+    proxy = kernel.proxies.create(
+        name="config-registry-kernel-docs",
+        **recommendation.proxy.create.model_dump(exclude_none=True)
+    )
+
+browser = kernel.browsers.create(
+    **recommendation.browser.model_dump(),
+    proxy={"id": proxy.id} if proxy else {"mode": "direct"},
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  create a managed proxy once and reuse its id. running this setup again creates another proxy.
+</Warning>
+
+the dashboard generates equivalent typescript, python, and cli snippets for each recommendation. it includes only settings that differ from <span className="kernel-brand-name">KERNEL</span>'s defaults.
+
+## choose between lookup and resolve
+
+| method | use it when | behavior |
+| --- | --- | --- |
+| `lookup` | you want the best answer already in the registry | returns immediately, doesn't start work, and always reflects current knowledge |
+| `resolve` | `lookup` returned null or you want fresh evidence | starts or joins an analysis and returns an analysis id to poll |
+
+a completed analysis is a stable historical record. retrieving its id always returns what that run concluded, even after later analyses produce new knowledge. use `lookup` when you want the latest recommendation instead.
+
+## evaluate a recommendation
+
+check the success rate, number of trials, and last-tested time to decide whether the evidence is strong and recent enough for your use case. run another analysis when you want fresher evidence.
+
+<span className="kernel-brand-name">KERNEL</span> first uses evidence for the most specific matching target, then returns its top choice as the `recommendation`. if several configurations have equally strong evidence, `working_configurations` lists them in preference order with `recommendation` first. ties favor your requested proxy country, then the default country.
+
+## tailor an analysis to your workload
+
+an analysis tries the url with different browser and proxy settings to find a configuration that can load it reliably.
+
+<Warning>
+  only submit public urls you're authorized to test. don't include secrets, session tokens, signed links, private data, or urls where a get request triggers an action.
+</Warning>
+
+### choose proxy countries
+
+by default, <span className="kernel-brand-name">KERNEL</span> chooses where the proxy exits, starting with the united states. if your workload must run from specific countries, use `allowed_proxy_countries` to limit the analysis and its recommendation.
+
+### test the workflow you plan to run
+
+loading the first page doesn't prove that a configuration can support the rest of your workflow. add an `intent` describing what you plan to do. after finding a configuration, the analysis attempts that workflow and reports whether it finished, needed authentication or payment, was blocked, or stopped early.
+
+<CodeGroup>
+
+```typescript TypeScript
+const started = await kernel.configRegistry.resolve({
+  url: 'https://www.kernel.sh/docs',
+  intent: 'search the docs for proxies and open the first result',
+  allowed_proxy_countries: ['US', 'GB'],
+});
+```
+
+```python Python
+started = kernel.config_registry.resolve(
+    url="https://www.kernel.sh/docs",
+    intent="search the docs for proxies and open the first result",
+    allowed_proxy_countries=["US", "GB"],
+)
+```
+
+</CodeGroup>
+
+### use the guidance
+
+an analysis may also return short guidance based on what it observed while navigating the site. guidance can still be useful when no configuration worked because it describes what got in the way and what to try next; use it as a starting point for your agent's instructions.
+
+<CodeGroup>
+
+```typescript TypeScript
+// assuming you've started an analysis
+let result = started;
+while (result.analysis?.status === 'running') {
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
+}
+
+if (result.guidance) {
+  console.log(result.guidance);
+}
+```
+
+```python Python
+# assuming you've started an analysis
+result = started
+while result.analysis and result.analysis.status == "running":
+    time.sleep(5)
+    result = kernel.config_registry.analyses.retrieve(started.analysis.id)
+
+if result.guidance:
+    print(result.guidance)
+```
+
+</CodeGroup>
