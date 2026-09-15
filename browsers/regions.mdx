@@ -1,0 +1,151 @@
+---
+title: "Regional Browsers"
+description: "Choose where your browsers run to reduce automation and live view latency"
+---
+
+Regional browsers let you run browsers closer to your automation code and the people using [live view](/browsers/live-view). Choose a region when you create a browser or a [browser pool](/browsers/pools) to reduce network round trips during browser interactions.
+
+## Available regions
+
+Choose from `us-east`, `eu-west`, and `ap-southeast`.
+
+Region selection is available on [Start-Up and Enterprise plans](/info/pricing), at the same usage rates as default browsers. If you omit `region` when creating a browser or pool, it defaults to `us-east`.
+
+<Note>
+Regional browsers support CPU browsers and browser pools. Regional support for GPU browsers, Managed Auth, Apps, and Invocations is coming soon.
+</Note>
+
+## Create a regional browser
+
+Set `region` when creating a browser. You can run browsers in multiple regions within the same project; there's no account-wide region setting.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  region: "eu-west"
+});
+
+console.log(browser.cdp_ws_url);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    region="eu-west"
+)
+
+print(browser.cdp_ws_url)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Region: kernel.BrowserNewParamsRegionEuWest,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(browser.CdpWsURL)
+}
+```
+</CodeGroup>
+
+Connect using the returned `cdp_ws_url` as usual. Your existing Playwright or CDP code doesn't need to change, and the browser's live view connects to the selected region.
+
+You can also choose **Region** in the browser configuration dialog in the [dashboard](https://dashboard.onkernel.com) before launching a browser.
+
+A browser's region is fixed when you create it. To use a different region, create a new browser.
+
+## Create a regional browser pool
+
+Set `region` when creating a pool, or choose **Region** in the dashboard's pool creation dialog:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const pool = await kernel.browserPools.create({
+  name: "checkout-sg",
+  size: 5,
+  region: "ap-southeast"
+});
+```
+
+```python Python
+pool = kernel.browser_pools.create(
+    name="checkout-sg",
+    size=5,
+    region="ap-southeast"
+)
+```
+
+```go Go
+pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+	Name:   kernel.String("checkout-sg"),
+	Size:   5,
+	Region: kernel.BrowserPoolNewParamsRegionApSoutheast,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(pool.ID)
+```
+</CodeGroup>
+
+Every browser you [acquire](/browsers/pools#acquire-a-browser) runs in the pool's region. You don't specify a region when acquiring or releasing browsers. The pool's region is fixed at creation.
+
+## List browsers by region
+
+Pass `region` to filter a browser list:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browsers = await kernel.browsers.list({ region: "eu-west" });
+```
+
+```python Python
+browsers = kernel.browsers.list(region="eu-west")
+```
+
+```go Go
+browsers, err := client.Browsers.List(ctx, kernel.BrowserListParams{
+	Region: kernel.BrowserListParamsRegionEuWest,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(browsers.Items)
+```
+</CodeGroup>
+
+Browser pool lists support the same filter. Omit it to list resources across all regions. The returned browser and pool objects include their `region`; requests to get or delete a resource by ID don't need a region parameter.
+
+## What stays global
+
+- **Profiles and extensions** aren't tied to a region. You can reuse your existing [profiles](/auth/profiles) and [extensions](/browsers/extensions) with browsers in any region within the same project.
+- **Proxy configurations** can be reused across regions. Browser region chooses where the browser runs; [proxy location](/proxies/overview) controls the exit IP websites see.
+- **Concurrency and rate limits** apply across all regions combined, not separately in each region. Browser pool capacity counts toward the same [concurrency limit](/info/pricing#concurrency-limits).
+
+<Warning>
+Regional browsers reduce interaction latency; they don't provide a data residency guarantee. Profiles, replays, and session metadata aren't confined to the browser's selected region and may be stored or processed in the US.
+</Warning>

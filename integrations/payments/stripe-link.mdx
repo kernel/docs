@@ -1,16 +1,16 @@
 ---
-title: "stripe link"
-description: "Use stripe link to approve a one-use payment credential for a browser checkout"
+title: "link by stripe"
+description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[stripe link](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential encrypted, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential with kms-backed envelope encryption, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
 
-stripe link is the credential provider, not the merchant's payment processor. at
+link is the credential provider, not the merchant's payment processor. at
 the browser form layer, it works with any web checkout that accepts standard
 card details, and the merchant's processor doesn't need to be stripe. end-to-end
 handoff also requires the outgoing request to match a [native processor
 adapter](/integrations/payments/overview#checkout-and-processor-coverage). for
-example, you can use a stripe link credential in a Shopify checkout.
+example, you can use a link credential in a Shopify checkout.
 
 ## Before you start
 
@@ -40,10 +40,144 @@ kernel vaults create --name user-12345
 
 </CodeGroup>
 
+## Choose an oauth client
+
+use KERNEL's oauth client by default. if you bring your own client, complete the
+setup below before following the shared payment lifecycle.
+
+### bring your own link oauth client
+
+register a [provider configuration](/vaults#provider-configurations) once for
+your organization. configurations are shared across projects, so authenticate
+this step with an [organization-scoped api key](/info/api-keys). project-scoped
+credentials can reference an existing configuration when creating a wallet, but
+can't create, update, or delete configurations.
+
+keep the client credentials outside the agent's accessible files. the SDK
+examples read them from backend environment variables. for the CLI, create a
+protected file readable only by its owner (for example, mode `0600`):
+
+```json link-client.json
+{
+  "client_id": "example-client-id",
+  "client_secret": "example-client-secret"
+}
+```
+
+<CodeGroup>
+
+```typescript TypeScript
+const orgKernel = new Kernel({
+  apiKey: process.env.KERNEL_ORG_API_KEY!,
+});
+const linkConfig = await orgKernel.vaultProviderConfigs.create({
+  name: "checkout-link",
+  provider: "link",
+  credentials: {
+    client_id: process.env.LINK_CLIENT_ID!,
+    client_secret: process.env.LINK_CLIENT_SECRET!,
+  },
+});
+```
+
+```python Python
+org_kernel = Kernel(api_key=os.environ["KERNEL_ORG_API_KEY"])
+link_config = org_kernel.vault_provider_configs.create(
+    name="checkout-link",
+    provider="link",
+    credentials={
+        "client_id": os.environ["LINK_CLIENT_ID"],
+        "client_secret": os.environ["LINK_CLIENT_SECRET"],
+    },
+)
+```
+
+```bash CLI
+# run with KERNEL_API_KEY set to an organization-scoped key
+kernel vault-provider-configs create --name checkout-link --provider link \
+  --credentials-file "$HOME/.config/kernel/link-client.json"
+```
+
+</CodeGroup>
+
+for each end user, complete your existing link oauth flow in your backend and
+obtain its access and refresh tokens. keep the client secret, pkce verifier, and
+tokens out of agent context, browser code, urls, and logs.
+
+create the wallet with the project-scoped `kernel` client and `vault` from
+[Before you start](#before-you-start). supply the access and refresh tokens from
+the same grant, with a currently valid access token. CLI users should restore
+their project-scoped `KERNEL_API_KEY` before running the wallet command and put
+the grant in this protected file:
+
+```json link-grant.json
+{
+  "access_token": "example-access-token",
+  "refresh_token": "example-refresh-token"
+}
+```
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.upsert("link-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "link",
+    authorization: {
+      method: "oauth",
+      client: {
+        type: "customer_managed",
+        provider_config: { name: linkConfig.name },
+      },
+      tokens: {
+        access_token: process.env.LINK_ACCESS_TOKEN!,
+        refresh_token: process.env.LINK_REFRESH_TOKEN!,
+      },
+    },
+  },
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "link-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "link",
+        "authorization": {
+            "method": "oauth",
+            "client": {
+                "type": "customer_managed",
+                "provider_config": {"name": link_config.name},
+            },
+            "tokens": {
+                "access_token": os.environ["LINK_ACCESS_TOKEN"],
+                "refresh_token": os.environ["LINK_REFRESH_TOKEN"],
+            },
+        },
+    },
+)
+```
+
+```bash CLI
+kernel vaults wallets create user-12345 link-wallet --provider link \
+  --provider-config-name checkout-link --spec '{}' \
+  --tokens-file "$HOME/.config/kernel/link-grant.json"
+```
+
+</CodeGroup>
+
+a successful import returns a `connected` wallet without a `link_oauth` action.
+KERNEL takes over refresh-token rotation, so your backend must stop refreshing
+that grant. continue with [Select a payment method](#select-a-payment-method).
+
 ## Lifecycle
 
-1. create a `wallet` item with the link oauth specification.
-2. open the returned `link_oauth` action for the user and wait for the wallet to become `connected`.
+1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
+2. require the wallet to be `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
 4. create a `card` item with the purchase details.
 5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
@@ -52,7 +186,11 @@ kernel vaults create --name user-12345
 
 ## Connect a wallet
 
-before showing a stripe link connection option, list the vault's items. if a
+this section shows the KERNEL-managed oauth path. if you imported a connected
+wallet with your own client above, continue with
+[Select a payment method](#select-a-payment-method).
+
+before showing a link connection option, list the vault's items. if a
 link wallet already exists in any state, reuse it and do not let the user add
 another. show its existing action or status instead. the api makes item keys
 unique but does not currently enforce one wallet per provider, so the ui must
