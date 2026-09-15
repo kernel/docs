@@ -3,7 +3,7 @@ title: "Telemetry Overview"
 description: "Capture what happens inside a browser session"
 ---
 
-Telemetry captures events from inside a browser session - console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Once enabled, you can [stream them](/browsers/telemetry/streaming) live or pull them later for analysis.
+Telemetry captures events from inside a browser session - console output, network activity, page lifecycle, user interactions, captcha solves, and operational signals like crashes or connection changes. Once enabled, you can [stream them](/browsers/telemetry/streaming) live, pull them later for analysis, or [export them](/browsers/telemetry/export) to your own observability stack.
 
 Events are grouped into categories (`console`, `network`, `page`, and so on), and categories are the unit of control. Selection is opt-in: a session captures only the categories you turn on, and anything you don't stays off. See [Categories](/browsers/telemetry/categories) for the full list and what each one captures.
 
@@ -108,6 +108,40 @@ kernel browsers update <session-id> --telemetry=off
 On update, a category list patches the current selection - categories you don't include keep their current state. To reset the selection instead, send `enabled: true` (it replaces the selection with the categories you provide, or the default set if you provide none); send `enabled: false` to turn telemetry off.
 </Info>
 
+## Exporting to your own stack
+
+Capture and export are separate steps: a session captures events whether or not you export them. To send a session's events to Honeycomb, Datadog, Grafana Cloud, or any other OTLP/HTTP collector, create a destination once and reference it when you create the browser:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  telemetry: {
+    enabled: true,
+    export: {
+      otlp: { destination: { name: 'honeycomb-prod' } },
+    },
+  },
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    telemetry={
+        "enabled": True,
+        "export": {
+            "otlp": {"destination": {"name": "honeycomb-prod"}},
+        },
+    },
+)
+```
+
+```bash CLI
+kernel browsers create --telemetry-export-otlp honeycomb-prod
+```
+</CodeGroup>
+
+See [Export Telemetry](/browsers/telemetry/export) for destination setup, credential rotation, and the constraints on export.
+
 ## Retention
 
 Captured events are retained for 30 days, then expired. You can [stream](/browsers/telemetry/streaming) events live or pull them later for analysis within that window; after 30 days the events are no longer available.
@@ -116,4 +150,5 @@ Captured events are retained for 30 days, then expired. You can [stream](/browse
 
 - [Categories](/browsers/telemetry/categories) - every category, what it captures, the default set, and cost characteristics.
 - [Stream telemetry](/browsers/telemetry/streaming) - consume the live stream from the SDK, CLI, or raw SSE, with filtering and reconnection.
+- [Export telemetry](/browsers/telemetry/export) - ship captured events to your own OTLP backend.
 - For event payload schemas, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.

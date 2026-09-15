@@ -1,0 +1,223 @@
+---
+title: "Export Telemetry"
+description: "Ship a session's captured events to your own observability stack over OTLP"
+---
+
+[Capturing telemetry](/browsers/telemetry/overview) keeps a session's events in Kernel for 30 days, where you can [stream](/browsers/telemetry/streaming) them live or pull them later. Exporting sends those same events on to your own backend over OTLP/HTTP, so console output, network activity, and crashes from a browser session land next to the rest of your application's logs.
+
+Any OTLP/HTTP collector works - Honeycomb, Datadog, Grafana Cloud, and self-hosted collectors are each just an endpoint and a header.
+
+<Info>
+Events are exported as OTLP **logs**. Kernel appends `/v1/logs` to the endpoint you configure and doesn't emit traces or metrics, so set the destination up as a log source in your backend.
+</Info>
+
+## How export works
+
+A destination is an OTLP endpoint plus the headers Kernel sends with each export request. Destinations are organization-scoped, so you create one once and reference it by name or ID whenever you create a browser.
+
+Your credentials stay server-side. Headers are encrypted at rest, decrypted by Kernel's relay at export time, and never reach the browser VM - a session can export to your backend without ever holding your ingestion key.
+
+## Create a destination
+
+Pass the **base** endpoint of your collector and the headers it expects:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const destination = await kernel.telemetry.destinations.create({
+  name: 'honeycomb-prod',
+  endpoint: 'https://api.honeycomb.io',
+  description: 'Production browser telemetry',
+  headers: { 'x-honeycomb-team': process.env.HONEYCOMB_API_KEY! },
+});
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel()
+
+destination = kernel.telemetry.destinations.create(
+    name="honeycomb-prod",
+    endpoint="https://api.honeycomb.io",
+    description="Production browser telemetry",
+    headers={"x-honeycomb-team": os.environ["HONEYCOMB_API_KEY"]},
+)
+```
+
+```bash CLI
+kernel telemetry destinations create \
+  --name honeycomb-prod \
+  --endpoint https://api.honeycomb.io \
+  --description "Production browser telemetry" \
+  --header "x-honeycomb-team=$HONEYCOMB_API_KEY"
+```
+</CodeGroup>
+
+You can also manage destinations from the dashboard under **Telemetry Destinations**.
+
+Creating, updating, and deleting a destination requires an organization-scoped credential or dashboard authentication; a project-scoped credential gets a `403`. Project-scoped credentials can still list and retrieve destinations so workloads can select one.
+
+Header values are encrypted at rest and returned redacted - API and CLI reads show the header names with empty values, and only the dashboard shows the stored values.
+
+### Endpoint rules
+
+The endpoint is the collector's base URL, without an OTLP signal path. Kernel appends the signal path itself, so pass `https://api.honeycomb.io` rather than `https://api.honeycomb.io/v1/logs`. If your provider's docs give you a signal-specific URL, drop the trailing `/v1/logs`, `/v1/traces`, or `/v1/metrics` - an endpoint that already carries one is rejected.
+
+The endpoint must use `http` or `https`, must resolve to a public address, and must carry no query string or fragment.
+
+| Backend | Endpoint | Auth header |
+| --- | --- | --- |
+| Honeycomb | `https://api.honeycomb.io` | `x-honeycomb-team` |
+| Datadog (US1) | `https://otlp.datadoghq.com` | `dd-api-key` |
+| Grafana Cloud | `https://otlp-gateway-prod-us-east-0.grafana.net/otlp` | `Authorization` |
+| Self-hosted collector | `https://collector.example.com:4318` | whatever your collector requires |
+
+Datadog's OTLP intake is a different host from its logs intake, and the region matters - check your provider's docs for the endpoint and header names that match your account.
+
+## Export a session's telemetry
+
+Set `telemetry.export.otlp.destination` when you create the browser, referencing the destination by `name` or `id`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  telemetry: {
+    browser: {
+      console: { enabled: true },
+      network: { enabled: true },
+    },
+    export: {
+      otlp: { destination: { name: 'honeycomb-prod' } },
+    },
+  },
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    telemetry={
+        "browser": {
+            "console": {"enabled": True},
+            "network": {"enabled": True},
+        },
+        "export": {
+            "otlp": {"destination": {"name": "honeycomb-prod"}},
+        },
+    },
+)
+```
+
+```bash CLI
+kernel browsers create --telemetry-export-otlp honeycomb-prod
+```
+</CodeGroup>
+
+Export ships what the session captures, so capture must be on in the same request: pass `enabled: true` or a category list alongside the destination, or the request fails with `telemetry.export.otlp.destination requires telemetry capture to be enabled`. The CLI implies `--telemetry=all` when you pass `--telemetry-export-otlp` without `--telemetry`.
+
+Provide exactly one of `id` or `name`. A name must match exactly one destination in the organization; setting a destination implies `enabled: true`, so combining it with `enabled: false` is rejected.
+
+<Warning>
+Export is bound at session creation. A session keeps the destination it was created with, and `browsers update` can't add, change, or remove it - that request fails with `telemetry.export is only supported when creating a browser`. To send a session's events somewhere else, create a new session. [Browser pools](/browsers/pools) don't support export.
+</Warning>
+
+## Confirm export is working
+
+Browser responses echo the session's live export state under `telemetry.export.otlp`, which is how you confirm the destination you asked for took effect:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const session = await kernel.browsers.retrieve(browser.session_id);
+
+console.log(session.telemetry?.export?.otlp);
+// { enabled: true, destination: 'dest_...' }
+```
+
+```python Python
+session = kernel.browsers.retrieve(browser.session_id)
+
+print(session.telemetry.export.otlp)
+# {'enabled': True, 'destination': 'dest_...'}
+```
+</CodeGroup>
+
+Delivery health lives on the destination itself:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const health = await kernel.telemetry.destinations.retrieve('honeycomb-prod');
+
+console.log(health.last_export_at, health.consecutive_failures, health.last_error);
+```
+
+```python Python
+health = kernel.telemetry.destinations.retrieve("honeycomb-prod")
+
+print(health.last_export_at, health.consecutive_failures, health.last_error)
+```
+
+```bash CLI
+kernel telemetry destinations get honeycomb-prod
+```
+</CodeGroup>
+
+`last_export_at` moves only on success. `last_error` and `last_error_at` are kept after a later success, so their presence doesn't mean the destination is failing right now - read `consecutive_failures` for that. Zero means the most recently recorded delivery succeeded. Errors are reported as a sanitized class of failure; response bodies, endpoint URLs, and credentials are never returned.
+
+## Rotate credentials
+
+Update the destination's headers. Edits merge key by key rather than replacing the whole map, and sessions that are already exporting pick up the new values without restarting, so rotation doesn't interrupt export:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.telemetry.destinations.update('honeycomb-prod', {
+  headers: { 'x-honeycomb-team': process.env.HONEYCOMB_API_KEY_NEXT! },
+});
+```
+
+```python Python
+kernel.telemetry.destinations.update(
+    "honeycomb-prod",
+    headers={"x-honeycomb-team": os.environ["HONEYCOMB_API_KEY_NEXT"]},
+)
+```
+
+```bash CLI
+kernel telemetry destinations update honeycomb-prod \
+  --header "x-honeycomb-team=$HONEYCOMB_API_KEY_NEXT"
+```
+</CodeGroup>
+
+Header names are matched case-insensitively, so `authorization` replaces a stored `Authorization` instead of adding a second entry. Send `null` for a header value (or `--remove-header` on the CLI) to delete it. Headers you don't name are left alone.
+
+## Managed auth connections
+
+Logins run in a browser too, so [managed auth](/auth/overview) connections take the same export config on `auth connections create`, `update`, and `login`. A connection resolves its destination by name on every login, which is why renaming or deleting a destination a connection references is refused with a `409`.
+
+## Delete a destination
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.telemetry.destinations.delete('honeycomb-prod');
+```
+
+```python Python
+kernel.telemetry.destinations.delete("honeycomb-prod")
+```
+
+```bash CLI
+kernel telemetry destinations delete honeycomb-prod
+```
+</CodeGroup>
+
+Deleting is refused with a `409` while sessions are still exporting to the destination, while a managed auth connection still selects it, or while a managed auth login using it is in progress. Wait for those sessions to end (or delete them first), then retry.
+
+## What's next
+
+- [Telemetry Overview](/browsers/telemetry/overview) - enable capture and choose what a session records.
+- [Categories](/browsers/telemetry/categories) - every category, what it captures, and its cost characteristics.
+- [Stream Telemetry](/browsers/telemetry/streaming) - consume the live stream instead of, or alongside, exporting.
