@@ -1,5 +1,5 @@
 ---
-title: "Auth"
+title: "Overview"
 description: "Choose how your browser agents authenticate and reuse signed-in sessions"
 ---
 
@@ -8,27 +8,27 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 ## Choose an auth approach
 
 <CardGroup cols={2}>
-  <Card title="Managed Auth" icon="key" href="/auth/managed-auth">
-    **delegate the login lifecycle**
-
-    best when your application controls the credentials and you want KERNEL to navigate common login, sso, and mfa steps, save the authenticated state, and monitor the connection.
-  </Card>
   <Card title="Vaults + Credential Fill" icon="vault" href="/auth/credential-fill">
     **control the login workflow**
 
     best when an end user owns the credentials. collect them during a task, then have your application or agent navigate, fill, submit, and handle the site's response.
   </Card>
+  <Card title="Managed Auth" icon="key" href="/auth/managed-auth">
+    **delegate the login lifecycle**
+
+    best when your application controls the credentials and you want KERNEL to navigate common login, sso, and mfa steps, save the authenticated state, and monitor the connection.
+  </Card>
 </CardGroup>
 
-| | Managed Auth | Vaults + Credential Fill |
+| | Vaults + Credential Fill | Managed Auth |
 | --- | --- | --- |
-| **best for** | developer- or organization-controlled credentials in repeatable or unattended automations | user-present workflows where an end user supplies credentials during a task |
-| **login navigation** | KERNEL | your application or agent |
-| **credential collection** | Managed Auth credential, Hosted UI, React component, or programmatic flow | KERNEL-hosted collection form or your trusted backend |
-| **form filling and submission** | KERNEL | KERNEL fills the selected fields; your application or agent submits the form |
-| **site response handling** | KERNEL | your application or agent |
-| **session state** | saved to a reusable profile | your workflow can save the resulting state to a profile |
-| **ongoing lifecycle** | health checks and eligible automatic reauthentication | your workflow decides when to authenticate again |
+| **best for** | user-present workflows where an end user supplies credentials during a task | developer- or organization-controlled credentials in repeatable or unattended automations |
+| **login navigation** | your application or agent | KERNEL |
+| **credential collection** | KERNEL-hosted collection form or your trusted backend | Managed Auth credential, Hosted UI, React component, or programmatic flow |
+| **form filling and submission** | KERNEL fills the selected fields; your application or agent submits the form | KERNEL |
+| **site response handling** | your application or agent | KERNEL |
+| **session state** | your workflow can save the resulting state to a profile | saved to a reusable profile |
+| **ongoing lifecycle** | your workflow decides when to authenticate again | health checks and eligible automatic reauthentication |
 
 <Note>
   credential ownership is a useful starting point, but the main difference is who controls the login flow. Managed Auth can collect credentials from an end user. Vaults + Credential Fill is the lower-level option when your product needs to own navigation, submission, and recovery.
@@ -36,19 +36,19 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ## Common use cases
 
-### Use Managed Auth
-
-- your automation uses developer- or organization-controlled credentials.
-- the automation runs unattended or signs in repeatedly.
-- you want KERNEL to navigate common login, sso, and mfa flows.
-- you want health checks and eligible automatic reauthentication.
-
 ### Use Vaults + Credential Fill
 
 - your end user owns the credentials and is present during the task.
 - an authentication prompt can appear in the middle of a longer workflow.
 - your product needs to control when and how it asks for credentials.
 - your application or agent must own navigation, submission, and recovery.
+
+### Use Managed Auth
+
+- your automation uses developer- or organization-controlled credentials.
+- the automation runs unattended or signs in repeatedly.
+- you want KERNEL to navigate common login, sso, and mfa flows.
+- you want health checks and eligible automatic reauthentication.
 
 ## Understand the security boundary
 
@@ -61,10 +61,10 @@ KERNEL doesn't return stored sensitive fields in api responses or add them to mo
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Use Managed Auth" icon="key" href="/auth/managed-auth">
-    let KERNEL run the login flow and maintain the authenticated session.
-  </Card>
   <Card title="Build an End-User Auth Workflow" icon="user-lock" href="/browsers/use-vault-credentials-in-browser-agent">
     collect credentials from a user, fill a browser form, and handle the login in your own workflow.
+  </Card>
+  <Card title="Use Managed Auth" icon="key" href="/auth/managed-auth">
+    let KERNEL run the login flow and maintain the authenticated session.
   </Card>
 </CardGroup>
