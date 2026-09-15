@@ -1,31 +1,23 @@
 ---
 title: "Config Registry"
-description: "Start every browser session with a configuration already known to reach the site"
+description: "Find browser and proxy settings that can reach the site you want to automate"
 ---
 
-**status:** <Badge color="yellow">preview</Badge>
+**status:** preview
 
-reaching a bot-protected site is usually trial and error. an agent gets silently blocked, and you spend sessions and tokens rediscovering which proxy type and stealth settings actually load the page. every team repeats that search for the same sites.
+give the config registry a public url and it returns browser and proxy settings that have worked for that site. if we don't have a recommendation yet, you can start an analysis against the live site and poll for the result.
 
-the <span className="kernel-brand-name">KERNEL</span> config registry replaces the search with an answer. submit a url and <span className="kernel-brand-name">KERNEL</span> returns the browser and proxy configuration it recommends for that site, with the evidence behind it: how often the configuration got in, how many trials that's based on, and when it was last recommended. when <span className="kernel-brand-name">KERNEL</span> hasn't seen a site, it runs an analysis against the live site and records what worked.
-
-recommendations are advisory. you review and apply them yourself, and <span className="kernel-brand-name">KERNEL</span> never changes your sessions or creates resources on your behalf.
+recommendations are advisory. you decide whether to use them, and <span className="kernel-brand-name">KERNEL</span> won't create a browser or proxy until you ask it to.
 
 <Note>
-  the config registry is in preview. it's enabled per organization for hobbyist plans and up; [email support@kernel.sh](mailto:support@kernel.sh?subject=Config%20Registry%20preview%20access) to request preview access. once enabled, it's available in the dashboard under **Browsers**, in the api, and in the sdks. a recommendation covers browser settings and a <span className="kernel-brand-name">KERNEL</span> proxy recipe. it doesn't tell your agent how to complete a task on the site; for the wider picture on getting through, start with the [bot detection overview](/browsers/bot-detection/overview).
+  the config registry is available in preview for hobbyist plans and up. [email support@kernel.sh](mailto:support@kernel.sh?subject=Config%20Registry%20preview%20access) to enable it for your organization.
 </Note>
 
-## How the config registry works
+## get a recommended configuration
 
-### Knowledge is keyed on the exact url
+### 1. look up an existing recommendation
 
-a target is identified by scheme, host, port, and path. the query string and fragment are used when <span className="kernel-brand-name">KERNEL</span> navigates to the site, but not to identify it, so `https://www.kernel.sh/docs?ref=a` and `https://www.kernel.sh/docs` share one record. urls can be up to 2,048 characters and must be public http or https.
-
-when the exact url is unknown, <span className="kernel-brand-name">KERNEL</span> falls back to what it knows about the host, then the registrable domain. the response says which one you got in `match_scope`, so a recommendation for `kernel.sh` is never mistaken for one about `/docs`.
-
-### Lookups read, analyses write
-
-`lookup` is side-effect free. it answers instantly from current knowledge and never starts work.
+`lookup` returns immediately from the registry's current knowledge. it doesn't visit the site, start an analysis, or change any data.
 
 <CodeGroup>
 
@@ -48,7 +40,11 @@ if result.recommendation and result.recommendation.type == "recommendation":
 
 </CodeGroup>
 
-`resolve` starts an analysis for the url in your project, or joins the one already running, and returns an `analysis` to poll. it always responds `202` with a null recommendation; the result arrives on the analysis, not on the resolve call.
+a null `recommendation` means the registry doesn't have a usable answer for this url yet. it doesn't mean the site is unreachable. call `resolve` to run an analysis.
+
+### 2. run an analysis when needed
+
+`resolve` starts an analysis or joins one already running for the same url. analysis usually takes several minutes. the initial response has a null `recommendation`, so poll the returned analysis id until its status is no longer `running`.
 
 <CodeGroup>
 
@@ -56,6 +52,9 @@ if result.recommendation and result.recommendation.type == "recommendation":
 const started = await kernel.configRegistry.resolve({
   url: 'https://www.kernel.sh/docs',
 });
+if (!started.analysis) {
+  throw new Error('analysis did not start');
+}
 
 let result = started;
 while (result.analysis?.status === 'running') {
@@ -63,55 +62,122 @@ while (result.analysis?.status === 'running') {
   result = await kernel.configRegistry.analyses.retrieve(started.analysis.id);
 }
 
-console.log(result.analysis?.status, result.recommendation);
+if (result.recommendation?.type === 'recommendation') {
+  console.log(result.recommendation);
+} else {
+  console.log(result.analysis?.status, result.recommendation);
+}
 ```
 
 ```python Python
 import time
 
 started = kernel.config_registry.resolve(url="https://www.kernel.sh/docs")
+if not started.analysis:
+    raise RuntimeError("analysis did not start")
 
 result = started
 while result.analysis and result.analysis.status == "running":
     time.sleep(5)
     result = kernel.config_registry.analyses.retrieve(started.analysis.id)
 
-print(result.analysis.status, result.recommendation)
+if result.recommendation and result.recommendation.type == "recommendation":
+    print(result.recommendation)
+else:
+    print(result.analysis.status if result.analysis else None, result.recommendation)
 ```
 
 </CodeGroup>
 
-a finished analysis reports what that run concluded. later analyses of the same site don't rewrite it, so an analysis id is a stable record you can link to or audit. `lookup`, by contrast, always reflects the newest knowledge.
+the terminal analysis statuses are `completed`, `failed`, `canceled`, and `expired`. when an analysis finishes without a recommendation, inspect `recommendation` and `analysis.failure` for the reason and retry guidance.
 
-analyses, proxies, and browsers are project-scoped. select a project on the sdk client or use a project-scoped api key; otherwise <span className="kernel-brand-name">KERNEL</span> uses your organization's default project.
+### 3. create a browser with the recommendation
 
-### Evidence decides what's recommended
+pass `recommendation.browser` directly into browser creation.
 
-a recommendation carries `verification` and `evidence`, and together they tell you how much to trust it.
+<CodeGroup>
 
-| field | behavior |
-| --- | --- |
-| `verification: "verified"` | recommended for the exact url: at least 3 conclusive trials, with 80% or more of them getting in. the dashboard labels this **Recommended** |
-| `verification: "inferred"` | derived from host or domain knowledge; test it against your workflow before relying on it. the dashboard labels this **Inferred** |
-| `evidence.success_rate` | accessed trials over conclusive trials; inconclusive trials are excluded |
-| `evidence.sample_size`, `evidence.run_count` | how many conclusive trials, across how many analyses |
-| `evidence.last_verified_at`, `evidence.last_observed_at` | when the configuration was last recommended outright, and when it was last tested at all |
+```typescript TypeScript
+const { recommendation } = await kernel.configRegistry.lookup({
+  url: 'https://www.kernel.sh/docs',
+});
+if (recommendation?.type !== 'recommendation') {
+  throw new Error('no recommendation yet');
+}
 
-when several configurations perform equally well, the recommendation is the one <span className="kernel-brand-name">KERNEL</span> ranks first, and the rest are returned in `working_configurations` with the recommendation first. stealth wins ties.
+// do this once, then store and reuse proxy.id
+const proxy =
+  recommendation.proxy.mode === 'managed'
+    ? await kernel.proxies.create({
+        ...recommendation.proxy.create,
+        name: 'config-registry-kernel-docs',
+      })
+    : null;
 
-knowledge that hasn't been observed for 90 days ages out, and analysis history is retained for 90 days. a site nobody has analyzed recently can go back to returning nothing.
+const browser = await kernel.browsers.create({
+  ...recommendation.browser,
+  proxy: proxy ? { id: proxy.id } : { mode: 'direct' },
+});
+```
 
-### Analysis runs against the live site
+```python Python
+result = kernel.config_registry.lookup(url="https://www.kernel.sh/docs")
+recommendation = result.recommendation
+if not recommendation or recommendation.type != "recommendation":
+    raise RuntimeError("no recommendation yet")
 
-an analysis loads the url repeatedly in real <span className="kernel-brand-name">KERNEL</span> browsers across proxy types and stealth settings, and judges the resulting page screenshots. it takes several minutes. `analysis.expires_at` is the deadline after which a still-running analysis is marked `expired`. one analysis runs per url per project at a time, and a second `resolve` joins it rather than starting another.
+# do this once, then store and reuse proxy.id
+proxy = None
+if recommendation.proxy.mode == "managed":
+    proxy = kernel.proxies.create(
+        name="config-registry-kernel-docs",
+        **recommendation.proxy.create.model_dump(exclude_none=True)
+    )
+
+browser = kernel.browsers.create(
+    **recommendation.browser.model_dump(),
+    proxy={"id": proxy.id} if proxy else {"mode": "direct"},
+)
+```
+
+</CodeGroup>
+
+<Warning>
+  create a managed proxy once and reuse its id. running this setup again creates another proxy.
+</Warning>
+
+the dashboard generates equivalent typescript, python, and cli snippets for each recommendation. it includes only settings that differ from <span className="kernel-brand-name">KERNEL</span>'s defaults.
+
+## choose between lookup and resolve
+
+| method | use it when | behavior |
+| --- | --- | --- |
+| `lookup` | you want the best answer already in the registry | returns immediately, doesn't start work, and always reflects current knowledge |
+| `resolve` | `lookup` returned null or you want fresh evidence | starts or joins an analysis and returns an analysis id to poll |
+
+a completed analysis is a stable historical record. retrieving its id always returns what that run concluded, even after later analyses produce new knowledge. use `lookup` when you want the latest recommendation instead.
+
+## evaluate a recommendation
+
+the dashboard marks recommendations for the exact url as **Recommended** and host or domain fallbacks as **Inferred**. test an inferred recommendation against your workload before relying on it.
+
+check the success rate, number of trials, and last-tested time to decide whether the evidence is strong and recent enough for your use case. run another analysis when you want fresher evidence.
+
+## tailor an analysis to your workload
+
+an analysis tries the url with different browser and proxy settings to find a configuration that can load it reliably.
 
 <Warning>
   only submit public urls you're authorized to test. don't include secrets, session tokens, signed links, private data, or urls where a get request triggers an action.
 </Warning>
 
-by default <span className="kernel-brand-name">KERNEL</span> chooses proxy exit countries itself, starting with the united states. pass `allowed_proxy_countries` with up to 10 iso 3166 codes to restrict where a recommended proxy may exit. on `resolve` it limits what gets tested, and <span className="kernel-brand-name">KERNEL</span> may test a subset; on `lookup` it limits which knowledge comes back.
+### choose proxy countries
 
-some protections only appear once a session interacts with the site. pass an `intent`, a sentence describing the workload you'll run, and the analysis drives a browser toward it after the configuration trials. the response reports how far it got in `workload_outcome`, and whatever it observed feeds the guidance described below. intent requires an https url, and a `resolve` that reaches an analysis already running with a different intent returns `409` naming the analysis to poll.
+by default, <span className="kernel-brand-name">KERNEL</span> chooses where the proxy exits, starting with the united states. if your workload must run from specific countries, use `allowed_proxy_countries` to limit the analysis and its recommendation.
+
+### test the workflow you plan to run
+
+loading the first page doesn't prove that a configuration can support the rest of your workflow. add an `intent` describing what you plan to do. after finding a configuration, the analysis attempts that workflow and reports whether it finished, needed authentication or payment, was blocked, or stopped early.
 
 <CodeGroup>
 
@@ -133,78 +199,6 @@ started = kernel.config_registry.resolve(
 
 </CodeGroup>
 
-## Evaluating a recommendation
+### use the guidance
 
-read `recommendation.type` first. it's either a `recommendation` or a `no_recommendation` with a reason:
-
-| code                       | meaning                                                                                                                                                                                                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `proxy_restricted`         | <span className="kernel-brand-name">KERNEL</span>'s proxy network can't reach this site. see [restricted destinations](/acceptable-use#proxy-fair-use) and consider a [custom proxy](/proxies/custom) |
-| `no_working_configuration` | the analysis finished and no configuration reliably got in                                                                                                                                                       |
-| `inconclusive`             | every trial was inconclusive, so <span className="kernel-brand-name">KERNEL</span> couldn't judge whether the site let the browser in                                                                            |
-
-`lookup` reports `proxy_restricted` from stored knowledge but is otherwise null whenever it has nothing usable, whether because nobody has analyzed the site or because nothing worked. a null from `lookup` means run `resolve`, not that the site is unreachable.
-
-then read the evidence. a recommended configuration with a recent `last_verified_at` and a sample size you're comfortable with is ready to use. an inferred one, an old `last_verified_at`, or a small sample means run your own check or refresh the analysis. re-run when the evidence is older than your risk tolerance, with **Refresh analysis** in the dashboard or another `resolve`.
-
-`guidance`, when present, is short markdown about the anti-bot protections observed on the site and how to navigate them. it's assembled from what the analysis saw and from <span className="kernel-brand-name">KERNEL</span>'s notes on those vendors, and it's returned even when no configuration got in. it's advisory and hasn't been tested against your workflow, so treat it as a starting point for your agent's instructions rather than a rule.
-
-## Applying a recommendation
-
-`recommendation.browser` passes straight into browser creation: `stealth`, `headless`, `gpu`, and `viewport`. `recommendation.proxy` is one of two recipes.
-
-| `proxy.mode` | behavior                                                                                                                                                                                          |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `direct`     | no <span className="kernel-brand-name">KERNEL</span> proxy resource is needed. pass `{ mode: "direct" }` as the browser's `proxy`. this must be explicit on a stealth browser, which otherwise picks up the default stealth proxy |
-| `managed`    | `proxy.create` is a ready proxy creation payload. create the proxy once, keep its id, and pass `{ id }` as the browser's `proxy` for every session                                                 |
-
-<CodeGroup>
-
-```typescript TypeScript
-const { recommendation } = await kernel.configRegistry.lookup({
-  url: 'https://www.kernel.sh/docs',
-});
-if (recommendation?.type !== 'recommendation') {
-  throw new Error('no recommendation yet');
-}
-
-// once, at setup time. store proxy.id and reuse it.
-const proxy =
-  recommendation.proxy.mode === 'managed'
-    ? await kernel.proxies.create(recommendation.proxy.create)
-    : null;
-
-// every session
-const browser = await kernel.browsers.create({
-  ...recommendation.browser,
-  proxy: proxy ? { id: proxy.id } : { mode: 'direct' },
-});
-```
-
-```python Python
-result = kernel.config_registry.lookup(url="https://www.kernel.sh/docs")
-recommendation = result.recommendation
-if not recommendation or recommendation.type != "recommendation":
-    raise RuntimeError("no recommendation yet")
-
-# once, at setup time. store proxy.id and reuse it.
-proxy = None
-if recommendation.proxy.mode == "managed":
-    proxy = kernel.proxies.create(
-        **recommendation.proxy.create.model_dump(exclude_none=True)
-    )
-
-# every session
-browser = kernel.browsers.create(
-    **recommendation.browser.model_dump(),
-    proxy={"id": proxy.id} if proxy else {"mode": "direct"},
-)
-```
-
-</CodeGroup>
-
-proxy creation isn't idempotent, so don't create one per session. key the stored proxy id by the full `proxy.create` recipe and create a replacement only when the recipe changes. the proxy and the browser must belong to the same project.
-
-the dashboard generates these recipes for every recommendation in typescript, python, and cli, including only the settings that differ from <span className="kernel-brand-name">KERNEL</span>'s defaults. a recommendation that matches the defaults renders as a plain browser create call.
-
-see the [config registry api reference](https://kernel.sh/docs/api-reference/config-registry/look-up-a-config) for endpoints and complete request and response schemas.
+an analysis may also return short guidance based on what it observed while navigating the site. guidance can still be useful when no configuration worked because it describes what got in the way and what to try next; use it as a starting point for your agent's instructions.
