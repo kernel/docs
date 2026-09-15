@@ -5,6 +5,14 @@ description: "Map vault fields to browser inputs without returning their values 
 
 invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not credential values. the result reports outcomes without returning the values.
 
+<Note>
+  `fill` reads credentials from a ready KERNEL credential item. if another vault
+  is your source of truth, [copy its values into the credential
+  item](/vaults/credentials#copy-values-from-an-existing-vault) first. today,
+  this stores an encrypted copy in KERNEL; `fill` doesn't accept credential
+  values or a third-party vault reference in its request.
+</Note>
+
 <Warning>
   fill writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them.
 </Warning>

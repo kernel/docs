@@ -25,7 +25,7 @@ choose the path deliberately: their exposure boundaries differ.
   vaults are in preview. supported item types are `credential`, `wallet`, and
   `card`. wallet and card providers are [link by stripe](/integrations/payments/stripe-link)
   and [agentcard](/integrations/payments/agentcard), not merchant payment processors.
-  credential items don't require a provider or wallet.
+  credential items currently don't use a provider or wallet.
 </Note>
 
 ## How vaults work
@@ -43,6 +43,31 @@ for link, KERNEL stores oauth credentials and approved one-use card
 data with kms-backed envelope encryption. for agentcard, the underlying card
 remains with agentcard. both providers connect the user's payment method through
 a hosted flow, without passing card data through your application or agent.
+
+### Use credentials from your existing vault
+
+you can keep your existing vault as the source of truth. today, your trusted
+backend reads the values from that vault and [copies them into a KERNEL credential
+item](/vaults/credentials#copy-values-from-an-existing-vault). KERNEL encrypts and
+stores that copy. the credential item becomes ready, and `fill` can write its
+fields into an attached browser without including their values in the fill
+request.
+
+the copy isn't a live connection to your existing vault. when a credential
+changes there, update the KERNEL item before its next use. delete the item when
+your retention policy no longer permits KERNEL to hold the copy.
+
+in the future, a credential item might instead be backed by a third-party vault
+connection. that would follow the same resource pattern as a card item backed by
+a third-party wallet connection: the item remains the interface used by browser
+operations while the connection supplies the underlying material. third-party
+credential backing isn't currently available.
+
+| item backing | material path | availability |
+| --- | --- | --- |
+| KERNEL-backed credential | your trusted backend copies values from your source vault into the item | available today |
+| third-party-backed credential | a provider connection supplies values to the item | possible future model; not available today |
+| provider-backed card | a supported wallet provider supplies payment material to the item | available today |
 
 ### Fill or use payment aliases
 
@@ -86,6 +111,8 @@ check does not match.
 ```mermaid
 flowchart LR
   T[trusted collection surface] --> I[vault item]
+  V[existing credential vault] -->|copy values today| I
+  V -. future provider connection .-> I
   I --> F[fill real values]
   F --> B[attached browser session]
   I --> A[non-sensitive payment alias]
