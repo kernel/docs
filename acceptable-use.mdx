@@ -3,9 +3,9 @@ title: "Acceptable Use Policy"
 description: "What is and isn't allowed on Kernel, including proxy fair use and platform abuse"
 ---
 
-Last Modified: September 1, 2026
+Last Modified: September 15, 2026
 
-This Acceptable Use Policy ("AUP") governs your use of the Kernel platform and is incorporated into the [Terms of Service](/tos). It applies to everyone using Kernel, on every plan. If we say something here that conflicts with the Terms of Service, the Terms of Service control.
+This Acceptable Use Policy ("AUP") governs your use of the Kernel platform and is incorporated into the [Terms of Service](/tos). It applies to everyone using Kernel, on every plan, whether paid or provided at no charge, and whether you use Kernel directly or through an agent, end user, or other party acting on your behalf. Capitalized terms used but not defined here have the meaning given to them in your agreement with us. We may update this AUP from time to time, and will make reasonable efforts to give you notice — including by posting the updated version on this page. Where something here conflicts with the Terms of Service, the provision more protective of Kernel and the Services controls.
 
 ## Our Principle
 
@@ -29,10 +29,11 @@ You may not use Kernel to:
 - **Farm accounts on other services.** Create, provision, verify, or sell accounts, seller storefronts, or identities on a third-party service in bulk, or in violation of that service's terms. This does not prohibit operating accounts you or your users legitimately hold.
 - **Spam.** Bulk unsolicited messaging, posting, commenting, or form submission.
 - **Handle prohibited content.** Child sexual abuse material, non-consensual intimate imagery, content that promotes terrorism or violent extremism, or material that facilitates the sale of illegal goods.
-- **Resell the network.** Resell, sublicense, or relay Kernel's proxy capacity or browser infrastructure as a standalone proxy, VPN, or tunneling product.
+- **Resell the network.** Resell, sublicense, or relay Kernel's proxy capacity or browser infrastructure as a standalone proxy, VPN, or tunneling product, whether directly or indirectly, including through a chain of sessions, sub-accounts, shell entities, or intermediary services designed to achieve the same result.
 - **Consume compute for its own sake.** Cryptocurrency mining, hash computation, proof-of-work, distributed computing, or any workload where the browser is incidental and the point is to consume CPU, GPU, or network capacity. See [Platform Abuse](#platform-abuse).
 - **Take the platform without paying for it.** Multiplying free or trial credit across accounts, using payment instruments you are not authorized to use, or continuing to consume resources you have not paid for. See [Platform Abuse](#platform-abuse).
 - **Evade enforcement.** Circumvent a suspension, rate limit, or restriction we have applied to your account, including by creating additional accounts or organizations.
+- **Harvest training data against a site's terms.** Access, extract, or harvest data from third-party sites at a scale or rate inconsistent with normal browsing, for the purpose of compiling machine learning training datasets, where doing so violates the target site's terms of use.
 
 We also require compliance with U.S. export control and sanctions law. You may not use Kernel if you are located in, or acting on behalf of a party in, an embargoed jurisdiction or on a restricted-party list.
 
@@ -79,7 +80,7 @@ Kernel includes datacenter, ISP, residential, and mobile proxies at no additiona
 ### Fair use
 
 - Proxy traffic must originate from your Kernel browser sessions and be incidental to using them. Do not route external traffic through Kernel's proxy credentials or use a Kernel session as a general-purpose tunnel for other systems.
-- Consumption should stay in a reasonable relationship to your browser usage. We may apply rate limits, or contact you to move to a [custom (BYO) proxy](/proxies/custom), where an organization's proxy bandwidth materially exceeds what its session activity would ordinarily require.
+- Consumption should stay in a reasonable relationship to your browser usage. We may apply rate limits, ask you to verify your use case as described under [One account, one allocation](#one-account-one-allocation), or contact you to move to a [custom (BYO) proxy](/proxies/custom), where an organization's proxy bandwidth materially exceeds what its session activity would ordinarily require.
 - Do not use proxies to obtain bandwidth-heavy content unrelated to browser automation — for example bulk media downloads, video streaming at scale, or torrenting.
 
 We would rather talk to you than throttle you. If you expect unusual volume, tell us in advance at [support@kernel.sh](mailto:support@kernel.sh) and we will plan capacity with you.
@@ -92,7 +93,7 @@ Categories restricted by our upstream providers currently include:
 
 | Category | Examples |
 |---|---|
-| Government | `.gov` and country-specific government domains |
+| Government | Country-specific government domains, and `.gov` on proxy configurations that do not support automatic routing — see [`.gov` support](/proxies/residential#gov-support) |
 | Banking and financial services | Banks, brokerages, financial institutions |
 | Payment processors | Card networks and payment service providers |
 | National postal services | Country postal operators |
@@ -100,14 +101,24 @@ Categories restricted by our upstream providers currently include:
 | Direct IP addresses | Requests to a bare IP rather than a hostname |
 | Select e-commerce platforms | Evaluated by the provider case by case |
 
+If you have a documented business need to reach a destination in a restricted category, you can [request an exception](#requesting-an-exception).
+
 This table is indicative, not exhaustive. Our providers maintain blocklists of thousands of domains, update them daily, and do not publish them in full. Treat it as a guide to what is likely to fail, not as a definitive list.
 
 **Nothing in the table above is prohibited by this policy.** These are destinations our proxy networks will not carry, not destinations you may not visit. The [Prohibited Uses](#prohibited-uses) above are the only limits this policy places on where your automation may go.
 
 Two things this restriction is **not**:
 
-- It is not Kernel's judgment about whether your use case is legitimate. Accessing a public government records site is lawful and ordinary; our residential network simply will not carry it.
+- It is not Kernel's judgment about whether your use case is legitimate. Accessing a public government records site is lawful and ordinary; where our network will not carry it, that is a limitation of the network and nothing more.
 - It is not a restriction on Kernel browsers. Restricted destinations are frequently reachable without a Kernel proxy — either directly or through a [custom proxy](/proxies/custom) you supply — and Kernel's browser-level anti-detection features work in both cases. If a destination is restricted, start there.
+
+### Requesting an exception
+
+If you have a legitimate business need to route proxy traffic to a restricted category — including government domains, banking and financial services, or payment processors — you can ask us to seek an exception or allowlist entry from the relevant network provider on your behalf. Email [security@kernel.sh](mailto:security@kernel.sh) with the destination or category, the business purpose, and any verification information we or the provider reasonably need.
+
+We will submit a properly documented request, but we do not control our providers' blocklists. We cannot guarantee that an exception will be granted, that it will stay in effect once granted, or how long a provider will take to respond. An exception granted by one provider does not extend to our other providers, or to traffic routed outside the approved configuration. We may ask you to re-verify periodically, or when your use case changes, as a condition of keeping it.
+
+An approved exception is specific to you, to the destination or category in the request, and to the business purpose you described. You remain responsible for the lawfulness of your access to that destination, including its terms of use, and for the accuracy of what you told us. Our agreeing to submit a request is not a view on whether your use case is legitimate, and it does not narrow anything in this policy — [Prohibited Uses](#prohibited-uses) still applies in full.
 
 ### Custom (BYO) proxies
 
@@ -117,13 +128,17 @@ When you supply your own proxy, your provider's policies apply instead of ours a
 
 If we believe you are violating this policy, we may rate limit your account, revoke API keys, terminate running sessions, restrict or revoke free and trial credit, suspend access to affected features, or suspend or terminate your account and any related accounts under common control.
 
-Where circumstances allow, we will contact you first and give you a chance to fix the problem. We may act immediately, without notice, where the conduct is illegal, actively harmful to a third party, involves an unauthorized payment instrument, or threatens the stability or economics of the platform — including the compute, account, and payment abuse described under [Platform Abuse](#platform-abuse). We may also act on a credible report or takedown request from a site operator, a network provider, or a regulator.
+Where circumstances allow, we will contact you first and give you a chance to fix the problem. Rate limiting applied to proxy services or to session concurrency is not a suspension, and is not subject to that opportunity to cure. We may act immediately, without notice, where the conduct is illegal, actively harmful to a third party, involves an unauthorized payment instrument, or threatens the stability or economics of the platform — including the compute, account, and payment abuse described under [Platform Abuse](#platform-abuse). We may also act on a credible report or takedown request from a site operator, a network provider, or a regulator.
 
 Enforcement action does not relieve you of amounts already incurred, and we may pursue them. Where you obtained resources through a violation — farmed credit, mined compute, unpaid usage — we may invoice you for their value, forfeit remaining credit, and decline to serve you again. Terminating an organization and creating a new one does not clear either the balance or the enforcement.
 
-We do not monitor the content of your browser sessions. Enforcement is based on aggregate traffic patterns, resource consumption, billing and account signals, abuse reports, and the metadata described in our [Privacy Policy](/privacy).
+We do not monitor the content of your browser sessions. Enforcement is based on aggregate traffic patterns, resource consumption, billing and account signals, abuse reports, and the metadata described in our [Privacy Policy](/privacy). We may investigate suspected violations of this policy.
 
 If you believe we have acted in error, reply to the notice we sent or email [support@kernel.sh](mailto:support@kernel.sh). We will look at it.
+
+## Exceptions
+
+To request an exception to this policy, email [security@kernel.sh](mailto:security@kernel.sh) for approval. Requests for access to a restricted proxy destination are handled under [Requesting an exception](#requesting-an-exception) above and should be sent in line with that section.
 
 ## Reporting Abuse
 
