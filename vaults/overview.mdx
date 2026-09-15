@@ -1,5 +1,5 @@
 ---
-title: "Vaults"
+title: "Overview"
 description: "Group credentials and payment items, collect values, and control their use by attached browsers"
 ---
 
@@ -35,8 +35,9 @@ choose the path deliberately: their exposure boundaries differ.
 sensitive values do not have a read path through the vault api. item responses
 return definitions, safe state, actions, and events. payment items can also
 return masks and aliases. credential fields marked `sensitive: false` return
-their populated values in `state.fields`; explicitly use that setting for
-ordinary usernames and email addresses.
+their populated values in `state.fields`. leave fields sensitive when they must
+remain write-only; set `sensitive: false` only when your backend or collection
+form needs to read and prefill an ordinary username or email address.
 
 for link, KERNEL stores oauth credentials and approved one-use card
 data with kms-backed envelope encryption. for agentcard, the underlying card
