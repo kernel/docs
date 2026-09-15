@@ -3,10 +3,10 @@ title: "Fill Browser Fields"
 description: "Map vault fields to browser inputs without returning their values to your application"
 ---
 
-invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not passwords or card numbers. the result reports outcomes without returning the values.
+invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not credential values. the result reports outcomes without returning the values.
 
 <Warning>
-  fill writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them. this is different from [payment aliases](/integrations/payments/overview), which resolve outside the browser at egress.
+  fill writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them.
 </Warning>
 
 ## Check availability
@@ -16,14 +16,12 @@ retrieve the item and require `fill` in `available_operations`. KERNEL rechecks 
 | item | requirements |
 | --- | --- |
 | `credential` | ready, with a stored value for every requested field |
-| [link by stripe](/integrations/payments/stripe-link) `card` | ready and unexpired, with the requested card fields available and destination permitted by the card policy |
-| `wallet` or agentcard `card` | not supported by this operation |
 
 attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share credentials.
 
 ## Map fields to inputs
 
-the following examples continue with a `kernel` client configured with `maxRetries: 0` or `max_retries=0`, a vault, and a browser attached to that vault. use sdk version `0.103.0` or later for typescript or python. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs.
+the following examples continue with a `kernel` client, a per-user vault such as `user-12345`, and a browser attached to that vault. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs.
 
 <CodeGroup>
 
@@ -70,13 +68,13 @@ if result.type != "fill" or result.status != "completed":
 
 </CodeGroup>
 
-for credential items, `field` is a declared field name. a totp field writes a generated code, never its seed. for cards, use supported card fields such as `number`, `cvc`, `exp_month`, and `exp_year`; a combined `expiration` binding also requires `format: "MM/YY"` or `"MM/YYYY"`. `format` isn't accepted for credentials or other card fields.
+`field` is a declared credential field name. a totp field writes a generated code, never its seed. `format` isn't accepted for credentials.
 
 ## Select the page and elements
 
-`page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. credentials can omit it only when the browser has exactly one open page. cards require an explicit https url without embedded credentials.
+`page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. credentials can omit it only when the browser has exactly one open page.
 
-credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission. card destination checks still apply when you supply `page_url`.
+credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 
 each selector must identify exactly one editable input or select across the main frame and all descendant frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
 
@@ -93,8 +91,8 @@ KERNEL validates bindings before writing, then fills in request order. if naviga
 
 known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`.
 
-fill doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded, a payment was accepted, or a form was submitted.
+fill doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded or a form was submitted.
 
-**don't automatically retry fill or fall back to aliases after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. disable automatic retries in your client and any surrounding agent/tool loop. deliberate recovery starts with inspecting the existing attempt, not replaying it.
+**don't automatically retry fill after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it.
 
-for the full application and agent handoff, follow [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent). for wallet setup and payment authorization, use the [payments guides](/integrations/payments/overview).
+for the full application and agent handoff, follow [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent).
