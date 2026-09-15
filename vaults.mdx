@@ -153,7 +153,8 @@ retrieve an item before acting on it. responses expose these fields and advertis
 
 when `action` is present, complete it in a trusted user-facing surface. treat an
 action url as a short-lived bearer link: bind it to the authenticated user,
-vault, and item, and don't log it or put it in model context. invoke only
+vault, and item, and don't log it. in application integrations, present the link
+directly to the user rather than putting it in model context. invoke only
 operations listed in `available_operations`, and request only expansions listed
 in `available_expansions`. don't hard-code provider transitions from a previous
 response.
@@ -278,5 +279,5 @@ card state can include `masks.brand`, `masks.last4`, and read-only aliases: `num
 
 - [credential items](/vaults/credentials): define fields, collect values, and update them safely.
 - [fill browser fields](/vaults/fill): map credential or supported card fields to browser inputs and handle outcomes.
-- [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent): connect trusted collection to a scoped agent tool.
+- [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): connect a wallet and complete an alias-based checkout.
