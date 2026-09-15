@@ -5,6 +5,8 @@ description: "Maintain authenticated browser sessions for agents"
 
 Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and Kernel can automatically reauthenticate supported login flows when needed. When you launch Kernel browsers with Managed Auth connections, your agent can start logged in and ready to go.
 
+Managed Auth stores authentication state in [Browser Profiles](/browsers/profiles). Profiles can also persist and reuse browser state without Managed Auth.
+
 if your agent would prefer to handle navigation and submission of login forms,
 use [vaults](/vaults/credentials). vaults let you collect sensitive credentials
 from a human and fill a browser form without passing the raw values back to the agent.
@@ -13,7 +15,7 @@ from a human and fill a browser form without passing the raw values back to the 
 
 <Steps>
   <Step title="Create a Connection">
-    A **Managed Auth Connection** attaches a domain's authentication state to a browser [profile](/auth/profiles) so future browsers can reuse it. A single profile can have multiple auth connections, one per domain.
+    A **Managed Auth Connection** attaches a domain's authentication state to a browser [profile](/browsers/profiles) so future browsers can reuse it. A single profile can have multiple auth connections, one per domain.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -120,7 +122,7 @@ if authenticated {
 
   </Step>
   <Step title="Use the Profile">
-    Once the auth connection completes, the authenticated session is saved to the browser [profile](/auth/profiles) specified in step 1. You can attach additional auth connections to the same profile for other domains. When you create a browser with the profile, it loads the saved authentication state for every connected domain.
+    Once the auth connection completes, the authenticated session is saved to the browser [profile](/browsers/profiles) specified in step 1. You can attach additional auth connections to the same profile for other domains. When you create a browser with the profile, it loads the saved authentication state for every connected domain.
 
 <CodeGroup>
 ```typescript TypeScript

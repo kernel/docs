@@ -1,0 +1,112 @@
+---
+title: "Profile Sharing and Concurrency"
+sidebarTitle: "Sharing and Concurrency"
+description: "Safely share browser profiles across parallel workers and browser pools"
+---
+
+A browser loads profile data as a snapshot. Saving replaces the profile's complete stored browser state; Kernel doesn't merge cookies, storage, tabs, or preferences from multiple sessions.
+
+## Use one writer and many readers
+
+Multiple browsers can safely load the same profile when they don't save changes. If a workflow needs to persist state, designate one browser as the writer and set `save_changes: true` only on that browser.
+
+If multiple browsers write to the same profile, the browser that ends last overwrites changes saved by the others. Use a separate profile per independent writer when each browser needs durable state.
+
+| Topology | Recommendation |
+| --- | --- |
+| Many browsers need the same starting state | Load one profile without `save_changes` |
+| One browser updates state for future runs | Give that browser `save_changes: true` |
+| Many browsers each need durable state | Give each writer its own profile |
+| Several browsers must contribute selected state | Transfer the required cookies or storage explicitly |
+
+## Detect active writers
+
+Before starting a writer, list active browsers matching the profile ID and check `profile_save_changes`.
+
+<CodeGroup>
+```typescript TypeScript
+const profileId = browser.profile!.id;
+const activeWriters = [];
+
+for await (const activeBrowser of kernel.browsers.list({
+  status: 'active',
+  query: profileId,
+})) {
+  if (
+    activeBrowser.profile?.id === profileId &&
+    activeBrowser.profile_save_changes
+  ) {
+    activeWriters.push(activeBrowser);
+  }
+}
+
+if (activeWriters.length > 0) {
+  throw new Error(
+    `Profile already has an active writer: ${activeWriters[0].session_id}`,
+  );
+}
+```
+
+```python Python
+profile_id = browser.profile.id
+active_writers = [
+    active_browser
+    for active_browser in kernel.browsers.list(
+        status="active",
+        query=profile_id,
+    )
+    if active_browser.profile
+    and active_browser.profile.id == profile_id
+    and active_browser.profile_save_changes
+]
+
+if active_writers:
+    raise RuntimeError(
+        f"Profile already has an active writer: {active_writers[0].session_id}"
+    )
+```
+
+```go Go
+profileID := browser.Profile.ID
+pager := client.Browsers.ListAutoPaging(ctx, kernel.BrowserListParams{
+	Status: kernel.BrowserListParamsStatusActive,
+	Query:  kernel.String(profileID),
+})
+
+for pager.Next() {
+	activeBrowser := pager.Current()
+	if activeBrowser.Profile.ID == profileID && activeBrowser.ProfileSaveChanges {
+		panic(fmt.Sprintf(
+			"profile already has an active writer: %s",
+			activeBrowser.SessionID,
+		))
+	}
+}
+if err := pager.Err(); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+The writer check and browser creation are separate requests. If several workers can start sessions concurrently, protect both operations with your own lock or lease so two workers can't pass the check at the same time.
+
+## Understand running-browser behavior
+
+Saving a profile doesn't update browsers that are already running with it. Those browsers keep the snapshot they loaded at startup.
+
+To use newly saved state, create another browser with the profile. You can also load the profile into a running browser that started without one, but loading restarts Chromium and disconnects CDP clients. See [Load a profile after browser creation](/browsers/profiles/save-and-reuse#load-a-profile-after-browser-creation).
+
+## Use profiles with browser pools
+
+A profile configured directly on a [browser pool](/browsers/pools#profiles-with-browser-pools) is read-only. Every browser in the pool shares that baseline, so `save_changes` on the pool profile is ignored.
+
+For per-user durable state:
+
+1. Create the pool without a profile.
+2. Acquire a browser.
+3. Attach the user's profile with `save_changes: true`.
+4. Release the browser with `reuse: false` so that user's state can't reach the next acquirer.
+
+See [Per-user profiles with browser pools](/browsers/pools#per-user-profiles-with-browser-pools) for complete examples.
+
+When a pool has a profile, `refresh_on_profile_update` replaces idle browsers after that profile is saved. Acquired browsers keep their existing state until they are released. See [Refresh on profile update](/browsers/pools#refresh-on-profile-update).
