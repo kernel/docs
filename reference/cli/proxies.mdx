@@ -26,7 +26,7 @@ Create a new proxy configuration. Proxy quality for bot detection avoidance, bes
 | `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom`. Required. |
 | `--name <name>` | Proxy configuration name. |
 | `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
-| `--country <code>` | ISO 3166 country code or `EU`. |
+| `--country <code>` | ISO 3166 country code or `EU`. ISP proxies support `US`, `SG`, `GB`, `FR`, and `DE`. |
 | `--city <name>` | City name or provider alias. Residential and mobile; requires `--country`. |
 | `--state <code>` | State/region code. Residential, or US-only for mobile. |
 | `--zip <zip>` | ZIP/postal code. Residential only. |
@@ -42,6 +42,9 @@ Create a new proxy configuration. Proxy quality for bot detection avoidance, bes
 ```bash
 # Datacenter proxy in the US
 kernel proxies create --type datacenter --country US --name "US Datacenter"
+
+# ISP proxy with a static exit IP in the United Kingdom
+kernel proxies create --type isp --country GB --name "GB ISP"
 
 # Custom proxy server
 kernel proxies create --type custom --host proxy.example.com --port 8080 --username myuser --password mypass

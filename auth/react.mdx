@@ -107,7 +107,7 @@ The component is client-only — `"use client"` is required in any RSC framework
 
 By default the component talks directly to `https://api.onkernel.com`. That works out of the box; nothing else to configure.
 
-If you'd rather keep all auth traffic same-origin (cookies, CSP, observability), set `baseUrl=""` and proxy the three endpoints the package hits through your own framework:
+If you'd rather keep all auth traffic same-origin (cookies, CSP, observability), set `baseUrl=""` and proxy the four endpoints the package hits through your own framework:
 
 ```ts next.config.ts
 export default {
@@ -124,6 +124,10 @@ export default {
       {
         source: "/auth/connections/:id/submit",
         destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/submit`,
+      },
+      {
+        source: "/auth/connections/:id/events",
+        destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/events`,
       },
     ];
   },
