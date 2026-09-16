@@ -12,6 +12,10 @@ For a personal assistant or another workflow where concurrent tasks act as the s
 
 Open additional tabs with Playwright's `context.newPage()`. Keep each task on its own `Page`, and coordinate actions that change shared account or browser state. See [Playwright Execution](/browsers/playwright-execution) for ways to run code against the browser.
 
+<Tip>
+  Headful, non-GPU browsers use `8GiB` by default. For tab-heavy workloads, set `memory` to `16GiB` when you [create the browser](/api-reference/browsers/create-a-browser-session).
+</Tip>
+
 Use separate browser sessions when tasks need isolation, different proxies or browser settings, or independent failure and lifecycle boundaries. Each browser loads its own profile snapshot, so changes don't propagate between those sessions while they run.
 
 ## Use one writer and many readers
