@@ -335,7 +335,7 @@ both flows require a card item whose `state.status` is `ready`. link cards adver
 
 ### Collect non-card checkout fields
 
-agentcard aliases cover only the card number, cvc, and expiry. `fill` also supports stored [billing fields](/vaults/fill#fill-link-card-fields), but requesting an absent billing value returns `field_unavailable` before any writes. merchant checkouts can also require email, shipping address, phone number, or other customer data. collect missing values from the end user in your trusted application, or load values the end user has already approved from your backend. pass ordinary customer data separately from payment input; don't ask the agent to invent it.
+agentcard aliases cover only the card number, cvc, and expiry. `fill` also supports stored [billing fields](/integrations/payments/stripe-link#map-card-fields-to-inputs), but requesting an absent billing value returns `field_unavailable` before any writes. merchant checkouts can also require email, shipping address, phone number, or other customer data. collect missing values from the end user in your trusted application, or load values the end user has already approved from your backend. pass ordinary customer data separately from payment input; don't ask the agent to invent it.
 
 merchant-specific agent disclosures are normal checkout fields. if the page
 asks whether automation is acting for another person, instruct the agent to
@@ -505,7 +505,7 @@ if result.status != "completed":
 
 </CodeGroup>
 
-retain each result's zero-based `index`, `status`, and optional `error_code`. `failed` may leave earlier writes in place; `unknown` or a transport error means the outcome is uncertain. stop without automatic retries or alias fallback. the clients in step 1 disable sdk retries. see [fill browser fields](/vaults/fill) for the cli equivalent, billing fields, expiration formats, and full outcome contract.
+retain each result's zero-based `index`, `status`, and optional `error_code`. `failed` may leave earlier writes in place; `unknown` or a transport error means the outcome is uncertain. stop without automatic retries or alias fallback. the clients in step 1 disable sdk retries. see [link checkout](/integrations/payments/stripe-link#fill-the-checkout) for the cli equivalent, billing fields, and expiration formats, and the [fill outcome contract](/vaults/fill#handle-the-outcome) for per-field results.
 
 a completed fill is not payment success. inspect the page, complete any other required fields and disclosures, and decide whether to submit checkout once. skip the agentcard observer below and continue to [verify the outcome](#6-verify-the-outcome). fill does not consume the link item or clear its encrypted material; provider-issued single-use card semantics are separate from item state.
 

@@ -475,9 +475,110 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 ## Fill the checkout
 
-after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. follow the [typescript, python, and cli fill examples](/vaults/fill#fill-link-card-fields) or the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-link-cards-or-pass-agentcard-aliases).
+after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-link-cards-or-pass-agentcard-aliases).
 
 supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
+
+`page_url` is required, must use https without embedded credentials, and must share the https origin of `spec.merchant_url`. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the checkout path can differ from the stored merchant url, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
+
+### Map card fields to inputs
+
+the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `page` is the checkout's top-level playwright page. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+
+| card field | value and format |
+| --- | --- |
+| `number`, `cvc` | actual card values; leading zeros preserved |
+| `exp_month`, `exp_year` | two-digit month (`MM`), four-digit year (`YYYY`) |
+| `expiration` | combined expiry; requires `format: "MM/YY"` or `"MM/YYYY"` |
+| `billing_name`, `billing_line1`, `billing_line2`, `billing_city`, `billing_state`, `billing_postal_code`, `billing_country` | stored provider billing values, without reformatting |
+
+`format` is forbidden for every field except a card's combined `expiration`. request only needed billing fields. an absent or empty requested billing value returns `400 field_unavailable` before any browser writes; it doesn't make other card fields unavailable. don't invent missing billing data.
+
+these selectors illustrate a checkout you control with separate number, combined expiry, and cvc inputs. replace them with selectors verified on your page, including within payment frames. supply 1–32 ordered bindings, never raw values or frame ids.
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = await kernel.vaults.items.retrieve("notebook-order", {
+  id_or_name: vault.id,
+});
+if (
+  card.type !== "card" ||
+  card.spec.provider !== "link" ||
+  !card.available_operations.some((operation) => operation.type === "fill")
+) {
+  throw new Error("link card fill is unavailable");
+}
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: page.url(),
+  fields: [
+    { field: "number", selector: "#card-number" },
+    { field: "expiration", selector: "#expiry", format: "MM/YY" },
+    { field: "cvc", selector: "#security-code" },
+  ],
+  timeout_ms: 10000,
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+console.log(result.status, result.fields);
+if (result.status !== "completed") {
+  throw new Error("stop and reconcile per-field outcomes; do not retry");
+}
+```
+
+```python Python
+card = kernel.vaults.items.retrieve("notebook-order", id_or_name=vault.id)
+if (
+    card.type != "card"
+    or card.spec.provider != "link"
+    or not any(operation.type == "fill" for operation in card.available_operations)
+):
+    raise RuntimeError("link card fill is unavailable")
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=page.url,
+    fields=[
+        {"field": "number", "selector": "#card-number"},
+        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
+        {"field": "cvc", "selector": "#security-code"},
+    ],
+    timeout_ms=10000,
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+print(result.status, result.fields)
+if result.status != "completed":
+    raise RuntimeError("stop and reconcile per-field outcomes; do not retry")
+```
+
+```bash CLI
+# BROWSER_ID is the attached session ID; PAGE_URL is its exact current checkout URL.
+# Inspect the item and require the advertised fill operation before invoking it.
+kernel vaults items get user-12345 notebook-order -o json
+jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
+  browser_id: $browser,
+  page_url: $url,
+  fields: [
+    {field: "number", selector: "#card-number"},
+    {field: "expiration", selector: "#expiry", format: "MM/YY"},
+    {field: "cvc", selector: "#security-code"}
+  ],
+  timeout_ms: 10000
+}' | kernel vaults items invoke user-12345 notebook-order fill --spec-file - -o json
+```
+
+</CodeGroup>
+
+### Handle the outcome
+
+the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
+
+see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses and reconciliation.
 
 `fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
 
