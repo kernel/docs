@@ -23,6 +23,7 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 | | Vaults + Credential Fill | Managed Auth |
 | --- | --- | --- |
 | **best for** | user-present workflows where an end user supplies credentials during a task | developer- or organization-controlled credentials in repeatable or unattended automations |
+| **example use cases** | ai assistants that ask users to sign in during a task | website qa and recurring automations on a core set of known sites |
 | **login navigation** | your application or agent | KERNEL |
 | **credential collection** | KERNEL-hosted collection form or your trusted backend | Managed Auth credential, Hosted UI, React component, or programmatic flow |
 | **form filling and submission** | KERNEL fills the selected fields; your application or agent submits the form | KERNEL |
@@ -38,6 +39,7 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ### Use Vaults + Credential Fill
 
+- ai assistants that encounter a login during a user-directed task, such as downloading an invoice from the user's account. the assistant controls navigation and asks the user for credentials when needed.
 - your end user owns the credentials and is present during the task.
 - an authentication prompt can appear in the middle of a longer workflow.
 - your product needs to control when and how it asks for credentials.
@@ -45,10 +47,16 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ### Use Managed Auth
 
+- website qa that needs signed-in sessions to test account pages without building a login flow into every test.
+- recurring automations on a core set of known sites, such as retrieving reports from the same account portals each day.
 - your automation uses developer- or organization-controlled credentials.
 - the automation runs unattended or signs in repeatedly.
 - you want KERNEL to navigate common login, sso, and mfa flows.
 - you want health checks and eligible automatic reauthentication.
+
+<Note>
+  when Managed Auth detects a logged-out session during a health check, KERNEL automatically attempts to reauthenticate if the connection is eligible (`can_reauth: true`). this is an attempt, not a guarantee of success. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery when human input is required.
+</Note>
 
 ## Understand the security boundary
 
