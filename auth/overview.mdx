@@ -20,14 +20,12 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 | | Vaults + Credential Fill | Managed Auth |
 | --- | --- | --- |
-| **login navigation** | your application or agent | KERNEL |
+| **login orchestration** | your application or agent owns navigation, submission, and response handling | KERNEL runs the login flow and requests user input when needed |
 | **where login happens** | in your agent’s current browser session | in a separate browser session managed by KERNEL |
-| **example use cases** | ai assistants that do work on behalf of an end user, using the end user's credentials | recurring website qa on a set of known sites |
 | **credential collection** | KERNEL-hosted collection form or your trusted backend | Managed Auth credential, Hosted UI, React component, or programmatic flow |
-| **form filling and submission** | KERNEL fills the selected fields; your application or agent submits the form | KERNEL |
-| **site response handling** | your application or agent | KERNEL |
+| **credential filling** | your application invokes `fill` with field names and selectors | KERNEL fills credentials as part of the managed login flow |
 | **session state** | your workflow can save the resulting state to a profile | saved to a reusable profile |
-| **ongoing lifecycle** | your workflow decides when to authenticate again | health checks and eligible automatic reauthentication |
+| **ongoing recovery** | your workflow decides when and how to authenticate again | health checks and eligible automatic reauthentication attempts; your application brings the user back when input is required |
 
 <Note>
   credential ownership is a useful starting point, but the main difference is who controls the login flow. Managed Auth can collect credentials from an end user. Vaults + Credential Fill is the lower-level option when your product needs to own navigation, submission, and recovery.
@@ -37,18 +35,14 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ### Use Vaults + Credential Fill
 
-- an authentication prompt can appear in the middle of a longer workflow, in the same browser session.
-- your product needs to control when and how it asks for credentials.
-- your application or agent must own navigation, submission, and recovery.
+- **ai assistants:** an assistant doing work on behalf of an end user can ask them to sign in during a task, such as downloading an invoice. your application or agent controls credential collection and completes the login in its current browser session.
 
 ### Use Managed Auth
 
-- the automation runs unattended or signs in repeatedly.
-- you want KERNEL to navigate common login, sso, and mfa flows.
-- you want health checks and eligible automatic reauthentication.
+- **recurring website qa:** reuse authenticated profiles to test account pages on a set of known sites. KERNEL handles the login flow and attempts eligible automatic recovery; your application must bring the user back if the site requires a code or approval.
 
 <Note>
-  when Managed Auth detects a logged-out session during a health check, KERNEL automatically attempts to reauthenticate if the connection is eligible (`can_reauth: true`). this is an attempt, not a guarantee of success. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery when human input is required.
+  with automatic recovery enabled, KERNEL can attempt to sign in again when a health check confirms that a session has expired. recovery isn't guaranteed. if the site requires an email or sms code, approval, or another user action, your application must bring the user back to complete a new login. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery details.
 </Note>
 
 ## Understand the security boundary

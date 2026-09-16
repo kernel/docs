@@ -3,7 +3,7 @@ title: "Fill Browser Fields"
 description: "Map vault fields to browser inputs without returning their values to your application"
 ---
 
-invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not credential values. the result reports outcomes without returning the values. fill is the credential injection step in the [Vaults + Credential Fill](/auth/credential-fill) auth path.
+invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not credential values. the result reports outcomes without returning the values. `fill` is the credential injection step in the [Vaults + Credential Fill](/auth/credential-fill) auth path.
 
 <Note>
   `fill` reads credentials from a ready KERNEL credential item. if another vault
@@ -14,7 +14,7 @@ invoke an item's `fill` operation to write selected values into an attached brow
 </Note>
 
 <Warning>
-  fill writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them.
+  `fill` writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them.
 </Warning>
 
 ## Check availability
@@ -99,8 +99,8 @@ KERNEL validates bindings before writing, then fills in request order. if naviga
 
 known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`.
 
-fill doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded or a form was submitted.
+`fill` doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded or a form was submitted.
 
-**don't automatically retry fill after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it.
+**don't automatically retry `fill` after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it.
 
 for the full application and agent handoff, follow [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent).

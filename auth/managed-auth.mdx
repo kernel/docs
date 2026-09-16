@@ -8,7 +8,7 @@ managed auth handles website login and saves authenticated state to a reusable b
 use managed auth when you want KERNEL to orchestrate login and session recovery, and your application can bring the user back when authentication requires their input. use [vaults + credential fill](/auth/credential-fill) when your application or agent needs to control navigation, credential filling, submission, and recovery in its current browser session.
 
 <Note>
-  with health checks and automatic reauthentication enabled, KERNEL automatically attempts to reauthenticate when a scheduled health check confirms a logged-out session and the connection is eligible (`can_reauth: true`). eligibility isn't a guarantee of success. if a blocking requirement is already known, an automatic attempt may not run at all. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery.
+  with automatic recovery enabled, KERNEL can attempt to sign in again when a health check confirms that a session has expired. recovery isn't guaranteed. if the site requires an email or sms code, approval, or another user action, your application must bring the user back to complete a new login. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery details.
 </Note>
 
 ## How it works
