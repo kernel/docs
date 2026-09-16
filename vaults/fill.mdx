@@ -7,7 +7,7 @@ description: "Safely inject vault values into browser fields without passing the
 
 unlike retrieving a secret and passing it to a browser library's typing method, `fill` doesn't require raw values in your request. your agent can identify fields and propose selectors while your trusted controller authorizes the destination and invokes the operation.
 
-for an authentication workflow using this api, see [Fill from Vault](/auth/fill-from-vault). `fill` also supports other eligible vault items; it isn't specific to authentication or a wallet provider.
+for an authentication workflow using this api, see [Fill from Vault](/auth/fill-from-vault). for an online checkout workflow that uses this api, see [Payments](/browsers/payments). `fill` also supports other eligible vault items; it isn't specific to authentication or a wallet provider.
 
 <Warning>
   `fill` writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser or cdp access may read them. don't assume recordings or other browser observation surfaces exclude filled values.
