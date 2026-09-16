@@ -3,10 +3,15 @@ title: "link by stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores the card material with kms-backed envelope encryption. an eligible card item advertises [fill](/vaults/fill), which writes its values into an attached browser without exposing the details to the agent or model, and does not return the item in the api response.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
 
-link is the credential provider, not the merchant's payment processor. `fill` does not require a native processor adapter; it requires supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. filling fields does not establish that the processor accepts the card or that the purchase succeeded.
+use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
 
+link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
+
+<Warning>
+  `fill` writes real values into the browser, where page scripts, extensions, or browser and cdp access may expose them. don't assume recordings exclude filled values. field entry does not establish processor acceptance or payment success.
+</Warning>
 
 ## Before you start
 
@@ -50,7 +55,7 @@ setup below before following the shared payment lifecycle.
 
 ### bring your own link oauth client
 
-register a [provider configuration](/vaults/overview#provider-configurations) once for
+register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for
 your organization. configurations are shared across projects, so authenticate
 this step with an [organization-scoped api key](/info/api-keys). project-scoped
 credentials can reference an existing configuration when creating a wallet, but
@@ -471,11 +476,11 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
-`merchant_url` supplies provider context and restricts fill to its https origin. the request's `page_url` must exactly match one current top-level page, including path, query, and fragment, and share that origin. the host and effective port must match the `merchant_url` origin; the default https port `443` is normalized. use an https `merchant_url` without embedded credentials for fill; `state.domains` is metadata, not the fill authorization rule.
+`merchant_url` supplies provider context and restricts the destination for card use. see [fill the checkout](#fill-the-checkout) for exact page and origin requirements; `state.domains` is metadata, not an authorization rule.
 
 ## Fill the checkout
 
-after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-link-cards-or-pass-agentcard-aliases).
+after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-payment-fields).
 
 supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
 
@@ -483,7 +488,7 @@ supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bi
 
 ### Map card fields to inputs
 
-the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `page` is the checkout's top-level playwright page. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
 
 | card field | value and format |
 | --- | --- |
@@ -507,13 +512,13 @@ if (
   card.spec.provider !== "link" ||
   !card.available_operations.some((operation) => operation.type === "fill")
 ) {
-  throw new Error("link card fill is unavailable");
+  throw new Error("fill is unavailable for this card");
 }
 const result = await kernel.vaults.items.performOperation(card.key, {
   id_or_name: vault.id,
   type: "fill",
   browser_id: browser.session_id,
-  page_url: page.url(),
+  page_url: checkoutURL,
   fields: [
     { field: "number", selector: "#card-number" },
     { field: "expiration", selector: "#expiry", format: "MM/YY" },
@@ -535,13 +540,13 @@ if (
     or card.spec.provider != "link"
     or not any(operation.type == "fill" for operation in card.available_operations)
 ):
-    raise RuntimeError("link card fill is unavailable")
+    raise RuntimeError("fill is unavailable for this card")
 result = kernel.vaults.items.perform_operation(
     card.key,
     id_or_name=vault.id,
     type="fill",
     browser_id=browser.session_id,
-    page_url=page.url,
+    page_url=checkout_url,
     fields=[
         {"field": "number", "selector": "#card-number"},
         {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
@@ -585,3 +590,31 @@ see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-
 single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
 
 don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
+
+## Item reference
+
+wallet and card items accept these `spec` fields. fields not listed here are rejected. a card's `spec.wallet` must reference a link wallet in the same vault.
+
+| item | required fields | optional fields |
+| --- | --- | --- |
+| wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
+| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+
+the default link client is `{type: 'kernel_managed'}`. for your own client, set
+`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
+and supply `authorization.tokens` with `access_token` and `refresh_token`.
+
+`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+
+link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
+
+card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`.
+
+### Item states
+
+- **wallet:** `pending_authorization`, `connected`, `declined`, `reconnect_required`, `degraded`
+- **card:** `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
+
+card state can include `masks.brand` and `masks.last4`. retrieve the card's advertised operations before using it. for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery); a ready item alone is not evidence that a purchase can safely be repeated.
+
+deleting a card clears its stored provider value. deleting a wallet also invalidates its dependent cards.
