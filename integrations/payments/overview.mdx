@@ -5,7 +5,7 @@ description: "Enable your browser agent to complete online checkouts"
 
 <span className="kernel-brand-name">KERNEL</span> connects a user's payment method to a [vault](/vaults/overview). wallet connection and purchase approval use provider-hosted flows. checkout has two distinct paths:
 
-- **link:** the browser agent receives a approved, provider-issued single-use card and then uses [fill](/vaults/fill) to write card values into an attached browser without exposing the card details to the application or model.
+- **link by stripe:** the browser agent receives a approved, provider-issued single-use card and then uses [fill](/vaults/fill) to write card values into an attached browser without exposing the card details to the application or model.
 - **agentcard:** the agent enters non-secret aliases. KERNEL intercepts a recognized processor request from the attached browser, holds it for approval, and replays the provider's response. the underlying card stays with agentcard.
 
 link and agentcard are credential providers, not merchant payment processors. the merchant's processor doesn't need to be stripe. link depends on supported checkout inputs and the allowed merchant origin; agentcard handoff requires a native processor adapter.
