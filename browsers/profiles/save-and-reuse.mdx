@@ -1,0 +1,279 @@
+---
+title: "Save and Reuse Profile State"
+sidebarTitle: "Save and Reuse State"
+description: "Create a browser profile, save state to it, and load it in later browser sessions"
+---
+
+This guide creates a profile, writes browser state to it, and reuses the saved state in a later browser session.
+
+## 1. Create a profile
+
+Give the profile a meaningful `name` that is unique within your [project](/info/projects).
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel, { ConflictError } from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+try {
+  await kernel.profiles.create({ name: 'checkout-session' });
+} catch (err) {
+  if (!(err instanceof ConflictError)) {
+    throw err;
+  }
+}
+```
+
+```python Python
+from kernel import Kernel, ConflictError
+
+kernel = Kernel()
+
+try:
+    await kernel.profiles.create(name="checkout-session")
+except ConflictError:
+    pass
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	_, err := client.Profiles.New(ctx, kernel.ProfileNewParams{
+		Name: kernel.String("checkout-session"),
+	})
+	if err != nil {
+		var apiErr *kernel.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusConflict {
+			return
+		}
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+## 2. Start a writer browser
+
+Attach the profile by `name` or `id`. Set `save_changes` to `true` only when this browser owns writes to the profile.
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  profile: {
+    name: 'checkout-session',
+    save_changes: true,
+  },
+});
+```
+
+```python Python
+browser = await kernel.browsers.create(
+    profile={
+        "name": "checkout-session",
+        "save_changes": True,
+    }
+)
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name:        kernel.String("checkout-session"),
+		SaveChanges: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+Before starting more than one writer, read [Sharing and concurrency](/browsers/profiles/concurrency). Profile saves replace the complete stored snapshot and don't merge concurrent changes.
+
+## 3. Use and delete the browser
+
+Navigate, authenticate, or complete the part of the workflow whose state you want to retain. Then delete the Kernel browser to save the state.
+
+<Warning>
+Calling `browser.close()` only closes the Playwright connection. It doesn't save the profile. You must delete the Kernel browser or let it [time out](/browsers/termination#automatic-deletion-via-timeout).
+</Warning>
+
+<CodeGroup>
+```typescript TypeScript
+console.log('Live view:', browser.browser_live_view_url);
+
+// Navigate and create the state you want to preserve.
+
+await kernel.browsers.deleteByID(browser.session_id);
+```
+
+```python Python
+print("Live view:", browser.browser_live_view_url)
+
+# Navigate and create the state you want to preserve.
+
+await kernel.browsers.delete_by_id(browser.session_id)
+```
+
+```go Go
+fmt.Println("Live view:", browser.BrowserLiveViewURL)
+
+// Navigate and create the state you want to preserve.
+
+if err := client.Browsers.DeleteByID(ctx, browser.SessionID); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+## 4. Load the saved state
+
+Create another browser with the same profile. Omit `save_changes` to keep the stored profile unchanged during this run.
+
+<CodeGroup>
+```typescript TypeScript
+const nextBrowser = await kernel.browsers.create({
+  profile: { name: 'checkout-session' },
+});
+```
+
+```python Python
+next_browser = await kernel.browsers.create(
+    profile={"name": "checkout-session"}
+)
+```
+
+```go Go
+nextBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("checkout-session"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+## Control the starting tab
+
+By default, a profile restores its saved tabs. Pass `start_url` to discard those restored tabs and open a specific page when the browser starts.
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  profile: { name: 'checkout-session' },
+  start_url: 'https://example.com/dashboard',
+});
+```
+
+```python Python
+browser = await kernel.browsers.create(
+    profile={"name": "checkout-session"},
+    start_url="https://example.com/dashboard",
+)
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("checkout-session"),
+	},
+	StartURL: kernel.String("https://example.com/dashboard"),
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+The same behavior applies to browser pools configured with both a profile and a start URL.
+
+<Note>
+[Managed Auth](/auth/overview) controls the tab state of profiles attached to auth connections. Each login or automatic reauthentication starts with one tab at the configured login URL, or at the domain homepage when no login URL is configured. Successful authentication saves the resulting tab state. Failed and canceled sessions leave the profile unchanged.
+
+Set `start_url` when you create a browser if your automation requires a specific first page.
+</Note>
+
+## Load a profile after browser creation
+
+You can attach a profile to a running browser that was created without one. Loading the profile restarts Chromium, so reconnect your CDP or Playwright client afterward.
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create();
+
+await kernel.browsers.update(browser.session_id, {
+  profile: { name: 'checkout-session' },
+});
+```
+
+```python Python
+browser = await kernel.browsers.create()
+
+await kernel.browsers.update(
+    browser.session_id,
+    profile={"name": "checkout-session"},
+)
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+
+_, err = client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("checkout-session"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Warning>
+You can't load a profile into a browser that already has one. The browser must have been created without a profile configuration.
+</Warning>
+
+## Rename and manage profiles
+
+Renaming a profile doesn't recreate or change its stored state. The new name must be unique within the project.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.profiles.update('checkout-session', {
+  name: 'checkout-session-v2',
+});
+```
+
+```python Python
+await kernel.profiles.update(
+    "checkout-session",
+    name="checkout-session-v2",
+)
+```
+
+```go Go
+_, err := client.Profiles.Update(ctx, "checkout-session", kernel.ProfileUpdateParams{
+	Name: "checkout-session-v2",
+})
+```
+</CodeGroup>
+
+Use the [Profiles API reference](/api-reference/profiles/list-profiles) or [CLI reference](/reference/cli/profiles) to list, inspect, download, rename, and delete profiles.

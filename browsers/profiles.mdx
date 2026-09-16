@@ -1,0 +1,122 @@
+---
+title: "Browser Profiles"
+sidebarTitle: "Overview"
+description: "Persist and reuse browser state across browser sessions"
+---
+
+Browser Profiles persist cookies, site data, open tabs, and preferences across browser sessions. Use them to resume workflows, maintain a browser identity, share seeded state with parallel workers, or launch an authenticated browser.
+
+[Managed Auth](/auth/overview) can create and refresh authentication state inside a profile, but profiles work independently. You can create, load, and save profiles directly through the SDK, API, CLI, or MCP server.
+
+## What profiles preserve
+
+Profiles capture the browser's user-data directory, including:
+
+- Cookies and authenticated sessions
+- Local storage and other site data
+- Open tabs and browsing state
+- Browser preferences stored by Chromium
+
+Profile data is encrypted end to end using a per-organization key. A profile's `name` must be unique within its [project](/info/projects), but you can reuse the same name in another project.
+
+## How profiles work
+
+<span id="1-create-a-profile" />
+<span id="2-start-a-browser-session-using-the-profile-and-save-changes" />
+<span id="3-use-the-browser,-then-close-it-to-persist-the-state" />
+<span id="4-start-a-new-session-with-the-saved-profile-read-only" />
+<span id="override-opening-existing-tabs-in-a-new-session" />
+<span id="loading-a-profile-into-an-existing-browser" />
+
+Each browser loads a snapshot of the profile when you attach it. Changes made in that browser remain isolated unless you enable `save_changes`. When the Kernel browser is deleted or times out, Kernel replaces the stored profile with that browser's complete state.
+
+<Steps>
+  <Step title="Create a profile">
+    Create a named profile once, or let Managed Auth create one for an authentication connection.
+  </Step>
+  <Step title="Attach it to a browser">
+    Start a browser with the profile to load its saved state. Add `save_changes: true` when you want changes from this browser to persist.
+  </Step>
+  <Step title="Delete the browser to save">
+    Deleting the Kernel browser persists its state when `save_changes` is enabled. Closing only the Playwright or CDP connection doesn't save it.
+  </Step>
+  <Step title="Reuse the snapshot">
+    Attach the profile to future browsers to continue with the saved state.
+  </Step>
+</Steps>
+
+For a complete implementation, see [Save and reuse state](/browsers/profiles/save-and-reuse).
+
+<span id="choose-the-right-primitive" />
+
+## Combine profiles with authentication
+
+Profiles, Managed Auth, and Vaults handle different parts of a durable authenticated workflow. Profiles preserve browser state. Managed Auth can create and refresh authentication within that state; an agent can use Vaults to sign in without receiving raw credential values.
+
+| Capability | Role in the workflow | How it works with profiles |
+| --- | --- | --- |
+| Browser Profiles | Preserve cookies, site data, tabs, and preferences between sessions | Provide the durable browser state that authentication tools can update |
+| [Managed Auth](/auth/overview) | Let Kernel complete and maintain supported login flows | Create and refresh authentication state in a profile |
+| [Vaults](/vaults/overview) | Let an agent fill login forms without receiving raw credential values | Pair with a profile to preserve the authenticated state after the agent signs in |
+
+For agent-managed logins, use a vault to complete sign-in and attach a profile with `save_changes: true`. Later browser sessions can then reuse the resulting cookies and site data.
+
+<span id="snapshot-and-concurrency-model" />
+
+## Use profiles concurrently
+
+<span id="prevent-concurrent-profile-writes" />
+
+Choose a topology based on whether tasks need live shared state or isolated browser sessions:
+
+| Concurrent need | Recommendation |
+| --- | --- |
+| Run tasks for the same end user | Use one profiled browser with one tab per task; headful, non-GPU browsers can use `16GiB` instead of the `8GiB` default for tab-heavy workloads |
+| Give many browsers the same starting state | Load one profile without `save_changes` |
+| Persist changes from one browser | Enable `save_changes` only on that browser |
+| Give independent writers durable state | Give each writer its own profile |
+| Combine selected state from several browsers | Transfer the required cookies or storage explicitly |
+
+Each browser session loads its own profile snapshot. Profiles don't synchronize changes between running browsers:
+
+- A running browser doesn't receive changes saved by another browser.
+- Only one browser can safely write to a profile at a time.
+- Saving replaces the complete profile; it doesn't merge state from multiple browsers.
+- A profile configured directly on a [browser pool](/browsers/pools#profiles-with-browser-pools) is read-only.
+
+See [Sharing and concurrency](/browsers/profiles/concurrency) before using one profile across workers or browser pools.
+
+## Common agent patterns
+
+<span id="multiple-auth-connections-per-profile" />
+<span id="multi-site-workflows" />
+<span id="user-to-profile-mapping" />
+
+Profiles support several agent architectures beyond authentication:
+
+- **Resume a workflow** — save state at the end of one run and load it into the next.
+- **Maintain an end-user identity** — assign one profile to each user or account your application serves.
+- **Run concurrent tasks for one user** — keep one browser for that user and open a tab for each task so they share live identity state.
+- **Seed parallel workers** — let many browsers load the same baseline without writing it back.
+- **Reuse multi-site authentication** — attach Managed Auth connections for several domains to one profile.
+- **Reduce bot challenges** — pair stable profile state with a consistent proxy so a site sees a returning browser.
+
+See [Patterns for AI agents](/browsers/profiles/agent-patterns) for the recommended profile topology for each case.
+
+## Next steps
+
+<span id="rename-a-profile" />
+<span id="other-ways-to-use-profiles" />
+<span id="notes" />
+
+<CardGroup cols={3}>
+  <Card title="Save and reuse state" icon="floppy-disk" href="/browsers/profiles/save-and-reuse">
+    Create, load, save, rename, and reuse a profile.
+  </Card>
+  <Card title="Sharing and concurrency" icon="arrows-split-up-and-left" href="/browsers/profiles/concurrency">
+    Safely use profiles with parallel browsers and pools.
+  </Card>
+  <Card title="Patterns for AI agents" icon="robot" href="/browsers/profiles/agent-patterns">
+    Choose a profile model for workflows, users, and workers.
+  </Card>
+</CardGroup>
