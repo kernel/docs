@@ -8,16 +8,16 @@ Managed Auth connections use the same configuration whether you collect credenti
 
 ## Credentials and Auto-Reauth
 
-By default, Kernel saves durable credential fields after a successful login. Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed. Submitted one-time codes (TOTP, SMS, etc.) aren't saved.
+by default, KERNEL saves durable credential fields after a successful login. these can support eligible automatic reauthentication attempts, including totp codes generated from an available secret. submitted one-time codes aren't saved and don't provide access to future codes. if a later login requires user input, your application must start a new interactive login.
 
 To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for configuration examples.
 
 Automatic re-authentication is gated by two boolean flags that both default to `true`:
 
 - `health_checks` — whether the connection runs periodic health checks at all. When `false`, the system never automatically verifies the session and never triggers reauth on its own.
-- `auto_reauth` — whether a failed scheduled health check is allowed to attempt re-authentication. When `false`, expired sessions are marked `NEEDS_AUTH` instead of being repaired automatically.
+- `auto_reauth` — whether a scheduled health check that confirms the session is logged out may trigger an eligible automatic reauthentication attempt. when `false`, expired sessions are marked `NEEDS_AUTH` without an automatic recovery attempt.
 
-`auto_reauth` only has an effect on the automatic flow when `health_checks` is also `true`, because reauth is triggered by a failing scheduled health check. Manually triggering a health check via the API still works regardless of `health_checks`.
+`auto_reauth` only has an effect on the automatic flow when `health_checks` is also `true`, because reauthentication requires a scheduled health check to confirm the session is logged out. an inconclusive check doesn't trigger reauthentication. manually triggering a health check via the api still works regardless of `health_checks`.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -443,7 +443,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `allowed_domains` | Update allowed redirect domains |
 | `health_check_interval` | Seconds between health checks (minimum varies by plan) |
 | `health_checks` | Whether periodic health checks run for this connection |
-| `auto_reauth` | Whether a failed scheduled health check is allowed to attempt automatic re-authentication |
+| `auto_reauth` | Whether a scheduled health check that confirms a logged-out session may trigger an eligible automatic reauthentication attempt |
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |

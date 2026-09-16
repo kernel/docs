@@ -6,7 +6,7 @@ description: "Persist and reuse browser state across browser sessions"
 
 Browser Profiles persist cookies, site data, open tabs, and preferences across browser sessions. Use them to resume workflows, maintain a browser identity, share seeded state with parallel workers, or launch an authenticated browser.
 
-[Managed Auth](/auth/overview) can create and refresh authentication state inside a profile, but profiles work independently. You can create, load, and save profiles directly through the SDK, API, CLI, or MCP server.
+[Managed Auth](/auth/managed-auth) can create and refresh authentication state inside a profile, but profiles work independently. You can create, load, and save profiles directly through the SDK, API, CLI, or MCP server.
 
 ## What profiles preserve
 
@@ -56,7 +56,7 @@ Profiles, Managed Auth, and Vaults handle different parts of a durable authentic
 | Capability | Role in the workflow | How it works with profiles |
 | --- | --- | --- |
 | Browser Profiles | Preserve cookies, site data, tabs, and preferences between sessions | Provide the durable browser state that authentication tools can update |
-| [Managed Auth](/auth/overview) | Let Kernel complete and maintain supported login flows | Create and refresh authentication state in a profile |
+| [Managed Auth](/auth/managed-auth) | Let Kernel complete and maintain supported login flows | Create and refresh authentication state in a profile |
 | [Vaults](/vaults/overview) | Let an agent fill login forms without receiving raw credential values | Pair with a profile to preserve the authenticated state after the agent signs in |
 
 For agent-managed logins, use a vault to complete sign-in and attach a profile with `save_changes: true`. Later browser sessions can then reuse the resulting cookies and site data.
