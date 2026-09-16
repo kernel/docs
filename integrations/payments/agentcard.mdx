@@ -203,11 +203,20 @@ kernel vaults items get user-12345 agentcard-wallet --wait 60
 
 </CodeGroup>
 
+<Note>
+  KERNEL doesn't receive agentcard webhooks or poll enrollment in the
+  background. each wallet retrieval asks agentcard for the vault session's
+  current status. `wait: 60` or `--wait 60` keeps the retrieval open for up to
+  60 seconds and repeats this check at agentcard's advertised polling interval.
+</Note>
+
 the SDK examples use the authenticated action-presentation contract described
 in [Enroll a card](#enroll-a-card). run CLI `--open` only in a trusted,
-human-operated terminal. after the user completes enrollment, repeat the
-bounded wallet read until its status is `connected` or your application
-deadline expires. then continue with [Create a card item](#create-a-card-item).
+human-operated terminal. expect a brief delay after the user completes
+enrollment: the wallet remains `pending_authorization` until agentcard reports
+the session as `linked` and a wallet retrieval observes that status. repeat the
+bounded wallet read until its status is `connected` or your application deadline
+expires. then continue with [Create a card item](#create-a-card-item).
 
 ## Lifecycle
 
