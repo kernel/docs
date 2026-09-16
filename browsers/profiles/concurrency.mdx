@@ -6,6 +6,14 @@ description: "Safely share browser profiles across parallel workers and browser 
 
 A browser loads profile data as a snapshot. Saving replaces the profile's complete stored browser state; Kernel doesn't merge cookies, storage, tabs, or preferences from multiple sessions.
 
+## Prefer tabs for one browser identity
+
+For a personal assistant or another workflow where concurrent tasks act as the same end user, start one browser with that user's profile and open multiple tabs in it. Tabs in the same browser context share a live cookie jar and persistent origin storage, so a login or cookie update in one tab is available to the others without loading the profile again or restarting Chrome. Tab-local state such as `sessionStorage` remains separate.
+
+Open additional tabs with Playwright's `context.newPage()`. Keep each task on its own `Page`, and coordinate actions that change shared account or browser state. See [Playwright Execution](/browsers/playwright-execution) for ways to run code against the browser.
+
+Use separate browser sessions when tasks need isolation, different proxies or browser settings, or independent failure and lifecycle boundaries. Each browser loads its own profile snapshot, so changes don't propagate between those sessions while they run.
+
 ## Use one writer and many readers
 
 Multiple browsers can safely load the same profile when they don't save changes. If a workflow needs to persist state, designate one browser as the writer and set `save_changes: true` only on that browser.
@@ -14,6 +22,7 @@ If multiple browsers write to the same profile, the browser that ends last overw
 
 | Topology | Recommendation |
 | --- | --- |
+| Concurrent tasks act as the same end user | Use one browser with one tab per task |
 | Many browsers need the same starting state | Load one profile without `save_changes` |
 | One browser updates state for future runs | Give that browser `save_changes: true` |
 | Many browsers each need durable state | Give each writer its own profile |
@@ -94,7 +103,7 @@ The writer check and browser creation are separate requests. If several workers 
 
 Saving a profile doesn't update browsers that are already running with it. Those browsers keep the snapshot they loaded at startup.
 
-To use newly saved state, create another browser with the profile. You can also load the profile into a running browser that started without one, but loading restarts Chromium and disconnects CDP clients. See [Load a profile after browser creation](/browsers/profiles/save-and-reuse#load-a-profile-after-browser-creation).
+If the work can share one browser identity, keep it in that browser and use multiple tabs so every task sees live state. To apply a profile that was saved by another browser, start a new browser with the updated profile. You can also load the profile into a running browser that started without one, but loading restarts Chromium and disconnects CDP clients. See [Load a profile after browser creation](/browsers/profiles/save-and-reuse#load-a-profile-after-browser-creation).
 
 ## Use profiles with browser pools
 

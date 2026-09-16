@@ -54,6 +54,7 @@ For a complete implementation, see [Save and reuse state](/browsers/profiles/sav
 | Resume cookies, site data, tabs, and preferences across runs | Browser Profiles |
 | Let Kernel complete and maintain login flows | [Managed Auth](/auth/overview) with a profile |
 | Let an agent securely fill credentials itself | [Vaults](/vaults/overview) |
+| Run concurrent tasks for the same end user | One profiled browser with multiple tabs |
 | Give parallel workers the same starting state | Read-only profile reuse |
 | Persist changes from one session | One designated profile writer |
 | Merge changes from several browsers | Not currently supported; transfer selected cookies or storage explicitly |
@@ -64,6 +65,7 @@ For a complete implementation, see [Save and reuse state](/browsers/profiles/sav
 
 Profiles are snapshots, not live synchronized state:
 
+- Tabs in one profiled browser share the same live cookie jar and persistent origin storage. Prefer multiple tabs over multiple browsers when concurrent tasks act as the same end user.
 - A running browser doesn't receive changes saved by another browser.
 - Multiple browsers can load the same profile for read-only work.
 - Only one browser can safely write to a profile at a time.
@@ -82,6 +84,7 @@ Profiles support several agent architectures beyond authentication:
 
 - **Resume a workflow** — save state at the end of one run and load it into the next.
 - **Maintain an end-user identity** — assign one profile to each user or account your application serves.
+- **Run concurrent tasks for one user** — keep one browser for that user and open a tab for each task so they share live identity state.
 - **Seed parallel workers** — let many browsers load the same baseline without writing it back.
 - **Reuse multi-site authentication** — attach Managed Auth connections for several domains to one profile.
 - **Reduce bot challenges** — pair stable profile state with a consistent proxy so a site sees a returning browser.

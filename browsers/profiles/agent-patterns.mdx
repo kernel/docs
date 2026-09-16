@@ -12,6 +12,7 @@ Choose profile boundaries based on who owns the browser identity and which proce
 | --- | --- | --- |
 | One recurring agent | One profile for the workflow | The active run writes when it finishes |
 | SaaS product acting for end users | One profile per user or connected account | One writer per profile |
+| Concurrent tasks for one end user | One profiled browser for the user, one tab per task | The shared browser writes |
 | Parallel workers with a common baseline | One shared read-only profile | A separate setup job updates the baseline |
 | Multi-site workflow for one identity | One profile with several Managed Auth connections | Managed Auth or one workflow writer |
 | Independent agents with durable state | One profile per agent | Each agent writes only its own profile |
@@ -32,6 +33,8 @@ Only one run can safely write at a time. If runs can overlap, serialize them or 
 When your product acts for many users, give each user or connected account its own profile. This keeps identities isolated and makes ownership explicit.
 
 Use one profile per **user** when all of that user's accounts are intentionally available in the same browser. Use one profile per **connected account** when accounts need separate cookies, proxies, permissions, or lifecycles.
+
+For concurrent tasks acting as one user, keep that user's browser running and open one tab per task. The tabs share a live cookie jar and persistent origin storage, which avoids creating several browser sessions from stale copies of the same profile. Create another browser only when the task needs its own browser-level configuration or isolation boundary.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -163,6 +166,7 @@ A browser doesn't receive authentication state saved after it starts. When Manag
 
 For an active workflow, choose one of these approaches:
 
+- When concurrent work can share the active browser, open another tab instead of another browser session.
 - Finish the current task, delete the browser, and start another browser with the refreshed profile.
 - If the browser started without a profile, load the profile into it and reconnect after Chromium restarts.
 - Give the agent access to a [vault](/vaults/overview) so it can navigate reauthentication itself.
