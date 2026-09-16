@@ -8,7 +8,7 @@ import AttachCredentialVault from "/snippets/attach-credential-vault.mdx";
 import CollectBrowserCredentials from "/snippets/collect-browser-credentials.mdx";
 import FillBrowserCredentials from "/snippets/fill-browser-credentials.mdx";
 
-Fill from Vault is an integration path where your application or agent controls the login workflow. vaults store encrypted credential items. the `fill` api operation writes selected values from an item into browser fields. your application or agent owns navigation, field selection, submission, and recovery.
+Fill from Vault is an integration path where your application or agent controls the login workflow. vaults store encrypted credential items. our `fill` api call writes selected values from an item into browser fields, without exposing secrets to your application or agent. your application or agent owns navigation, field selection, submission, and recovery.
 
 start with the [end-user auth workflow cookbook](/browsers/use-vault-credentials-in-browser-agent) for an end-to-end example of secure collection, browser attachment, the `fill` operation, form submission, and cleanup.
 
@@ -18,9 +18,6 @@ KERNEL collects credential values from the user or accepts them from a trusted b
   `fill` only writes stored values into fields you select. it doesn't discover fields, navigate, submit forms, verify authentication, monitor the session, or reauthenticate. your application or agent owns each of those steps.
 </Note>
 
-<Warning>
-  `fill` writes real values into the browser. page scripts, extensions, developer tools, and an agent with unrestricted browser access can read them after filling.
-</Warning>
 
 ## When to use it
 
