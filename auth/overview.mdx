@@ -27,19 +27,24 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 | **session state** | your workflow can save the resulting state to a profile | saved to a reusable profile |
 | **ongoing recovery** | your workflow decides when and how to authenticate again | health checks and eligible automatic reauthentication attempts; your application brings the user back when input is required |
 
-<Note>
-  credential ownership is a useful starting point, but the main difference is who controls the login flow. Managed Auth can collect credentials from an end user. Vaults + Credential Fill is the lower-level option when your product needs to own navigation, submission, and recovery.
-</Note>
 
 ## Common use cases
 
 ### Use Vaults + Credential Fill
 
-- **ai assistants:** an assistant doing work on behalf of an end user can ask them to sign in during a task, such as downloading an invoice. your application or agent controls credential collection and completes the login in its current browser session.
+- an authentication prompt can appear in the middle of a longer workflow, in the same browser session.
+- your product needs to control when and how it asks for credentials.
+- your application or agent must own navigation, submission, and recovery.
+
+one common use case is an ai assistant doing work on behalf of an end user. with vaults and credential fill, the agent can login as the user to complete tasks on gated websites. your application or agent controls credential collection and completes the login in its current browser session.
 
 ### Use Managed Auth
 
-- **recurring website qa:** reuse authenticated profiles to test account pages on a set of known sites. KERNEL handles the login flow and attempts eligible automatic recovery; your application must bring the user back if the site requires a code or approval.
+- the automation runs unattended or signs in repeatedly.
+- you want KERNEL to navigate common login, sso, and mfa flows.
+- you want health checks and eligible automatic reauthentication.
+
+one common use case is recurring website qa on a set of known sites. KERNEL handles the login flow and attempts eligible automatic recovery before the automation begins. the automation can start testing on websites without needing to login.
 
 <Note>
   with automatic recovery enabled, KERNEL can attempt to sign in again when a health check confirms that a session has expired. recovery isn't guaranteed. if the site requires an email or sms code, approval, or another user action, your application must bring the user back to complete a new login. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery details.
