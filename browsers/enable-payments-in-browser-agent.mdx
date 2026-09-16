@@ -1,13 +1,14 @@
 ---
 title: "Enable Payments in a Browser Agent"
-description: "connect wallets and complete browser checkout with link fill or agentcard aliases"
+description: "connect wallets and complete browser checkouts"
 ---
 
-create a <span className="kernel-brand-name">KERNEL</span> vault and connect a user's [link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard) wallet through its provider-hosted flow. attach the vault when you create the browser session.
+you're building a browser agent. you can add payments without exposing the card
+number or cvc to your application or agent.
 
-link checkout uses the card item's advertised [fill](/vaults/fill) operation. it writes actual card values into the browser without returning them in the api response or explicitly submitting checkout. agentcard checkout uses aliases and processor interception, approval holds, and response replay outside the browser.
+create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number. attach the vault when you create a browser session, let your agent discover the payment form and request a card to use. your agent is handed a tool to fill out the web checkout payment form and never sees the raw card details.
 
-link and agentcard are credential providers, not merchant payment processors. link fill requires supported inputs on the allowed merchant origin, not a processor adapter. agentcard's alias handoff requires the outgoing request to match a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage).
+link and agentcard are wallet providers, not merchant payment processors. link fill requires supported inputs on the allowed merchant origin, not a processor adapter. agentcard's alias handoff requires the outgoing request to match a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage).
 
 <Warning>
   link fill does not isolate card values from the browser. page scripts, extensions, and agents with browser or cdp access may read them. don't assume recordings exclude those values.
@@ -21,8 +22,8 @@ credential is created and when the user approves it:
 | --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
 | approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
-| checkout        | fill actual card values; no aliases or egress substitution        | enter aliases; KERNEL holds a recognized request for approval and replays the response |
-| reuse           | provider-issued single-use card; fill does not consume the item   | card item and aliases return to `ready`; every checkout requires approval        |
+| checkout        | `fill` single-use card values        | enter aliases; KERNEL holds a recognized request for approval and replays the response |
+| reuse           | provider-issued single-use card   | card item and aliases return to `ready`; every checkout requires approval        |
 | mode            | live only                                                         | credential-defined; customer-owned configs expose `test_mode`                    |
 
 agentcard is backed by a card the user enrolls, but the agent and browser still
@@ -212,8 +213,8 @@ user or agent.
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | your application            | enforces one wallet per provider; independently verifies purchase values; calls KERNEL; presents provider actions; observes state; attaches the vault |
 | your end user               | initiates wallet setup and purchases; adds or selects the real payment method; confirms the verified purchase; completes approval                     |
-| your browser agent          | proposes purchase values and field selectors; after verification and confirmation, uses link fill through the controller or enters agentcard aliases; submits once |
-| KERNEL                      | creates vault resources, enforces browser bindings, fills link card values, or intercepts and replays agentcard requests |
+| your browser agent          | proposes purchase values and field selectors; after verification and confirmation, uses `fill` through the controller or enters agentcard aliases; submits once |
+| KERNEL                      | creates vault resources, enforces browser bindings, uses `fill` to enter values, or intercepts and replays agentcard requests |
 | the credential provider     | hosts wallet connection, enrollment, and approval; stores or mints the underlying payment credential                                                  |
 | the merchant's processor    | receives the recognized checkout request and returns its tokenization or payment response                                                             |
 
@@ -334,7 +335,7 @@ both flows require a card item whose `state.status` is `ready`. link cards adver
 
 ### Collect non-card checkout fields
 
-agentcard aliases cover only the card number, cvc, and expiry. link fill also supports stored [billing fields](/vaults/fill#fill-link-card-fields), but requesting an absent billing value returns `field_unavailable` before any writes. merchant checkouts can also require email, shipping address, phone number, or other customer data. collect missing values from the end user in your trusted application, or load values the end user has already approved from your backend. pass ordinary customer data separately from payment input; don't ask the agent to invent it.
+agentcard aliases cover only the card number, cvc, and expiry. `fill` also supports stored [billing fields](/vaults/fill#fill-link-card-fields), but requesting an absent billing value returns `field_unavailable` before any writes. merchant checkouts can also require email, shipping address, phone number, or other customer data. collect missing values from the end user in your trusted application, or load values the end user has already approved from your backend. pass ordinary customer data separately from payment input; don't ask the agent to invent it.
 
 merchant-specific agent disclosures are normal checkout fields. if the page
 asks whether automation is acting for another person, instruct the agent to
@@ -746,7 +747,7 @@ was created and paid. require its merchant, amount, currency, and items to match
 the frozen purchase object. use authorization state and item events to explain
 the provider and handoff path, and use the checkout page as supporting evidence.
 only report success when the trusted merchant record confirms the matching
-order. a completed link fill, a ready agentcard item, an approved authorization, a delivered replay, or
+order. a completed `fill`, a ready agentcard item, an approved authorization, a delivered replay, or
 a success page cannot establish that by itself. merchant success text is
 page-specific: a completed stripe checkout might say **Thanks for your payment**,
 but don't use that string or any other generic text matcher as the success

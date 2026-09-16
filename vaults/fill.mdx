@@ -1,6 +1,6 @@
 ---
 title: "Fill Browser Fields"
-description: "fill credential and link card fields in an attached browser with value-free api outcomes"
+description: "Map vault fields to browser inputs without returning their values to your application"
 ---
 
 invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not stored values. the result reports outcomes without returning the values.
@@ -26,7 +26,7 @@ retrieve the item and require `fill` in `available_operations`. KERNEL rechecks 
 | `credential` | ready, with a stored value for every requested field |
 | `card` with `spec.provider: "link"` | ready, unexpired, undeleted, with stored encrypted card material, an existing parent wallet, and an https `merchant_url` without embedded credentials |
 
-agentcard cards do not support fill; they retain their [alias-based checkout flow](/integrations/payments/agentcard). link cards do not expose `state.aliases` or support egress substitution.
+not all cards support fill; for example, agentcard-backed cards retain their [alias-based checkout flow](/integrations/payments/agentcard).
 
 attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share credentials or payment items. use the browser's session id in `browser_id`, not its name. KERNEL rechecks the attachment and item lifecycle before writing.
 
@@ -186,7 +186,7 @@ when supplied, `page_url` must exactly match one current top-level page, includi
 
 **link cards:** `page_url` is required, must use https without embedded credentials, and must share the https origin of `spec.merchant_url`. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the checkout path can differ from the stored merchant url, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
 
-**credentials:** omit `page_url` only when the browser has exactly one open page. credential items do not inherit link's https or merchant-origin restrictions and have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
+**credentials:** omit `page_url` only when the browser has exactly one open page. credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 
 each selector must identify exactly one editable input or select across the main frame and all descendant frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
 
@@ -205,6 +205,6 @@ known execution failures can return http `200` with a `failed` or `unknown` stat
 
 fill doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded, a form was submitted, or payment succeeded.
 
-**don't automatically retry fill after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it. link has no alias fallback. preserve per-field `index`, `status`, and any `error_code` for reconciliation.
+**don't automatically retry fill after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it. preserve per-field `index`, `status`, and any `error_code` for reconciliation.
 
 for the full application and agent handoff, follow [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent).

@@ -1,17 +1,17 @@
 ---
 title: "overview"
-description: "connect wallets and approve browser payments with link fill or agentcard aliases"
+description: "Enable your browser agent to complete online checkouts"
 ---
 
 <span className="kernel-brand-name">KERNEL</span> connects a user's payment method to a [vault](/vaults/overview). wallet connection and purchase approval use provider-hosted flows. checkout has two distinct paths:
 
-- **link:** an approved, provider-issued single-use card advertises [fill](/vaults/fill). KERNEL writes actual card values into an attached browser without returning them in the api response or explicitly submitting checkout. link no longer exposes aliases or supports egress substitution.
+- **link:** the browser agent receives a approved, provider-issued single-use card and then uses [fill](/vaults/fill) to write card values into an attached browser without exposing the card details to the application or model.
 - **agentcard:** the agent enters non-secret aliases. KERNEL intercepts a recognized processor request from the attached browser, holds it for approval, and replays the provider's response. the underlying card stays with agentcard.
 
-link and agentcard are credential providers, not merchant payment processors. the merchant's processor doesn't need to be stripe. link fill depends on supported checkout inputs and the allowed merchant origin; agentcard handoff requires a native processor adapter.
+link and agentcard are credential providers, not merchant payment processors. the merchant's processor doesn't need to be stripe. link depends on supported checkout inputs and the allowed merchant origin; agentcard handoff requires a native processor adapter.
 
 <Warning>
-  link fill exposes real card values to the browser, including page scripts, extensions, and agents with browser or cdp access. don't assume those values are excluded from recordings. the vault api's value-free responses do not guarantee browser isolation or any particular pci dss scope; assess your own integration's data handling and compliance obligations.
+  the link + `fill` path enters single-use card values into the browser, including page scripts, extensions, and agents with browser or cdp access. don't assume those values are excluded from recordings.
 </Warning>
 
 ## How payments work
@@ -42,7 +42,7 @@ flowchart LR
   U[user] --> H[credential-provider collection]
   H --> W[wallet item]
   W --> L[approved link card]
-  L --> F[fill actual values into attached browser]
+  L --> F[`fill` values into attached browser]
   F --> S[merchant form submission]
   S --> P[merchant processor]
   W --> C[agentcard item and aliases]
@@ -84,11 +84,11 @@ flowchart LR
 | user eligibility          | requires a US phone number                               | —                                                                   |
 | payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
 | purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
-| payment handoff           | actual card values filled into an attached browser      | agentcard executes the intercepted request; KERNEL replays the response |
-| reuse                     | provider-issued single-use card; fill does not consume the item | reusable card item; each checkout requires approval             |
+| payment handoff           | use `fill` to insert values into browser without exposing to the agent or model      | agentcard executes the intercepted request; KERNEL replays the response |
+| reuse                     | provider-issued single-use card | reusable card item; each checkout requires approval             |
 | environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
-choose [link by stripe](/integrations/payments/stripe-link) when each purchase requires a newly approved, single-use credential. choose [agentcard](/integrations/payments/agentcard) when one enrolled card must support multiple purchases, with separate approval for each.
+choose [link by stripe](/integrations/payments/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, single-use card. choose [agentcard](/integrations/payments/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
 
 both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
 
@@ -123,7 +123,7 @@ we can prioritize its adapter and validate a real checkout.
 ## Why use KERNEL handoff
 
 - integrate with one <span className="kernel-brand-name">KERNEL</span> vault api for both link by stripe and agentcard.
-- fill link card fields with value-free requests and responses, while recognizing that actual values enter the browser.
+- `fill` link card fields with value-free requests and responses, while recognizing that actual values enter the browser.
 - let <span className="kernel-brand-name">KERNEL</span> intercept recognized agentcard payment requests at egress, including requests from embedded payment frames, instead of maintaining interception logic in your agent.
 - enforce project, browser, vault attachment, and item lifecycle checks for both paths, plus merchant-origin restrictions for link fill.
 - keep agentcard's underlying card outside the browser through aliases and provider-hosted execution.
@@ -132,7 +132,7 @@ neither path guarantees checkout completion or payment acceptance. verify the me
 
 <Warning>
   don't retry a failed, timed-out, rejected, or indeterminate payment. a browser
-  error, missing response, completed link fill, or reusable agentcard item does
+  error, missing response, completed `fill`, or reusable agentcard item does
   not prove whether the merchant created an order or money moved. inspect the
   existing item events and the merchant's order state before taking another
   action.
@@ -140,7 +140,7 @@ neither path guarantees checkout completion or payment acceptance. verify the me
 
 ## Next step
 
-configure [link by stripe](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent) to attach the vault and use the provider's checkout path.
+configure [link by stripe](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard), then follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent) to attach the vault and use the wallet's checkout path.
 
 the provider pages show the CLI commands for creating wallets and cards. once
 the card item is ready, the shared CLI flow is:

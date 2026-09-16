@@ -3,13 +3,10 @@ title: "link by stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores the card material with kms-backed envelope encryption. an eligible card item advertises [fill](/vaults/fill), which writes its actual values into an attached browser without returning them in the api response or explicitly submitting checkout. link does not expose `state.aliases` or substitute card values at egress.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores the card material with kms-backed envelope encryption. an eligible card item advertises [fill](/vaults/fill), which writes its values into an attached browser without exposing the details to the agent or model, and does not return the item in the api response.
 
-link is the credential provider, not the merchant's payment processor. fill does not require a native processor adapter; it requires supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. filling fields does not establish that the processor accepts the card or that the purchase succeeded.
+link is the credential provider, not the merchant's payment processor. `fill` does not require a native processor adapter; it requires supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. filling fields does not establish that the processor accepts the card or that the purchase succeeded.
 
-<Warning>
-  fill puts real card values in the browser. page scripts, extensions, and an agent with browser or cdp access may read them. don't assume recordings or other browser observation surfaces exclude those values.
-</Warning>
 
 ## Before you start
 
@@ -482,8 +479,8 @@ after the user completes approval, retrieve the card with `wait: 60`. continue o
 
 supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
 
-fill returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
 
-single-use describes the provider-issued card, not one-use alias consumption. fill does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
+single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
 
-don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect existing fill outcomes, item events, and the merchant's order state first.
+don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
