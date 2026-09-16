@@ -7,7 +7,7 @@ managed auth handles website login and saves authenticated state to a reusable b
 
 managed auth stores authentication state in [browser profiles](/browsers/profiles). profiles can also persist and reuse browser state without managed auth.
 
-use managed auth when you want KERNEL to orchestrate login and session recovery, and your application can bring the user back when authentication requires their input. use [vaults + credential fill](/auth/credential-fill) when your application or agent needs to control navigation, credential filling, submission, and recovery in its current browser session.
+use managed auth when you want KERNEL to orchestrate login and session recovery, and your application can bring the user back when authentication requires their input. use [Fill from Vault](/auth/fill-from-vault) when your application or agent needs to control navigation, credential filling, submission, and recovery in its current browser session.
 
 <Note>
   with automatic recovery enabled, KERNEL can attempt to sign in again when a health check confirms that a session has expired. recovery isn't guaranteed. if the site requires an email or sms code, approval, or another user action, your application must bring the user back to complete a new login. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery details.
@@ -217,6 +217,6 @@ The most valuable workflows live behind logins. Managed Auth provides:
 | **Encrypted profiles** | Browser session state encrypted end-to-end |
 | **Isolated execution** | Each login runs in an isolated browser environment |
 
-## When to use Vaults + Credential Fill
+## When to use Fill from Vault
 
-Use [Vaults + Credential Fill](/auth/credential-fill) when an end user owns the credentials, remains present during the task, and might need to respond to an authentication prompt mid-workflow. Your application or agent controls navigation, chooses the fields to fill, submits the form, and handles the site's response. KERNEL collects and stores sensitive values, then fills them without returning them through the api.
+Use [Fill from Vault](/auth/fill-from-vault) when an end user owns the credentials, remains present during the task, and might need to respond to an authentication prompt mid-workflow. Your application or agent controls navigation, chooses the fields to fill, submits the form, and handles the site's response. KERNEL collects and stores sensitive values, then fills them without returning them through the api.

@@ -10,7 +10,7 @@ Fill from Vault is the recommended approach if you require greater visibility an
 ## Choose an auth approach
 
 <CardGroup cols={2}>
-  <Card title="Fill from Vault" icon="vault" href="/auth/credential-fill">
+  <Card title="Fill from Vault" icon="vault" href="/auth/fill-from-vault">
     **control the login workflow**
 
   </Card>
@@ -38,7 +38,7 @@ Fill from Vault is the recommended approach if you require greater visibility an
 - your product needs to control when and how it asks for credentials.
 - your application or agent must own navigation, submission, and recovery.
 
-one common use case is an ai assistant doing work on behalf of an end user. with vaults and credential fill, the agent can login as the user to complete tasks on gated websites. your application or agent controls credential collection and completes the login in its current browser session.
+one common use case is an ai assistant doing work on behalf of an end user. with Fill from Vault, the agent can login as the user to complete tasks on gated websites. your application or agent controls credential collection and completes the login in its current browser session.
 
 ### Use Managed Auth
 
@@ -54,16 +54,16 @@ one common use case is recurring website qa on a set of known sites. KERNEL hand
 
 ## Understand the security boundary
 
-KERNEL doesn't return stored sensitive fields in api responses or add them to model context. Credential Fill writes real values into the browser. Page scripts, extensions, developer tools, and an agent with unrestricted browser access can read them after fill. Use the narrowest browser permissions that your workflow supports, and only attach a vault to sessions authorized to use all of its items.
+KERNEL doesn't return stored sensitive fields in api responses or add them to model context. the `fill` operation writes real values into the browser. Page scripts, extensions, developer tools, and an agent with unrestricted browser access can read them after fill. Use the narrowest browser permissions that your workflow supports, and only attach a vault to sessions authorized to use all of its items.
 
 ## Reuse authenticated state
 
-[Profiles](/browsers/profiles) persist cookies and local storage between browser sessions. Managed Auth saves successful logins to a profile automatically. A workflow using Vaults + Credential Fill can also save the resulting browser state to a profile when it needs to reuse that session.
+[Profiles](/browsers/profiles) persist cookies and local storage between browser sessions. Managed Auth saves successful logins to a profile automatically. A workflow using Fill from Vault can also save the resulting browser state to a profile when it needs to reuse that session.
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Use Fill from Vault" icon="vault" href="/auth/credential-fill">
+  <Card title="Use Fill from Vault" icon="vault" href="/auth/fill-from-vault">
     collect end-user credentials and control navigation, form submission, and recovery in your own workflow.
   </Card>
   <Card title="Use Managed Auth" icon="key" href="/auth/managed-auth">
