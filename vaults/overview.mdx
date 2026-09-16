@@ -11,8 +11,8 @@ non-payment credentials, or use provider-backed `wallet` and `card` items for
 payments. sensitive values aren't returned by the vault api.
 
 there are two browser handoff paths. [fill](/vaults/fill) writes real values into
-selected browser inputs and returns value-free outcomes. payment aliases are
-non-sensitive stand-ins that KERNEL resolves at egress, outside the browser.
+selected browser inputs for credential items and eligible link cards, and returns value-free outcomes. agentcard aliases are
+non-sensitive stand-ins that KERNEL handles at egress, outside the browser.
 choose the path deliberately: their exposure boundaries differ.
 
 <Warning>
@@ -34,7 +34,7 @@ choose the path deliberately: their exposure boundaries differ.
 
 sensitive values do not have a read path through the vault api. item responses
 return definitions, safe state, actions, and events. payment items can also
-return masks and aliases. credential fields marked `sensitive: false` return
+return masks; only agentcard cards return aliases. credential fields marked `sensitive: false` return
 their populated values in `state.fields`. leave fields sensitive when they must
 remain write-only; set `sensitive: false` only when your backend or collection
 form needs to read and prefill an ordinary username or email address.
@@ -71,14 +71,16 @@ credential backing isn't currently available.
 
 ### Fill or use payment aliases
 
-ready credential items can advertise `fill`. your
-controller supplies field names and selectors; KERNEL writes the values into
-the attached browser. fill doesn't submit a form or confirm the site's acceptance.
+ready credential items and eligible ready, unexpired link cards can advertise `fill`. your
+controller supplies field names and selectors; KERNEL writes the actual values into
+the attached browser. link cards additionally require an exact current top-level https `page_url` at the card's `merchant_url` origin. credential items have separate page-selection rules and no destination allowlist. see [fill browser fields](/vaults/fill).
 
-payment card items can also publish non-sensitive, format-valid aliases: a
+fill doesn't explicitly submit a form or confirm the site's acceptance. preserve its per-field outcomes, and don't automatically retry failed or unknown attempts. link cards don't expose aliases or support egress substitution.
+
+agentcard cards publish non-sensitive, format-valid aliases: a
 luhn-valid 16-digit number, a three-digit cvc, and an expiry month and year.
 these pass client-side checkout validation but can't resolve unless the browser
-session and vault are bound together. credential items don't publish aliases.
+session and vault are bound together. agentcard does not use fill.
 
 ### Vaults attach to browser sessions
 
@@ -86,14 +88,11 @@ attach one or more vaults when you create a browser. the binding cannot change
 for the life of the session and is enforced outside the browser vm. the binding
 is required for both fill and alias resolution.
 
-### Alias substitution happens at egress
+### Agentcard alias handoff happens at egress
 
 the <span className="kernel-brand-name">KERNEL</span> egress layer runs outside
-the browser vm. when it recognizes a request containing an alias, it verifies
-the browser, session, project, vault, item, and provider state before resolving
-the provider-backed value. the browser receives the destination's response
-without receiving that value. resolution fails closed when any binding or state
-check does not match.
+the browser vm. when it recognizes an agentcard request containing aliases, it verifies
+the browser, session, project, vault, item, and provider state. KERNEL holds the request for approval, agentcard executes it, and KERNEL replays the response to the browser without exposing the underlying card. handoff fails closed when a binding or state check does not match.
 
 ## Resource model
 
@@ -101,7 +100,7 @@ check does not match.
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | vault              | resource with an immutable `name` that groups typed items                                 |
 | item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, or `card` |
-| alias              | non-sensitive, format-valid stand-in returned in item state; aliases belong to an item              |
+| alias              | non-sensitive, format-valid stand-in returned in agentcard card state; aliases belong to that item |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                  |
 | operation          | api action advertised in `available_operations`: `collect`, `authorize`, `prepare_checkout`, or `fill`, when eligible |
 | expansion          | live provider data advertised in `available_expansions`; the initial expansion is `payment_methods` |
@@ -113,12 +112,12 @@ flowchart LR
   T[trusted collection surface] --> I[vault item]
   V[existing credential vault] -->|copy values today| I
   V -. future provider connection .-> I
-  I --> F[fill real values]
+  I --> F[credential or link fill: real values]
   F --> B[attached browser session]
-  I --> A[non-sensitive payment alias]
+  I --> A[agentcard alias]
   A --> B[attached browser session]
   I --> E[egress resolution]
-  B --> E
+  B -->|agentcard alias request| E
   A --> E
   E --> D[destination]
 ```
@@ -195,25 +194,14 @@ see the [vaults api reference](https://kernel.sh/docs/api-reference/vaults/creat
 
 ## Payment items
 
-the payment lifecycle below describes aliases.
+a wallet connects an end user's payment method through a provider-hosted flow. the card's provider determines how an attached browser uses it:
 
-a wallet
-connects an end user's payment method through a provider-hosted flow. a card item
-then publishes aliases that an attached browser can enter into a web checkout.
-authorization and payment handoff happen outside the browser vm.
+- **link:** approve a purchase and wait for a ready, unexpired card with stored encrypted material. invoke its advertised `fill` operation to write actual values into checkout fields. the exact current top-level https page must share the origin of `spec.merchant_url`. fill does not consume the item or clear its encrypted card material; single-use is a property of the provider-issued card, not an alias lifecycle.
+- **agentcard:** use the reusable card item's aliases. KERNEL intercepts a recognized processor request from the attached browser, holds it for approval, and replays agentcard's response. every checkout requires approval.
 
-link and agentcard are credential providers, not merchant payment
-processors. at the browser form layer, both work with any web checkout that
-accepts standard card details, and the merchant's processor doesn't need to be
-stripe. end-to-end handoff requires the outgoing request to match a native
-processor adapter. the current adapters cover request formats used by stripe,
-shopify, square, recurly, and razorpay; see [checkout and processor
-coverage](/integrations/payments/overview#checkout-and-processor-coverage).
+link and agentcard are credential providers, not merchant payment processors. link fill does not require an adapter. agentcard's alias handoff requires a native processor adapter; see [checkout and processor coverage](/integrations/payments/overview#checkout-and-processor-coverage).
 
-link creates a one-use card for an approved purchase. agentcard keeps a
-reusable card item and requests approval for each checkout. wallet connection,
-authorization, provider handoff, and checkout observations are recorded as
-immutable events without card data.
+both paths require the vault attachment and applicable item lifecycle checks. wallet connection, authorization, fill attempts, and provider handoff have value-free audit events. neither a completed fill nor an approved handoff proves payment success. stop and reconcile failed or unknown outcomes without automatically retrying or switching to aliases.
 
 read the [payments overview](/integrations/payments/overview) for the shared
 lifecycle or use the [link by stripe](/integrations/payments/stripe-link) and
@@ -277,7 +265,7 @@ link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku
 
 card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`. agentcard card items can update while `requested` or `ready`, but not while approval is pending.
 
-deleting a card consumes its aliases and clears any stored provider value.
+deleting a card invalidates any agentcard aliases and clears any stored provider value.
 deleting a wallet also invalidates its dependent cards.
 
 ## Payment actions, states, and aliases
@@ -300,11 +288,11 @@ card or its parent wallet or vault. inspect existing evidence and contact the
 provider or support when manual reconciliation is needed. there is no reset
 operation; deletion is not payment recovery.
 
-card state can include `masks.brand`, `masks.last4`, and read-only aliases: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
+card state can include `masks.brand` and `masks.last4`. only agentcard cards expose read-only `aliases`: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value. link cards advertise `fill` when eligible instead.
 
 ## Next steps
 
 - [credential items](/vaults/credentials): define fields, collect values, and update them safely.
-- [fill browser fields](/vaults/fill): map credential fields to browser inputs and handle outcomes.
+- [fill browser fields](/vaults/fill): map credential or link card fields to browser inputs and handle outcomes.
 - [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
-- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): connect a wallet and complete an alias-based checkout.
+- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): connect a wallet and use link fill or agentcard aliases for checkout.

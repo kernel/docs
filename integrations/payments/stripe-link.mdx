@@ -3,14 +3,13 @@ title: "link by stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores that credential with kms-backed envelope encryption, gives your agent non-secret aliases, substitutes the credential at browser egress, and then consumes the card item.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. <span className="kernel-brand-name">KERNEL</span> stores the card material with kms-backed envelope encryption. an eligible card item advertises [fill](/vaults/fill), which writes its actual values into an attached browser without returning them in the api response or explicitly submitting checkout. link does not expose `state.aliases` or substitute card values at egress.
 
-link is the credential provider, not the merchant's payment processor. at
-the browser form layer, it works with any web checkout that accepts standard
-card details, and the merchant's processor doesn't need to be stripe. end-to-end
-handoff also requires the outgoing request to match a [native processor
-adapter](/integrations/payments/overview#checkout-and-processor-coverage). for
-example, you can use a link credential in a Shopify checkout.
+link is the credential provider, not the merchant's payment processor. fill does not require a native processor adapter; it requires supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. filling fields does not establish that the processor accepts the card or that the purchase succeeded.
+
+<Warning>
+  fill puts real card values in the browser. page scripts, extensions, and an agent with browser or cdp access may read them. don't assume recordings or other browser observation surfaces exclude those values.
+</Warning>
 
 ## Before you start
 
@@ -25,7 +24,10 @@ create a project-scoped client and vault. the examples below use these `kernel` 
 ```typescript TypeScript
 import Kernel from "@onkernel/sdk";
 
-const kernel = new Kernel({ projectID: process.env.KERNEL_PROJECT_ID! });
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
 const vault = await kernel.vaults.upsert({ name: "user-12345" });
 ```
 
@@ -34,7 +36,7 @@ import os
 
 from kernel import Kernel
 
-kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"])
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
 vault = kernel.vaults.upsert(name="user-12345")
 ```
 
@@ -186,7 +188,7 @@ that grant. continue with [Select a payment method](#select-a-payment-method).
 4. create a `card` item with the purchase details.
 5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
 6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
-7. use `state.aliases` in an attached browser. the first native handoff changes the item to `consumed`.
+7. require the advertised `fill` operation, then supply the attached browser's session id, exact current top-level https `page_url`, and field/selector bindings. inspect every fill outcome before deciding whether to submit checkout once.
 
 ## Connect a wallet
 
@@ -472,15 +474,16 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
-`merchant_url` supplies provider context. <span className="kernel-brand-name">KERNEL</span> derives its registrable domain into `state.domains` when authorization starts, but `state.domains` is metadata rather than an enforced browser-origin allowlist.
+`merchant_url` supplies provider context and restricts fill to its https origin. the request's `page_url` must exactly match one current top-level page, including path, query, and fragment, and share that origin. a different subdomain or non-default port is a different origin. use an https `merchant_url` without embedded credentials for fill; `state.domains` is metadata, not the fill authorization rule.
 
-## Use the aliases
+## Fill the checkout
 
-after the user completes the approval action, retrieve the card with `wait: 60` until it becomes `ready`. pass `state.aliases` to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent).
+after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. follow the [typescript, python, and cli fill examples](/vaults/fill#fill-link-card-fields) or the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-link-cards-or-pass-agentcard-aliases).
 
-the first recognized processor request that contains the aliases consumes the
-item and clears its encrypted card value. `consumed` means the credential was
-substituted, not that the processor accepted the payment or the merchant created
-an order.
+supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
 
-don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect item events and the merchant's order state first.
+fill returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+
+single-use describes the provider-issued card, not one-use alias consumption. fill does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
+
+don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect existing fill outcomes, item events, and the merchant's order state first.

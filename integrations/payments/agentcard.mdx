@@ -345,7 +345,12 @@ const card = await kernel.vaults.items.upsert("notebook-order", {
   },
 });
 
-if (card.state.status !== "ready" || !card.state.aliases) {
+if (
+  card.type !== "card" ||
+  card.state.provider !== "agentcard" ||
+  card.state.status !== "ready" ||
+  !card.state.aliases
+) {
   throw new Error(`card is ${card.state.status}`);
 }
 ```
@@ -364,7 +369,12 @@ card = kernel.vaults.items.upsert(
     },
 )
 
-if card.state.status != "ready" or card.state.aliases is None:
+if (
+    card.type != "card"
+    or card.state.provider != "agentcard"
+    or card.state.status != "ready"
+    or card.state.aliases is None
+):
     raise RuntimeError(f"card is {card.state.status}")
 ```
 

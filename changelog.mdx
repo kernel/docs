@@ -9,6 +9,14 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="September 16, 2026" tags={["Product", "Docs"]}>
+## Link card checkout migration
+
+- removed link card aliases and egress substitution. [link](/integrations/payments/stripe-link) wallet oauth, token import and refresh, spend approval, card issuance, and encrypted card storage remain available. replace reads of `state.aliases` and playwright alias entry with the card item's advertised [fill operation](/vaults/fill). keep the vault attached to the browser; provide `browser_id`, the exact current top-level https `page_url` at the card's merchant origin, and field/selector bindings. combined expiration requires a format; the operation timeout is optional.
+- fill writes actual card values into the browser, returns value-free per-field outcomes, and does not explicitly submit checkout. browser scripts or cdp access may read those values; don't assume recordings exclude them. the september 11 launch description of link alias isolation and consumption no longer describes link checkout. provider-issued single-use card semantics remain, but fill does not consume an alias or clear card material on first use. completed fill is not payment success; preserve failed or unknown outcomes, reconcile the existing attempt, and never automatically retry or fall back to aliases.
+- [agentcard](/integrations/payments/agentcard) retains aliases and attached-browser processor interception, approval holds, and response replay. credential fill retains its separate page-selection rules and does not inherit link's merchant-origin restrictions.
+</Update>
+
 <Update label="September 11" tags={["Product", "Docs"]}>
 ## Product updates
 
