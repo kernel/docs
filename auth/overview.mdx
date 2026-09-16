@@ -3,14 +3,14 @@ title: "Overview"
 description: "Choose how your browser agents authenticate and reuse signed-in sessions"
 ---
 
-most useful browser workflows begin behind a login. KERNEL gives you two ways to authenticate browser agents without returning stored sensitive values through the api or putting them in your agent prompt: control the workflow yourself with Vaults + Credential Fill, or delegate the login and session lifecycle to Managed Auth.
+most useful browser workflows begin behind a login. KERNEL gives you two ways to authenticate browser agents without returning stored sensitive values through the api or putting them in your agent prompt: control the workflow yourself and Fill from Vault, or delegate the login and session lifecycle to Managed Auth.
 
-Vaults + Fill is the recommended approach if you require greater visibility and control over the authentication experience, while Managed Auth is preferred if you would like KERNEL to handle the login lifecycle on your behalf.
+Fill from Vault is the recommended approach if you require greater visibility and control over the authentication experience, while Managed Auth is preferred if you would like KERNEL to handle the login lifecycle on your behalf.
 
 ## Choose an auth approach
 
 <CardGroup cols={2}>
-  <Card title="Vaults + Credential Fill" icon="vault" href="/auth/credential-fill">
+  <Card title="Fill from Vault" icon="vault" href="/auth/credential-fill">
     **control the login workflow**
 
   </Card>
@@ -20,7 +20,7 @@ Vaults + Fill is the recommended approach if you require greater visibility and 
   </Card>
 </CardGroup>
 
-| | Vaults + Credential Fill | Managed Auth |
+| | Fill from Vault | Managed Auth |
 | --- | --- | --- |
 | **login orchestration** | your application or agent owns navigation, submission, and response handling | KERNEL runs the login flow and requests user input when needed |
 | **where login happens** | in your agent’s current browser session | in a separate browser session managed by KERNEL |
@@ -32,7 +32,7 @@ Vaults + Fill is the recommended approach if you require greater visibility and 
 
 ## Common use cases
 
-### Use Vaults + Credential Fill
+### Use Fill from Vault
 
 - an authentication prompt can appear in the middle of a longer workflow, in the same browser session.
 - your product needs to control when and how it asks for credentials.
@@ -63,7 +63,7 @@ KERNEL doesn't return stored sensitive fields in api responses or add them to mo
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Use Vaults + Credential Fill" icon="vault" href="/auth/credential-fill">
+  <Card title="Use Fill from Vault" icon="vault" href="/auth/credential-fill">
     collect end-user credentials and control navigation, form submission, and recovery in your own workflow.
   </Card>
   <Card title="Use Managed Auth" icon="key" href="/auth/managed-auth">
