@@ -5,9 +5,9 @@ description: "Maintain authenticated browser sessions for agents"
 
 Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and Kernel can automatically reauthenticate supported login flows when needed. When you launch Kernel browsers with Managed Auth connections, your agent can start logged in and ready to go.
 
-if your agent would prefer to handle navigation and submission of login forms,
-use [vaults](/vaults/credentials). vaults let you collect sensitive credentials
-from a human and fill a browser form without passing the raw values back to the agent.
+Managed Auth is the delegated path: Kernel runs the login flow, reads the site's response, and reauthenticates a connection when its session expires or breaks. Choose it when you want Kernel to solve and maintain authentication, and you don't want to own login logic for every site your agents touch.
+
+Choose [vaults](/vaults/credentials) with [fill](/vaults/fill) when you want control and visibility over the auth experience instead. You collect credentials from a human, and your agent decides when to navigate, which inputs to fill, when to submit, and how to interpret the result. Kernel writes the stored values into the inputs you select and returns a value-free outcome, so raw credentials never pass back to your agent. You maintain the login logic, and in return every step is yours to inspect and change.
 
 ## How It Works
 
