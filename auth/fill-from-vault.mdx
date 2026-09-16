@@ -1,0 +1,91 @@
+---
+title: "Overview"
+description: "Collect end-user credentials and inject them into browser forms while controlling the login workflow"
+---
+
+import CreateCredentialVault from "/snippets/create-credential-vault.mdx";
+import AttachCredentialVault from "/snippets/attach-credential-vault.mdx";
+import CollectBrowserCredentials from "/snippets/collect-browser-credentials.mdx";
+import FillBrowserCredentials from "/snippets/fill-browser-credentials.mdx";
+
+Fill from Vault is an integration path where your application or agent controls the login workflow. vaults store encrypted credential items. our `fill` api call writes selected values from an item into browser fields, without exposing secrets to your application or agent. your application or agent owns navigation, field selection, submission, and recovery.
+
+start with the [end-user auth workflow cookbook](/browsers/use-vault-credentials-in-browser-agent) for an end-to-end example of secure collection, browser attachment, the `fill` operation, form submission, and cleanup.
+
+KERNEL collects credential values from the user or accepts them from a trusted backend. when invoking `fill`, your controller sends field names and selectors rather than credential values. KERNEL reads the encrypted item and returns value-free outcomes, keeping stored secrets out of agent prompts and browser-automation payloads.
+
+<Note>
+  `fill` only writes stored values into fields you select. it doesn't discover fields, navigate, submit forms, verify authentication, monitor the session, or reauthenticate. your application or agent owns each of those steps.
+</Note>
+
+
+## When to use it
+
+Fill from Vault works best when:
+
+- a login or authentication prompt can appear in the middle of a workflow, in the same browser session.
+- your product needs to control the credential collection experience.
+- your application or agent already handles browser navigation and site-specific recovery.
+- you don't need KERNEL to monitor the session or reauthenticate it automatically.
+
+choose [managed auth](/auth/managed-auth) instead when you want KERNEL to run the login flow, save the authenticated state, monitor the connection, and attempt reauthentication for eligible flows.
+
+## How it works
+
+these examples continue in order, using hacker news as the login destination. set `KERNEL_API_KEY` in your trusted backend environment. all examples use the default project; keep the vault and browser in the same project if you select a different one.
+
+<Steps>
+  <Step title="Create a Vault">
+    create a [vault](/vaults/overview) for each end user or credential-sharing boundary. A vault groups the items that an attached browser session can use.
+
+    <CreateCredentialVault />
+  </Step>
+  <Step title="Attach the Vault to a Browser">
+    attach the vault when you create the browser. The attachment can't change during the session and grants access to every item in that vault.
+
+    <AttachCredentialVault />
+  </Step>
+  <Step title="Navigate and Collect Credentials">
+    your application or agent navigates to the login page and identifies its fields before defining a [credential item](/vaults/credentials). hacker news has both login and create-account forms; the selectors in the next step target the login form. inspect the page and recheck them if it changes.
+
+    <CollectBrowserCredentials />
+
+    present the collection url only in the intended user's authenticated interface or private conversation. don't log it or open it in the agent-controlled browser. wait for the user to finish before continuing. an existing ready item may omit the collection action; reuse it or follow [credential collection](/vaults/credentials#collect-values-from-the-user) to reopen the form.
+  </Step>
+  <Step title="Invoke the Fill Operation">
+    retrieve the same item, require readiness and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names and selectors. readiness means values exist, not that the website has accepted them. your application must authorize the destination before filling.
+
+    <FillBrowserCredentials />
+
+    `completed` means the selected fields were filled, not that login succeeded. if `fill` fails, returns an uncertain outcome, or loses its response, stop and [inspect the outcome](/vaults/fill#handle-the-outcome) rather than automatically retrying.
+  </Step>
+  <Step title="Submit and Handle the Response">
+    after `fill` completes, your application or agent submits the login form once and verifies the site's response. `fill` doesn't perform either step. handle any additional authentication prompts before continuing the task.
+
+    delete the demo browser when finished, and delete the vault only if you created it for this demo and no longer need its credentials. see the [cookbook](/browsers/use-vault-credentials-in-browser-agent) for the complete agent handoff and cleanup guidance.
+  </Step>
+</Steps>
+
+## Credential sources
+
+you can collect values from an end user with KERNEL's hosted collection form or [copy them from an existing credential vault](/vaults/existing-credential-vault) that your trusted backend can read. both paths produce a ready credential item and use the same `fill` operation.
+
+today, copying values stores an encrypted KERNEL copy. `fill` doesn't accept raw values or a third-party vault reference in its request.
+
+## Session state
+
+`fill` completes one part of the workflow. it doesn't monitor the resulting session or reauthenticate it later. if you want to reuse the authenticated state, create the browser with a [profile](/browsers/profiles) and save its changes after the login succeeds.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Credential Items" icon="lock" href="/vaults/credentials">
+    define fields, collect values, and update credentials without returning sensitive values.
+  </Card>
+  <Card title="Fill Browser Fields" icon="input-text" href="/vaults/fill">
+    map credential fields to browser inputs and handle completed, failed, or unknown outcomes.
+  </Card>
+  <Card title="Build an End-User Auth Workflow" icon="user-lock" href="/browsers/use-vault-credentials-in-browser-agent">
+    follow the complete collection and browser fill workflow with the sdk or cli.
+  </Card>
+</CardGroup>

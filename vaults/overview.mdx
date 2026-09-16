@@ -14,6 +14,9 @@ there are two browser handoff paths. [fill](/vaults/fill) writes real values int
 selected browser inputs for credential items and returns value-free outcomes.
 choose the path deliberately: their exposure boundaries differ.
 
+for authentication workflows where your application or agent controls
+navigation and submission, start with [Fill from Vault](/auth/fill-from-vault).
+
 <Warning>
   fill isn't secret isolation from the browser. an agent with unrestricted
   browser access, page scripts, or extensions can read values after filling.
@@ -47,10 +50,9 @@ a hosted flow, without passing card data through your application or agent.
 
 you can keep your existing vault as the source of truth. today, your trusted
 backend reads the values from that vault and [copies them into a KERNEL credential
-item](/vaults/credentials#copy-values-from-an-existing-vault). KERNEL encrypts and
-stores that copy. the credential item becomes ready, and `fill` can write its
-fields into an attached browser without including their values in the fill
-request.
+item](/vaults/existing-credential-vault). KERNEL encrypts and stores that copy.
+the credential item becomes ready, and `fill` can write its fields into an
+attached browser without including their values in the fill request.
 
 the copy isn't a live connection to your existing vault. when a credential
 changes there, update the KERNEL item before its next use. delete the item when
@@ -292,6 +294,7 @@ card state can include `masks.brand` and `masks.last4`. only agentcard cards exp
 ## Next steps
 
 - [credential items](/vaults/credentials): define fields, collect values, and update them safely.
-- [fill browser fields](/vaults/fill): map credential or link card fields to browser inputs and handle outcomes.
+- [use an existing credential vault](/vaults/existing-credential-vault): copy credentials from another vault and synchronize their lifecycle.
+- [fill browser fields](/vaults/fill): map credential fields to browser inputs and handle outcomes.
 - [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): connect a wallet and complete browser checkouts.

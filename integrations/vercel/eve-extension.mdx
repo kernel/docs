@@ -27,7 +27,7 @@ Vercel Connect is the recommended path because:
 
 - No key touches your app, environment, or the model.
 - Each user authenticates as themselves with a one-time consent that's cached afterward.
-- Per-user identity is a good fit for Kernel's [managed auth](/auth/overview).
+- Per-user identity is a good fit for Kernel's [managed auth](/auth/managed-auth).
 
 **1. Install** the extension:
 
@@ -72,8 +72,8 @@ Once mounted, the agent has the following tools, namespaced under your mount (e.
 - **`manage_browsers`**: create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
 - **`execute_playwright_code`**: run Playwright against the live page to read, navigate, click, or type.
 - **`computer_action`**: human-like mouse, keyboard, and screenshot controls for the same session.
-- **`manage_auth_connections`**: Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
-- **`manage_profiles`**: create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
+- **`manage_auth_connections`**: Kernel's [managed auth](/auth/managed-auth), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
+- **`manage_profiles`**: create and reuse browser [profiles](/browsers/profiles) (persistent cookies, logins, storage).
 - **`manage_proxies`**: create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
 - **`manage_replays`**: start, stop, and list video replay recordings for a session, so you can capture what the agent did as an MP4. Requires a paid Kernel plan.
 - the **`browse` skill**: the loop the model follows to drive the browser end to end.
@@ -208,7 +208,7 @@ export default defineMcpClientConnection({
   <Card
     title="Managed Auth"
     icon="key"
-    href="/auth/overview"
+    href="/auth/managed-auth"
   >
     Log agents into sites without handling credentials
   </Card>

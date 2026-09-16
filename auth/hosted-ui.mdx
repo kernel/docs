@@ -14,7 +14,7 @@ Use the Hosted UI when:
 
 ### 1. Create a Connection
 
-A Managed Auth connection saves a domain's authentication state to a [profile](/auth/profiles) so future browsers can reuse it. You can attach multiple auth connections to the same profile, one per domain.
+A Managed Auth connection saves a domain's authentication state to a [profile](/browsers/profiles) so future browsers can reuse it. You can attach multiple auth connections to the same profile, one per domain.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -93,7 +93,7 @@ The user will:
 3. Complete 2FA or another verification step if needed
 
 <Info>
-Kernel can automatically reauthenticate credential-only flows and attempts to provide TOTP codes when needed.
+KERNEL can attempt automatic reauthentication for eligible flows using stored credentials, including totp codes generated from an available secret. completing this interactive login doesn't guarantee unattended reauthentication. supplying an email or sms code doesn't give KERNEL access to future codes. when the connection needs user input again, start a new login and direct the user to its `hosted_url`. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
 </Info>
 
 ### 4. Stream until completion

@@ -4,7 +4,11 @@ title: FAQ
 
 ## How does automatic re-authentication work?
 
-When you link credentials to a connection, Kernel runs periodic health checks and can reauthenticate supported credential-based flows in the background. This includes TOTP when Kernel can provide the authenticator code. See [Connection Lifecycle](/auth/connection-lifecycle) for the full lifecycle, cadence options, and `can_reauth` rules.
+with health checks and automatic reauthentication enabled, KERNEL attempts reauthentication when a scheduled health check confirms that an eligible connection is logged out. `can_reauth: true` means eligible to attempt, not guaranteed to succeed. stored credentials and an available totp secret can support unattended login, but a new code, choice, or approval that requires a user can leave the connection in `NEEDS_AUTH`. your application must start a new interactive login when user input is required. see [connection lifecycle](/auth/connection-lifecycle) for cadence options and eligibility rules.
+
+## Can managed auth automatically handle email or sms verification?
+
+not during unattended reauthentication. if a site requires an email or sms code, your application must start a new interactive login and bring the user back to provide it through the [hosted ui](/auth/hosted-ui), [react component](/auth/react), or [programmatic flow](/auth/programmatic). wait for successful authentication before resuming the automation. a code supplied during an earlier login doesn't give KERNEL access to future codes.
 
 ## What are auth choices?
 
@@ -12,7 +16,7 @@ Auth choices are visible routes a site presents during login, including mfa meth
 
 ## Which authentication methods are supported?
 
-Managed Auth supports common credential, SSO, and multi-step login flows. Automatic reauthentication uses stored credentials and attempts to provide TOTP codes when needed.
+managed auth supports common credential, sso, and multi-step interactive login flows. automatic reauthentication is limited to eligible flows that can complete without human input. KERNEL can generate totp codes from an available secret; email and sms codes, approvals, and other user-required steps need an interactive login.
 
 <Warning>
 Passkey-only authentication isn't currently supported. If a site's SSO provider requires a passkey, the login returns `unsupported_auth_method`. Switch the account to a supported sign-in method, such as password and TOTP, then start a new login.
@@ -24,7 +28,7 @@ Kernel surfaces an error code (`credentials_invalid`, `account_locked`, `bot_det
 
 ## Can I use Managed Auth with any website?
 
-Managed Auth covers common login flows across a broad range of websites. Site-specific authentication and bot detection can require additional configuration. See [what Managed Auth supports](/auth/overview#why-managed-auth) and test your target flow.
+Managed Auth covers common login flows across a broad range of websites. Site-specific authentication and bot detection can require additional configuration. See [what Managed Auth supports](/auth/managed-auth#why-managed-auth) and test your target flow.
 
 ## Is Managed Auth available during a trial?
 
@@ -51,7 +55,7 @@ This is useful for two common patterns:
 - **Multi-site workflows** — Your agent visits multiple sites in a single run (e.g., reads email in Gmail, posts a summary in Slack, and updates a CRM). Attach one auth connection per site to a single profile, and each browser loads the saved authentication state for all of them.
 - **User-to-profile mapping** — Each end user on your platform gets one profile. All of that user's accounts (Gmail, LinkedIn, GitHub, etc.) are auth connections on their profile. When the user triggers a workflow, launch a browser with their profile.
 
-See [Profiles — Multiple auth connections per profile](/auth/profiles#multiple-auth-connections-per-profile) for code examples.
+See [Reuse one identity across sites](/browsers/profiles/agent-patterns#reuse-one-identity-across-sites) for code examples.
 
 ## How is Managed Auth billed?
 

@@ -41,7 +41,7 @@ Submit the current `interaction_id` with either `field_values` or `selected_choi
 
 ### 1. Create a connection
 
-A managed auth connection attaches one authenticated domain to a [profile](/auth/profiles). A profile can hold multiple connections.
+A managed auth connection attaches one authenticated domain to a [profile](/browsers/profiles). A profile can hold multiple connections.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -90,7 +90,7 @@ if err != nil {
 ```
 </CodeGroup>
 
-A successful interactive login can save submitted credentials for automatic reauthentication. During TOTP flows, Kernel attempts to provide the authenticator code automatically.
+a successful interactive login can save durable credentials for eligible automatic reauthentication attempts. KERNEL can generate totp codes when a totp secret is available, but supplying a one-time code doesn't let KERNEL obtain future codes. neither saved credentials nor a successful login guarantees unattended reauthentication. when the connection becomes `NEEDS_AUTH`, start a new login and use the interaction handling below to collect any required user input before resuming the automation.
 
 ### 3. Stream and submit
 

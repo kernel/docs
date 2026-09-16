@@ -82,8 +82,8 @@ Most of what you'll tune at creation time falls into four buckets:
   <Card title="GPU acceleration" href="/browsers/gpu-acceleration">
     Required for WebGL, video, and canvas-heavy workloads. Trades off standby support.
   </Card>
-  <Card title="Profiles and auth" href="/auth/overview">
-    Persist cookies, storage, and authenticated sessions across runs with a [profile](/auth/profiles), or learn how to hand supported login flows off to Kernel with [Managed Auth](/auth/overview).
+  <Card title="Profiles and auth" href="/browsers/profiles">
+    Persist cookies, storage, and authenticated sessions across runs with a [profile](/browsers/profiles), or learn how to hand supported login flows off to Kernel with [Managed Auth](/auth/managed-auth).
   </Card>
 </Columns>
 
@@ -261,5 +261,7 @@ func main() {
 ## What's next
 
 Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the four primitives Kernel exposes — computer use, playwright execution, CDP, and WebDriver BiDi — and when to reach for each.
+
+To carry cookies, site data, tabs, and preferences into later runs, use [Browser Profiles](/browsers/profiles). Profiles can resume an agent workflow, maintain one identity per user or account, or give parallel workers the same read-only starting state.
 
 When you're ready to run this in production, the [Browser Pools overview](/browsers/pools) shows how to serve your workload from a pool of pre-provisioned browsers instead of creating one per task.
