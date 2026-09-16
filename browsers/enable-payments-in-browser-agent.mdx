@@ -440,7 +440,7 @@ connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser]
 
 ### Link: invoke fill
 
-use the same attached browser to inspect the checkout and fill it. `page` below is its top-level playwright page; the selectors must match the actual checkout. require the exact current https url, including query and fragment, at the origin of the card's `spec.merchant_url`. a different subdomain or non-default port isn't allowed. the card must remain ready, unexpired, and undeleted with stored material and an existing parent wallet.
+use the same attached browser to inspect the checkout and fill it. `page` below is its top-level playwright page; the selectors must match the actual checkout. require the exact current https url, including query and fragment, at the origin of the card's `spec.merchant_url`. the host and effective port must match the `merchant_url` origin; the default https port `443` is normalized. the card must remain ready, unexpired, and undeleted with stored material and an existing parent wallet.
 
 <CodeGroup>
 

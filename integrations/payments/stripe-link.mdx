@@ -474,7 +474,7 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
-`merchant_url` supplies provider context and restricts fill to its https origin. the request's `page_url` must exactly match one current top-level page, including path, query, and fragment, and share that origin. a different subdomain or non-default port is a different origin. use an https `merchant_url` without embedded credentials for fill; `state.domains` is metadata, not the fill authorization rule.
+`merchant_url` supplies provider context and restricts fill to its https origin. the request's `page_url` must exactly match one current top-level page, including path, query, and fragment, and share that origin. the host and effective port must match the `merchant_url` origin; the default https port `443` is normalized. use an https `merchant_url` without embedded credentials for fill; `state.domains` is metadata, not the fill authorization rule.
 
 ## Fill the checkout
 
