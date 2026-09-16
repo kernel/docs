@@ -1,14 +1,14 @@
 ---
 title: "Overview"
-description: "Maintain authenticated browser sessions for agents"
+description: "Handle website login, reuse session state, and recover eligible connections automatically"
 ---
 
-Managed Auth creates and maintains authenticated browser sessions for your AI agents. Store credentials once, and KERNEL can automatically reauthenticate supported login flows when needed. When you launch KERNEL browsers with Managed Auth connections, your agent can start logged in and ready to go.
+managed auth handles website login and saves authenticated state to a reusable browser profile for your agents. KERNEL monitors the connection and can attempt automatic reauthentication for eligible flows that can complete without human input. if a site requires an email code, sms code, approval, or another user action, your application must start a new interactive login and bring the user back to complete it before the automation can continue.
 
-Managed Auth works best when you want KERNEL to control the login flow and maintain the resulting session. If your end user supplies credentials while a task is running and your application or agent needs to control navigation and submission, use [Vaults + Credential Fill](/auth/credential-fill).
+use managed auth when you want KERNEL to orchestrate login and session recovery, and your application can bring the user back when authentication requires their input. use [vaults + credential fill](/auth/credential-fill) when your application or agent needs to control navigation, credential filling, submission, and recovery in its current browser session.
 
 <Note>
-  when a health check detects a logged-out session, KERNEL automatically attempts to reauthenticate if the connection is eligible (`can_reauth: true`). reauthentication isn't guaranteed: missing credentials, required human input, or repeated login failures can leave the connection in `NEEDS_AUTH`. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery.
+  with health checks and automatic reauthentication enabled, KERNEL automatically attempts to reauthenticate when a scheduled health check confirms a logged-out session and the connection is eligible (`can_reauth: true`). eligibility isn't a guarantee of success. if a blocking requirement is already known, an automatic attempt may not run at all. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery.
 </Note>
 
 ## How it works
@@ -49,7 +49,7 @@ _ = auth
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a KERNEL-hosted page or your own UI.
 
-    Specify a [Credential](/auth/credentials) to enable automatic reauthentication for supported credential-based flows.
+    link a [credential](/auth/credentials) so KERNEL can attempt reauthentication when the connection is eligible. stored credentials alone don't make every flow eligible.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -170,7 +170,7 @@ if err != nil {
   </Step>
 </Steps>
 
-The steps above are the integration loop you wire up once per connection. After the initial login, KERNEL monitors the connection with periodic health checks and can automatically reauthenticate eligible flows. See [Connection Lifecycle](/auth/connection-lifecycle) for the runtime behavior and configuration options.
+these steps establish the initial connection. your integration must also handle `NEEDS_AUTH`: start a new interactive login and bring the user back when a code, choice, or approval is required. wait for successful authentication before resuming work that requires the account. periodic health checks and eligible automatic reauthentication attempts don't replace this recovery path. see [connection lifecycle](/auth/connection-lifecycle) for runtime behavior and configuration options.
 
 ## Choose your integration
 
@@ -201,9 +201,9 @@ The most valuable workflows live behind logins. Managed Auth provides:
 
 - **Broad site coverage** - Login pages are discovered and handled across common website login flows
 - **SSO/OAuth support** - KERNEL follows common SSO redirects. Common provider domains are allowed by default; add custom provider domains to `allowed_domains`
-- **2FA/OTP handling** - KERNEL attempts to provide TOTP codes automatically; interactive login can collect other verification steps
+- **2FA/OTP handling** - KERNEL can generate totp codes when the credential includes a totp secret. email and sms codes, approvals, and other user-required steps need an interactive login
 - **Post-login URL** - Get the URL where login landed (`post_login_url`) so you can start automations from the right page
-- **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and automatic reauthentication for eligible credential-based flows
+- **Session monitoring** - [Periodic health checks](/auth/connection-lifecycle) and eligible automatic reauthentication attempts
 - **Secure by default** - Credentials are encrypted at rest and never exposed in API responses or passed to LLMs
 
 ## Security

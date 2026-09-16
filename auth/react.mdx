@@ -103,6 +103,12 @@ export default function LoginPage({
 
 The component is client-only — `"use client"` is required in any RSC framework (Next.js App Router, Remix, etc.).
 
+## Reconnect when user input is required
+
+rendering the component for the initial login doesn't provide ongoing automatic recovery. your application must handle a connection that returns to `NEEDS_AUTH`, such as when the site requires a new email or sms code or an approval.
+
+call `auth.connections.login()` on the existing connection from your backend, then bring the user back to your login route. pass the new login response's `id` as `sessionId` and its fresh `handoff_code` as `handoffCode`. don't reuse the previous handoff code: it is single-use. wait for successful authentication before resuming work that requires the account. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
+
 ## Backend connectivity
 
 By default the component talks directly to `https://api.onkernel.com`. That works out of the box; nothing else to configure.

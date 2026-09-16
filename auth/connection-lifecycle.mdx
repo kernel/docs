@@ -88,7 +88,7 @@ After a successful login, Kernel saves the login flow. If a later attempt needs 
 
 You can handle these flows in two ways:
 
-- **Switch to TOTP** — If the site supports authenticator apps, add a `totp_secret` to your credential. Codes are generated on demand, so the flow no longer needs external action. If a code expires before the site accepts it, Kernel retries with a fresh one.
+- **Switch to TOTP** — if the site supports authenticator apps, add a `totp_secret` to your credential. KERNEL generates codes on demand, removing the need to manually provide that authenticator code. this doesn't eliminate other challenges or guarantee unattended reauthentication. if a code expires before the site accepts it, KERNEL retries with a fresh one.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
 ## Triggering re-auth manually
