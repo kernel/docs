@@ -7,34 +7,10 @@ add payments to your existing browser agent without passing card numbers or cvc
 through your application's code or model context. connect a wallet once, then
 verify and approve each purchase before completing checkout.
 
-## Choose a provider
-
-choose [link by stripe](/integrations/wallets/stripe-link) or
-[agentcard](/integrations/wallets/agentcard) based on how payment credentials are
-supplied and when the user approves them. the wallet provider doesn't determine
-which merchant processor you use.
-
-|                 | link by stripe                                                     | agentcard                                                                        |
-| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
-| approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
-| checkout        | `fill` single-use card values        | enter aliases; KERNEL holds a recognized request for approval and replays the response |
-| reuse           | provider-issued single-use card   | card item and aliases return to `ready`; every checkout requires approval        |
-| mode            | live only                                                         | credential-defined; customer-owned configs expose `test_mode`                    |
-
-**link:** KERNEL's [`fill` api](/vaults/fill) writes actual card values into the
-browser. your controller sends item references and approved selectors, not raw
-values. don't read filled values back into model context or assume recordings
-omit them.
-
-**agentcard:** the agent enters aliases—placeholder card values resolved during
-provider handoff. the underlying card details stay outside the browser.
-
-for the shared lifecycle, see [payments on KERNEL](/browsers/payments).
-
 ## Before you start
 
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
+- choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
 - use a low-value checkout you control. link is live-only and requires an https merchant origin and verified field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
@@ -277,6 +253,12 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 #### Fill the approved fields
 
+<Warning>
+  KERNEL's [`fill` api](/vaults/fill) writes actual card values into the browser.
+  your controller sends item references and approved selectors, not raw values.
+  don't read filled values back into model context or assume recordings omit them.
+</Warning>
+
 your controller must authorize the destination and selectors before disclosure.
 `checkoutURL` / `checkout_url` is the browser's exact current top-level https url,
 including query and fragment. it must share the origin of `spec.merchant_url`.
@@ -364,6 +346,9 @@ single-use card semantics are separate from item state.
 <Tab title="Agentcard">
 
 #### Prepare the card and aliases
+
+aliases are placeholder card values resolved during provider handoff. the agent
+enters them instead of real card details, which stay outside the browser.
 
 [create an agentcard item](/integrations/wallets/agentcard) named `notebook-order`
 from the verified purchase, or reuse a ready item and update its specification
