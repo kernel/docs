@@ -1,28 +1,28 @@
 ---
 title: "Enable Payments in a Browser Agent"
-description: "Give a browser agent provider-backed payment aliases and complete a web checkout without exposing card data"
+description: "connect wallets and complete browser checkouts"
 ---
 
-you're building a browser agent. you can add payments without exposing the card
-number or cvc to your application, agent, or browser.
+you're building a browser agent. you can add payments without passing the card
+number or cvc through your application's code or model context.
 
-create a <span className="kernel-brand-name">KERNEL</span> vault and add a wallet backed by [link](/integrations/payments/stripe-link) or [agentcard](/integrations/payments/agentcard). the provider-hosted flow collects and stores the user's payment method, so neither you nor your agent handles the card number or cvc. attach the vault when you create a browser session, give the agent the returned aliases, and let it complete a web checkout. <span className="kernel-brand-name">KERNEL</span> handles authorization and payment handoff at egress.
+create a <span className="kernel-brand-name">KERNEL</span> vault and connect a [wallet integration](/integrations/wallets/overview) through its provider-hosted flow. attach the vault when you create a browser session, let your agent discover the payment form, and prepare a card item for the verified purchase.
 
-link and agentcard are credential providers, not merchant payment
-processors. at the browser form layer, both work with any web checkout that
-accepts standard card details, and the merchant's processor does not need to be
-stripe. end-to-end handoff also requires the outgoing request to match one of the
-[native processor adapters](/integrations/payments/overview#checkout-and-processor-coverage).
+use KERNEL's [`fill` api](/vaults/fill) to safely inject stored values without passing them through your application's injection code or model context. your agent proposes fields and selectors; your trusted controller authorizes their use and calls KERNEL with references, not raw card values. KERNEL returns per-field outcomes. agentcard uses aliases and provider-executed checkout instead of `fill`.
 
-you can use either [link by stripe](/integrations/payments/stripe-link) or
-[agentcard](/integrations/payments/agentcard). choose based on how the payment
+for the offering and shared lifecycle, see [payments on KERNEL](/browsers/payments). wallet integrations determine how payment material is supplied and approved, not which merchant processor you use.
+
+
+you can use either [link by stripe](/integrations/wallets/stripe-link) or
+[agentcard](/integrations/wallets/agentcard). choose based on how the payment
 credential is created and when the user approves it:
 
 |                 | link by stripe                                                     | agentcard                                                                        |
 | --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | card source     | provider-minted, one-use card for a specific purchase             | user's enrolled card, represented by a reusable card item                        |
 | approval timing | before the browser submits checkout                               | after the browser submits checkout and while the request is held                 |
-| reuse           | card item and aliases are consumed after the first native handoff | card item and aliases return to `ready`; every checkout requires approval        |
+| checkout        | `fill` single-use card values        | enter aliases; KERNEL holds a recognized request for approval and replays the response |
+| reuse           | provider-issued single-use card   | card item and aliases return to `ready`; every checkout requires approval        |
 | mode            | live only                                                         | credential-defined; customer-owned configs expose `test_mode`                    |
 
 agentcard is backed by a card the user enrolls, but the agent and browser still
@@ -70,15 +70,23 @@ card.
    terminal or application outside this agent. after i confirm completion,
    retrieve the item again and require its status to be `ready`. do not print,
    return, or open an action url.
-9. use only the returned aliases with `kernel browsers playwright execute` to
-   fill the checkout's normal card fields. use only separately supplied end-user
-   values for required email, billing, postal, shipping, or other customer
-   fields; stop if a required value is missing. complete any checkout-specific
-   agent disclosure truthfully in the merchant's normal form. submit checkout
-   once and never retry submission.
-10. inspect the checkout result and the card item's events. do not retry a
-   failed, timed-out, or indeterminate payment. report the existing attempt so
-   we can reconcile it first.
+9. require `fill` in the card's `available_operations`. inspect the checkout's
+   inputs and invoke `kernel vaults items invoke user-12345 checkout-card fill`
+   with `--params` or `--spec-file`: browser_id is the attached session id,
+   page_url is the exact current top-level https url (including query and
+   fragment), and fields maps stored field names to unique css selectors.
+   the page must share the card's merchant_url origin. combined expiration
+   requires format MM/YY or MM/YYYY; timeout_ms is optional. request only needed
+   card and billing fields. fill writes actual values into the browser; do not
+   read them back, expose them in model context, or assume recordings omit them.
+10. preserve the value-free fill result and every per-field outcome. continue
+   only on `completed`; failed or unknown outcomes, transport errors, or missing
+   required fields mean stop and reconcile. never automatically retry fill or
+   fall back to aliases. supply other customer fields only from approved user
+   data, complete any agent disclosure truthfully, then submit checkout once.
+11. inspect the checkout result, fill outcomes, and item events. fill is not
+   payment success. do not retry a failed, timed-out, or indeterminate payment;
+   report the existing attempt for reconciliation.
 ```
 
 ```text agentcard
@@ -139,18 +147,17 @@ this guide starts after you have an existing browser agent. it changes how you p
 
 - install a <span className="kernel-brand-name">KERNEL</span> sdk version that includes the `vaults` resource.
 - set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in the trusted controller that creates your browser.
-- use a low-value web checkout you control whose outgoing payment request matches a [native processor adapter](/integrations/payments/overview#checkout-and-processor-coverage). the merchant processor doesn't need to be stripe.
+- use a low-value checkout you control. for link, verify its https merchant origin and field selectors. for agentcard, require a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage). the merchant processor doesn't need to be stripe.
 - link card creation is live-only. agentcard mode comes from the integration's configured credential.
 - for agentcard, keep an application-owned `AGENTCARD_MODE` setting and verify it against the credential's mode. customer-owned configs return `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. fail closed if the mode is unknown or mismatched.
 
 use KERNEL-managed credentials by default. optional client setup belongs in your
-trusted backend, not the browser agent: see [link](/integrations/payments/stripe-link#bring-your-own-link-oauth-client)
-or [agentcard](/integrations/payments/agentcard#bring-your-own-agentcard-oauth-client).
+trusted backend, not the browser agent: see [link](/integrations/wallets/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/wallets/agentcard#bring-your-own-agentcard-oauth-client).
 
 <Warning>
   keep wallet collection and payment approval outside the agent. show hosted
-  action urls only in a trusted user-facing surface. the only payment values you
-  give the agent are the aliases returned in card state.
+  action urls only in a trusted user-facing surface. for link, give the controller the item reference and approved field bindings, not raw card values. for agentcard, give the agent only the aliases returned in card state.
 </Warning>
 
 ## 1. Create a vault
@@ -194,7 +201,7 @@ kernel vaults create --name user-12345
 `wallet` and `card` are KERNEL api resources, not the underlying wallet or card.
 your end user initiates setup and purchases through your product. your
 application then makes the authenticated api calls on their behalf. a card item
-represents the payment authorization and aliases for a purchase; creating one
+represents a provider-backed purchase and its authorization state; creating one
 does not add or expose the end user's real card.
 
 the end user creates the purchase intent. your application translates that
@@ -205,9 +212,9 @@ user or agent.
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | your application            | enforces one wallet per provider; independently verifies purchase values; calls KERNEL; presents provider actions; observes state; attaches the vault |
 | your end user               | initiates wallet setup and purchases; adds or selects the real payment method; confirms the verified purchase; completes approval                     |
-| your browser agent          | proposes purchase values; after verification and confirmation, receives aliases, enters them into the checkout form, and submits once                 |
-| KERNEL                      | creates the requested vault resources, returns aliases, enforces browser bindings, and handles payment data at egress                                 |
-| the credential provider     | hosts wallet connection, enrollment, and approval; stores or mints the underlying payment credential                                                  |
+| your browser agent          | proposes purchase values and field selectors; after verification and confirmation, uses `fill` through the controller or enters agentcard aliases; submits once |
+| KERNEL                      | creates vault resources, enforces browser bindings, uses `fill` to enter values, or intercepts and replays agentcard requests |
+| the wallet provider     | hosts wallet connection, enrollment, and approval; stores or mints the underlying payment credential                                                  |
 | the merchant's processor    | receives the recognized checkout request and returns its tokenization or payment response                                                             |
 
 ### Once per end user and provider
@@ -223,7 +230,7 @@ items by `spec.provider`, and apply this flow:
 | `connected`                      | hide the add option, show the provider as connected, and reuse the existing wallet                     |
 | any other state                  | hide the add option and show the existing state; recover it or use an explicit remove-and-replace flow |
 
-if both link and agentcard wallets exist, hide both provider add options.
+hide the add option for every provider that already has a wallet in the vault.
 recheck this condition in your trusted controller immediately before wallet
 creation so a stale ui cannot submit a second wallet.
 
@@ -269,9 +276,9 @@ updating a card item:
 5. show the independently verified values to the end user and wait for explicit confirmation.
 6. freeze that verified, confirmed purchase object. derive the card specification and any authorization request from that same object. do not accept replacement values from the agent after confirmation.
 7. for link stripe, list the connected wallet's payment methods and let the end user select one. for agentcard, pin an enrolled card or let the end user choose during approval.
-8. ask KERNEL to prepare a card item on the end user's behalf. link requires a new one-use item. agentcard can reuse a ready item and update its specification when the api permits. the item refers to the connected wallet; it is not the end user's real card.
+8. ask KERNEL to prepare a card item on the end user's behalf. link issues a single-use card for the approved purchase. agentcard can reuse a ready item and update its specification when the api permits. the item refers to the connected wallet; it is not the end user's real card.
 9. for link, invoke the advertised `authorize` operation using the same verified purchase object, then present any returned approval action to the end user. agentcard begins authorization after the browser submits checkout.
-10. wait for the card item to become `ready`, then pass only its aliases to the browser agent.
+10. wait for the card item to become `ready`. for link, require the advertised `fill` operation; for agentcard, pass its aliases to the browser agent.
 
 <Warning>
   never create or authorize a card from values supplied only by the browser
@@ -315,25 +322,19 @@ browser session. the vault attachment covers items created later in that vault.
 </Warning>
 
 <Note>
-  we're adding credential-provider integrations and merchant-processor adapters
+  we're adding wallet-provider integrations and merchant-processor adapters
   and will update this guide as coverage expands. we plan to build additional
   card-collection and vault-management surfaces so developers can connect the
-  credential providers and third-party vaults they already use. over time, we want{" "}
+  wallet providers and third-party vaults they already use. over time, we want{" "}
   <span className="kernel-brand-name">KERNEL</span> to support more of the
-  browser-side steps required to complete a payment without exposing the
-  underlying credential to the agent or browser.
+  browser-side steps required to complete a payment, with explicit exposure boundaries for each provider.
 </Note>
 
-both credential-provider flows leave you with a card item whose `state.status` is `ready` and whose `state.aliases` contains `number`, `cvc`, `exp_month`, and `exp_year`.
+both flows require a card item whose `state.status` is `ready`. link cards advertise `fill` when eligible and never expose `state.aliases`. agentcard cards expose aliases for `number`, `cvc`, `exp_month`, and `exp_year`.
 
 ### Collect non-card checkout fields
 
-payment aliases cover only the card number, cvc, and expiry. merchant checkouts
-can also require email, billing name, postal code, shipping address, phone
-number, or other customer data. collect the required values from the end user in
-your trusted application, or load values the end user has already approved from
-your backend. pass them to the browser agent separately from the card aliases.
-do not ask the agent to invent missing customer data.
+agentcard aliases cover only the card number, cvc, and expiry. `fill` also supports stored [billing fields](/integrations/wallets/stripe-link#map-card-fields-to-inputs), but requesting an absent billing value returns `field_unavailable` before any writes. merchant checkouts can also require email, shipping address, phone number, or other customer data. collect missing values from the end user in your trusted application, or load values the end user has already approved from your backend. pass ordinary customer data separately from payment input; don't ask the agent to invent it.
 
 merchant-specific agent disclosures are normal checkout fields. if the page
 asks whether automation is acting for another person, instruct the agent to
@@ -348,7 +349,7 @@ submitting. don't bypass the disclosure or replace the page's normal submission
 with a raw processor request. after triggering submission once, never retry it,
 including after a timeout, unchanged page, or indeterminate result.
 
-retrieve the item immediately before creating the browser. don't cache aliases after an item expires, changes state, or is deleted.
+retrieve the item before checkout and recheck the advertised operation or aliases immediately before use. don't cache availability or agentcard aliases after an item expires, changes state, or is deleted.
 
 <CodeGroup>
 
@@ -358,14 +359,9 @@ const card = await kernel.vaults.items.retrieve("notebook-order", {
   wait: 60,
 });
 
-if (
-  card.type !== "card" ||
-  card.state.status !== "ready" ||
-  !card.state.aliases
-) {
+if (card.type !== "card" || card.state.status !== "ready") {
   throw new Error(`payment item is ${card.state.status}`);
 }
-const aliases = card.state.aliases;
 ```
 
 ```python Python
@@ -375,9 +371,8 @@ card = kernel.vaults.items.retrieve(
     wait=60,
 )
 
-if card.type != "card" or card.state.status != "ready" or card.state.aliases is None:
+if card.type != "card" or card.state.status != "ready":
     raise RuntimeError(f"payment item is {card.state.status}")
-aliases = card.state.aliases
 ```
 
 ```bash CLI
@@ -441,7 +436,118 @@ requirements.
 
 connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser](/introduction/control) for supported connection options.
 
-## 4. Give the aliases to your agent
+<a id="4-fill-link-cards-or-pass-agentcard-aliases" />
+
+## 4. Fill payment fields
+
+<a id="link-invoke-fill" />
+
+### Invoke KERNEL's fill api
+
+use the same attached browser to inspect the checkout and invoke KERNEL's `fill` api. `checkoutURL` / `checkout_url` is its exact current top-level url, obtained through your browser-control method; no playwright page object is required. your trusted controller must authorize the destination and selectors before disclosure.
+
+these examples use an approved link-issued card. its current https page must share the origin of `spec.merchant_url`; see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout) for eligibility and field formats. the `fill` request itself uses references and selectors, never raw card values.
+
+<CodeGroup>
+
+```typescript TypeScript
+const linkCard = await kernel.vaults.items.retrieve(card.key, {
+  id_or_name: vault.id,
+});
+if (
+  linkCard.type !== "card" ||
+  linkCard.spec.provider !== "link" ||
+  !linkCard.available_operations.some((operation) => operation.type === "fill")
+) {
+  throw new Error("fill is unavailable for this card");
+}
+const result = await kernel.vaults.items.performOperation(linkCard.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+  fields: [
+    { field: "number", selector: "#card-number" },
+    { field: "expiration", selector: "#expiry", format: "MM/YY" },
+    { field: "cvc", selector: "#security-code" },
+  ],
+  timeout_ms: 10000,
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+console.log(result.status, result.fields);
+if (result.status !== "completed") {
+  throw new Error("stop and reconcile per-field outcomes; do not retry");
+}
+```
+
+```python Python
+link_card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if (
+    link_card.type != "card"
+    or link_card.spec.provider != "link"
+    or not any(operation.type == "fill" for operation in link_card.available_operations)
+):
+    raise RuntimeError("fill is unavailable for this card")
+result = kernel.vaults.items.perform_operation(
+    link_card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+    fields=[
+        {"field": "number", "selector": "#card-number"},
+        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
+        {"field": "cvc", "selector": "#security-code"},
+    ],
+    timeout_ms=10000,
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+print(result.status, result.fields)
+if result.status != "completed":
+    raise RuntimeError("stop and reconcile per-field outcomes; do not retry")
+```
+
+</CodeGroup>
+
+retain each result's zero-based `index`, `status`, and optional `error_code`. `failed` may leave earlier writes in place; `unknown` or a transport error means the outcome is uncertain. stop without automatic retries or alias fallback. the clients in step 1 disable sdk retries. see [link checkout](/integrations/wallets/stripe-link#fill-the-checkout) for the cli equivalent, billing fields, and expiration formats, and the [fill outcome contract](/vaults/fill#handle-the-outcome) for per-field results.
+
+a completed fill is not payment success. inspect the page, complete any other required fields and disclosures, and decide whether to submit checkout once. skip the agentcard observer below and continue to [verify the outcome](#6-verify-the-outcome). fill does not consume the link item or clear its encrypted material; provider-issued single-use card semantics are separate from item state.
+
+### Agentcard: pass aliases
+
+retrieve the card again and require agentcard aliases before starting the observer in step 5:
+
+<CodeGroup>
+
+```typescript TypeScript
+const agentcard = await kernel.vaults.items.retrieve(card.key, {
+  id_or_name: vault.id,
+});
+if (
+  agentcard.type !== "card" ||
+  agentcard.state.provider !== "agentcard" ||
+  agentcard.state.status !== "ready" ||
+  !agentcard.state.aliases
+) {
+  throw new Error("agentcard aliases are unavailable");
+}
+const aliases = agentcard.state.aliases;
+```
+
+```python Python
+agentcard = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if (
+    agentcard.type != "card"
+    or agentcard.state.provider != "agentcard"
+    or agentcard.state.status != "ready"
+    or agentcard.state.aliases is None
+):
+    raise RuntimeError("agentcard aliases are unavailable")
+aliases = agentcard.state.aliases
+```
+
+</CodeGroup>
 
 pass the aliases as structured task input. instruct the agent to use them in the page's normal card fields and submit checkout once.
 
@@ -473,9 +579,11 @@ replace the angle-bracketed fields in your controller before sending the task. d
 
 the agent can fill both top-level fields and payment fields embedded in iframes. let the merchant page's own submission code create the outgoing request. don't replace the checkout with a raw processor api call.
 
-## 5. Keep approval and observation outside the agent
+<a id="5-keep-agentcard-approval-and-observation-outside-the-agent" />
 
-start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. this is required for agentcard, where the outgoing checkout request is held while the user approves it. the same observer works for link and provides item events after credential substitution.
+## 5. Agentcard only: observe checkout approval
+
+this section applies only to agentcard. after using `fill`, continue to [verify the outcome](#6-verify-the-outcome). start observing the card item before the agent submits checkout and keep the observer running until the merchant reaches a terminal order state. the outgoing checkout request is held while the user approves it, then KERNEL replays the provider's response. link approval happens before fill; do not wait for an alias-substitution event on that path.
 
 the example uses `presentProviderAction`, an application-owned function. it
 must publish the action only to an authenticated session for the end user who
@@ -635,7 +743,8 @@ use item state, item events, the checkout page, and the merchant's order record 
 | `payment_succeeded`                                                       | verify that the merchant created the expected order                                             |
 | `payment_requires_action`                                                 | continue the existing merchant flow without resubmitting payment                                |
 | `payment_processing`                                                      | wait for the existing payment and inspect the merchant's status                                 |
-| link `consumed`, `credential_submitted`, or `credential_tokenized` | confirm processor and merchant state; credential use alone does not prove purchase success      |
+| `fill` `completed` or `credential_fill_attempted` | inspect per-field outcomes and merchant state; filling alone does not prove submission or payment success |
+| `fill` `failed`, `unknown`, or a lost response | preserve partial or uncertain outcomes; stop without automatic retries or alias fallback |
 | agentcard `ready` or authorization `approved`                             | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
 | decline, expiry, rejection, failure, abandonment, or `payment_unknown`    | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
 | `recovery_required` | stop; reconcile the unresolved provider outcome. do not retry or delete the item or its parent wallet/vault |
@@ -645,7 +754,7 @@ was created and paid. require its merchant, amount, currency, and items to match
 the frozen purchase object. use authorization state and item events to explain
 the provider and handoff path, and use the checkout page as supporting evidence.
 only report success when the trusted merchant record confirms the matching
-order. a ready agentcard item, an approved authorization, a delivered replay, or
+order. a completed `fill`, a ready agentcard item, an approved authorization, a delivered replay, or
 a success page cannot establish that by itself. merchant success text is
 page-specific: a completed stripe checkout might say **Thanks for your payment**,
 but don't use that string or any other generic text matcher as the success
