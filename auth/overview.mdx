@@ -16,7 +16,7 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
   <Card title="Managed Auth" icon="key" href="/auth/managed-auth">
     **delegate the login lifecycle**
 
-    best when your application controls the credentials and you want KERNEL to navigate common login, sso, and mfa steps, save the authenticated state, and monitor the connection.
+    best when your application controls the credentials and you want KERNEL to handle the login, sso, and mfa steps, save the authenticated state, and attempt to re-auth automatically.
   </Card>
 </CardGroup>
 
@@ -39,7 +39,6 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ### Use Vaults + Credential Fill
 
-- ai assistants that encounter a login during a user-directed task, such as downloading an invoice from the user's account. the assistant controls navigation and asks the user for credentials when needed.
 - your end user owns the credentials and is present during the task.
 - an authentication prompt can appear in the middle of a longer workflow.
 - your product needs to control when and how it asks for credentials.
@@ -47,8 +46,6 @@ most useful browser workflows begin behind a login. KERNEL gives you two ways to
 
 ### Use Managed Auth
 
-- website qa that needs signed-in sessions to test account pages without building a login flow into every test.
-- recurring automations on a core set of known sites, such as retrieving reports from the same account portals each day.
 - your automation uses developer- or organization-controlled credentials.
 - the automation runs unattended or signs in repeatedly.
 - you want KERNEL to navigate common login, sso, and mfa flows.

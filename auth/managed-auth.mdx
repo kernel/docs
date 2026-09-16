@@ -11,11 +11,6 @@ Managed Auth works best when you want KERNEL to control the login flow and maint
   when a health check detects a logged-out session, KERNEL automatically attempts to reauthenticate if the connection is eligible (`can_reauth: true`). reauthentication isn't guaranteed: missing credentials, required human input, or repeated login failures can leave the connection in `NEEDS_AUTH`. see [connection lifecycle](/auth/connection-lifecycle) for eligibility and recovery.
 </Note>
 
-## When to use it
-
-- **website qa:** reuse signed-in sessions to test account pages without building a login flow into every test.
-- **automations on known sites:** run recurring tasks, such as retrieving reports, across a core set of account portals with reusable Managed Auth connections.
-
 ## How it works
 
 <Steps>
