@@ -31,10 +31,11 @@ for ordinary approval holds, the outgoing request must contain the complete alia
 set and match the adapter's expected HTTPS method, host, path, content type, and
 card-field layout. prepared checkout rows require the card item to complete
 `prepare_checkout` before native submission; Braintree, Worldpay, Bambora and
-Mercado Pago don't support the ordinary hold flow. Square supports either flow,
-depending on whether prepared checkout is enabled. encrypted payloads, different
-request layouts, and unrecognized processor endpoints pass through without native
-handoff.
+Mercado Pago don't support the ordinary hold flow. Square uses the ordinary hold
+flow by default; when prepared checkout is enabled, new Square checkouts must use
+`prepare_checkout`, and an unprepared request is rejected rather than falling back
+to an ordinary hold. encrypted payloads, different request layouts, and
+unrecognized processor endpoints pass through without native handoff.
 
 <span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
 support the same processors supported by agentcard's direct SDK. email
