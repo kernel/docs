@@ -97,11 +97,9 @@ func main() {
 
 ## .gov support
 
-<Warning>
-ISP proxies don't get automatic `.gov` routing. Kernel attaches the provider that handles `.gov` to residential proxies only, so `.gov` requests from an ISP proxy fall back to the default provider, which refuses some destinations and returns a `502`.
-</Warning>
-
 If your workload targets `.gov`, use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting. Kernel's default egress reaches `.gov` directly, so running without a proxy also works.
+
+ISP proxies don't route `.gov` automatically today. Kernel attaches the provider that handles `.gov` to residential proxies only, so a `.gov` request from an ISP proxy falls back to the default provider, which carries some `.gov` destinations and returns a `502` on the rest.
 
 ## Bypass hosts
 
