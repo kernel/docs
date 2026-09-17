@@ -13,22 +13,31 @@ agentcard is the wallet provider, not the merchant's payment processor. end-to-e
 
 agentcard's alias handoff uses native adapters for these checkout request formats:
 
-| merchant processor or platform | recognized HTTPS `POST` request formats                                                                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| stripe                         | form requests to `api.stripe.com/v1/payment_methods`, `/v1/tokens`, `/v1/payment_intents/{id}/confirm`, and `/v1/payment_pages/{id}/confirm`                                                |
-| shopify                        | JSON card-session requests to `checkout.pci.shopifyinc.com/sessions` and `deposit.<region>.shopifycs.com/sessions`                                                                          |
-| square                         | JSON card-nonce requests to `pci-connect.squareup.com/v2/card-nonce` and `pci-connect.squareupsandbox.com/v2/card-nonce`                                                                    |
-| recurly                        | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
-| razorpay                       | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
+| merchant processor or platform | flow | recognized HTTPS `POST` request formats                                                                                                                                                     |
+| ------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| stripe                         | ordinary approval hold | form requests to `api.stripe.com/v1/payment_methods`, `/v1/tokens`, `/v1/payment_intents/{id}/confirm`, and `/v1/payment_pages/{id}/confirm`                                                |
+| shopify                        | ordinary approval hold | JSON card-session requests to `checkout.pci.shopifyinc.com/sessions` and `deposit.<region>.shopifycs.com/sessions`                                                                          |
+| square                         | prepared single-use checkout (currently enabled) | JSON card-nonce requests to `pci-connect.squareup.com/v2/card-nonce` and `pci-connect.squareupsandbox.com/v2/card-nonce`                                                                    |
+| recurly                        | ordinary approval hold | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
+| razorpay                       | ordinary approval hold; reconcile payment status with the merchant | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
+| braintree                      | prepared single-use checkout only | GraphQL guest tokenization requests to `payments.braintree-api.com/graphql` and `payments.sandbox.braintree-api.com/graphql`                                                               |
+| worldpay                       | prepared single-use checkout only | Access Checkout card-session requests to `access.worldpay.com/sessions/card` and `try.access.worldpay.com/sessions/card`                                                                   |
+| bambora                        | prepared single-use checkout only | card-token requests to `api.na.bambora.com/scripts/tokenization/tokens` and `api.bam.shift4api.net/scripts/tokenization/tokens`                                                           |
+| mercado pago                   | prepared single-use checkout only | fresh-card token requests to `api.mercadopago.com/v1/card_tokens`                                                                                                                          |
 
 for example, an attached browser can enter agentcard aliases into a shopify checkout. shopify remains the merchant platform; agentcard supplies the credential and approval flow.
 
-the outgoing request must contain the complete alias set and match the adapter's
-expected HTTPS method, host, path, content type, and card-field layout. these
-adapters are enabled today, but non-Stripe coverage still needs broader
-validation against real processor SDKs and hosted checkouts. encrypted payloads,
-different request layouts, and unrecognized processor endpoints pass through
-without native handoff.
+for ordinary approval holds, the outgoing request must contain the complete alias
+set and match the adapter's expected HTTPS method, host, path, content type, and
+card-field layout. prepared checkout rows require the card item to complete
+`prepare_checkout` before native submission; Braintree, Worldpay, Bambora and
+Mercado Pago don't support the ordinary hold flow. The current KERNEL deployment
+has prepared checkout enabled, so new Square checkouts must use
+`prepare_checkout`, and an unprepared request is rejected rather than falling back
+to an ordinary hold. The ordinary Square hold flow is retained for compatibility
+with deployments that haven't enabled prepared checkout. Encrypted payloads,
+different request layouts, and
+unrecognized processor endpoints pass through without native handoff.
 
 <span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
 support the same processors supported by agentcard's direct SDK. email
