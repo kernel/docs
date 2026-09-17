@@ -95,6 +95,12 @@ func main() {
 - **`country`** (optional) - ISO 3166 country code. Supported values are `US`, `SG`, `GB`, `FR`, and `DE`. Defaults to `US`.
 - **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
+## .gov support
+
+ISP proxies don't get automatic `.gov` routing. Kernel attaches the upstream provider that handles `.gov` only to residential proxies, so `.gov` requests through an ISP proxy fall back to the default provider. That provider carries some `.gov` destinations and refuses others, and a refused request returns a `502` rather than retrying elsewhere.
+
+This is easy to hit by accident, because ISP proxies are otherwise the right choice when you need a static exit IP. If your workload targets `.gov`, use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting — or run the browser without a proxy, since Kernel's default egress reaches `.gov` directly.
+
 ## Bypass hosts
 
 Configure specific hostnames to bypass the proxy:
