@@ -13,16 +13,14 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 ## Product updates
 
 - Added a persistent [Browser REPL](/api-reference/browser-repl/execute-javascript-in-the-persistent-browser-repl) API: a long-lived Node.js runtime inside the browser VM, where top-level bindings, closures, and dynamically imported modules persist across calls. It exposes browser-control helpers, WebMCP, Patchright, Playwright, and raw CDP, and `kernel browsers repl` drives the same runtime from your terminal. Executions are serialized, and a timeout, crash, or protocol failure terminates the REPL and issues a new `repl_id`.
-- Launched the **Config Registry**: Kernel resolves and stack-ranks working browser and proxy configurations for a target site and returns site-specific guidance, available through the [API](/api-reference/config-registry/look-up-a-config), the [MCP server](/reference/mcp-server), and the dashboard. See the [Config Registry](/config-registry) guide.
 - Extended [Vaults](/vaults/overview) beyond payments to general credentials: store login credentials as [vault items](/vaults/credentials), collect them from your end user through a Kernel-hosted form, and have Kernel [fill](/vaults/fill) them into the page without those values passing through your application code or your agent's context. Available through the API, the `kernel` CLI, and the MCP server.
 - Extended [`fill`](/vaults/fill) to payment card items, so a [Link](/integrations/wallets/stripe-link#fill-the-checkout) checkout can be completed by injecting card fields the same way credentials are filled. [AgentCard](/integrations/wallets/agentcard) keeps its alias-based flow.
 - Added `start_url` to browser session [`update()`](/api-reference/browsers/update-browser-session). Loading a [profile](/browsers/profiles) restores every tab it saved; passing `start_url` in the same update collapses them onto a single page at the URL you specify.
-- [`GET /org/limits`](/api-reference/organization/get-organization-limits) now reports `concurrent_sessions_used` and `concurrent_sessions_available`, so you can check how much browser concurrency your organization has free before launching sessions.
 - Added [Vaults](/vaults/overview) to the dashboard: create project-scoped vaults, then create and inspect credential items alongside payment items. Proxy configuration also gained ISP country selection.
 
 ## Documentation updates
 
-- Added a [Config Registry](/config-registry) guide and a [process execution](/browsers/process-execution) guide for running processes inside the browser VM.
+- Added a [process execution](/browsers/process-execution) guide for running processes inside the browser VM.
 - Reframed the [authentication](/auth) docs around two integration paths and made browser [profiles](/browsers/profiles) first-class across guides.
 - Documented [credential vault items](/vaults/credentials), the [`fill`](/vaults/fill) API and its browser-access boundary, and how to [copy values from an existing vault](/vaults/existing-credential-vault).
 - Documented [browser payments](/browsers/payments) end to end: [enabling payments in a browser agent](/browsers/enable-payments-in-browser-agent), the [Link](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) wallet integrations, optional payment provider clients, and Link's US phone number eligibility requirement.
