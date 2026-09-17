@@ -34,7 +34,8 @@ card-field layout. prepared checkout rows require the card item to complete
 Mercado Pago don't support the ordinary hold flow. Square uses the ordinary hold
 flow by default; when prepared checkout is enabled, new Square checkouts must use
 `prepare_checkout`, and an unprepared request is rejected rather than falling back
-to an ordinary hold. encrypted payloads, different request layouts, and
+to an ordinary hold. deployments control this behavior with
+`AGENTCARD_PREPARED_CHECKOUT_ENABLED`. encrypted payloads, different request layouts, and
 unrecognized processor endpoints pass through without native handoff.
 
 <span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
