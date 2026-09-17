@@ -1,33 +1,41 @@
 ---
 title: "Fill Browser Fields"
-description: "Map vault fields to browser inputs without returning their values to your application"
+description: "Safely inject vault values into browser fields without passing them through your application or model"
 ---
 
-invoke an item's `fill` operation to write selected values into an attached browser. your request contains field names and css selectors, not credential values. the result reports outcomes without returning the values. `fill` is the credential injection step in the [Fill from Vault](/auth/fill-from-vault) auth path.
+`fill` is KERNEL's api for safely injecting stored vault values into browser fields without passing those values through your application's code or the model's context. you supply an item reference, browser, and field selectors. KERNEL reads the stored values, checks the browser attachment and item lifecycle, validates the target inputs, and writes the values. the api returns per-field outcomes, not the injected values.
 
-<Note>
-  `fill` reads credentials from a ready KERNEL credential item. if another vault
-  is your source of truth, [copy its values into a KERNEL credential
-  item](/vaults/existing-credential-vault) first. today,
-  this stores an encrypted copy in KERNEL; `fill` doesn't accept credential
-  values or a third-party vault reference in its request.
-</Note>
+unlike retrieving a secret and passing it to a browser library's typing method, `fill` doesn't require raw values in your request. your agent can identify fields and propose selectors while your trusted controller authorizes the destination and invokes the operation.
+
+for an authentication workflow using this api, see [Fill from Vault](/auth/fill-from-vault). for an online checkout workflow that uses this api, see [Payments](/browsers/payments). `fill` also supports other eligible vault items; it isn't specific to authentication or a wallet provider.
 
 <Warning>
-  `fill` writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser access may read them.
+  `fill` writes real values into the browser. page scripts, extensions, devtools, and an agent with unrestricted browser or cdp access may read them. don't assume recordings or other browser observation surfaces exclude filled values.
 </Warning>
 
 ## Check availability
 
 retrieve the item and require `fill` in `available_operations`. KERNEL rechecks eligibility when you invoke it.
 
-| item | requirements |
-| --- | --- |
-| `credential` | ready, with a stored value for every requested field |
+the item must be ready and contain a stored value for each requested field. additional eligibility rules depend on the item and its provider; don't assume every item supports `fill`.
 
-attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share credentials.
+attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share items. use the browser's session id in `browser_id`, not its name. KERNEL rechecks the attachment and item lifecycle before writing.
+
+configure your sdk client with `maxRetries: 0` (typescript) or `max_retries=0` (python) for fill, and don't wrap it in a retry loop. the cli does not automatically retry fill requests.
+
+<a id="map-credential-fields-to-inputs" />
 
 ## Map fields to inputs
+
+your request names the item and vault, the attached browser's `browser_id`, the current `page_url`, and field-selector bindings. field names come from the item's schema; they are not raw values. the following example uses a credential item with username and password fields.
+
+<Note>
+  `fill` reads values from a ready credential item. if another vault
+  is your source of truth, [copy its values into a KERNEL credential
+  item](/vaults/existing-credential-vault) first. today,
+  this stores an encrypted copy in KERNEL; `fill` doesn't accept credential
+  values or a third-party vault reference in its request.
+</Note>
 
 the following examples continue with a `kernel` client, a per-user vault such as `user-12345`, and a browser attached to that vault. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs.
 
@@ -50,7 +58,9 @@ const result = await kernel.vaults.items.performOperation(item.key, {
     { field: "password", selector: "#password" },
   ],
 });
-if (result.type !== "fill" || result.status !== "completed") {
+if (result.type !== "fill") throw new Error("unexpected operation response");
+console.log(result.status, result.fields);
+if (result.status !== "completed") {
   throw new Error("stop and reconcile the fill outcome before continuing");
 }
 ```
@@ -70,7 +80,10 @@ result = kernel.vaults.items.perform_operation(
         {"field": "password", "selector": "#password"},
     ],
 )
-if result.type != "fill" or result.status != "completed":
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+print(result.status, result.fields)
+if result.status != "completed":
     raise RuntimeError("stop and reconcile the fill outcome before continuing")
 ```
 
@@ -80,15 +93,17 @@ if result.type != "fill" or result.status != "completed":
 
 ## Select the page and elements
 
-`page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. credentials can omit it only when the browser has exactly one open page.
+when supplied, `page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. zero or multiple matching pages fail.
 
-credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
+**credentials:** omit `page_url` only when the browser has exactly one open page. credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 
 each selector must identify exactly one editable input or select across the main frame and all descendant frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
 
 KERNEL validates bindings before writing, then fills in request order. if navigation or a disappearing target interrupts filling, it stops instead of choosing a different page or element. `timeout_ms` is the total operation deadline, not a timeout per field; it defaults to 10,000 and accepts 1–30,000 milliseconds.
 
 ## Handle the outcome
+
+the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
 
 | result | next action |
 | --- | --- |
@@ -99,8 +114,12 @@ KERNEL validates bindings before writing, then fills in request order. if naviga
 
 known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`.
 
-`fill` doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded or a form was submitted.
+`fill` doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded, a form was submitted, or payment succeeded.
 
-**don't automatically retry `fill` after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it.
+**don't automatically retry `fill` after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it. preserve per-field `index`, `status`, and any `error_code` for reconciliation.
 
-for the full application and agent handoff, follow [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent).
+## Related guides
+
+- [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent) for the full application and agent handoff.
+- [payments on KERNEL](/browsers/payments) for using vault items in checkout.
+- [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout) for card fields and merchant restrictions. [agentcard](/integrations/wallets/agentcard) uses an alias-based flow instead of `fill`.
