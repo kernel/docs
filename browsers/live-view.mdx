@@ -96,7 +96,7 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 
 | Event | Payload | Meaning |
 | --- | --- | --- |
-| `KERNEL_CONNECTED` | `connected`, `capabilities` | Signaling is established. Frames are not necessarily rendering yet. |
+| `KERNEL_CONNECTED` | `connected`, `capabilities` (recent images only) | Signaling is established. Frames are not necessarily rendering yet. |
 | `KERNEL_PLAYING` | `playing: true` | Video frames are rendering. |
 | `KERNEL_PAUSED` | `playing: false` | Playback has stopped. |
 | `KERNEL_CONNECTION_TIMEOUT` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The client's connection watchdog expired. Useful for diagnostics. |
@@ -109,7 +109,7 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 | `KERNEL_SET_READ_ONLY` | `readOnly` (boolean), `requestId` (string, optional) | Toggles interactivity without reloading the iframe. Acknowledged with `KERNEL_READ_ONLY_CHANGED`. |
 
 <Info>
-    `KERNEL_CONNECTION_TIMEOUT`, `KERNEL_READ_ONLY_CHANGED` and `KERNEL_SET_READ_ONLY` require a recent browser image. `KERNEL_CONNECTED`, `KERNEL_PLAYING` and `KERNEL_PAUSED` are available on all current images.
+    `KERNEL_CONNECTION_TIMEOUT`, `KERNEL_READ_ONLY_CHANGED` and `KERNEL_SET_READ_ONLY` require a recent browser image. `KERNEL_CONNECTED`, `KERNEL_PLAYING` and `KERNEL_PAUSED` are available on all current images, but `capabilities` is sent only by recent ones — older images post `{ type: 'KERNEL_CONNECTED', connected: true }`, so treat a missing `capabilities` as unknown rather than unsupported.
 
     Messages are exchanged with the parent origin derived from `document.referrer`. If the referrer is unavailable — for example under a restrictive `Referrer-Policy` — the client cannot resolve your origin and will reject `KERNEL_SET_READ_ONLY`.
 </Info>
