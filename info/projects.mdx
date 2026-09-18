@@ -321,10 +321,12 @@ Concurrency limits control how many browsers can run at once. To control monthly
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/org/limits` | Get the org concurrency limit and the default per-project cap |
-| `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) |
+| `GET` | `/org/limits` | Get the effective org concurrency limit, current usage, available capacity, and default per-project cap |
+| `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) and return the updated limits and usage |
 | `GET` | `/org/projects/{id}/limits` | Get a single project's limit overrides |
 | `PATCH` | `/org/projects/{id}/limits` | Set a single project's limit overrides (send `0` to clear a cap) |
+
+The `GET` and `PATCH` responses include `concurrent_sessions_used` and `concurrent_sessions_available`. Usage includes active on-demand browser sessions and browser pool reservations. `concurrent_sessions_available` is the effective organization limit minus current usage, floored at zero. Both fields are `null` when current usage can't be read.
 
 <Info>
   `max_pooled_sessions` is deprecated. Pooled browsers now count toward `max_concurrent_sessions`, and requests that set `max_pooled_sessions` return a `400`.
