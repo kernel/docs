@@ -15,7 +15,7 @@ The header is set on every branded proxy-layer error response, including WebSock
 | `upstream_connect_failed` | The connection to the destination failed. | Yes |
 | `upstream_dns_failure` | The upstream proxy host could not be resolved. | Yes |
 | `origin_tls_timeout` | The proxy reached the destination, but the destination did not complete its TLS handshake in time. | Yes |
-| `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes |
+| `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes, except on `.gov` destinations. There, create a new residential proxy with no targeting, country-only targeting, or a U.S. state, confirm it with [`POST /proxies/{id}/check`](https://kernel.sh/docs/api-reference/proxies/check-proxy-health), then use it for the session. |
 | `proxy_unavailable` | A failure inside Kernel's own proxy layer, not your automation or the destination. | Yes |
 | `origin_response_incomplete` | The destination closed the connection before sending a complete response. | Only if safe. The destination may have received the request, so retry only when repeating the action cannot cause duplicate changes. |
 | `provider_rejected` | The upstream proxy provider rejected the request before the destination connection was established. | No. Try a different proxy or proxy type, and check the credentials on a [custom proxy](/proxies/custom). |
@@ -55,4 +55,6 @@ async function navigate(page, url, attempts = 3) {
 
 ## Observing proxy errors after the fact
 
-Proxy failures are also reported as `proxy_error` [browser telemetry](/browsers/telemetry/overview) events in the `network` category, carrying the same code. Use the header to recover in the moment, and telemetry to attribute failures per session and per URL afterwards.
+Proxy failures are also reported as `proxy_error` [browser telemetry](/browsers/telemetry/overview) events in the `network` category. Use the header to recover in the moment, and telemetry to attribute failures per session and per URL afterwards.
+
+The telemetry `code` does not cover every code above. `origin_response_incomplete` is not reported as a `proxy_error` event, and a header value the browser image does not recognize is reported as `unknown`, with the original value in `raw_code`. Read the header when you need the exact code.
