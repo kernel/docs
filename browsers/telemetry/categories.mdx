@@ -125,14 +125,14 @@ Three of the event types above don't come from Chrome. Kernel computes them from
 | `page_layout_settled` | `page` | 1 s after `page_load` with no intervening `page_layout_shift`. Each shift restarts the 1 s wait. |
 | `page_navigation_settled` | `page` | Once both `page_dom_content_loaded` and `page_layout_settled` have fired for the same navigation. |
 
-Each fires at most once per navigation, and all three reset on `page_navigation`. A timer from a previous navigation never fires against the current one.
+Each fires at most once per navigation, and all three reset when a `page` target navigates at the top level. `page_navigation` also fires for subframes and for `iframe` targets, and those don't reset readiness state. A timer from a previous navigation never fires against the current one.
 
 `page_navigation_settled` is deliberately independent of `network_idle`, so a single hung request can't stall it. It does depend on `page_layout_settled`, which in turn needs `page_load`, so a page where `load` never fires emits neither. If you want one readiness signal per navigation, consume `page_navigation_settled`: it's the only one gated on both the DOM and visual stability.
 
 The 1 s layout window covers late-loading web fonts and deferred image reflows. `network_idle` uses the same 500 ms quiet-period heuristic as Playwright's `networkidle` wait state, but it's an observation rather than a wait: it reports that a quiet period happened, and won't re-arm if traffic resumes.
 
 <Note>
-`network_idle` counts requests on a single target. If telemetry attaches to a page that's already loading, the monitor can miss requests that started earlier, so `network_idle` might fire before the page is really quiet. After a `monitor_disconnected`, treat in-progress `network_idle` and `page_layout_settled` state as unreliable until `monitor_reconnected` arrives.
+`network_idle` counts requests on a single target. If telemetry attaches to a page that's already loading, the monitor can miss requests that started earlier, so `network_idle` might fire before the page is really quiet. A `monitor_disconnected` discards readiness state that was in progress, so computed events still pending for that navigation never fire. `monitor_reconnected` means the collector is healthy again; it doesn't restore them. Readiness resumes at the next top-level navigation.
 </Note>
 
 Kernel computes `interaction_scroll_settled` the same way: it fires 300 ms after the last `scroll` event on a target, and only when the position moved more than 5 px on either axis, so scroll jitter doesn't emit an event.
