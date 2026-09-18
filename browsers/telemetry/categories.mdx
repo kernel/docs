@@ -132,7 +132,7 @@ Each fires at most once per navigation, and all three reset when a `page` target
 The 1 s layout window covers late-loading web fonts and deferred image reflows. `network_idle` uses the same 500 ms quiet-period heuristic as Playwright's `networkidle` wait state, but it's an observation rather than a wait: it reports that a quiet period happened, and won't re-arm if traffic resumes.
 
 <Note>
-`network_idle` counts requests on a single target. If telemetry attaches to a page that's already loading, the monitor can miss requests that started earlier, so `network_idle` might fire before the page is really quiet. A `monitor_disconnected` discards readiness state that was in progress, so computed events still pending for that navigation never fire. `monitor_reconnected` means the collector is healthy again; it doesn't restore them. Readiness resumes at the next top-level navigation.
+`network_idle` counts requests on a single target. If telemetry attaches to a page that's already loading, the monitor can miss requests that started earlier, so `network_idle` might fire before the page is really quiet. A `monitor_disconnected` discards readiness state that was in progress, so computed events still pending for that navigation never fire. `monitor_reconnected` means the collector is healthy again; it doesn't restore them. Reattachment starts a fresh state machine, so computed events can resume before the next navigation, carrying empty navigation context until one happens.
 </Note>
 
 Kernel computes `interaction_scroll_settled` the same way: it fires 300 ms after the last `scroll` event on a target, and only when the position moved more than 5 px on either axis, so scroll jitter doesn't emit an event.
