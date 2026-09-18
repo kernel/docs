@@ -1,0 +1,58 @@
+---
+title: "Proxy Errors"
+---
+
+When a request cannot be completed at the proxy layer, Kernel serves a branded error page and sets the `X-Kernel-Proxy-Error` response header to a typed code.
+
+The header is set on every branded proxy-layer error response, including WebSocket and subresource requests where the page body never renders. The status is always `502`, including for timeouts, so use the header rather than the status to decide what went wrong.
+
+## Error codes
+
+| Code | What happened | Retry |
+| --- | --- | --- |
+| `upstream_timeout` | Kernel's connection to the upstream proxy provider did not complete within its deadline. | Yes |
+| `provider_unreachable` | The upstream proxy provider could not reach the destination. | Yes |
+| `upstream_connect_failed` | The connection to the destination failed. | Yes |
+| `upstream_dns_failure` | The upstream proxy host could not be resolved. | Yes |
+| `origin_tls_timeout` | The proxy reached the destination, but the destination did not complete its TLS handshake in time. | Yes |
+| `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes |
+| `proxy_unavailable` | A failure inside Kernel's own proxy layer, not your automation or the destination. | Yes |
+| `origin_response_incomplete` | The destination closed the connection before sending a complete response. | Only if safe. The destination may have received the request, so retry only when repeating the action cannot cause duplicate changes. |
+| `provider_rejected` | The upstream proxy provider rejected the request before the destination connection was established. | No. Try a different proxy or proxy type, and check the credentials on a [custom proxy](/proxies/custom). |
+| `provider_blacklisted` | The upstream proxy provider blocks this destination. | No. Try a different proxy or proxy type, or disable the proxy for this destination. |
+| `destination_blocked` | Kernel policy blocks connections to internal and private addresses. | No. Use a public destination address. |
+
+## Recovering from a proxy error
+
+An agent driving the browser usually recovers on its own, because a failed step leads it to re-navigate. When a person is driving the browser instead — for example through an embedded [live view](/browsers/live-view) — nobody re-navigates, and a transient provider failure becomes a dead end.
+
+Read the header on a `502` and retry the navigation so those failures never reach the person holding the browser:
+
+```typescript Typescript/Javascript
+const RETRYABLE = new Set([
+  'upstream_timeout',
+  'provider_unreachable',
+  'upstream_connect_failed',
+  'upstream_dns_failure',
+  'origin_tls_timeout',
+  'restricted_route_unavailable',
+  'proxy_unavailable',
+]);
+
+async function navigate(page, url, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    const response = await page.goto(url);
+    const code = response?.headers()['x-kernel-proxy-error'];
+
+    if (!code || !RETRYABLE.has(code) || attempt === attempts) return response;
+
+    await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+  }
+}
+```
+
+`origin_response_incomplete` is deliberately absent from that set. The destination may have already acted on the request, so retrying it automatically can duplicate a submission.
+
+## Observing proxy errors after the fact
+
+Proxy failures are also reported as `proxy_error` [browser telemetry](/browsers/telemetry/overview) events in the `network` category, carrying the same code. Use the header to recover in the moment, and telemetry to attribute failures per session and per URL afterwards.
