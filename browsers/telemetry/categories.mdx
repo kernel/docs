@@ -1,0 +1,171 @@
+---
+title: "Telemetry Categories"
+description: "The categories a browser session can capture, what each contains, and their cost"
+---
+
+A category groups related telemetry events and is the unit you enable or disable. Selection is opt-in: a session captures a category only when you turn it on.
+
+For the full payload schema of any event type, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.
+
+## Operational
+
+These categories report on the session itself rather than page content.
+
+| Category | Captures | Event types |
+| --- | --- | --- |
+| `control` | Actions that drive the browser: computer-control calls, Playwright code execution, screenshots and clipboard access, plus browser-control commands sent over the CDP proxy | `api_call`, `cdp_command` |
+| `platform` | Calls that manage the VM rather than drive the browser: recording lifecycle, filesystem, process execution, log streaming, scale-to-zero, telemetry, display and browser configuration, and extension uploads | `platform_api_call` |
+| `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
+| `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
+| `captcha` | Solver task lifecycle and visible challenge outcomes | `captcha_solve_started`, `captcha_solve_result`, `captcha_challenge_result` |
+
+`control` answers "what did my agent do." `platform` is mostly Kernel acting on the VM on your behalf - saving a profile, capturing a replay, polling a recorder - so it is off by default even though the rest of this group is on. Enable it when you are debugging a profile save, a replay, or a session-setup step rather than the agent itself.
+
+<Note>
+`control` reports one `cdp_command` for each supported browser-control command it can classify from the CDP proxy - input gestures, navigation, dialogs, file selection, screenshots, and every command phase, including `mouseMoved`, `keyUp`, and `char`. It doesn't report arbitrary CDP traffic; general inspection traffic such as most DOM and Runtime commands isn't classified as browser control. The command stream isn't sampled, coalesced, or reordered.
+</Note>
+
+### Reduce CDP command volume
+
+Use `control.cdp.excluded_methods` to omit high-volume methods such as `Input.dispatchMouseEvent` during a humanized cursor path or `Page.captureScreenshot` during a screencast:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  telemetry: {
+    browser: {
+      control: {
+        enabled: true,
+        cdp: {
+          excluded_methods: ['Input.dispatchMouseEvent', 'Page.captureScreenshot'],
+        },
+      },
+    },
+  },
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    telemetry={
+        "browser": {
+            "control": {
+                "enabled": True,
+                "cdp": {
+                    "excluded_methods": [
+                        "Input.dispatchMouseEvent",
+                        "Page.captureScreenshot",
+                    ],
+                },
+            },
+        },
+    },
+)
+```
+</CodeGroup>
+
+Exclusion affects telemetry only; the commands still reach the browser. On `cdp_disconnect`, `telemetry_excluded` counts configured exclusions. Treat a nonzero `telemetry_dropped` as a telemetry-loss signal rather than using it to reconstruct the missing command sequence; the browser commands themselves still reach the browser.
+
+### Correlate captcha tasks and challenges
+
+A visible captcha challenge can require multiple solver tasks. When the identifiers are present, use `task_id` to pair a `captcha_solve_started` event with its terminal `captcha_solve_result`, and use `challenge_id` to group the tasks for the same visible challenge. A `challenge_id` can continue across a page reload when the same challenge episode continues; it doesn't indicate task order or completion.
+
+| Event type | Scope | Meaning |
+| --- | --- | --- |
+| `captcha_solve_started` | Solver task | The solver accepted a task. This doesn't mean a solve is currently in flight. |
+| `captcha_solve_result` | Solver task | A task ended with `success`, `failure`, `timeout`, or `abandoned`. A successful task means the solver returned a usable solution, not that the visible challenge cleared. |
+| `captcha_challenge_result` | Visible challenge | When emitted, the challenge reached its overall `solved`, `failure`, `timeout`, or `abandoned` outcome. |
+
+Challenge results are currently emitted for visible reCAPTCHA v2, hCaptcha, and press-and-hold challenges. Other captcha types can emit task events without a challenge result. Telemetry delivery is best-effort and isn't ordered: a start can arrive after its result, and any event can be absent. When you need a challenge-level outcome, wait for a bounded interval and fall back to available task results and the current page state.
+
+Task events carry a `task_id`, but not all of them carry a `challenge_id`. Kernel sets `challenge_id` from tracking the challenge widget in the page - the same tracking that produces `captcha_challenge_result` - so a task the automatic solver runs without it reports a `task_id` only. Those task events can't be joined to a challenge result for the same page, even when one is emitted. Pair a start with its result on `task_id`, and use `challenge_id` for grouping only when it's there.
+
+Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
+
+Challenge outcomes have these meanings:
+
+| Status | Meaning |
+| --- | --- |
+| `solved` | The page observed the challenge clear after a solver attempt. This doesn't prove the site accepted the solution or that the guarded action succeeded. |
+| `failure` | A terminal solver failure occurred, or all attempts ended while the challenge remained. |
+| `timeout` | The challenge-level wait budget expired while the challenge remained. |
+| `abandoned` | Observation ended without an attributable terminal challenge outcome. This includes a dismissed widget, a page unload, or a token appearing while multiple challenges from the same provider are open. In the last case, a task can report `success` while the challenge with the same `challenge_id` reports `abandoned`. |
+
+## Browser activity
+
+These categories report what's happening in the page. Capturing any of them attaches a Chrome DevTools Protocol (CDP) collector to the session and produces highly granular page-level events. Capturing them adds overhead, so enable only the ones you need.
+
+| Category | Captures | Event types |
+| --- | --- | --- |
+| `console` | Console output from the page | `console_log`, `console_error` |
+| `network` | Network requests, responses, and failures | `network_request`, `network_response`, `network_loading_failed`, `network_idle`, `proxy_error` |
+| `page` | Navigation and page lifecycle, including performance signals and renderer crashes | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_crashed`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
+| `interaction` | Browser-native input in the page (clicks, keys, scroll) | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
+| `screenshot` | Periodic screenshots of the session | `monitor_screenshot` |
+
+<Note>
+`interaction` events are browser-native DOM events observed in the page, not calls to the [computer-control](/browsers/computer-controls) API (those are reported by the `control` category).
+</Note>
+
+### Computed readiness events
+
+Three of the event types above don't come from Chrome. Kernel computes them from sequences of CDP events, so Kernel defines when they fire:
+
+| Event type | Category | Fires |
+| --- | --- | --- |
+| `network_idle` | `network` | 500 ms after the target's in-flight request count reaches zero. |
+| `page_layout_settled` | `page` | 1 s after `page_load` with no intervening `page_layout_shift`. Each shift restarts the 1 s wait. |
+| `page_navigation_settled` | `page` | Once both `page_dom_content_loaded` and `page_layout_settled` have fired for the same navigation. |
+
+Each fires at most once per navigation, and all three reset on `page_navigation`. A timer from a previous navigation never fires against the current one.
+
+`page_navigation_settled` is deliberately independent of `network_idle`, so a single hung request can't stall it. It does depend on `page_layout_settled`, which in turn needs `page_load`, so a page where `load` never fires emits neither. If you want one readiness signal per navigation, consume `page_navigation_settled`: it's the only one gated on both the DOM and visual stability.
+
+The 1 s layout window covers late-loading web fonts and deferred image reflows. `network_idle` uses the same 500 ms quiet-period heuristic as Playwright's `networkidle` wait state, but it's an observation rather than a wait: it reports that a quiet period happened, and won't re-arm if traffic resumes.
+
+<Note>
+`network_idle` counts requests on a single target. If telemetry attaches to a page that's already loading, the monitor can miss requests that started earlier, so `network_idle` might fire before the page is really quiet. After a `monitor_disconnected`, treat in-progress `network_idle` and `page_layout_settled` state as unreliable until `monitor_reconnected` arrives.
+</Note>
+
+Kernel computes `interaction_scroll_settled` the same way: it fires 300 ms after the last `scroll` event on a target, and only when the position moved more than 5 px on either axis, so scroll jitter doesn't emit an event.
+
+### The monitor category
+
+`monitor` reports the health of the CDP collector itself: `monitor_disconnected`, `monitor_reconnected`, `monitor_reconnect_failed`, and `monitor_init_failed`.
+
+It isn't directly settable. It flows automatically whenever any of the browser-activity categories are captured. You can still [filter the stream](/browsers/telemetry/streaming) by `monitor` to isolate these events.
+
+## Data sensitivity
+
+Telemetry is off by default. The default set isn't limited to session metadata: `control` records the source you submit for Playwright execution and sanitized arguments for supported browser-control commands, while `captcha` can record the host and path of the page where a solve ran. The browser-activity categories capture what flows through the page, which is your own browser's data and can include credentials and personal information.
+
+| Category | Can contain sensitive data |
+| --- | --- |
+| `network` | Request and response headers (including `Authorization` and `Cookie`), request bodies, and truncated response bodies, plus full URLs. A common place for session tokens, credentials, and personal data. |
+| `console` | Anything the page logs. Applications often log access tokens, request or response bodies, and personal data through `console.log`. |
+| `page` | Page URLs and titles, which can embed tokens or identifiers in query strings or fragments. |
+| `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
+| `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
+| `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. `cdp_command` carries sanitized arguments such as the method and phase, coordinates, counts, flags, and named keys such as `Enter` and `Tab`. Typed text, file paths, scripts, templates, dialog input, and autofill values aren't captured; navigation commands retain only the URL scheme, not the host, path, query, or fragment. |
+| `captcha` | Captcha type, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
+| `platform`, `connection`, `system`, `monitor` | Session and VM metadata only (VM-management calls, connection and health events). No page content. |
+
+Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Events are retained for 30 days, then expired (see [Retention](/browsers/telemetry/overview#retention)). Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
+
+Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text), and `cdp_command` reports text lengths rather than the text itself. Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
+
+If you capture `control` and run Playwright code, pass credentials in through variables your snippet reads rather than as literals in the submitted source, so the captured `code` doesn't carry them.
+
+<Warning>
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured. `control` and `captcha` stay available; keep regulated values out of the Playwright source you submit, and disable `captcha` if the page host or path identifies regulated data.
+
+If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
+</Warning>

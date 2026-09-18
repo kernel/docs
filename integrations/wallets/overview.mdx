@@ -1,0 +1,122 @@
+---
+title: "Overview"
+description: "Connect user wallets through KERNEL's native integrations"
+---
+
+KERNEL's native wallet integrations connect a user's payment method to vault items and expose provider-hosted connection and approval through the KERNEL api. your application works with item references, advertised operations, and outcomes instead of passing raw card details to the agent.
+
+wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies approved single-use cards that you inject through KERNEL's [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
+
+for the platform capabilities, benefits, and end-to-end lifecycle, start with [payments on KERNEL](/browsers/payments).
+
+## How payments work
+
+see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the vault, browser, approval, and checkout lifecycle.
+
+## Choose a provider
+
+<CardGroup cols={2}>
+  <Card
+    title="link by stripe"
+    href="/integrations/wallets/stripe-link"
+    icon="link"
+  >
+    collect a link wallet and approve a one-use credential for a specific
+    purchase.
+  </Card>
+  <Card
+    title="Agentcard"
+    href="/integrations/wallets/agentcard"
+    icon="credit-card"
+  >
+    add users' cards to agentcard's vault. the user approves each transaction
+    with Face ID and earns points on the purchase.
+  </Card>
+</CardGroup>
+
+<Note>
+  link and agentcard identify where the credential comes from and how the
+  user approves it. choose between them based on that lifecycle, not the
+  merchant processor. only agentcard's alias handoff depends on processor-adapter coverage.
+</Note>
+
+| behavior                  | link by stripe                                            | agentcard                                                           |
+| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
+| user eligibility          | requires a US phone number                               | —                                                                   |
+| payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
+| purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
+| payment handoff           | KERNEL's `fill` api injects values without passing them through application code or model context; values enter the browser | agentcard executes the intercepted request; KERNEL replays the response |
+| reuse                     | provider-issued single-use card | reusable card item; each checkout requires approval             |
+| environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
+
+choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, single-use card. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
+
+both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
+
+## Checkout and processor coverage
+
+KERNEL's `fill` api does not require a native processor adapter. for link-issued cards, the page must match the allowed merchant origin and provide supported checkout inputs. see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+
+agentcard's alias-based checkout requires a recognized processor request. see [agentcard's processor coverage](/integrations/wallets/agentcard#checkout-and-processor-coverage) for supported formats and limitations. neither field filling nor provider handoff guarantees processor acceptance or payment success.
+
+## Why use KERNEL handoff
+
+see [why use KERNEL payments](/browsers/payments#why-use-kernel-payments) for safe value injection, native integrations, purchase control, and outcome handling.
+
+## Provider configurations
+
+use KERNEL-managed credentials by default. if you need your own client, follow
+the optional setup in [link](/integrations/wallets/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/wallets/agentcard#bring-your-own-agentcard-oauth-client). a named
+provider configuration stores your application's `client_id` and `client_secret`,
+not an end user's wallet grant. credentials are encrypted at rest; secrets are
+never returned.
+
+configurations are organization-scoped and shared across projects, unlike
+project-scoped vaults. create, update, and delete require organization-scoped
+authentication; project-scoped api keys receive `403`. names are unique within
+the organization, and duplicate creates return `409` without replacing secrets.
+
+- **selection:** choose exactly one config `id` or `name` when creating a wallet. the cli accepts `--provider-config-id` or `--provider-config-name`; responses resolve names to ids.
+- **binding:** the wallet's configuration is immutable, and cards inherit it. renaming a config preserves bindings.
+- **rotation:** updating `client_secret` affects all bound wallets. provider, client id, and agentcard mode cannot change; changing clients requires a new config and new wallets.
+- **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
+
+## Wallet and card items
+
+for payment settings ui, enforce at most one wallet per provider in each vault.
+the api currently enforces uniqueness by item key, not by wallet provider, so a
+different key can create a second wallet for the same provider. list items before
+rendering provider options, hide the add option whenever that provider already
+has a wallet in any state, and reuse or recover the existing item.
+
+a card's `spec.wallet` must reference a wallet in the same vault and from the
+same provider.
+
+for provider-specific specifications and states, see [link](/integrations/wallets/stripe-link#item-reference) or [agentcard](/integrations/wallets/agentcard#item-reference).
+
+## Payment actions and recovery
+
+`action.name` can be `link_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
+
+`recovery_required` means a card's provider outcome is unresolved. it stops
+item wait loops and blocks new authorization, checkout, and deletion of the
+card or its parent wallet or vault. inspect existing evidence and contact the
+provider or support when manual reconciliation is needed. there is no reset
+operation; deletion is not payment recovery.
+
+## Next step
+
+configure [link by stripe](/integrations/wallets/stripe-link) or [agentcard](/integrations/wallets/agentcard), then follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
+
+the provider pages show the CLI commands for creating wallets and cards. once
+the card item is ready, the shared CLI flow is:
+
+```bash CLI
+kernel vaults create --name user-12345
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+kernel browsers create --vault user-12345 -o json
+```
+
+`--wait` performs one bounded observation. it does not confirm that a payment
+succeeded, and the CLI does not submit or retry merchant payments.

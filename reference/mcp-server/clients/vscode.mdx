@@ -1,0 +1,32 @@
+---
+title: "Visual Studio Code"
+description: "Connect Visual Studio Code to the Kernel MCP server"
+---
+
+**Using Kernel CLI (recommended):**
+
+```bash
+kernel mcp install --target vscode
+```
+
+**Manual setup:**
+
+Add to your VS Code settings.json:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "url": "https://mcp.onkernel.com/mcp",
+      "type": "http"
+    }
+  }
+}
+```
+
+Or use the UI:
+
+1. Press **⌘/Ctrl Shift P** → search **MCP: Add Server**.
+2. Select **HTTP (HTTP or Server-Sent Events)**.
+3. Enter: `https://mcp.onkernel.com/mcp`
+4. Name the server **Kernel** → Enter.

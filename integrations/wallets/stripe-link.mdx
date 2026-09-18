@@ -1,0 +1,617 @@
+---
+title: "link by stripe"
+description: "use link by stripe to approve a one-use payment credential for a browser checkout"
+---
+
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
+
+use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
+
+link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
+
+
+## Before you start
+
+<Note>
+  link currently supports only users with US phone numbers.
+</Note>
+
+create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+```
+
+```bash CLI
+kernel vaults create --name user-12345
+```
+
+</CodeGroup>
+
+## Choose an oauth client
+
+use KERNEL's oauth client by default. if you bring your own client, complete the
+setup below before following the shared payment lifecycle.
+
+### bring your own link oauth client
+
+register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for
+your organization. configurations are shared across projects, so authenticate
+this step with an [organization-scoped api key](/info/api-keys). project-scoped
+credentials can reference an existing configuration when creating a wallet, but
+can't create, update, or delete configurations.
+
+keep the client credentials outside the agent's accessible files. the SDK
+examples read them from backend environment variables. for the CLI, create a
+protected file readable only by its owner (for example, mode `0600`):
+
+```json link-client.json
+{
+  "client_id": "example-client-id",
+  "client_secret": "example-client-secret"
+}
+```
+
+<CodeGroup>
+
+```typescript TypeScript
+const orgKernel = new Kernel({
+  apiKey: process.env.KERNEL_ORG_API_KEY!,
+});
+const linkConfig = await orgKernel.vaultProviderConfigs.create({
+  name: "checkout-link",
+  provider: "link",
+  credentials: {
+    client_id: process.env.LINK_CLIENT_ID!,
+    client_secret: process.env.LINK_CLIENT_SECRET!,
+  },
+});
+```
+
+```python Python
+org_kernel = Kernel(api_key=os.environ["KERNEL_ORG_API_KEY"])
+link_config = org_kernel.vault_provider_configs.create(
+    name="checkout-link",
+    provider="link",
+    credentials={
+        "client_id": os.environ["LINK_CLIENT_ID"],
+        "client_secret": os.environ["LINK_CLIENT_SECRET"],
+    },
+)
+```
+
+```bash CLI
+# run with KERNEL_API_KEY set to an organization-scoped key
+kernel vault-provider-configs create --name checkout-link --provider link \
+  --credentials-file "$HOME/.config/kernel/link-client.json"
+```
+
+</CodeGroup>
+
+for each end user, complete your existing link oauth flow in your backend and
+obtain its access and refresh tokens. keep the client secret, pkce verifier, and
+tokens out of agent context, browser code, urls, and logs.
+
+create the wallet with the project-scoped `kernel` client and `vault` from
+[Before you start](#before-you-start). supply the access and refresh tokens from
+the same grant, with a currently valid access token. CLI users should restore
+their project-scoped `KERNEL_API_KEY` before running the wallet command and put
+the grant in this protected file:
+
+```json link-grant.json
+{
+  "access_token": "example-access-token",
+  "refresh_token": "example-refresh-token"
+}
+```
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.upsert("link-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "link",
+    authorization: {
+      method: "oauth",
+      client: {
+        type: "customer_managed",
+        provider_config: { name: linkConfig.name },
+      },
+      tokens: {
+        access_token: process.env.LINK_ACCESS_TOKEN!,
+        refresh_token: process.env.LINK_REFRESH_TOKEN!,
+      },
+    },
+  },
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "link-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "link",
+        "authorization": {
+            "method": "oauth",
+            "client": {
+                "type": "customer_managed",
+                "provider_config": {"name": link_config.name},
+            },
+            "tokens": {
+                "access_token": os.environ["LINK_ACCESS_TOKEN"],
+                "refresh_token": os.environ["LINK_REFRESH_TOKEN"],
+            },
+        },
+    },
+)
+```
+
+```bash CLI
+kernel vaults wallets create user-12345 link-wallet --provider link \
+  --provider-config-name checkout-link --spec '{}' \
+  --tokens-file "$HOME/.config/kernel/link-grant.json"
+```
+
+</CodeGroup>
+
+a successful import returns a `connected` wallet without a `link_oauth` action.
+KERNEL takes over refresh-token rotation, so your backend must stop refreshing
+that grant. continue with [Select a payment method](#select-a-payment-method).
+
+## Lifecycle
+
+1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
+2. require the wallet to be `connected`.
+3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
+4. create a `card` item with the purchase details.
+5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
+6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
+7. require the advertised `fill` operation, then supply the attached browser's session id, exact current top-level https `page_url`, and field/selector bindings. inspect every fill outcome before deciding whether to submit checkout once.
+
+## Connect a wallet
+
+this section shows the KERNEL-managed oauth path. if you imported a connected
+wallet with your own client above, continue with
+[Select a payment method](#select-a-payment-method).
+
+before showing a link connection option, list the vault's items. if a
+link wallet already exists in any state, reuse it and do not let the user add
+another. show its existing action or status instead. the api makes item keys
+unique but does not currently enforce one wallet per provider, so the ui must
+enforce a maximum of one link wallet per vault.
+
+the examples use `presentProviderAction`, an application-owned function that
+publishes the action to an authenticated session for the end user who owns the
+vault. bind the action to that user, vault, and item; apply a short application
+ttl capped by `wallet.expires_at` when present; and stop serving it when the
+action changes or disappears. derive `authenticatedUser` from the server-side
+session, not a request field. do not log the url or put it in model context.
+
+<CodeGroup>
+
+```typescript TypeScript
+const items = await kernel.vaults.items.list(vault.id);
+const linkWallets = items.filter(
+  (item) => item.type === "wallet" && item.spec.provider === "link",
+);
+if (linkWallets.length > 1) {
+  throw new Error("vault has more than one link wallet");
+}
+
+let wallet = linkWallets[0];
+if (!wallet) {
+  wallet = await kernel.vaults.items.upsert("link-wallet", {
+    id_or_name: vault.id,
+    type: "wallet",
+    spec: {
+      provider: "link",
+      authorization: {
+        method: "oauth",
+        client: { type: "kernel_managed" },
+      },
+    },
+  });
+}
+
+if (wallet.action?.name === "link_oauth") {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: wallet,
+  });
+}
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+items = kernel.vaults.items.list(vault.id)
+link_wallets = [
+    item
+    for item in items
+    if item.type == "wallet" and item.spec.provider == "link"
+]
+if len(link_wallets) > 1:
+    raise RuntimeError("vault has more than one link wallet")
+
+wallet = link_wallets[0] if link_wallets else None
+if wallet is None:
+    wallet = kernel.vaults.items.upsert(
+        "link-wallet",
+        id_or_name=vault.id,
+        type="wallet",
+        spec={
+            "provider": "link",
+            "authorization": {
+                "method": "oauth",
+                "client": {"type": "kernel_managed"},
+            },
+        },
+    )
+
+if wallet.action is not None and wallet.action.name == "link_oauth":
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=wallet,
+    )
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    wait=60,
+)
+```
+
+```bash CLI
+# create only when the list has no link wallet
+kernel vaults items list user-12345 -o json
+kernel vaults wallets create user-12345 link-wallet \
+  --provider link \
+  --spec '{"authorization":{"method":"oauth","client":{"type":"kernel_managed"}}}' \
+  --open
+kernel vaults items get user-12345 link-wallet --wait 60
+```
+
+</CodeGroup>
+
+<Warning>
+  open collection and approval urls in a trusted user-facing surface. don't give
+  them to the agent or print full wallet responses into model context. run cli
+  `--open` only from a trusted, human-operated terminal because the command
+  output can contain the action url.
+</Warning>
+
+## Select a payment method
+
+request `payment_methods` only when `available_expansions` advertises it. the expansion comes from link at request time and is not persisted in the vault item.
+
+<CodeGroup>
+
+```typescript TypeScript
+if (
+  !wallet.available_expansions.some(({ type }) => type === "payment_methods")
+) {
+  throw new Error("payment methods are unavailable");
+}
+
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+
+const methods = wallet.expanded?.payment_methods ?? [];
+for (const method of methods) {
+  console.log(method.id, method.display, method.capabilities);
+}
+
+const paymentMethod = methods.find(
+  ({ id }) => id === process.env.LINK_PAYMENT_METHOD_ID,
+);
+if (
+  !paymentMethod ||
+  paymentMethod.capabilities.single_use_card?.eligible === false
+) {
+  throw new Error("select an available payment method");
+}
+```
+
+```python Python
+if not any(expansion.type == "payment_methods" for expansion in wallet.available_expansions):
+    raise RuntimeError("payment methods are unavailable")
+
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+
+methods = (wallet.expanded.payment_methods or []) if wallet.expanded else []
+for method in methods:
+    print(method.id, method.display, method.capabilities)
+
+payment_method = next(
+    (
+        method
+        for method in methods
+        if method.id == os.environ["LINK_PAYMENT_METHOD_ID"]
+    ),
+    None,
+)
+if payment_method is None or (
+    payment_method.capabilities.single_use_card is not None
+    and payment_method.capabilities.single_use_card.eligible is False
+):
+    raise RuntimeError("select an available payment method")
+```
+
+```bash CLI
+kernel vaults wallets payment-methods user-12345 link-wallet -o json
+```
+
+</CodeGroup>
+
+show the returned methods in a trusted user-facing surface, let the user choose one, and set its id as `LINK_PAYMENT_METHOD_ID`. missing capability metadata means eligibility is unknown. only `eligible: false` is an explicit negative result.
+
+## Create and authorize a card item
+
+<CodeGroup>
+
+```typescript TypeScript
+let card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "link",
+    wallet: wallet.key,
+    payment_method_id: paymentMethod.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com",
+    context:
+      "buy one notebook from example shop for a total of 23.06 usd, including tax " +
+      "and shipping. this request is for this purchase only and must not be repeated.",
+  },
+});
+
+card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (!card.available_operations.some(({ type }) => type === "authorize")) {
+  throw new Error("authorization is unavailable");
+}
+
+card = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+if (card.action && "url" in card.action) {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: card,
+  });
+}
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "link",
+        "wallet": wallet.key,
+        "payment_method_id": payment_method.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com",
+        "context": (
+            "buy one notebook from example shop for a total of 23.06 usd, including tax "
+            "and shipping. this request is for this purchase only and must not be repeated."
+        ),
+    },
+)
+
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if not any(operation.type == "authorize" for operation in card.available_operations):
+    raise RuntimeError("authorization is unavailable")
+
+card = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+if card.action is not None and hasattr(card.action, "url"):
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=card,
+    )
+```
+
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider link \
+  --spec '{
+    "wallet": "link-wallet",
+    "payment_method_id": "pm_123",
+    "amount": 2306,
+    "currency": "usd",
+    "merchant_name": "example shop",
+    "merchant_url": "https://shop.example.com",
+    "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+kernel vaults items invoke user-12345 notebook-order authorize --open
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+```
+
+</CodeGroup>
+
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+
+`merchant_url` supplies provider context and restricts the destination for card use. see [fill the checkout](#fill-the-checkout) for exact page and origin requirements; `state.domains` is metadata, not an authorization rule.
+
+## Fill the checkout
+
+after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-payment-fields).
+
+supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
+
+`page_url` is required, must use https without embedded credentials, and must share the https origin of `spec.merchant_url`. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the checkout path can differ from the stored merchant url, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
+
+### Map card fields to inputs
+
+the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+
+| card field | value and format |
+| --- | --- |
+| `number`, `cvc` | actual card values; leading zeros preserved |
+| `exp_month`, `exp_year` | two-digit month (`MM`), four-digit year (`YYYY`) |
+| `expiration` | combined expiry; requires `format: "MM/YY"` or `"MM/YYYY"` |
+| `billing_name`, `billing_line1`, `billing_line2`, `billing_city`, `billing_state`, `billing_postal_code`, `billing_country` | stored provider billing values, without reformatting |
+
+`format` is forbidden for every field except a card's combined `expiration`. request only needed billing fields. an absent or empty requested billing value returns `400 field_unavailable` before any browser writes; it doesn't make other card fields unavailable. don't invent missing billing data.
+
+these selectors illustrate a checkout you control with separate number, combined expiry, and cvc inputs. replace them with selectors verified on your page, including within payment frames. supply 1–32 ordered bindings, never raw values or frame ids.
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = await kernel.vaults.items.retrieve("notebook-order", {
+  id_or_name: vault.id,
+});
+if (
+  card.type !== "card" ||
+  card.spec.provider !== "link" ||
+  !card.available_operations.some((operation) => operation.type === "fill")
+) {
+  throw new Error("fill is unavailable for this card");
+}
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+  fields: [
+    { field: "number", selector: "#card-number" },
+    { field: "expiration", selector: "#expiry", format: "MM/YY" },
+    { field: "cvc", selector: "#security-code" },
+  ],
+  timeout_ms: 10000,
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+console.log(result.status, result.fields);
+if (result.status !== "completed") {
+  throw new Error("stop and reconcile per-field outcomes; do not retry");
+}
+```
+
+```python Python
+card = kernel.vaults.items.retrieve("notebook-order", id_or_name=vault.id)
+if (
+    card.type != "card"
+    or card.spec.provider != "link"
+    or not any(operation.type == "fill" for operation in card.available_operations)
+):
+    raise RuntimeError("fill is unavailable for this card")
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+    fields=[
+        {"field": "number", "selector": "#card-number"},
+        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
+        {"field": "cvc", "selector": "#security-code"},
+    ],
+    timeout_ms=10000,
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+print(result.status, result.fields)
+if result.status != "completed":
+    raise RuntimeError("stop and reconcile per-field outcomes; do not retry")
+```
+
+```bash CLI
+# BROWSER_ID is the attached session ID; PAGE_URL is its exact current checkout URL.
+# Inspect the item and require the advertised fill operation before invoking it.
+kernel vaults items get user-12345 notebook-order -o json
+jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
+  browser_id: $browser,
+  page_url: $url,
+  fields: [
+    {field: "number", selector: "#card-number"},
+    {field: "expiration", selector: "#expiry", format: "MM/YY"},
+    {field: "cvc", selector: "#security-code"}
+  ],
+  timeout_ms: 10000
+}' | kernel vaults items invoke user-12345 notebook-order fill --spec-file - -o json
+```
+
+</CodeGroup>
+
+### Handle the outcome
+
+the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
+
+see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses and reconciliation.
+
+`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+
+single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
+
+don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
+
+## Item reference
+
+wallet and card items accept these `spec` fields. fields not listed here are rejected. a card's `spec.wallet` must reference a link wallet in the same vault.
+
+| item | required fields | optional fields |
+| --- | --- | --- |
+| wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
+| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+
+the default link client is `{type: 'kernel_managed'}`. for your own client, set
+`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
+and supply `authorization.tokens` with `access_token` and `refresh_token`.
+
+`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+
+link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
+
+card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`.
+
+### Item states
+
+- **wallet:** `pending_authorization`, `connected`, `declined`, `reconnect_required`, `degraded`
+- **card:** `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
+
+card state can include `masks.brand` and `masks.last4`. retrieve the card's advertised operations before using it. for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery); a ready item alone is not evidence that a purchase can safely be repeated.
+
+deleting a card clears its stored provider value. deleting a wallet also invalidates its dependent cards.

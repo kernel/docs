@@ -1,0 +1,384 @@
+---
+title: "Residential Proxies"
+---
+
+Residential proxies route traffic through real residential IP addresses. They support advanced targeting options including city, state, and operating system.
+
+<Info>
+Residential proxies use **rotating exit IPs** — each new connection may route through a different residential IP address within your targeted region. This is because residential traffic is routed through real consumer devices that may go offline at any time, so the network assigns a new available exit node per connection. This means different browser tabs or requests to different websites within the same session can show different public IPs. If you need a consistent IP address across all connections, use an [ISP proxy](/proxies/isp) instead.
+</Info>
+
+## IP Rotation Behavior
+
+Residential proxies assign a new exit IP for each new TCP connection. In practice:
+
+- **Same website across tabs**: Tabs connecting to the same domain typically share a TCP connection (via HTTP connection pooling), so they usually see the same IP.
+- **Different websites across tabs**: Tabs connecting to different domains open separate connections, so they will likely exit through different residential IPs.
+- **Reconnections**: If a connection is closed and re-established (e.g., after a timeout or page idle), the new connection may get a different exit IP.
+
+This behavior is inherent to residential proxy networks, where traffic is routed through real consumer devices that come online and offline dynamically.
+
+## Configuration
+
+Create a residential proxy with a target country:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'my-us-residential',
+  config: {
+    country: 'US'
+  }
+});
+
+const browser = await kernel.browsers.create({
+  proxy_id: proxy.id,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type='residential',
+    name='my-us-residential',
+    config={
+        'country': 'US'
+    }
+)
+
+browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("my-us-residential"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
+</CodeGroup>
+
+## Configuration Parameters
+
+- **`country`** - ISO 3166 country code. Must be provided when providing other targeting options.
+- **`state`** - Two-letter state code. Only supported for US.
+- **`city`** - City name (lowercase, no spaces, e.g., `sanfrancisco`, `newyork`).
+- **`zip`** - US ZIP code (5 digits). Can only be used with `country` set to `US`. Cannot be combined with `city` or `state`.
+- **`asn`** - Autonomous System Number. Conflicts with city and state.
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
+
+## Advanced Targeting Examples
+
+Kernel recommends using the least-specific targeting configuration that works for your use case. The more specific a configuration, the less available IPs there are, increasing the chance of a slow connection or no available connection (`no_peer` connection error).
+
+### Target by City
+
+Route traffic through a specific city:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'la-residential',
+  config: {
+    country: 'US',
+    state: 'CA',
+    city: 'los_angeles'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='la-residential',
+    config={
+        'country': 'US',
+        'state': 'CA',
+        'city': 'los_angeles'
+    }
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("la-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			State:   kernel.String("CA"),
+			City:    kernel.String("los_angeles"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
+</CodeGroup>
+
+<Note>
+If the city name is not matched, the API will return the best 10 city names from the state to help you find the correct city identifier.
+</Note>
+
+### Target by State
+
+Route traffic through a specific state:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'ny-residential',
+  config: {
+    country: 'US',
+    state: 'NY'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='ny-residential',
+    config={
+        'country': 'US',
+        'state': 'NY'
+    }
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("ny-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			State:   kernel.String("NY"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
+</CodeGroup>
+
+<Note>
+If the state name is not matched, the API will return the most-available 10 states.
+</Note>
+
+### Target by ASN
+
+Route traffic through a specific Autonomous System Number (ISP):
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'comcast-residential',
+  config: {
+    country: 'US',
+    asn: 'AS7922'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='comcast-residential',
+    config={
+        'country': 'US',
+        'asn': 'AS7922'
+    }
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("comcast-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			Asn:     kernel.String("AS7922"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
+</CodeGroup>
+
+<Note>
+If the ASN is not matched, the API will return the most-available 10 examples.
+</Note>
+
+### Target by ZIP code
+
+Route traffic through a specific US ZIP code area:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'nyc-residential',
+  config: {
+    country: 'US',
+    zip: '10001'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='nyc-residential',
+    config={
+        'country': 'US',
+        'zip': '10001'
+    }
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("nyc-residential"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+			Zip:     kernel.String("10001"),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+
+</CodeGroup>
+
+<Note>
+ZIP code targeting is US-only and cannot be combined with `state` or `city`. The exit IP will be in the geographic area of the requested ZIP code, but the IP's exact ZIP may differ slightly (e.g., requesting `90210` may route through `90401` in the same metro area).
+</Note>
+
+<Warning>
+Not all ZIP codes have available residential IPs. If a ZIP code is unavailable, proxy creation will fail with a message suggesting alternatives: a nearby ZIP, city/state targeting, or country-only targeting.
+</Warning>
+
+## .gov support
+
+Residential proxies with no targeting, country-only targeting, or US state targeting automatically route `.gov` requests through a compatible upstream provider. ZIP, ASN, and non-US state targeting may return `restricted_route_unavailable`.
+
+You may [check proxy health](/proxies/overview#check-proxy-health) against a `.gov` URL before starting a browser.
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy and connect directly:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'residential-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'metadata.google.internal',
+    '*.internal.company.com',
+  ],
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(
+    type='residential',
+    name='residential-with-bypass',
+    config={
+        'country': 'US',
+    },
+    bypass_hosts=[
+        'localhost',
+        'metadata.google.internal',
+        '*.internal.company.com',
+    ]
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeResidential,
+	Name: kernel.String("residential-with-bypass"),
+	Config: kernel.ProxyNewParamsConfigUnion{
+		OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+			Country: kernel.String("US"),
+		},
+	},
+	BypassHosts: []string{
+		"localhost",
+		"metadata.google.internal",
+		"*.internal.company.com",
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = proxy
+```
+</CodeGroup>
+
+See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules and examples.

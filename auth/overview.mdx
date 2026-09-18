@@ -1,0 +1,69 @@
+---
+title: "Overview"
+description: "Choose how your browser agents authenticate and reuse signed-in sessions"
+---
+
+most useful browser workflows begin behind a login. KERNEL gives you two ways to authenticate browser agents without returning stored sensitive values through the api or putting them in your agent prompt: control the workflow yourself and Fill from Vault, or delegate the login and session lifecycle to Managed Auth.
+
+Fill from Vault is the recommended approach if you require greater visibility and control over the authentication experience, while Managed Auth is preferred if you would like KERNEL to handle the login lifecycle on your behalf.
+
+## Choose an auth approach
+
+<CardGroup cols={2}>
+  <Card title="Fill from Vault" icon="vault" href="/auth/fill-from-vault">
+    **control the login workflow**
+
+  </Card>
+  <Card title="Managed Auth" icon="key" href="/auth/managed-auth">
+    **delegate the login lifecycle**
+
+  </Card>
+</CardGroup>
+
+| | Fill from Vault | Managed Auth |
+| --- | --- | --- |
+| **login orchestration** | your application or agent owns navigation, submission, and response handling | KERNEL runs the login flow and requests user input when needed |
+| **where login happens** | in your agent’s current browser session | in a separate browser session managed by KERNEL |
+| **credential collection** | KERNEL-hosted collection form or your trusted backend | Managed Auth credential, Hosted UI, React component, or programmatic flow |
+| **credential filling** | your application invokes `fill` with field names and selectors | KERNEL fills credentials as part of the managed login flow |
+| **session state** | your workflow can save the resulting state to a profile | saved to a reusable profile |
+| **ongoing recovery** | your workflow decides when and how to authenticate again | health checks and eligible automatic reauthentication attempts; your application brings the user back when input is required |
+
+
+## Common use cases
+
+### Use Fill from Vault
+
+- an authentication prompt can appear in the middle of a longer workflow, in the same browser session.
+- your product needs to control when and how it asks for credentials.
+- your application or agent must own navigation, submission, and recovery.
+
+one common use case is an ai assistant doing work on behalf of an end user. with Fill from Vault, the agent can login as the user to complete tasks on gated websites. your application or agent controls credential collection and completes the login in its current browser session.
+
+### Use Managed Auth
+
+- the automation runs unattended or signs in repeatedly.
+- you want KERNEL to navigate common login, sso, and mfa flows.
+- you want health checks and eligible automatic reauthentication.
+
+one common use case is recurring website qa on a set of known sites. KERNEL handles the login flow and attempts eligible automatic recovery before the automation begins. the automation can start testing on websites without needing to login.
+
+
+## Understand the security boundary
+
+KERNEL doesn't return stored sensitive fields in api responses or add them to model context. the `fill` operation writes real values into the browser. Page scripts, extensions, developer tools, and an agent with unrestricted browser access can read them after fill. Use the narrowest browser permissions that your workflow supports, and only attach a vault to sessions authorized to use all of its items.
+
+## Reuse authenticated state
+
+[Profiles](/browsers/profiles) persist cookies and local storage between browser sessions. Managed Auth saves successful logins to a profile automatically. A workflow using Fill from Vault can also save the resulting browser state to a profile when it needs to reuse that session.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Use Fill from Vault" icon="vault" href="/auth/fill-from-vault">
+    collect end-user credentials and control navigation, form submission, and recovery in your own workflow.
+  </Card>
+  <Card title="Use Managed Auth" icon="key" href="/auth/managed-auth">
+    let KERNEL run the login flow and automatically attempt re-authentication.
+  </Card>
+</CardGroup>

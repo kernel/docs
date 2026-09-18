@@ -1,0 +1,38 @@
+---
+title: "Authentication"
+---
+
+## `kernel login`
+Log in with OAuth 2.0 PKCE. The CLI opens a browser window to complete the flow and stores credentials securely for automatic refresh.
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Re-run the OAuth flow even if a valid session exists. |
+
+## `kernel logout`
+Clear stored credentials and revoke the current session.
+
+## `kernel auth`
+Display authentication status, including the active user, organization, and token expiry.
+
+## API key authentication
+Set the `KERNEL_API_KEY` environment variable to authenticate without OAuth:
+
+```bash
+export KERNEL_API_KEY=sk_1234abcd
+```
+
+Create and manage API keys from the Kernel dashboard or with [`kernel api-keys`](/reference/cli/api-keys).
+
+## Global flags
+The following flags are available on every CLI command:
+
+| Flag | Description |
+|------|-------------|
+| `--version`, `-v` | Print the CLI version. |
+| `--no-color` | Disable ANSI colors in output. |
+| `--log-level <level>` | Set log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `print`). |
+
+## Getting help
+- `kernel --help` — Show the top-level command list.
+- `kernel <command> --help` — Display command-specific usage and options.

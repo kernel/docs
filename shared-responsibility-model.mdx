@@ -1,0 +1,56 @@
+---
+title: "Shared Responsibility Model"
+description: "Understanding the division of security responsibilities between Kernel and its customers"
+---
+
+Last Modified: March 16, 2026
+
+## Overview
+
+Security and compliance are a shared responsibility between Kernel and the customer. This shared model helps relieve the customer's operational burden as Kernel operates, manages, and secures the browser infrastructure platform, while customers retain responsibility for how they use the platform, manage their credentials, and handle the data they process through Kernel browser sessions.
+
+## Kernel's Responsibility: Security *of* the Platform
+
+Kernel is responsible for protecting the infrastructure and platform that delivers browser sessions to customers. This includes:
+
+- **Unikernel Isolation** — Operating and securing the Unikraft-based unikernel virtual machines that provide hypervisor-level isolation for every browser session
+- **Compute and Networking Infrastructure** — Securing the underlying servers, hypervisors, network fabric, and orchestration systems that run browser sessions
+- **Platform Software** — Maintaining and patching the Kernel platform, APIs, and control plane components
+- **Encryption** — Enforcing TLS 1.2+ for data in transit and AES-256 encryption for data at rest, with cloud provider key management and annual key rotation
+- **Physical Security** — Ensured through our cloud hosting providers, which maintain controls restricting unauthorized physical access and protecting against environmental threats
+- **Monitoring and Incident Response** — Continuous monitoring, logging, and alerting across production systems, with a defined incident response plan
+- **Compliance** — Maintaining certifications and pursuing audit readiness across applicable frameworks (see our [Security Practices](/security) page for current compliance status)
+
+## Customer Responsibility: Security *in* the Platform
+
+Customers are responsible for security within the browser sessions and integrations they operate on Kernel. This includes:
+
+- **Access Credentials** — Safeguarding API keys, authentication tokens, and any credentials used to interact with the Kernel platform or third-party services from within browser sessions
+- **Automation Scripts and Code** — Ensuring the security and correctness of the automation scripts, browser agents, and application code they deploy within Kernel browser sessions
+- **Data Handling** — Managing the classification, handling, and protection of any data they process, extract, or store through Kernel browser sessions, including compliance with applicable data protection regulations
+- **Third-Party Integrations** — Securing any third-party services, APIs, or applications that customers connect to from within their Kernel sessions
+- **Account Security** — Maintaining strong passwords, enabling multi-factor authentication on their Kernel accounts, and managing team member access appropriately
+
+## Shared Controls
+
+Some security controls apply to both Kernel and the customer, each operating in their own context:
+
+| Control | Kernel's Responsibility | Customer's Responsibility |
+|---|---|---|
+| **Patch Management** | Patching platform infrastructure, unikernel images, and runtime dependencies | Keeping automation dependencies and libraries up to date within their workflows |
+| **Configuration Management** | Securing default platform configurations and enforcing isolation boundaries | Configuring browser session options, network policies, and integration settings appropriately |
+| **Awareness and Training** | Training Kernel employees on security best practices and secure coding | Training their own teams on secure use of the Kernel platform and responsible data handling |
+
+## Session Lifecycle and Data Responsibility
+
+Each Kernel browser session runs inside an ephemeral unikernel VM. When a session ends, the VM is destroyed along with all session data. Customers should be aware that:
+
+- **Session data is ephemeral** — Any data created within a browser session is destroyed when the session ends unless the customer explicitly exports or persists it
+- **Customer-provided credentials** — Any credentials or secrets injected into a browser session (e.g., login cookies, API keys) are the customer's responsibility to manage and rotate
+- **Exported data** — Once data leaves the Kernel platform (via API responses, webhooks, or customer-managed storage), its protection becomes the customer's responsibility
+
+## Learn More
+
+For a deeper look at the security controls Kernel maintains across product, infrastructure, and organizational domains, see our [Security Practices](/security) page.
+
+For questions about the shared responsibility model or our security program, contact [security@kernel.sh](mailto:security@kernel.sh).

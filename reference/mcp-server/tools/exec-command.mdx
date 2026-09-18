@@ -1,0 +1,27 @@
+---
+title: "exec_command"
+description: "Run shell commands inside a browser VM"
+---
+
+Execute a command synchronously inside a browser VM. Returns decoded stdout, stderr, and the exit code. The `command` field is the executable; pass its arguments in `args`.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `session_id` | Browser session ID. Required. |
+| `command` | Executable to run (e.g., `cat`, `ls`, `curl`). Required. |
+| `args` | Arguments to pass to the command. |
+| `cwd` | Working directory (absolute path). |
+| `as_root` | Run with root privileges. |
+| `timeout_sec` | Max execution time in seconds. |
+
+## Example
+
+```json
+{
+  "session_id": "browser_abc123",
+  "command": "curl",
+  "args": ["-I", "https://example.com"]
+}
+```

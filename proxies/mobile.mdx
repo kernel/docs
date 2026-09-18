@@ -1,0 +1,162 @@
+---
+title: "Mobile Proxies"
+---
+
+Mobile proxies route traffic through mobile carrier networks. Only recommended in advanced stealth use cases.
+
+<Info>
+Mobile carrier IPs often route through shared regional gateways. Country targeting is the most reliable option; city and US state targeting are best-effort and may not match every third-party geolocation database.
+</Info>
+
+## Configuration
+
+Create a mobile proxy with a target country:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'mobile',
+  name: 'my-us-mobile',
+  config: {
+    country: 'US'
+  }
+});
+
+const browser = await kernel.browsers.create({
+  proxy_id: proxy.id,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type='mobile',
+    name='my-us-mobile',
+    config={
+        'country': 'US'
+    }
+)
+
+browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+</CodeGroup>
+
+## Configuration parameters
+
+- **`country`** - ISO 3166 country code. Must be provided when providing other targeting options.
+- **`state`** - US-only two-letter state code. Best-effort for mobile proxies.
+- **`city`** - Provider city alias, such as `brooklyn` or `chicago`. Best-effort for mobile proxies.
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
+
+## Advanced targeting examples
+
+### Target by city
+
+Route traffic through a specific city:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'mobile',
+  name: 'brooklyn-mobile',
+  config: {
+    country: 'US',
+    state: 'NY',
+    city: 'brooklyn'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='mobile',
+    name='brooklyn-mobile',
+    config={
+        'country': 'US',
+        'state': 'NY',
+        'city': 'brooklyn'
+    }
+)
+```
+
+</CodeGroup>
+
+<Note>
+If the city alias is not matched, the API returns examples from the target state to help you find the correct value.
+</Note>
+
+### Target by state
+
+Route traffic through a US state:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'mobile',
+  name: 'ny-mobile',
+  config: {
+    country: 'US',
+    state: 'NY'
+  }
+});
+```
+
+```Python Python
+proxy = kernel.proxies.create(
+    type='mobile',
+    name='ny-mobile',
+    config={
+        'country': 'US',
+        'state': 'NY'
+    }
+)
+```
+
+</CodeGroup>
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'mobile',
+  name: 'mobile-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'metadata.google.internal',
+    '*.internal.company.com',
+  ],
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(
+    type='mobile',
+    name='mobile-with-bypass',
+    config={
+        'country': 'US',
+    },
+    bypass_hosts=[
+        'localhost',
+        'metadata.google.internal',
+        '*.internal.company.com',
+    ]
+)
+```
+</CodeGroup>
+
+See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules and examples.

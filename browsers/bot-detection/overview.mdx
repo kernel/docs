@@ -1,0 +1,107 @@
+---
+title: "Overview"
+---
+
+Automating the web as a browser agent is hard.
+
+Modern websites deploy increasingly sophisticated bot detection systems to prevent fraud, abuse, and denial-of-service attacks. Even if you have explicit permission to automate — for example, QA'ing your own site or performing actions on behalf of users with their consent — these systems often assume any automated browser is hostile.
+
+Kernel provides tools to help with these challenges.
+Under the hood, our browsers are optimized for realistic environments. **Everything we do is open source and inspectable — you can view our build configurations and runtime layers [here](https://github.com/onkernel/kernel-images).**
+
+This guide explains how bot detection works at a high level, common pitfalls to avoid, and how Kernel's features can help your automations run reliably.
+
+## How Bot Detection Works
+Most detection systems look for inconsistencies between how a real user's browser behaves and how an automated one does. Common giveaways include:
+
+- **IP addresses**: IPs from data centers (AWS, GCP, Azure)
+- **Browser environment**: unusual viewport sizes, incorrect timezones, or missing APIs
+- **Automation frameworks**: traces of Playwright, Puppeteer, or Chrome DevTools Protocol (CDP) connections
+- **Headless browsers** — browsers started without a visible window expose subtle differences (rendering, GPU, fonts)
+- **Typing/clicking signals** — identical cursor paths, uniform typing speeds, or rapid mouse movements
+- **Metadata** — mismatched cookies, inconsistent user-agent strings
+
+These systems are heuristic and probabilistic — small mismatches can still trigger blocks. The goal isn't to “beat” detection but rather emulate the real-world conditions of a normal browser session.
+
+## Kernel Features That Help
+### Anti-detection defaults
+Every Kernel browser launches with anti-detection chrome configuration applied. No setup required.
+
+### [Stealth Mode](/browsers/bot-detection/stealth)
+On top of the defaults, stealth mode adds a default ISP proxy and an automatic CAPTCHA solver. Both are opt-out so you can BYO proxy and/or CAPTCHA tooling.
+
+### [Config Registry](/config-registry)
+Kernel recommended browser and proxy configurations for websites.
+
+### [Configurable Proxies](/proxies/overview)
+Bring your own proxy network or use Kernel's managed proxy pool (selectable down to ZIP-code level). If needed, use the same IP to reduce detection and allow for regional testing or QA.
+
+### [Profiles](/browsers/profiles)
+Profiles persist cookies, local storage, and session data between runs. Combined with a fixed proxy, this mimics a returning user. We recommend using them to persist authenticated states and reduce CAPTCHAs.
+
+### [Browser Pools](/browsers/pools)
+Browser pools let you reuse browsers across multiple visits to the same website, which introduces consistency with respect to the IP address. Since IP addresses are one of the main components of fingerprinting used by modern bot detection systems, browser pools drastically increase your chances of avoiding detection.
+
+### [Playwright Execution API](/browsers/playwright-execution)
+Executes Playwright scripts in the same VM as the browser, ensuring headers, user-agent strings, and environment match.
+Kernel automatically applies Patchright to remove automation fingerprints, including headless indicators.
+
+### [Computer Controls API](/browsers/computer-controls)
+Controls the browser without using the Chrome DevTools Protocol (CDP), which can reduce bot detection signals.
+Emulates native keyboard and mouse input directly at the OS level and includes human-like [bezier curves](/browsers/computer-controls#move-the-mouse) by default.
+
+### [GPU Acceleration](/browsers/gpu-acceleration)
+Many detection systems fingerprint canvas and WebGL rendering output and cross-check it against the claimed GPU. Software-rendered browsers produce pixel hashes that don't match any real consumer GPU, which is a strong bot signal on sites with rendering-based fingerprinting. GPU-enabled Kernel browsers render through real hardware, producing output consistent with a normal user's device.
+
+## Getting Started
+
+Before you start automating your workflow, we recommend that you manually test your website to understand how it behaves with Kernel's browsers. Here's how to do that:
+
+1. **Launch a browser from the [Kernel dashboard](https://dashboard.onkernel.com/browsers).** This opens a Kernel browser instance in a clean virtual machine.
+2. **Navigate to the target website** and perform the same actions you plan to automate — logging in, filling forms, loading dashboards, etc.
+3. **Observe potential friction points:**
+   - Are you immediately prompted for CAPTCHA or MFA?  
+   - Does the site behave differently across geographies?  
+   - Are there rate limits, redirects, or blocked resources?
+4. **Adjust environment settings** — such as proxy configurations — until the manual session works smoothly.
+
+Once you have a stable baseline, replicate those conditions in your automations.
+
+## Recommended Practices
+
+| Category | Recommendation |
+|-----------|----------------|
+| **Viewport & Display** | Use Kernel's default viewport — we've tuned it to mirror realistic device profiles. |
+| **Headless Mode** | Avoid headless mode. Kernel runs full, rendered browsers by default. |
+| **User Agent Headers** | Don't override headers manually. Let Kernel manage them for minimize mismatches. |
+| **Execution Method** | Prefer our **Playwright Execution API** or **Computer Controls API** over self-hosted Playwright/Puppeteer. |
+| **Navigation Path** | Avoid navigating directly to a deep URL or login page. Start at the site's home page and click through to where you want to go — a real user rarely lands on a deep link with no referrer or prior page views. |
+| **Session Persistence** | Use **Profiles** to retain cookies and local storage between sessions. |
+| **Typing & Scrolling** | Add natural variation to interaction timing. |
+| **Rate Limits** | Many sites monitor request frequency; rapid / concurrent actions can trigger blocking. |
+| **Network Identity** | Use stable IP addresses, especially if logging in. See [Choosing a proxy type](#choosing-a-proxy-type) below. |
+| **Extensions** | Use the [Extensions API](/browsers/extensions) carefully — each adds its own fingerprint, which can be detected. |
+
+## Choosing a Proxy Type
+
+IP address is one of the strongest signals bot detection systems use. Kernel offers several [proxy types](/proxies/overview), each with different trade-offs for detection avoidance.
+
+### ISP proxies
+
+[ISP proxies](/proxies/isp) route traffic through data centers using IP addresses assigned by real internet service providers. They offer datacenter-level speed with better legitimacy than pure datacenter proxies, and every connection in a session exits through the same static IP — making them ideal for login flows and session-based workflows.
+
+Kernel's [stealth mode](/browsers/bot-detection/stealth) uses static ISP proxies that are hosted in data centers but announced on residential ISP networks, so they tend to appear residential by ASN to most of the internet. This matters for IP-reputation-based detection systems: a static IP on a residential ASN looks like a normal ISP customer, which generally achieves better pass rates than rotating residential IPs.
+
+### Residential proxies
+
+[Residential proxies](/proxies/residential) route traffic through real consumer devices, making them the least detectable proxy type by ASN classification. However, exit IPs [rotate per connection](/proxies/residential#ip-rotation-behavior) since the underlying devices come online and offline dynamically — different tabs hitting different domains will likely show different public IPs.
+
+Some IP-reputation-based detection systems (such as reCAPTCHA) can detect rotating proxy-pool traffic patterns and penalize them, regardless of how clean the individual exit IPs are. On the other hand, residential proxies tend to be a stronger choice against fingerprint-heavy vendors where detection focuses on the browser and behavioral layer rather than the network layer. Residential proxies also offer richer geo-targeting (country, state, city, ZIP, ASN) compared to ISP.
+
+### Datacenter proxies
+
+[Datacenter proxies](/proxies/datacenter) are the fastest and most cost-effective option, but their IP ranges are well-known to detection systems. Some sites block datacenter IPs outright; others treat them with higher scrutiny.
+
+### Which to use
+
+Start with ISP — it's the stealth default for good reason. Consider residential if you need fine-grained geo-targeting or your specific target site doesn't rely on IP reputation as its primary detection signal. Use datacenter when speed and cost matter more than detection avoidance.

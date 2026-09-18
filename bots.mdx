@@ -1,0 +1,45 @@
+---
+title: "Bots and agents"
+description: "Kernel's bots and agents, their purposes, and how to verify them with Web Bot Auth"
+---
+
+Kernel identifies its bots and agents with [Web Bot Auth](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture). Each identity serves its own key directory from its own authority, so site owners can allow or block each one **independently by purpose** — for example, allow search indexing while blocking user-directed agents (or vice versa).
+
+Kernel is listed in [Cloudflare's bots and agents directory](https://radar.cloudflare.com/bots/directory/kernel) and [Vercel's public directory](https://bots.fyi/?query=kernel).
+
+## Kernel Agent
+
+User-directed browser automation. Kernel Agent visits pages on behalf of an end user's request; it is not an automatic crawler. Requests are signed with Web Bot Auth rather than a dedicated crawler user-agent token.
+
+| Field | Value |
+| --- | --- |
+| Purpose | Agent |
+| Operator | Intermediary (end-user directed) |
+| Signature-Agent | `https://www.kernel.sh` |
+| Key directory | `https://www.kernel.sh/.well-known/http-message-signatures-directory` |
+
+## Kernel Search
+
+Crawls pages to build search indexes and retrieval databases. Kernel Search identifies itself with the `KernelSearchBot` user-agent token and follows `robots.txt` directives for that token, including crawl-delay preferences.
+
+| Field | Value |
+| --- | --- |
+| Purpose | Search |
+| Operator | Direct (Kernel-operated) |
+| User-Agent | `KernelSearchBot` |
+| Signature-Agent | `https://search.bot.kernel.sh` |
+| Key directory | `https://search.bot.kernel.sh/.well-known/http-message-signatures-directory` |
+
+## Verifying Kernel traffic
+
+Each identity publishes its public key set (JWKS) at its key directory. To verify a request:
+
+1. Read the `Signature-Agent` header to determine which Kernel identity signed the request.
+2. Fetch the public key set from that identity's key directory and cache it per the `Cache-Control` header.
+3. Verify the `Signature` and `Signature-Input` headers per [RFC 9421](https://datatracker.ietf.org/doc/html/rfc9421).
+
+Most major bot-detection services, CDNs, and WAFs verify Web Bot Auth automatically. See [Web Bot Auth](/browsers/bot-detection/web-bot-auth) for how Kernel signs requests.
+
+## Contact
+
+For questions about Kernel bot or agent traffic, contact [support@kernel.sh](mailto:support@kernel.sh).

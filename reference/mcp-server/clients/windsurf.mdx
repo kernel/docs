@@ -1,0 +1,29 @@
+---
+title: "Windsurf"
+description: "Connect Windsurf to the Kernel MCP server"
+---
+
+**Using Kernel CLI (recommended):**
+
+```bash
+kernel mcp install --target windsurf
+```
+
+**Manual setup:**
+
+1. Press **⌘/Ctrl ,** to open settings.
+2. Navigate **Cascade → MCP servers → View raw config**.
+3. Paste:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp"]
+    }
+  }
+}
+```
+
+4. On **Manage MCPs**, click **Refresh** to load Kernel MCP.

@@ -1,0 +1,219 @@
+---
+title: "Custom Proxies"
+---
+
+Custom proxies allow you to use your own proxy servers with Kernel browsers. This is useful when you have existing proxy infrastructure or specific proxy requirements not covered by Kernel's managed options.
+
+## Configuration
+
+<Tip>
+HTTP and HTTPS proxies are supported for custom proxy configurations. If no protocol is specified, HTTPS is used by default.
+</Tip>
+
+Specify the host, port, and optional authentication credentials for your proxy server:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import { readFileSync } from 'node:fs';
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'custom',
+  name: 'my-private-proxy',
+  protocol: 'https',
+  config: {
+    host: 'proxy.example.com',
+    port: 443,
+    username: 'user123',
+    password: 'secure_password',
+    ca_bundle: readFileSync('./mitm-ca-bundle.pem', 'utf8'),
+  },
+});
+
+const browser = await kernel.browsers.create({
+  proxy_id: proxy.id,
+});
+```
+
+```python Python
+from pathlib import Path
+
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="custom",
+    name="my-private-proxy",
+    protocol="https",
+    config={
+        "host": "proxy.example.com",
+        "port": 443,
+        "username": "user123",
+        "password": "secure_password",
+        "ca_bundle": Path("mitm-ca-bundle.pem").read_text(),
+    }
+)
+
+browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+	caBundle, err := os.ReadFile("mitm-ca-bundle.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type:     kernel.ProxyNewParamsTypeCustom,
+		Name:     kernel.String("my-private-proxy"),
+		Protocol: kernel.ProxyNewParamsProtocolHTTPS,
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigCreateCustomProxyConfig: &kernel.ProxyNewParamsConfigCreateCustomProxyConfig{
+				Host:     "proxy.example.com",
+				Port:     443,
+				Username: kernel.String("user123"),
+				Password: kernel.String("secure_password"),
+				CaBundle: kernel.String(string(caBundle)),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
+</CodeGroup>
+
+## Configuration Parameters
+
+- **`host`** (required) - Proxy server hostname or IP address
+- **`port`** (required) - Proxy server port (1-65535)
+- **`username`** - Username for proxy authentication
+- **`password`** - Password for proxy authentication (minimum 5 characters)
+- **`ca_bundle`** (optional) - PEM-encoded CA certificate bundle to trust when the proxy terminates and re-signs upstream TLS (MITM). May contain multiple certificates and is limited to 64 KiB.
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
+
+<Info>
+When creating a proxy with authentication, provide the password. The API response will only indicate if a password exists (`has_password: true`) but won't return the actual password for security reasons.
+</Info>
+
+## MITM TLS
+
+If your custom proxy terminates TLS and re-signs upstream connections, provide its CA certificate bundle in `config.ca_bundle` when you create the proxy. Kernel validates the bundle and installs it in the browser's trust store when you create a browser with that proxy.
+
+The bundle must contain one or more PEM-encoded CA certificates. It is write-only: proxy responses return `has_ca_bundle: true` instead of the certificate contents. You must bind a proxy with a CA bundle when creating the browser; you can't hot-swap it onto a running browser.
+
+## Bypass hosts
+
+Configure specific hostnames to bypass your custom proxy:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'custom',
+  name: 'custom-with-bypass',
+  protocol: 'https',
+  config: {
+    host: 'proxy.example.com',
+    port: 443,
+    username: 'user123',
+    password: 'secure_password',
+  },
+  bypass_hosts: [
+    'localhost',
+    'internal.service.local',
+    '*.trusted-domain.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="custom",
+    name="custom-with-bypass",
+    protocol="https",
+    config={
+        "host": "proxy.example.com",
+        "port": 443,
+        "username": "user123",
+        "password": "secure_password",
+    },
+    bypass_hosts=[
+        "localhost",
+        "internal.service.local",
+        "*.trusted-domain.com",
+    ]
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type:     kernel.ProxyNewParamsTypeCustom,
+		Name:     kernel.String("custom-with-bypass"),
+		Protocol: kernel.ProxyNewParamsProtocolHTTPS,
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigCreateCustomProxyConfig: &kernel.ProxyNewParamsConfigCreateCustomProxyConfig{
+				Host:     "proxy.example.com",
+				Port:     443,
+				Username: kernel.String("user123"),
+				Password: kernel.String("secure_password"),
+			},
+		},
+		BypassHosts: []string{
+			"localhost",
+			"internal.service.local",
+			"*.trusted-domain.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
+```
+</CodeGroup>
+
+This is useful for accessing internal services or metadata endpoints without routing through your proxy. See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules.

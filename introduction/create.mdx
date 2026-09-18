@@ -1,0 +1,267 @@
+---
+title: "Create"
+description: "Spin up a cloud browser for your agent"
+---
+
+Kernel browsers are sandboxed Chromium instances that boot in under 30ms. Your agent creates them on demand, drives them, and tears them down — no infra to provision, no servers to run.
+
+## Your first browser
+
+<Info>
+  Install the Kernel SDK first:
+  - Typescript/Javascript: `npm install @onkernel/sdk`
+  - Python: `pip install kernel`
+  - Go: `go get github.com/kernel/kernel-go-sdk`
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+console.log(kernelBrowser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+print(kernel_browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(kernelBrowser.SessionID)
+}
+```
+
+```bash CLI
+kernel browsers create
+
+# or with a starting URL and stealth
+kernel browsers create --stealth --start-url https://example.com
+```
+</CodeGroup>
+
+The response includes everything you need to drive the browser: `session_id`, `cdp_ws_url`, `webdriver_ws_url`, and `browser_live_view_url`.
+
+If your environment restricts outbound traffic, add Kernel's [domains and ports](/info/network-access) to its allowlist.
+
+## Pick the right shape
+
+Most of what you'll tune at creation time falls into four buckets:
+
+<Columns cols={2}>
+  <Card title="Headless vs headful" href="/browsers/headless">
+    headful (default) supports live view, replays, and better stealth — ideal for agent workflows on bot-detected sites. headless is lighter (1 gb vs 8 gb), good for simple scraping.
+  </Card>
+  <Card title="Stealth and proxies" href="/browsers/bot-detection/overview">
+    Turn on stealth mode and route through residential, ISP, or datacenter proxies when you're hitting sites with bot detection.
+  </Card>
+  <Card title="GPU acceleration" href="/browsers/gpu-acceleration">
+    Required for WebGL, video, and canvas-heavy workloads. Trades off standby support.
+  </Card>
+  <Card title="Profiles and auth" href="/browsers/profiles">
+    Persist cookies, storage, and authenticated sessions across runs with a [profile](/browsers/profiles), or learn how to hand supported login flows off to Kernel with [Managed Auth](/auth/managed-auth).
+  </Card>
+</Columns>
+
+## On demand or from a pool
+
+`browsers.create()` boots a browser for you on the spot. That's the right call while you're building, and for workloads that run occasionally.
+
+Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/info/pricing#rate-limiting) on browser creation that you'll otherwise hit at volume.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Create the pool once, at deploy time or on startup
+await kernel.browserPools.create({ name: 'checkout-pool', size: 20, stealth: true });
+
+// Then, wherever your automation runs
+const kernelBrowser = await kernel.browserPools.acquire('checkout-pool', {});
+```
+
+```python Python
+# Create the pool once, at deploy time or on startup
+kernel.browser_pools.create(name="checkout-pool", size=20, stealth=True)
+
+# Then, wherever your automation runs
+kernel_browser = kernel.browser_pools.acquire("checkout-pool")
+```
+
+```go Go
+// Create the pool once, at deploy time or on startup
+if _, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
+	Name:    kernel.String("checkout-pool"),
+	Size:    20,
+	Stealth: kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
+
+// Then, wherever your automation runs
+kernelBrowser, err := client.BrowserPools.Acquire(ctx, "checkout-pool", kernel.BrowserPoolAcquireParams{})
+if err != nil {
+	panic(err)
+}
+```
+
+```bash CLI
+kernel browser-pools create checkout-pool --size 20 --stealth
+kernel browser-pools acquire checkout-pool
+```
+</CodeGroup>
+
+An acquired browser returns the same fields as one you created directly, so the rest of your code is identical. Idle browsers in a browser pool aren't billed — you pay only while a browser is acquired and running — though browser pool capacity does count against your [concurrency limit](/info/pricing#concurrency-limits).
+
+## Lifecycle
+
+A browser stays alive as long as something is driving it — a CDP or WebDriver client, a [Live View](/browsers/live-view) viewer, or an in-flight [computer controls](/browsers/computer-controls) request. After five seconds with none of those active, it enters [standby](/browsers/standby) — state is preserved, billing stops. Once in standby, after the configurable timeout (60s by default) elapses it's deleted.
+
+We recommend you delete a browser explicitly when you're done with it:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```go Go
+if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+	panic(err)
+}
+```
+
+```bash CLI
+kernel browsers delete <session-id>
+```
+</CodeGroup>
+
+See [Termination & timeouts](/browsers/termination#automatic-deletion-via-timeout) for the full set of teardown options.
+
+## Full example
+
+Putting it together — create a browser, run Playwright code inside it, tear down:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create();
+
+try {
+  const response = await kernel.browsers.playwright.execute(
+    kernelBrowser.session_id,
+    {
+      code: `
+        await page.goto('https://www.onkernel.com');
+        return await page.title();
+      `,
+    },
+  );
+  console.log(response.result);
+} catch (error) {
+  console.error(error);
+} finally {
+  await kernel.browsers.deleteByID(kernelBrowser.session_id);
+}
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create()
+
+try:
+    response = kernel.browsers.playwright.execute(
+        id=kernel_browser.session_id,
+        code="""
+          await page.goto('https://www.onkernel.com')
+          return await page.title()
+        """,
+    )
+    print(response.result)
+except Exception as e:
+    print(e)
+finally:
+    kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := client.Browsers.DeleteByID(ctx, kernelBrowser.SessionID); err != nil {
+			panic(err)
+		}
+	}()
+
+	response, err := client.Browsers.Playwright.Execute(
+		ctx,
+		kernelBrowser.SessionID,
+		kernel.BrowserPlaywrightExecuteParams{
+			Code: `
+				await page.goto('https://www.onkernel.com');
+				return await page.title();
+			`,
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(response.Result)
+}
+```
+</CodeGroup>
+
+## What's next
+
+Once you have a browser, you need to drive it. Head to [Control](/introduction/control) to see the four primitives Kernel exposes — computer use, playwright execution, CDP, and WebDriver BiDi — and when to reach for each.
+
+To carry cookies, site data, tabs, and preferences into later runs, use [Browser Profiles](/browsers/profiles). Profiles can resume an agent workflow, maintain one identity per user or account, or give parallel workers the same read-only starting state.
+
+When you're ready to run this in production, the [Browser Pools overview](/browsers/pools) shows how to serve your workload from a pool of pre-provisioned browsers instead of creating one per task.

@@ -1,0 +1,41 @@
+---
+title: "manage_apps"
+description: "List apps, invoke actions, and check deployments and invocations"
+---
+
+Manage Kernel apps, deployments, and invocations.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `list_apps` | Discover apps. |
+| `invoke` | Execute an app action. |
+| `get_deployment` | Retrieve a deployment by ID. |
+| `list_deployments` | Check deployment status. |
+| `get_invocation` | Check action results. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform. Required. |
+| `app_name` | (list_apps, invoke, list_deployments) App name filter or target. |
+| `action_name` | (invoke) Action to execute within the app. |
+| `payload` | (invoke) JSON string with action parameters. |
+| `version` | (list_apps, invoke) App version filter. Defaults to `latest` for invoke. |
+| `deployment_id` | (get_deployment) Deployment ID to retrieve. |
+| `invocation_id` | (get_invocation) Invocation ID to retrieve. |
+| `limit` | (list_apps, list_deployments) Max results. Default 50. |
+| `offset` | (list_apps, list_deployments) Pagination offset. Default 0. |
+
+## Example
+
+```json
+{
+  "action": "invoke",
+  "app_name": "web-scraper",
+  "action_name": "scrape",
+  "payload": "{\"url\": \"https://reddit.com\"}"
+}
+```

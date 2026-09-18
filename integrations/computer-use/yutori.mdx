@@ -1,0 +1,59 @@
+---
+title: "Yutori"
+---
+
+[Navigator n1.5](https://yutori.com/blog/introducing-n1-5) is Yutori's pixels-to-actions LLM that predicts browser actions from screenshots. This computer use model enables AI agents to interact with web interfaces by analyzing visual content and generating appropriate mouse and keyboard actions.
+
+By integrating Yutori n1.5 with Kernel, you can run these AI-powered browser automations on cloud-hosted infrastructure, eliminating the need for local browser management and enabling scalable, reliable AI agents.
+
+## Quick setup with our Yutori example app
+
+Get started quickly with our Kernel app template that includes a pre-configured Yutori n1.5 integration:
+
+```bash
+kernel create --name my-yutori-app --template yutori
+```
+
+Choose `TypeScript` or `Python` as the programming language.
+
+Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to deploy and run your Yutori automation on Kernel's infrastructure.
+
+## Build your own agent
+
+For full control over the loop, drive Navigator n1.5 from TypeScript with [`@onkernel/cua-agent`](/integrations/computer-use/overview#build-your-own-agent):
+
+```ts
+import Kernel from "@onkernel/sdk";
+import { CuaAgent } from "@onkernel/cua-agent";
+
+const client = new Kernel({ apiKey: process.env.KERNEL_API_KEY! });
+const browser = await client.browsers.create({ stealth: true });
+
+const agent = new CuaAgent({
+  browser,
+  client,
+  initialState: {
+    model: "yutori:n1.5-latest",
+    systemPrompt: "You are a careful browser automation agent.",
+  },
+});
+
+await agent.prompt("Open news.ycombinator.com and summarize the top story.");
+```
+
+## Benefits of using Kernel with Yutori n1.5
+
+- **No local browser management**: Run n1.5 automations without installing or maintaining browsers locally
+- **Scalability**: Launch multiple browser sessions in parallel for concurrent AI agents
+- **Stealth mode**: Built-in anti-detection features for reliable web interactions
+- **Session state**: Maintain browser state across runs via [Profiles](/browsers/profiles)
+- **Live view**: Debug your Yutori agents with real-time browser viewing
+- **Cloud infrastructure**: Run computationally intensive AI agents without local resource constraints
+
+## Next steps
+
+- Check out [live view](/browsers/live-view) for debugging your automations
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
+- Learn how to properly [terminate browser sessions](/browsers/termination)
+- Learn how to [deploy](/apps/deploy) your Yutori app to Kernel
+- Read the [Yutori n1.5 API documentation](https://docs.yutori.com/reference/n1-5) for model details

@@ -1,0 +1,172 @@
+---
+title: "Spending Caps"
+description: "Choose a monthly spending guardrail for your organization, a project, or both"
+---
+
+A retry loop, traffic spike, or long-running agent can raise usage faster than you expect. Spending caps warn you before that usage reaches the amount you choose, then pause new work for the affected scope.
+
+If you only set one cap, start with an organization cap. It protects the total bill. Add project caps when a team, environment, customer, or experiment needs a tighter boundary.
+
+## Which cap should you use?
+
+<CardGroup cols={2}>
+  <Card
+    title="Organization cap"
+    icon={
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 12h4" />
+        <path d="M10 8h4" />
+        <path d="M14 21v-3a2 2 0 0 0-4 0v3" />
+        <path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2" />
+        <path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
+      </svg>
+    }
+  >
+    Counts out-of-pocket usage after monthly credits. At 100%, new usage pauses across every project.
+
+    Use it as the final guardrail for your KERNEL bill.
+  </Card>
+  <Card
+    title="Project cap"
+    icon={
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+        <path d="M8 10v4" />
+        <path d="M12 10v2" />
+        <path d="M16 10v6" />
+      </svg>
+    }
+  >
+    Counts one project's gross usage before organization credits. At 100%, only that project pauses.
+
+    Use it to isolate a workload, team, environment, or customer.
+  </Card>
+</CardGroup>
+
+Use both for a multi-project production setup: one organization cap for the total bill, plus lower project caps where a single workload needs tighter control.
+
+Subscription fees don't count toward either cap. Spending caps apply to usage charges.
+
+## Set a cap
+
+<Steps>
+  <Step title="Open billing">
+    Go to the [KERNEL billing page](https://dashboard.onkernel.com/billing) as an organization admin.
+  </Step>
+  <Step title="Choose the scope">
+    In **Spending Cap**, select **Organization** or **Project**. For a project cap, select the project you want to control.
+  </Step>
+  <Step title="Set the monthly amount">
+    Enter the usage amount in usd and save. The card shows month-to-date progress against the limit.
+  </Step>
+</Steps>
+
+<Note>
+  Availability varies by scope:
+
+  - **Organization caps:** Available to eligible self-serve organizations. Enterprise access is in limited preview.
+  - **Project caps:** In limited preview for all organizations.
+
+  [Email support@kernel.sh](mailto:support@kernel.sh?subject=Spending%20cap%20preview%20access) to request preview access.
+</Note>
+
+<Card title="Open billing" icon="credit-card" href="https://dashboard.onkernel.com/billing">
+  Set an organization spending cap or manage the project caps available to your organization.
+</Card>
+
+## What happens during the month
+
+<Steps>
+  <Step title="Usage starts a new period">
+    KERNEL evaluates each cap from the first day of the month at 00:00 utc. Organization and project usage accumulate independently.
+  </Step>
+  <Step title="KERNEL warns at 80%">
+    KERNEL sends a warning email. Existing and new work continue.
+  </Step>
+  <Step title="New work pauses at 100%">
+    New browser sessions and app invocations return a `403` for the affected scope. Running work continues until it ends.
+  </Step>
+  <Step title="The cap resets next month">
+    New work resumes when the next monthly period starts. An organization admin can also increase or remove the cap at any time.
+  </Step>
+</Steps>
+
+<Warning>
+  A spending cap is an admission guardrail, not a transactional hard ceiling. Billing events take time to evaluate, and already-running work can continue adding usage after the threshold is reached. Leave headroom below any budget that must not be exceeded.
+</Warning>
+
+## How spend is counted
+
+<Tabs>
+  <Tab title="Organization cap">
+    An organization cap measures usage after KERNEL applies your included monthly credits:
+
+    ```text
+    out-of-pocket usage = gross usage - included monthly credits
+    ```
+
+    For example, an organization with \$50 in monthly usage credits sets a \$100 cap:
+
+    - KERNEL sends the 80% warning at \$130 in gross usage: \$50 in credits plus \$80 in out-of-pocket usage.
+    - KERNEL pauses new usage at \$150 in gross usage: \$50 in credits plus the \$100 cap.
+    - The plan's subscription fee remains separate.
+
+    Choose this cap when your main requirement is a predictable maximum for monthly usage charges, regardless of which project creates the spend.
+  </Tab>
+  <Tab title="Project cap">
+    A project cap measures that project's gross usage. Organization credits aren't divided or assigned to individual projects.
+
+    For example, a \$25 project cap warns at \$20 and pauses new usage for that project at \$25. Other projects continue until they reach their own caps or the organization cap.
+
+    Requests without an explicit project resolve to your [default project](/info/projects#the-default-project) and count toward that project's cap.
+
+    Choose this cap when one workload must not consume an open-ended share of the organization's budget.
+  </Tab>
+</Tabs>
+
+## Layer organization and project caps
+
+Organization and project caps are independent. KERNEL doesn't allocate the organization cap among projects, and project caps don't have to add up to it.
+
+<Columns cols={3}>
+  <Card title="A project reaches its cap" icon="folder-closed">
+    KERNEL pauses new work for that project. Other projects continue.
+  </Card>
+  <Card title="The organization reaches its cap" icon="building-circle-xmark">
+    KERNEL pauses new work across every project, even if individual project caps have room left.
+  </Card>
+  <Card title="Both thresholds are reached" icon="layer-group">
+    The organization cap takes precedence because it applies to the full organization.
+  </Card>
+</Columns>
+
+If a project cap is higher than the organization cap plus monthly credits, the organization cap can trigger first. The dashboard warns you about this configuration but still lets you save it because later changes to credits or either cap can change which threshold comes first.
+
+## Common setups
+
+| Your setup | Recommended caps |
+| --- | --- |
+| One production workload | Start with an organization cap above normal monthly usage. |
+| Production plus staging or experiments | Use an organization cap, then lower project caps for non-production work. |
+| Multiple teams | Use an organization cap, then project caps to isolate each team's usage. |
+| Customer-specific workloads | Put each customer in a [project](/info/projects), cap each project, and keep an organization cap as the final boundary. |
+
+## Operational details
+
+<Accordion title="What remains available after a cap is reached?">
+  Already-running browser sessions and app invocations continue until they end. Read and delete requests remain available, along with selected non-billable administrative operations such as managing projects, limits, and api keys.
+
+  Browser pools can maintain idle capacity, but you can't acquire a new browser for a capped scope.
+</Accordion>
+
+<Accordion title="What happens if I lower a cap below current usage?">
+  The scope can enter the reached state as soon as billing data finishes evaluating. Raise or remove the cap if you need to resume new work before the next monthly period.
+</Accordion>
+
+<Accordion title="Who can manage caps?">
+  Organization members can view cap status. Only organization admins can set, edit, or remove caps.
+</Accordion>
+
+<Accordion title="How are spending caps different from concurrency limits?">
+  Spending caps bound monthly usage cost. [Concurrency limits](/info/pricing#concurrency-limits) bound simultaneous browser capacity. A spending cap doesn't reserve throughput, and a concurrency limit doesn't bound monthly spend.
+</Accordion>

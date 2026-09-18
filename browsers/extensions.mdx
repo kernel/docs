@@ -1,0 +1,186 @@
+---
+title: "Extensions"
+description: "Use browser extensions in Kernel browsers"
+---
+
+Kernel's browsers support running with custom Chrome extensions.
+Chrome extensions must be unpacked and can be uploaded to Kernel via the CLI or API.
+
+## Uploading extensions
+
+Here is a simple example of an unpacked extension:
+
+<CodeGroup>
+```js ./my-extension/content-script.js
+document.body.innerHTML = document.body.innerHTML.replace(/AI/g, "A1");
+```
+
+```json ./my-extension/manifest.json
+{
+    "manifest_version": 3,
+    "version": "1.0",
+    "name": "AI to A1",
+    "description": "Replace AI with A1",
+    "content_scripts": [
+        {
+            "matches": [
+                "https://*/*"
+            ],
+            "js": [
+                "content-script.js"
+            ]
+        }
+    ]
+}
+```
+</CodeGroup>
+
+Once these files are in place, you can upload them to Kernel via the CLI (or [API](https://kernel.sh/docs/api-reference/extensions/upload-a-browser-extension)):
+
+```bash
+kernel extensions upload ./my-extension --name my-extension
+```
+
+Extensions uploaded to Kernel are assigned a random ID, but you can also give them a name for easier reference.
+This name must be unique within your [project](/info/projects).
+
+To retrieve an extension's metadata without downloading the archive, call `GET /extensions/{id_or_name}/metadata`.
+The response includes the extension's ID, name, size, timestamps, and, when available, a lowercase hexadecimal SHA-256 `checksum`.
+
+The checksum is calculated from the exact archive bytes uploaded to Kernel. It is not a normalized checksum of the unpacked extension: archive metadata, file ordering, or compression can produce a different checksum for otherwise identical files. The value can be absent for legacy extensions and Chrome Web Store extensions that Kernel repackaged.
+
+## Using extensions in a browser
+
+Passing the extension name or ID to the `create` method will load it into the browser.
+
+<Info>
+    Loading an extension into a browser triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access browsers with extensions faster.
+</Info>
+
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import { Kernel } from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create({
+    extensions: [{ name: "my-extension" }],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+kernel_browser = kernel.browsers.create(extensions=[{"name": "my-extension"}])
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Extensions: []shared.BrowserExtensionParam{
+			{Name: kernel.String("my-extension")},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
+
+```bash CLI
+kernel browsers create --extension my-extension
+```
+</CodeGroup>
+
+
+## Using extensions directly from the Chrome Web Store
+
+Kernel's CLI offers a command for fetching and unpacking extensions directly from the Chrome Web Store.
+Simply pass the URL of the extension you want to download and the CLI will download the extension and unpack it into the specified directory.
+
+```bash CLI
+kernel extensions download-web-store https://chromewebstore.google.com/detail/shutterfly-address-book-e/lddlpciejomhjehckimopnomegilaocb --to ./downloaded-extension
+```
+
+From here you can upload the extension to Kernel as normal.
+
+```bash CLI
+kernel extensions upload ./downloaded-extension --name my-extension
+```
+
+## Loading an extension into a running browser
+
+If you have a browser running and would like to load an extension into it after the browser session has started, Kernel also allows you to do that via the CLI (or [API](https://kernel.sh/docs/api-reference/browsers/ad-hoc-upload-one-or-more-unpacked-extensions-to-a-running-browser-instance)):
+
+```bash CLI
+kernel browsers extensions upload <session_id> ./my-extension
+```
+
+<Warning>
+Loading an extension triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
+</Warning>
+
+## Extensions requiring enterprise policies
+
+For a complete list of available extension settings and policies, refer to the [Chrome Enterprise Policy documentation](https://chromeenterprise.google/policies/extension-settings/).
+
+### Uploading extensions requiring enterprise policies
+
+Some Chrome extensions require elevated permissions that Chrome will only grant when the extension is installed via enterprise policies. These extensions cannot be loaded with the standard `--load-extension` flag and require special handling.
+
+### What are enterprise policy extensions?
+
+Extensions that require enterprise policies typically:
+
+- Use permissions like `webRequestBlocking` or `webRequest` with blocking capabilities
+- Need to intercept and modify network requests before they're sent
+- Require installation via Chrome's `ExtensionInstallForcelist` policy
+
+Common examples include extensions for network filtering, request signing, or advanced content modification.
+
+### Required files for upload
+
+When uploading an extension that requires enterprise policies to Kernel, your extension directory or zip file must include:
+
+1. **Extension source files** - Your `manifest.json` and all extension code (background scripts, content scripts, etc.)
+2. **`update.xml`** - A Chrome update manifest that points to the `.crx` file location
+3. **`.crx` file** - The signed and packed extension file
+
+<Info>
+The `.crx` file and `update.xml` are required for Kernel to serve the extension via Chrome's `ExtensionInstallForcelist` policy. If you're deploying extensions from the Chrome Web Store via `ExtensionInstallForcelist`, these files are optional since Chrome uses the Web Store's default update URL.
+</Info>
+
+### Automatic detection and validation
+
+Kernel automatically detects extensions that require enterprise policies by analyzing the `manifest.json` file during upload. No manual configuration is needed.
+
+**Detection process:**
+1. You upload an extension via CLI or API
+2. Kernel scans the `manifest.json` for permissions like `webRequestBlocking`
+3. If enterprise policies are required, Kernel validates the required files are present
+
+### How it works
+
+Once you successfully upload an enterprise policy extension, Kernel handles the rest automatically:
+
+1. **Upload** - You upload your extension with all required files
+2. **Detection** - Kernel detects the enterprise policy requirement from the manifest
+3. **Policy configuration** - Extension is automatically added to `ExtensionInstallForcelist`
+4. **File serving** - The kernel-images server serves update files at `http://127.0.0.1:10001/extensions/{extension-id}/update.xml`
+5. **Installation** - Chrome installs the extension via enterprise policy when the browser starts
+
+No additional HTTP server or manual policy configuration is needed. The extension works seamlessly in any browser session that it's uploaded to.

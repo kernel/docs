@@ -1,0 +1,425 @@
+---
+title: "Hosted UI"
+description: "The simplest way to create authenticated browser sessions"
+---
+
+Collect credentials securely via Kernel's hosted page, then use the authenticated session in your automations. This is the recommended approach for most applications.
+
+Use the Hosted UI when:
+- You need users to provide their credentials
+- You want the simplest integration with minimal code
+- You want Kernel to guide users through 2FA and multi-step login flows
+
+## Getting started
+
+### 1. Create a Connection
+
+A Managed Auth connection saves a domain's authentication state to a [profile](/browsers/profiles) so future browsers can reuse it. You can attach multiple auth connections to the same profile, one per domain.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'linkedin.com',
+  profile_name: 'linkedin-profile', // Name of the profile to associate with the connection
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="linkedin.com",
+    profile_name="linkedin-profile",  # Name of the profile to associate with the connection
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "linkedin.com",
+		ProfileName: "linkedin-profile", // Name of the profile to associate with the connection
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+### 2. Start a Login Session
+
+Start a Managed Auth Session to get the hosted login URL.
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+### 3. Collect Credentials
+
+Send the user to the hosted login page:
+
+<CodeGroup>
+```typescript TypeScript
+window.location.href = login.hosted_url;
+```
+
+```python Python
+# Return the URL to your frontend
+print(f"Redirect to: {login.hosted_url}")
+```
+
+```go Go
+// Return the URL to your frontend
+fmt.Println("Redirect to:", login.HostedURL)
+```
+</CodeGroup>
+
+The user will:
+1. See the login page for the target website
+2. Enter their credentials
+3. Complete 2FA or another verification step if needed
+
+<Info>
+KERNEL can attempt automatic reauthentication for eligible flows using stored credentials, including totp codes generated from an available secret. completing this interactive login doesn't guarantee unattended reauthentication. supplying an email or sms code doesn't give KERNEL access to future codes. when the connection needs user input again, start a new login and direct the user to its `hosted_url`. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
+</Info>
+
+### 4. Stream until completion
+
+On your backend, follow the connection's SSE stream until authentication completes:
+
+<CodeGroup>
+```typescript TypeScript
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
+
+for await (const event of events) {
+  if (event.event === 'managed_auth_state') {
+    finalState = event;
+  }
+}
+
+if (finalState?.flow_status === 'SUCCESS') {
+  console.log('Authentication successful!');
+}
+```
+
+```python Python
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
+
+async for event in events:
+    if event.event == "managed_auth_state":
+        final_state = event
+
+if final_state and final_state.flow_status == "SUCCESS":
+    print("Authentication successful!")
+```
+
+```go Go
+events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+authenticated := false
+
+for events.Next() {
+	event := events.Current()
+	if event.Event == "managed_auth_state" && event.FlowStatus == "SUCCESS" {
+		authenticated = true
+	}
+}
+if err := events.Err(); err != nil {
+	panic(err)
+}
+
+if authenticated {
+	fmt.Println("Authentication successful!")
+}
+```
+</CodeGroup>
+
+<Info>
+The SSE stream closes automatically when the flow succeeds, fails, expires, or is canceled. The session expires after 20 minutes if not completed, and the flow times out after 10 minutes of waiting for user input.
+</Info>
+
+### 5. Use the Profile
+
+Create browsers with the profile and navigate to the site. The browser loads the authentication state saved during login:
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  profile: { name: 'linkedin-profile' },
+  stealth: true,
+});
+
+// Navigate with the saved authentication state
+await page.goto('https://linkedin.com');
+```
+
+```python Python
+browser = await kernel.browsers.create(
+    profile={"name": "linkedin-profile"},
+    stealth=True,
+)
+
+# Navigate with the saved authentication state
+await page.goto("https://linkedin.com")
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("linkedin-profile"),
+	},
+	Stealth: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+
+// Navigate with the saved authentication state
+_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+	Code: `await page.goto("https://linkedin.com");`,
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Info>
+Managed Auth Connections are generated using Kernel's [stealth](/browsers/bot-detection/stealth) mode. Use `stealth: true` when creating authenticated browser sessions for the best experience.
+</Info>
+
+
+## Complete Example
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Create connection
+const auth = await kernel.auth.connections.create({
+  domain: 'doordash.com',
+  profile_name: 'doordash-user-123',
+});
+
+// Start authentication
+const login = await kernel.auth.connections.login(auth.id);
+
+// Send user to hosted page
+console.log('Login URL:', login.hosted_url);
+
+// Stream state changes until the flow completes
+const events = await kernel.auth.connections.follow(auth.id);
+let finalState;
+for await (const event of events) {
+  if (event.event === 'managed_auth_state') {
+    finalState = event;
+  }
+}
+
+if (finalState?.flow_status === 'SUCCESS') {
+  const browser = await kernel.browsers.create({
+    profile: { name: 'doordash-user-123' },
+    stealth: true,
+  });
+  
+  // Navigate with the saved authentication state
+  await page.goto('https://doordash.com');
+}
+```
+
+```python Python
+from kernel import AsyncKernel
+
+kernel = AsyncKernel()
+
+# Create connection
+auth = await kernel.auth.connections.create(
+    domain="doordash.com",
+    profile_name="doordash-user-123",
+)
+
+# Start authentication
+login = await kernel.auth.connections.login(auth.id)
+
+# Send user to hosted page
+print(f"Login URL: {login.hosted_url}")
+
+# Stream state changes until the flow completes
+events = await kernel.auth.connections.follow(auth.id)
+final_state = None
+async for event in events:
+    if event.event == "managed_auth_state":
+        final_state = event
+
+if final_state and final_state.flow_status == "SUCCESS":
+    browser = await kernel.browsers.create(
+        profile={"name": "doordash-user-123"},
+        stealth=True,
+    )
+    
+    # Navigate with the saved authentication state
+    await page.goto("https://doordash.com")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create connection
+	auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+		ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+			Domain:      "doordash.com",
+			ProfileName: "doordash-user-123",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Start authentication
+	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Send user to hosted page
+	fmt.Println("Login URL:", login.HostedURL)
+
+	// Stream state changes until the flow completes
+	events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+	authenticated := false
+	for events.Next() {
+		event := events.Current()
+		if event.Event == "managed_auth_state" && event.FlowStatus == "SUCCESS" {
+			authenticated = true
+		}
+	}
+	if err := events.Err(); err != nil {
+		panic(err)
+	}
+
+	if authenticated {
+		browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+			Profile: shared.BrowserProfileParam{
+				Name: kernel.String("doordash-user-123"),
+			},
+			Stealth: kernel.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+
+		// Navigate with the saved authentication state
+		_, err = client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+			Code: `await page.goto("https://doordash.com");`,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+```
+</CodeGroup>
+
+## Success / error redirects
+
+To redirect the user back to your app once the flow finishes — for example, to auto-close the auth window inside a mobile in-app browser — append `success_url` and/or `error_url` query params to `hosted_url`. These mirror the `onSuccess` / `onError` callbacks exposed by the [React Component](/auth/react).
+
+- `success_url` — visited when the session reaches `SUCCESS`. The hosted page appends `profile_name` and `domain` as query params.
+- `error_url` — visited when the session reaches `FAILED`, `CANCELED`, or `EXPIRED`. The hosted page appends `code` (when present) and `message` as query params.
+
+Any scheme is accepted, so mobile integrators can pass a custom scheme (`myapp://auth/done`) to bounce back into the host app.
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+
+const url = new URL(login.hosted_url);
+url.searchParams.set("success_url", "https://example.com/connected");
+url.searchParams.set("error_url", "https://example.com/auth-failed");
+
+window.location.href = url.toString();
+```
+
+```python Python
+from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
+
+login = await kernel.auth.connections.login(auth.id)
+
+parsed = urlparse(login.hosted_url)
+query = dict(parse_qsl(parsed.query))
+query["success_url"] = "https://example.com/connected"
+query["error_url"] = "https://example.com/auth-failed"
+
+redirect_url = urlunparse(parsed._replace(query=urlencode(query)))
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	login, err := client.Auth.Connections.Login(ctx, "auth_123", kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	redirectURL, err := url.Parse(login.HostedURL)
+	if err != nil {
+		panic(err)
+	}
+
+	query := redirectURL.Query()
+	query.Set("success_url", "https://example.com/connected")
+	query.Set("error_url", "https://example.com/auth-failed")
+	redirectURL.RawQuery = query.Encode()
+
+	fmt.Println(redirectURL.String())
+}
+```
+</CodeGroup>
+
+<Warning>
+The hosted page redirects to whatever URL you pass. Only set these from your own trusted backend — never let an end user supply them directly.
+</Warning>
+
+## Connection Configuration
+
+Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — apply equally to all integration flows and are documented in [Connection Configuration](/auth/configuration).

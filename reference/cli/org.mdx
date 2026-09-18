@@ -1,0 +1,57 @@
+---
+title: "Organization"
+---
+
+Inspect your organization's effective entitlements and manage its configurable concurrency limits.
+
+## `kernel org entitlements`
+
+Show the effective plan, feature access, and limits for the authenticated organization. These values already account for the organization's plan, trial, billing status, and overrides, so use them instead of inferring access from the plan name.
+
+```bash
+kernel org entitlements
+
+# Return the API response for scripts and agents
+kernel org entitlements --output json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw entitlement response. Nullable limits remain `null`, which means unlimited. |
+
+<Info>
+  This command is read-only. Use `kernel org limits set` to change the configurable default project concurrency cap.
+</Info>
+
+## `kernel org limits get`
+
+Show the organization's maximum concurrent browser sessions and the default per-project cap.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+kernel org limits get --output json
+```
+
+## `kernel org limits set`
+
+Set the default per-project concurrency cap. This default applies only to projects that don't have an explicit [project limit override](/reference/cli/projects#project-limits).
+
+| Flag | Description |
+|------|-------------|
+| `--default-project-max-concurrent-sessions <n>` | Default maximum concurrent browsers for projects without an explicit override. Pass `0` to remove the default. Required. |
+| `--output json`, `-o json` | Output raw JSON object. |
+
+```bash
+# Give projects without an override a default cap of 20 sessions
+kernel org limits set --default-project-max-concurrent-sessions 20
+
+# Remove the default cap
+kernel org limits set --default-project-max-concurrent-sessions 0
+```
+
+<Info>
+  A project's explicit limit overrides this default. The organization's maximum concurrent sessions remains the upper bound.
+</Info>

@@ -1,0 +1,49 @@
+---
+title: "Claude Code and Desktop"
+description: "Give Claude Code and Claude Desktop a Kernel cloud browser"
+---
+
+Connect the Claude apps you already use to Kernel.
+
+## Claude Desktop
+
+Claude Desktop reaches Kernel through Kernel's [official connector](https://claude.ai/directory/kernel), added as a custom connector under **Settings → Connectors**. The [Claude client guide](/reference/mcp-server/clients/claude) has the steps, and covers Claude.ai as well.
+
+## Marketplace plugin (Claude Code)
+
+Kernel publishes an [official skills marketplace](https://github.com/kernel/skills) for Claude Code. Installing a plugin from it loads Kernel's best-practice skills into your coding agent.
+
+Run these in the Claude Code REPL, one line at a time:
+
+```bash
+/plugin marketplace add kernel/skills
+/plugin install kernel-cli
+/plugin install kernel-sdks
+```
+
+Each plugin bundles a set of skills:
+
+- **`kernel-cli`** — managing browsers, apps, profiles, and proxies from the CLI, plus managed auth, session debugging, and bot-detection profiling.
+- **`kernel-sdks`** — building browser automation with the TypeScript and Python SDKs.
+
+See the [skills repo](https://github.com/kernel/skills#available-skills) for the current list.
+
+## Remote MCP server (Claude Code)
+
+Add Kernel's [remote MCP server](/reference/mcp-server) to manage cloud browsers from Claude Code.
+
+**Using the Kernel CLI (recommended):**
+
+```bash
+kernel mcp install --target claude-code
+# Then in the REPL run once to authenticate:
+/mcp
+```
+
+**Manual setup:**
+
+```bash
+claude mcp add --transport http kernel https://mcp.onkernel.com/mcp
+# Then in the REPL run once to authenticate:
+/mcp
+```

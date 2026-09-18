@@ -1,0 +1,390 @@
+---
+title: "Projects"
+description: "Organize resources and isolate access within your Kernel organization"
+---
+
+A **Project** is a named container for Kernel resources inside an organization. Use projects to separate environments (like `production` and `staging`), split resources between teams, or isolate customer workloads — each project has its own browsers, profiles, credentials, proxies, extensions, deployments, and browser pools.
+
+## Why Projects?
+
+- **Isolate environments** — keep `production` resources apart from `staging` or experiments.
+- **Scope access** — issue API keys that can only see resources in one project.
+- **Concurrency limits** — set an org-wide default cap for every project, or override it per project, so one team or environment can't exhaust your org quota.
+
+## The Default Project
+
+Every organization has at least one project. Resources that existed before projects were introduced have been moved into a project named **Default**, so your existing browsers, apps, profiles, and other resources continue to work without any changes on your end.
+
+Your organization must always have **at least one active project**. The API returns `409 Conflict` if you try to delete the last remaining project:
+
+```json
+{ "code": "last_active_project", "message": "organization must have at least one project" }
+```
+
+A project must also be empty before it can be deleted. If active resources remain, the API returns `409 Conflict` with code `project_not_empty`; delete or otherwise remove those resources and retry. Organizations without Projects enabled receive `404 Not Found` with code `projects_disabled` from project-management endpoints.
+
+## Scoping Requests to a Project
+
+Pass the `X-Kernel-Project-Id` header with a project ID on any API request to scope it to a specific project. Project names are not accepted in this header. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
+
+```bash
+curl https://api.onkernel.com/browsers \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "X-Kernel-Project-Id: proj_abc123"
+```
+
+### Resolution rules
+
+- **Unknown or archived project** — a header naming a project that doesn't exist or isn't active fails with `404 Not Found`:
+
+  ```json
+  { "code": "project_not_found", "message": "Project not found or inactive" }
+  ```
+
+- **The default project is the baseline** — naming your organization's default project is exactly equivalent to omitting the header, for both reads and writes.
+- **Scoped keys reject mismatches** — with a project-scoped API key, a header naming any other project fails with `403 Forbidden` (see [API keys](#api-keys) below).
+
+### SDK usage
+
+Set the project ID on the client so every request is scoped to that project.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+// Scope the whole client to a project
+const kernel = new Kernel({
+  projectID: 'proj_abc123',
+});
+
+const browser = await kernel.browsers.create();
+```
+
+```python Python
+from kernel import Kernel
+
+# Scope the whole client to a project
+kernel = Kernel(
+    project_id="proj_abc123",
+)
+
+browser = kernel.browsers.create()
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// Scope the whole client to a project.
+	client := kernel.NewClient(
+		option.WithProjectID("proj_abc123"),
+	)
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
+</CodeGroup>
+
+## Authentication and Project Scope
+
+### API keys
+
+API keys can be **org-wide** or **project-scoped**.
+
+- **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
+- **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard, the [CLI](/reference/cli/api-keys), an SDK, or the [API keys guide](/info/api-keys), and pass the target `project_id` when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
+- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, or delete projects, or change project limits.
+
+### OAuth
+
+OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
+
+## Using Projects from the CLI
+
+The Kernel [CLI](/reference/cli/projects) has first-class project support:
+
+- A global `--project <project-id>` flag scopes any command to a single project ID.
+- The `KERNEL_PROJECT` environment variable does the same, so you can set it once in your shell or CI.
+- A `kernel projects` command group lets you list, create, get, and delete projects, and manage per-project limit overrides.
+
+```bash
+# Scope a single command
+kernel browsers list --project proj_abc123
+
+# Scope every command in the shell
+export KERNEL_PROJECT=proj_abc123
+kernel apps list
+
+# Manage projects
+kernel projects list
+kernel projects create staging
+kernel projects limits set staging --max-concurrent-sessions 5
+```
+
+Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. It's the recommended way to target a specific project when you're logged in with OAuth (`kernel login`), since OAuth itself is always org-wide.
+
+## Managing Projects
+
+Use the `/org/projects` REST endpoints (or the SDKs' `projects` resource) to manage projects.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/org/projects` | List projects in the organization |
+| `POST` | `/org/projects` | Create a project |
+| `GET` | `/org/projects/{id}` | Get a project by ID or name |
+| `PATCH` | `/org/projects/{id}` | Update a project's name or status (`active` / `archived`) |
+| `DELETE` | `/org/projects/{id}` | Delete a project (must be empty and not the last active project) |
+
+### Create a project
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const project = await kernel.projects.create({ name: 'staging' });
+console.log(project.id); // proj_abc123
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+project = kernel.projects.create(name="staging")
+print(project.id)  # proj_abc123
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	project, err := client.Projects.New(ctx, kernel.ProjectNewParams{
+		CreateProjectRequest: kernel.CreateProjectRequestParam{
+			Name: "staging",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(project.ID) // proj_abc123
+}
+```
+</CodeGroup>
+
+### List projects
+
+<CodeGroup>
+```typescript TypeScript
+for await (const project of kernel.projects.list()) {
+  console.log(project.id, project.name, project.status);
+}
+```
+
+```python Python
+for project in kernel.projects.list():
+    print(project.id, project.name, project.status)
+```
+
+```go Go
+pager := client.Projects.ListAutoPaging(ctx, kernel.ProjectListParams{})
+for pager.Next() {
+	project := pager.Current()
+	fmt.Println(project.ID, project.Name, project.Status)
+}
+if err := pager.Err(); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+### Get a project
+
+Project names are unique within an organization. You can retrieve a project by its ID or by its name.
+
+<CodeGroup>
+```typescript TypeScript
+const project = await kernel.projects.get('staging');
+console.log(project.id); // proj_abc123
+```
+
+```python Python
+project = kernel.projects.get("staging")
+print(project.id)  # proj_abc123
+```
+
+```go Go
+project, err := client.Projects.Get(ctx, "staging")
+if err != nil {
+	panic(err)
+}
+fmt.Println(project.ID) // proj_abc123
+```
+</CodeGroup>
+
+### Update a project
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.projects.update('proj_abc123', { name: 'production' });
+```
+
+```python Python
+kernel.projects.update("proj_abc123", name="production")
+```
+
+```go Go
+project, err := client.Projects.Update(
+	ctx,
+	"proj_abc123",
+	kernel.ProjectUpdateParams{
+		UpdateProjectRequest: kernel.UpdateProjectRequestParam{
+			Name: kernel.String("production"),
+		},
+	},
+)
+if err != nil {
+	panic(err)
+}
+_ = project
+```
+</CodeGroup>
+
+### Delete a project
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.projects.delete('proj_abc123');
+```
+
+```python Python
+kernel.projects.delete("proj_abc123")
+```
+
+```go Go
+if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Info>
+  Project deletion is a soft delete. A project that still owns active resources returns `project_not_empty`; the final active project returns `last_active_project`.
+</Info>
+
+## Concurrency Limits
+
+Kernel caps how many browsers can run at once, at two levels. A single limit covers both on-demand browsers (`browsers.create()`) and [browser pools](/browsers/pools) — standalone sessions and pool capacity count against the same cap.
+
+- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. Every browser session and every browser in a browser pool counts against it.
+- **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
+
+Per-project caps come from two places:
+
+- **An org-wide default** — one value that every project inherits unless it sets its own. It applies to existing and newly created projects alike, so you don't have to configure each project by hand.
+- **A per-project override** — an explicit cap on a single project that takes precedence over the default.
+
+A project's effective cap resolves in this order:
+
+1. The project's explicit override, if set.
+2. Otherwise, the organization's default project cap, if set.
+3. Otherwise, no per-project cap — only the organization limit applies.
+
+A per-project cap never lets a project exceed your organization's concurrency limit.
+
+Concurrency limits control how many browsers can run at once. To control monthly usage cost instead, see [Spending Caps](/info/spending-caps).
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/org/limits` | Get the org concurrency limit and the default per-project cap |
+| `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) |
+| `GET` | `/org/projects/{id}/limits` | Get a single project's limit overrides |
+| `PATCH` | `/org/projects/{id}/limits` | Set a single project's limit overrides (send `0` to clear a cap) |
+
+<Info>
+  `max_pooled_sessions` is deprecated. Pooled browsers now count toward `max_concurrent_sessions`, and requests that set `max_pooled_sessions` return a `400`.
+</Info>
+
+### Set an org-wide default
+
+Apply a default of 10 concurrent browsers to every project that doesn't have its own override:
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.onkernel.com/org/limits \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "default_project_max_concurrent_sessions": 10 }'
+```
+
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+await kernel.organization.limits.update({
+  default_project_max_concurrent_sessions: 10,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel.organization.limits.update(default_project_max_concurrent_sessions=10)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	_, err := client.Organization.Limits.Update(ctx, kernel.OrganizationLimitUpdateParams{
+		UpdateOrgLimitsRequest: kernel.UpdateOrgLimitsRequestParam{
+			DefaultProjectMaxConcurrentSessions: kernel.Int(10),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+To cap a specific project differently, set an explicit override on it with `PATCH /org/projects/{id}/limits` — that value takes precedence over the default.
+
+See the [API reference](https://kernel.sh/docs/api-reference/projects/list-projects) for full request and response schemas, including `ProjectLimits` for per-project concurrency caps.

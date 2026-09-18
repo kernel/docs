@@ -1,0 +1,463 @@
+---
+title: "Viewports"
+description: "Configure browser viewport size and refresh rate for your automations"
+---
+
+Kernel browsers allow you to configure the viewport size and refresh rate when creating a browser session. The viewport configuration determines the initial browser window dimensions and display refresh rate. The refresh rate can be explicitly specified or automatically determined based on the width and height if they match a supported configuration.
+
+## Default viewport
+
+If the `viewport` parameter is omitted when creating a browser, the default configuration is 1920x1080 at 25Hz.
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+// Uses default viewport (1920x1080@25Hz)
+const defaultViewport = await kernel.browsers.create();
+```
+
+```python Python
+# Uses default viewport (1920x1080@25Hz)
+default_viewport = kernel.browsers.create()
+```
+
+```go Go
+// Uses default viewport (1920x1080@25Hz)
+defaultViewport, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+_ = defaultViewport
+```
+
+</CodeGroup>
+
+## Setting viewport configuration
+
+You can configure the viewport when creating a browser by specifying the `viewport` parameter with `width` and `height`. The `refresh_rate` is optional and will be automatically determined from the dimensions if they match a supported configuration:
+
+<Info>
+    Setting a custom viewport configuration triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access browsers with custom viewport configurations faster.
+</Info>
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Explicitly specify refresh rate
+const kernelBrowser = await kernel.browsers.create({
+  viewport: {
+    width: 1920,
+    height: 1080,
+    refresh_rate: 25
+  }
+});
+
+// Auto-determine refresh rate from dimensions (25Hz for 1920x1080)
+const kernelBrowserAuto = await kernel.browsers.create({
+  viewport: {
+    width: 1920,
+    height: 1080
+  }
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+# Explicitly specify refresh rate
+kernel_browser = kernel.browsers.create(
+    viewport={
+        "width": 1920,
+        "height": 1080,
+        "refresh_rate": 25
+    }
+)
+
+# Auto-determine refresh rate from dimensions (25Hz for 1920x1080)
+kernel_browser_auto = kernel.browsers.create(
+    viewport={
+        "width": 1920,
+        "height": 1080
+    }
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/shared"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Explicitly specify refresh rate
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Viewport: shared.BrowserViewportParam{
+			Width:       1920,
+			Height:      1080,
+			RefreshRate: kernel.Int(25),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+
+	// Auto-determine refresh rate from dimensions (25Hz for 1920x1080)
+	kernelBrowserAuto, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Viewport: shared.BrowserViewportParam{
+			Width:  1920,
+			Height: 1080,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowserAuto
+}
+```
+
+</CodeGroup>
+
+<Info>
+The `refresh_rate` parameter only applies to live view sessions and is ignored for [headless](/browsers/headless) browsers.
+</Info>
+
+## Window size vs. page viewport
+
+The `viewport` parameter sets the dimensions of the browser **window**, not the visible page area. On headful browsers, Chromium's UI (tab strip and toolbar) occupies part of the window height, so the page renders in a slightly shorter area than the configured height. For example, with a 1280x800 viewport, `window.innerHeight` will be less than 800 and content near the bottom of the page may not be visible in screenshots or live view.
+
+If your automation expects an exact page viewport, either:
+
+- **Use kiosk mode** to remove the browser UI, so the window dimensions match the page viewport exactly:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+const kernelBrowser = await kernel.browsers.create({
+  kiosk_mode: true,
+  viewport: { width: 1920, height: 1080 }
+});
+```
+
+```python Python
+kernel_browser = kernel.browsers.create(
+    kiosk_mode=True,
+    viewport={"width": 1920, "height": 1080}
+)
+```
+
+</CodeGroup>
+
+- **Set the page viewport through your automation framework.** This will update the rendered page size, but will not be reflected in the live view or computer controls:
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+// Playwright
+await page.setViewportSize({ width: 1280, height: 800 });
+```
+
+```python Python
+# Playwright
+await page.set_viewport_size({"width": 1280, "height": 800})
+```
+
+</CodeGroup>
+
+- **Account for the browser UI when choosing dimensions** by adding its height to the `height` you pass to Kernel, so the remaining page area matches your target size.
+
+On [headless](/browsers/headless) browsers there is no browser UI, so the page viewport matches the configured dimensions exactly.
+
+## Supported viewport configurations
+
+Kernel supports specific viewport configurations tuned for optimal performance and Computer Use compatibility. When you provide width and height without specifying refresh_rate, it will be automatically determined if the dimensions match one of the supported resolutions exactly. The following resolutions are supported:
+
+| Resolution | Width | Height | Refresh Rate |
+|------------|-------|--------|--------------|
+| QHD | 2560 | 1440 | 10 Hz |
+| Full HD | 1920 | 1080 | 25 Hz |
+| WUXGA | 1920 | 1200 | 25 Hz |
+| WXGA+ | 1440 | 900 | 25 Hz |
+| WXGA | 1280 | 800 | 60 Hz |
+| WXGA | 1200 | 800 | 60 Hz |
+| XGA | 1024 | 768 | 60 Hz |
+| Tablet | 768 | 1024 | 60 Hz |
+| Mobile | 390 | 844 | 60 Hz |
+
+When specifying a viewport:
+- **Width** and **Height** are required
+- **Viewport configurations** outside of the supported list are available, but they are provided on a "use at your own risk" basis and may not work as expected.
+- **Refresh Rate** is optional - if omitted, it will be automatically determined from the width and height combination
+
+## Example configurations
+
+<CodeGroup>
+
+```typescript Typescript/Javascript
+// Full HD (1920x1080) at 25Hz - explicit refresh rate
+const fullHD = await kernel.browsers.create({
+  viewport: {
+    width: 1920,
+    height: 1080,
+    refresh_rate: 25
+  }
+});
+
+// Full HD (1920x1080) - auto-determined 25Hz (Default configuration)
+const fullHDAuto = await kernel.browsers.create({
+  viewport: {
+    width: 1920,
+    height: 1080
+  }
+});
+
+// QHD (2560x1440) - auto-determined 10Hz
+// Note: May affect live view responsiveness
+const qhd = await kernel.browsers.create({
+  viewport: {
+    width: 2560,
+    height: 1440
+  }
+});
+
+// XGA (1024x768) - auto-determined 60Hz
+const xga = await kernel.browsers.create({
+  viewport: {
+    width: 1024,
+    height: 768
+  }
+});
+
+// WUXGA (1920x1200) at 25Hz - explicit refresh rate
+const wuxga = await kernel.browsers.create({
+  viewport: {
+    width: 1920,
+    height: 1200,
+    refresh_rate: 25
+  }
+});
+```
+
+```python Python
+# Full HD (1920x1080) at 25Hz - explicit refresh rate
+full_hd = kernel.browsers.create(
+    viewport={
+        "width": 1920,
+        "height": 1080,
+        "refresh_rate": 25
+    }
+)
+
+# Full HD (1920x1080) - auto-determined 25Hz (Default configuration)
+full_hd_auto = kernel.browsers.create(
+    viewport={
+        "width": 1920,
+        "height": 1080
+    }
+)
+
+# QHD (2560x1440) - auto-determined 10Hz
+# Note: May affect live view responsiveness
+qhd = kernel.browsers.create(
+    viewport={
+        "width": 2560,
+        "height": 1440
+    }
+)
+
+# XGA (1024x768) - auto-determined 60Hz
+xga = kernel.browsers.create(
+    viewport={
+        "width": 1024,
+        "height": 768
+    }
+)
+
+# WUXGA (1920x1200) at 25Hz - explicit refresh rate
+wuxga = kernel.browsers.create(
+    viewport={
+        "width": 1920,
+        "height": 1200,
+        "refresh_rate": 25
+    }
+)
+```
+
+```go Go
+// Full HD (1920x1080) at 25Hz - explicit refresh rate
+fullHD, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:       1920,
+		Height:      1080,
+		RefreshRate: kernel.Int(25),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = fullHD
+
+// Full HD (1920x1080) - auto-determined 25Hz (Default configuration)
+fullHDAuto, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  1920,
+		Height: 1080,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = fullHDAuto
+
+// QHD (2560x1440) - auto-determined 10Hz
+// Note: May affect live view responsiveness
+qhd, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  2560,
+		Height: 1440,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = qhd
+
+// XGA (1024x768) - auto-determined 60Hz
+xga, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:  1024,
+		Height: 768,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = xga
+
+// WUXGA (1920x1200) at 25Hz - explicit refresh rate
+wuxga, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Viewport: shared.BrowserViewportParam{
+		Width:       1920,
+		Height:      1200,
+		RefreshRate: kernel.Int(25),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = wuxga
+```
+
+</CodeGroup>
+
+## Dynamically changing the viewport
+
+You can change the viewport of a browser after it has been created using the [update browser endpoint](https://kernel.sh/docs/api-reference/browsers/update-browser-session).
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Create a browser with default viewport
+const kernelBrowser = await kernel.browsers.create();
+
+// Later, change the viewport
+await kernel.browsers.update(kernelBrowser.session_id, {
+  viewport: {
+    width: 1024,
+    height: 768
+  }
+});
+```
+
+```python Python
+# Create a browser with default viewport
+kernel_browser = await kernel.browsers.create()
+
+# Later, change the viewport
+await kernel.browsers.update(kernel_browser.session_id, viewport={"width": 1024, "height": 768})
+```
+
+```go Go
+// Create a browser with default viewport
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+if err != nil {
+	panic(err)
+}
+
+// Later, change the viewport
+_, err = client.Browsers.Update(ctx, kernelBrowser.SessionID, kernel.BrowserUpdateParams{
+	Viewport: kernel.BrowserUpdateParamsViewport{
+		BrowserViewportParam: shared.BrowserViewportParam{
+			Width:  1024,
+			Height: 768,
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Warning>
+There are important limitations when changing the viewport:
+- **Headful browsers**: You can't resize the viewport while [live view](/browsers/live-view) is active or while a [replay](/browsers/replays) is actively recording unless you set the `force` flag to `true`.
+- **Headless browsers**: Changing the viewport triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
+</Warning>
+
+### Force resizing during recording
+
+If you need to resize the viewport while a replay is actively recording, set `force` to `true` in the update request. This stops the current recording, resizes the viewport, and restarts the recording — resulting in multiple replay segments for the session.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(kernelBrowser.session_id, {
+  viewport: {
+    width: 1024,
+    height: 768,
+    force: true
+  }
+});
+```
+
+```python Python
+await kernel.browsers.update(
+    kernel_browser.session_id,
+    viewport={"width": 1024, "height": 768, "force": True}
+)
+```
+
+```go Go
+_, err := client.Browsers.Update(ctx, kernelBrowser.SessionID, kernel.BrowserUpdateParams{
+	Viewport: kernel.BrowserUpdateParamsViewport{
+		BrowserViewportParam: shared.BrowserViewportParam{
+			Width:  1024,
+			Height: 768,
+		},
+		Force: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+## Considerations
+
+- The viewport configuration is set when the browser is created and applies to the initial browser window
+- Higher resolutions (like 2560x1440) may impact the performance and responsiveness of live view sessions
+- The viewport size affects how websites render, especially those with responsive designs
+- Screenshots taken through your automation framework capture the page viewport, which on headful browsers is shorter than the configured dimensions due to the browser UI (see [Window size vs. page viewport](#window-size-vs-page-viewport))

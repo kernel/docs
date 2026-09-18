@@ -1,0 +1,207 @@
+---
+title: "ISP Proxies"
+---
+
+ISP (Internet Service Provider) proxies are hosted on datacenter infrastructure but use IP addresses assigned by real residential ISPs. Because the ASN belongs to a residential ISP, target sites see them as residential IPs — while the underlying datacenter hosting gives you the speed and stability you'd expect from a datacenter proxy.
+
+## IP Rotation Behavior
+
+ISP proxies provide a **static exit IP that persists across sessions** — every tab, request, reconnection, and future browser session attached to this proxy exits through the same IP. The IP only changes in rare ISP-initiated replacement events.
+
+This makes ISP proxies suitable for use cases that require a stable IP, such as IP allowlists or [managed auth](/auth/managed-auth) health checks. For comparison with other proxy types, see [IP rotation behavior across proxy types](/proxies/overview).
+
+## Configuration
+
+Create an ISP proxy with an exit IP in Singapore:
+
+<Info>
+ISP proxies support country targeting in the United States (`US`), Singapore (`SG`), the United Kingdom (`GB`), France (`FR`), and Germany (`DE`). If you omit `country`, the proxy defaults to `US`.
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'isp',
+  name: 'my-sg-isp-proxy',
+  config: {
+    country: 'SG',
+  },
+});
+
+const browser = await kernel.browsers.create({
+  proxy_id: proxy.id,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="isp",
+    name="my-sg-isp-proxy",
+    config={
+        "country": "SG",
+    },
+)
+
+browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("my-sg-isp-proxy"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigIspProxyConfig: &kernel.ProxyNewParamsConfigIspProxyConfig{
+				Country: kernel.String("SG"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
+</CodeGroup>
+
+## Configuration parameters
+
+- **`country`** (optional) - ISO 3166 country code. Supported values are `US`, `SG`, `GB`, `FR`, and `DE`. Defaults to `US`.
+- **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
+
+## .gov support
+
+If your workload targets `.gov`, use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting. Kernel's default egress reaches `.gov` directly, so running without a proxy also works.
+
+ISP proxies don't route `.gov` automatically today. Kernel attaches the provider that handles `.gov` to residential proxies only, so a `.gov` request from an ISP proxy falls back to the default provider, which carries some `.gov` destinations and returns a `502` on the rest.
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'isp',
+  name: 'isp-with-bypass',
+  bypass_hosts: [
+    'localhost',
+    'internal.service.local',
+    '*.amazonaws.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="isp",
+    name="isp-with-bypass",
+    bypass_hosts=[
+        "localhost",
+        "internal.service.local",
+        "*.amazonaws.com",
+    ]
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("isp-with-bypass"),
+		BypassHosts: []string{
+			"localhost",
+			"internal.service.local",
+			"*.amazonaws.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
+```
+</CodeGroup>
+
+See the [overview](/proxies/overview#bypass-hosts) for full bypass host rules and examples.
+
+## Getting the static IP address
+
+Because an ISP proxy has a static exit IP, you can read that IP once and reuse it — for example, to add it to an IP allowlist. The IP is returned as `ip_address` in the response when you [create a proxy](https://kernel.sh/docs/api-reference/proxies/create-a-proxy) and when you [get a proxy by ID](https://kernel.sh/docs/api-reference/proxies/get-proxy-by-id).
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const proxy = await kernel.proxies.create({
+  type: 'isp',
+  name: 'my-isp-proxy',
+});
+
+console.log(proxy.ip_address);
+```
+
+```python Python
+proxy = kernel.proxies.create(
+    type="isp",
+    name="my-isp-proxy",
+)
+
+print(proxy.ip_address)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeIsp,
+	Name: kernel.String("my-isp-proxy"),
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Println(proxy.IPAddress)
+```
+</CodeGroup>

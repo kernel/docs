@@ -1,0 +1,484 @@
+---
+title: "Connection Configuration"
+sidebarTitle: "Configuration"
+description: "Shared options for managed auth connections, regardless of integration flow"
+---
+
+Managed Auth connections use the same configuration whether you collect credentials through the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). These options apply to the initial login, every background health check, and each automatic reauthentication attempt.
+
+## Credentials and Auto-Reauth
+
+by default, KERNEL saves durable credential fields after a successful login. these can support eligible automatic reauthentication attempts, including totp codes generated from an available secret. submitted one-time codes aren't saved and don't provide access to future codes. if a later login requires user input, your application must start a new interactive login.
+
+To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for configuration examples.
+
+Automatic re-authentication is gated by two boolean flags that both default to `true`:
+
+- `health_checks` — whether the connection runs periodic health checks at all. When `false`, the system never automatically verifies the session and never triggers reauth on its own.
+- `auto_reauth` — whether a scheduled health check that confirms the session is logged out may trigger an eligible automatic reauthentication attempt. when `false`, expired sessions are marked `NEEDS_AUTH` without an automatic recovery attempt.
+
+`auto_reauth` only has an effect on the automatic flow when `health_checks` is also `true`, because reauthentication requires a scheduled health check to confirm the session is logged out. an inconclusive check doesn't trigger reauthentication. manually triggering a health check via the api still works regardless of `health_checks`.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  health_checks: false,
+  auto_reauth: false,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    health_checks=False,
+    auto_reauth=False,
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:       "example.com",
+		ProfileName:  "my-profile",
+		HealthChecks: kernel.Bool(false),
+		AutoReauth:   kernel.Bool(false),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+Both flags can be flipped on an existing connection with `auth.connections.update`; changes take effect immediately on the running connection.
+
+Automatic reauthentication requires a previously successful login and saved credentials for the durable login fields. Setting `auto_reauth: true` permits Kernel to attempt it but doesn't guarantee the next login will succeed.
+
+If Kernel can't complete an automatic attempt, the connection transitions to `NEEDS_AUTH` so you can start a new login.
+
+## Custom Login URL
+
+If the site's login page isn't at the default location, specify it when creating the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  login_url: 'https://example.com/auth/signin',
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    login_url="https://example.com/auth/signin",
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		LoginURL:    kernel.String("https://example.com/auth/signin"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+## Browser Region
+
+Set `browser.region` to choose where Managed Auth runs the connection's initial login, health checks, and automatic reauthentication. Choose from `us-east`, `eu-west`, and `ap-southeast`. Region selection is available on [Start-Up and Enterprise plans](/info/pricing); omitted values default to `us-east`.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  browser: { region: 'eu-west' },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    browser={"region": "eu-west"},
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Browser: kernel.ManagedAuthBrowserConfigParam{
+			Region: kernel.ManagedAuthBrowserConfigRegionEuWest,
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+Updating `browser.region` changes the connection default for browsers created afterward. It doesn't move or restart an active login, health check, or reauthentication browser.
+
+You can override the connection region for one login without changing its default:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  browser: { region: 'ap-southeast' },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    browser={"region": "ap-southeast"},
+)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	Browser: kernel.ManagedAuthBrowserConfigParam{
+		Region: kernel.ManagedAuthBrowserConfigRegionApSoutheast,
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
+
+## SSO/OAuth Support
+
+Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
+
+Common SSO provider domains are automatically allowed by default, including Google, Microsoft/Azure AD, Okta, Auth0, Apple, GitHub, Facebook, LinkedIn, Amazon Cognito, OneLogin, and Ping Identity. You don't need to add these to `allowed_domains`.
+
+For custom or less common OAuth providers, add their domains to `allowed_domains`:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  allowed_domains: ['sso.custom-provider.com'],
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    allowed_domains=["sso.custom-provider.com"],
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:         "example.com",
+		ProfileName:    "my-profile",
+		AllowedDomains: []string{"sso.custom-provider.com"},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+## Custom Proxy
+
+Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through that proxy. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
+
+How stable the exit IP is depends on the proxy type:
+
+- **[ISP](/proxies/isp)** and **[datacenter](/proxies/datacenter)** proxies provide a stable exit IP within a single session, but Kernel does not guarantee the same IP across sessions. Sites with adaptive auth that trigger a step-up challenge (one-time code, device verification) when the client IP changes may flag the IP shift between the initial login and a subsequent health check or reauth.
+- **[Residential](/proxies/residential)** proxies rotate IPs per connection — use them when you need legitimacy from a real ISP pool but can tolerate IP changes.
+- **[Custom (BYO)](/proxies/custom)** proxies route through whatever you point them at, so this is the right pick if you need a truly static IP that persists across the initial login and every subsequent health check and reauth (e.g. an allowlisted egress your security team owns).
+
+Create a proxy first, then attach it to the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const proxy = await kernel.proxies.create({ type: 'isp' });
+
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  proxy: { id: proxy.id },
+});
+```
+
+```python Python
+proxy = kernel.proxies.create(type="isp")
+
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    proxy={"id": proxy.id},
+)
+```
+
+```go Go
+proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+	Type: kernel.ProxyNewParamsTypeIsp,
+})
+if err != nil {
+	panic(err)
+}
+
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Proxy: kernel.ManagedAuthCreateRequestProxyParam{
+			ID: kernel.String(proxy.ID),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+You can also reference a proxy by `name` instead of `id`. The proxy must belong to the same org and project as the connection.
+
+Once attached, every browser the connection spins up — the initial login, every background health check, and every automatic re-auth — runs through that proxy.
+
+You can swap the proxy on an existing connection with `auth.connections.update`; the change takes effect immediately, so the next health check or reauth uses the new proxy.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  proxy: { id: newProxy.id },
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    proxy={"id": new_proxy.id},
+)
+```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		Proxy: kernel.ManagedAuthUpdateRequestProxyParam{
+			ID: kernel.String(newProxy.ID),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+You can also override the connection's proxy for a single login by passing `proxy` on `.login()` — useful when you want to try a one-off egress without changing the connection-wide default (which would also affect subsequent health checks and reauths).
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  proxy: { id: oneOffProxy.id },
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    proxy={"id": one_off_proxy.id},
+)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	Proxy: kernel.AuthConnectionLoginParamsProxy{
+		ID: kernel.String(oneOffProxy.ID),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+## Record Sessions for Debugging
+
+Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. The entire browser session is recorded.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  record_session: true,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    record_session=True,
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:        "example.com",
+		ProfileName:   "my-profile",
+		RecordSession: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+You can also override the connection default for a single login by passing `record_session` on `.login()` — useful for one-off debugging on a specific login attempt without flipping the connection-wide flag (which would also record subsequent health checks and reauths).
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  record_session: true,
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    record_session=True,
+)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	RecordSession: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+Managed auth recordings are subject to the same retention rules as other session replay recordings. Each managed auth session row stores its own `replay_id` for the recording captured during that session.
+
+## Post-Login URL
+
+After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
+
+<CodeGroup>
+```typescript TypeScript
+const managedAuth = await kernel.auth.connections.retrieve(auth.id);
+
+if (managedAuth.post_login_url) {
+  await page.goto(managedAuth.post_login_url);
+  // Start automation from the dashboard/home page
+}
+```
+
+```python Python
+managed_auth = await kernel.auth.connections.retrieve(auth.id)
+
+if managed_auth.post_login_url:
+    await page.goto(managed_auth.post_login_url)
+    # Start automation from the dashboard/home page
+```
+
+```go Go
+managedAuth, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+if managedAuth.PostLoginURL != "" {
+	_, err := client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+		Code: fmt.Sprintf(`await page.goto(%q);`, managedAuth.PostLoginURL),
+	})
+	if err != nil {
+		panic(err)
+	}
+	// Start automation from the dashboard/home page
+}
+```
+</CodeGroup>
+
+## Updating a Connection
+
+After creating a connection, you can update its configuration with `auth.connections.update`:
+
+| Field | Description |
+|-------|-------------|
+| `login_url` | Override the login page URL |
+| `credential` | Update the linked credential |
+| `allowed_domains` | Update allowed redirect domains |
+| `health_check_interval` | Seconds between health checks (minimum varies by plan) |
+| `health_checks` | Whether periodic health checks run for this connection |
+| `auto_reauth` | Whether a scheduled health check that confirms a logged-out session may trigger an eligible automatic reauthentication attempt |
+| `save_credentials` | Whether to save credentials on successful login |
+| `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
+| `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
+| `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
+
+Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  login_url: 'https://example.com/new-login',
+  health_check_interval: 1800,
+  save_credentials: true,
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    login_url="https://example.com/new-login",
+    health_check_interval=1800,
+    save_credentials=True,
+)
+```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		LoginURL:            kernel.String("https://example.com/new-login"),
+		HealthCheckInterval: kernel.Int(1800),
+		SaveCredentials:     kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>

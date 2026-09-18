@@ -1,0 +1,606 @@
+---
+title: "Overview"
+---
+
+Kernel proxies enable you to route browser traffic through different types of proxy servers, providing enhanced privacy, flexibility, and bot detection avoidance. Proxies can be created once and reused across multiple browser sessions.
+
+## Proxy Types
+
+Kernel supports five types of proxies:
+
+1. [**Datacenter**](/proxies/datacenter) - Traffic routed through commercial data centers
+2. [**ISP**](/proxies/isp) - Traffic routed through data centers, using residential IP addresses leased from from internet service providers
+3. [**Residential**](/proxies/residential) - Traffic routed through real residential IP addresses
+4. [**Mobile**](/proxies/mobile) - Traffic routed through mobile carrier networks
+5. [**Custom**](/proxies/custom) - Your own proxy servers
+
+Datacenter has the fastest speed, while residential and mobile are least detectable. ISP balances speed, stability, and bot detection avoidance, with country targeting in the United States (`US`), Singapore (`SG`), the United Kingdom (`GB`), France (`FR`), and Germany (`DE`). Kernel recommends using the first option in the list that works for your use case.
+
+<Note>
+Kernel-provided proxies are unmetered and not billed, subject to the fair use rules and restricted destinations in our [Acceptable Use Policy](/acceptable-use#proxy-fair-use). Some destination categories — including banking and payment domains — are blocked by our upstream network providers and will fail at the proxy layer. Reach them directly or with a [custom proxy](/proxies/custom) instead.
+</Note>
+
+<Info>
+ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP, and it only changes in rare ISP-initiated replacement events. This makes them suitable for IP allowlists or [managed auth](/auth/managed-auth) health checks that must egress from a single IP.
+
+Datacenter proxies use **rotating exit IPs** — a new exit IP is assigned per request, so different requests within the same browser session can exit through different IPs. For a stable IP across requests and sessions, use an ISP proxy or a [custom (BYO) proxy](/proxies/custom) pointed at infrastructure you control.
+
+Residential and mobile proxies use **rotating exit IPs** that may change per connection — see [Residential Proxies](/proxies/residential#ip-rotation-behavior) and [Mobile Proxies](/proxies/mobile) for details.
+</Info>
+
+## Create a proxy
+
+Create a proxy configuration from the types above that can be reused across browser sessions:
+
+<Info>
+KERNEL automatically deletes proxy configurations that haven't been used for 14 days when your organization has more than 100 active configurations. Configurations attached to sessions, pools, instances, or managed auth connections are retained.
+</Info>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({ type: 'datacenter' });
+console.log(proxy.id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(type="datacenter")
+print(proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeDatacenter,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(proxy.ID)
+}
+```
+</CodeGroup>
+
+## Rename a proxy
+
+Rename a proxy without changing its type or connection settings. Proxy updates are addressed by ID, and proxy names are not unique, so use the proxy ID when a name could match more than one configuration.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.proxies.update(proxy.id, { name: 'checkout-proxy' });
+```
+
+```python Python
+kernel.proxies.update(proxy.id, name="checkout-proxy")
+```
+
+```go Go
+_, err := client.Proxies.Update(ctx, proxy.ID, kernel.ProxyUpdateParams{
+	Name: "checkout-proxy",
+})
+```
+</CodeGroup>
+
+## List your proxies
+
+View all proxy configurations in your organization:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxies = await kernel.proxies.list();
+console.log(proxies);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxies = kernel.proxies.list()
+print(proxies)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxies, err := client.Proxies.List(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(proxies)
+}
+```
+</CodeGroup>
+
+
+## Use with browsers
+
+Once created, you can attach a proxy to any browser session using the `proxy_id` parameter:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'residential',
+  name: 'my-us-residential',
+  config: {
+    country: 'US',
+  },
+});
+
+const browser = await kernel.browsers.create({
+  proxy_id: proxy.id,
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="residential",
+    name="my-us-residential",
+    config={
+        "country": "US",
+    }
+)
+
+browser = kernel.browsers.create(proxy_id=proxy.id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("my-us-residential"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxy.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = browser
+}
+```
+</CodeGroup>
+
+## Check proxy health
+
+Before attaching a proxy to a browser session, run a health check to verify credentials and connectivity. Pass an optional `url` to test reachability against a specific target instead of Kernel's default test URLs.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.proxies.check(proxy.id, { url: 'https://example.com' });
+```
+
+```python Python
+kernel.proxies.check(id=proxy.id, url="https://example.com")
+```
+
+```go Go
+client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
+    URL: kernel.String("https://example.com"),
+})
+```
+</CodeGroup>
+
+<Info>
+For ISP and datacenter proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
+</Info>
+
+## Bypass hosts
+
+Configure specific hostnames to bypass the proxy and connect through Kernel-managed direct egress. This is useful for metadata endpoints or reducing latency for trusted domains.
+
+<Note>
+To reach a private service through a VPN or tunnel inside the browser session, use [`network.private_hosts`](/browsers/private-networking) instead. Proxy bypass rules don't route traffic into the session's private network.
+</Note>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const proxy = await kernel.proxies.create({
+  type: 'datacenter',
+  name: 'proxy-with-bypass',
+  config: {
+    country: 'US',
+  },
+  bypass_hosts: [
+    'localhost',
+    'internal.company.local',
+    'metadata.google.internal',
+    '*.amazonaws.com',
+  ],
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+proxy = kernel.proxies.create(
+    type="datacenter",
+    name="proxy-with-bypass",
+    config={
+        "country": "US",
+    },
+    bypass_hosts=[
+        "localhost",
+        "internal.company.local",
+        "metadata.google.internal",
+        "*.amazonaws.com",
+    ]
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	proxy, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeDatacenter,
+		Name: kernel.String("proxy-with-bypass"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigDatacenterProxyConfig: &kernel.ProxyNewParamsConfigDatacenterProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+		BypassHosts: []string{
+			"localhost",
+			"internal.company.local",
+			"metadata.google.internal",
+			"*.amazonaws.com",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = proxy
+}
+```
+</CodeGroup>
+
+### Bypass host rules
+
+- **Exact hostnames**: `example.com`, `api.service.local`
+- **Wildcard subdomains**: `*.example.com` matches `api.example.com`, `cdn.example.com`, etc.
+- **Maximum 100 entries** per proxy
+- **Maximum 253 characters** per hostname
+- Hostnames are case-insensitive and automatically normalized
+- Ports, paths, and URL schemes are not allowed
+- IP addresses are not supported—use hostnames only
+
+<Info>
+Bypass hosts is available on Start-Up and Enterprise plans.
+</Info>
+
+## Update a browser's proxy
+
+You can hot-swap the proxy on a running browser session without restarting it. This updates the proxy configuration immediately — all subsequent network requests from the browser will use the new proxy.
+
+<Warning>
+The browser's network is momentarily disconnected during a proxy hot swap. Any in-flight requests may fail.
+</Warning>
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Create two proxy configurations
+const proxyA = await kernel.proxies.create({
+  type: 'isp',
+  name: 'proxy-a',
+  config: { country: 'US' },
+});
+
+const proxyB = await kernel.proxies.create({
+  type: 'residential',
+  name: 'proxy-b',
+  config: { country: 'DE' },
+});
+
+// Launch a browser with the first proxy
+const browser = await kernel.browsers.create({
+  proxy_id: proxyA.id,
+});
+
+// Hot-swap to a different proxy
+await kernel.browsers.update(browser.session_id, {
+  proxy_id: proxyB.id,
+});
+
+// Remove the proxy entirely (route directly to the internet)
+await kernel.browsers.update(browser.session_id, {
+  proxy_id: '',
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+# Create two proxy configurations
+proxy_a = kernel.proxies.create(
+    type="isp",
+    name="proxy-a",
+    config={"country": "US"},
+)
+
+proxy_b = kernel.proxies.create(
+    type="residential",
+    name="proxy-b",
+    config={"country": "DE"},
+)
+
+# Launch a browser with the first proxy
+browser = kernel.browsers.create(
+    proxy_id=proxy_a.id,
+)
+
+# Hot-swap to a different proxy
+kernel.browsers.update(
+    browser.session_id,
+    proxy_id=proxy_b.id,
+)
+
+# Remove the proxy entirely (route directly to the internet)
+kernel.browsers.update(
+    browser.session_id,
+    proxy_id="",
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create two proxy configurations
+	proxyA, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeIsp,
+		Name: kernel.String("proxy-a"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigIspProxyConfig: &kernel.ProxyNewParamsConfigIspProxyConfig{
+				Country: kernel.String("US"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	proxyB, err := client.Proxies.New(ctx, kernel.ProxyNewParams{
+		Type: kernel.ProxyNewParamsTypeResidential,
+		Name: kernel.String("proxy-b"),
+		Config: kernel.ProxyNewParamsConfigUnion{
+			OfProxyNewsConfigResidentialProxyConfig: &kernel.ProxyNewParamsConfigResidentialProxyConfig{
+				Country: kernel.String("DE"),
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Launch a browser with the first proxy
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		ProxyID: kernel.String(proxyA.ID),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	// Hot-swap to a different proxy
+	if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+		ProxyID: kernel.String(proxyB.ID),
+	}); err != nil {
+		panic(err)
+	}
+
+	// Remove the proxy entirely (route directly to the internet)
+	if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+		ProxyID: kernel.String(""),
+	}); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+The update is synchronous — when the call returns, the proxy swap is fully applied and all new browser traffic routes through the updated proxy. The swap typically completes in 2–3 seconds.
+
+<Info>
+If you swap the proxy on a browser acquired from a browser pool, the browser will be reset back to the browser pool's default proxy configuration when it is released. Releasing the browser will be delayed by the swap duration (~2-3 seconds) while the proxy is restored to the browser pool default.
+</Info>
+
+### Bring your own proxy
+
+Attach a custom `proxy_id` to any browser — stealth or non-stealth — and Kernel's anti-detection config still applies. For full anti-detection without the managed proxy or CAPTCHA solver, launch a non-stealth browser with your own `proxy_id`:
+
+If your custom proxy performs TLS interception, provide its CA bundle when creating the proxy. See [MITM TLS](/proxies/custom#mitm-tls) for configuration details.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const browser = await kernel.browsers.create({
+  stealth: false,
+  proxy_id: myProxy.id,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    stealth=False,
+    proxy_id=my_proxy.id,
+)
+```
+
+```go Go
+browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Stealth: kernel.Bool(false),
+	ProxyID: kernel.String(myProxy.ID),
+})
+if err != nil {
+	panic(err)
+}
+_ = browser
+```
+</CodeGroup>
+
+### Disable default proxy on stealth browsers
+
+[Stealth browsers](/browsers/bot-detection/stealth) are automatically assigned a proxy. To disable this on a running stealth browser and route traffic directly, set `disable_default_proxy` to `true`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browsers.update(browser.session_id, {
+  disable_default_proxy: true,
+});
+```
+
+```python Python
+kernel.browsers.update(
+    browser.session_id,
+    disable_default_proxy=True,
+)
+```
+
+```go Go
+if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	DisableDefaultProxy: kernel.Bool(true),
+}); err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+<Info>
+`disable_default_proxy` can only be used with stealth browsers and cannot be combined with `proxy_id`.
+</Info>
+
+## Delete a proxy
+
+When no longer needed, delete the proxy configuration:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+await kernel.proxies.delete('id');
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+kernel.proxies.delete("id")
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	if err := client.Proxies.Delete(ctx, "id"); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+
+<Info>
+Deleting a proxy immediately reconfigures associated browsers to route directly to the internet.
+</Info>

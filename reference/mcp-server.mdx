@@ -1,0 +1,58 @@
+---
+title: "MCP Server"
+description: "Access Kernel's cloud-based browsers via MCP"
+---
+
+Our Model Context Protocol (MCP) server lets any compatible AI model or agent launch Chromium browsers, execute Playwright code, capture video replays, and automate web interactions from Kernel's cloud platform via a single secure endpoint.
+
+The server is a centrally hosted, authenticated remote MCP using OAuth 2.1 with dynamic client registration.
+
+## Quick start
+
+<Steps>
+  <Step title="Add the server">
+    Point your client at the streamable HTTP endpoint, or use the [Kernel CLI](/reference/cli/mcp) to configure it for you:
+
+    ```bash
+    kernel mcp install --target <target>
+    ```
+  </Step>
+  <Step title="Authenticate">
+    Authorize access through your browser when prompted. See [Authentication](/reference/mcp-server/authentication) for OAuth and API key options.
+  </Step>
+  <Step title="Start automating">
+    Use the [tools](/reference/mcp-server/tools/manage-browsers) to launch browsers, run Playwright code, and invoke your apps.
+  </Step>
+</Steps>
+
+## Explore
+
+<Columns cols={2}>
+  <Card icon="plug" title="Transports" href="/reference/mcp-server/transports">
+    Streamable HTTP and stdio endpoints.
+  </Card>
+  <Card icon="key" title="Authentication" href="/reference/mcp-server/authentication">
+    OAuth 2.1 and API key authentication.
+  </Card>
+  <Card icon="rectangle-terminal" title="Connect your client" href="/reference/mcp-server/clients/claude">
+    Setup for Claude, Cursor, fx, VS Code, and more.
+  </Card>
+  <Card icon="wrench" title="Tools" href="/reference/mcp-server/tools/manage-browsers">
+    Browsers, profiles, proxies, apps, and more.
+  </Card>
+  <Card icon="wrench" title="webmcp" href="/reference/mcp-server/tools/webmcp">
+    Discover page tools with `list`, then call an exact `tool_ref` with `invoke` across tabs and frames.
+  </Card>
+  <Card icon="database" title="Resources" href="/reference/mcp-server/resources">
+    Read browsers, browser pools, profiles, and apps.
+  </Card>
+  <Card icon="message-lines" title="Prompts" href="/reference/mcp-server/prompts">
+    Prebuilt prompts for concepts and debugging.
+  </Card>
+  <Card icon="bug" title="Troubleshooting" href="/reference/mcp-server/troubleshooting">
+    Fix connection and authentication issues.
+  </Card>
+  <Card icon="lightbulb" title="Examples" href="/reference/mcp-server/examples">
+    See the server in action.
+  </Card>
+</Columns>

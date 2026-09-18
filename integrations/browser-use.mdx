@@ -1,0 +1,98 @@
+---
+title: "Browser Use"
+icon: "/images/integration-icons/browser-use-logo-transparent.svg"
+---
+
+[Browser Use](https://github.com/browser-use/browser-use) is the AI browser agent that empowers anyone to automate repetitive online tasks, no code required. By integrating with Kernel, you can run Browser Use Agents and automations with cloud-hosted browsers.
+
+<Tip>
+A complete, runnable example that drives the Browser Use bu-1.0 model on Kernel browsers lives in the [Browser Use + Kernel cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/browser-use-model).
+</Tip>
+
+## Adding Kernel to existing Browser Use implementations
+
+If you already have a Browser Use implementation, you can easily switch to using Kernel's cloud browsers by updating your Browser definition.
+
+### 1. Install the Kernel SDK
+
+```bash
+uv add kernel
+```
+
+### 2. Initialize Kernel and create a browser
+
+Import the libraries and create a cloud browser session:
+
+```python
+from kernel import Kernel
+from browser_use import Browser, Agent
+
+# Initialize Kernel client
+kernel = Kernel()
+
+# Create a Kernel browser session
+kernel_browser = kernel.browsers.create()
+```
+
+### 3. Update your Browser definition
+
+Replace your existing Browser initialization to use Kernel's CDP URL and display settings:
+
+```python
+# Update your Browser definition to use Kernel's CDP URL
+browser = Browser(
+    cdp_url=kernel_browser.cdp_ws_url,
+    headless=False,
+    window_size={'width': 1920, 'height': 1080},
+    viewport={'width': 1920, 'height': 1080},
+    device_scale_factor=1.0
+)
+```
+
+<Info>
+Browser Use supports a wide range of browser configuration parameters. See the full list in the <a href="https://docs.browser-use.com/customize/browser/all-parameters">Browser Use docs</a>. When running on Kernel, remember that browsers must use one of Kernel's supported viewport sizes and refresh rates. See <a href="/browsers/viewport">Viewports</a> for the supported configurations.
+</Info>
+
+### 4. Create and run your agent
+
+Use your existing Agent setup with the Kernel-powered browser:
+
+```python
+# Use with your existing Agent setup
+agent = Agent(
+    task="Your automation task",
+    llm=your_llm_instance,
+    browser_session=browser
+)
+
+# Run your automation
+result = agent.run()
+
+# Clean up
+kernel.browsers.delete_by_id(kernel_browser.session_id)
+```
+
+## Quick setup with our Browser Use example app
+
+Alternatively, you can use our Kernel app template that includes a pre-configured Browser Use integration:
+
+```bash
+kernel create --name my-browser-use-app --language python --template browser-use
+```
+
+Then follow the [deploy](/apps/deploy) and [invoke](/apps/invoke) guides to deploy and run your Browser Use automation on Kernel's infrastructure.
+
+## Benefits of using Kernel with Browser Use
+
+- **No local browser management**: Run automations without installing or maintaining browsers locally
+- **Scalability**: Launch multiple browser sessions in parallel
+- **Stealth mode**: Built-in anti-detection features for web scraping
+- **Session state**: Maintain browser state across runs via [Profiles](/browsers/profiles)
+- **Live view**: Debug your automations with real-time browser viewing
+
+## Next steps
+
+- Check out [live view](/browsers/live-view) for debugging your automations
+- Learn about [stealth mode](/browsers/bot-detection/stealth) for avoiding detection
+- Learn how to properly [terminate browser sessions](/browsers/termination)
+- Learn how to [deploy](/apps/deploy) your Browser Use app to Kernel

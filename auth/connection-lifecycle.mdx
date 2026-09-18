@@ -1,0 +1,213 @@
+---
+title: "Connection Lifecycle"
+sidebarTitle: "Lifecycle"
+description: "How connections stay authenticated, and what to do when one breaks"
+---
+
+Once a Managed Auth connection is `AUTHENTICATED`, Kernel runs periodic health checks. For eligible flows, Kernel can automatically reauthenticate the session to keep it valid. This page covers the runtime lifecycle, configuration options, and recovery steps.
+
+## The lifecycle
+
+After the initial login, every connection moves through this loop:
+
+<Steps>
+  <Step title="Health check">
+    On a configurable cadence, Kernel spins up a browser with the profile and verifies the session. A check reaches one of three conclusions: still logged in, definitely logged out, or **inconclusive** — the page didn't prove either way.
+
+    A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
+  </Step>
+  <Step title="Auto-reauth (if eligible)">
+    If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. A successful login resets the loop.
+
+    An inconclusive check never triggers reauth. Kernel would rather check again on the next cycle than log in again unnecessarily — a spurious login can trip risk checks on the site, prompt a device-verification email, or invalidate a working session.
+  </Step>
+  <Step title="NEEDS_AUTH (when action is required)">
+    If automatic reauthentication isn't possible — for example, credentials are missing, human input is required, or the login keeps failing — the connection's `status` changes to `NEEDS_AUTH`. Start a new login session to continue.
+  </Step>
+</Steps>
+
+## Cadence
+
+Health checks run on a configurable interval. Your plan sets the minimum:
+
+| Plan | Minimum interval |
+|------|------------------|
+| Hobbyist | 1 hour |
+| Start-Up | 20 minutes |
+| Enterprise | Fully configurable (as low as 5 minutes) |
+
+You can raise the interval above your plan's minimum, but not below it. Update it with `health_check_interval` (in seconds) — changes take effect immediately, so the next check uses the new value:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  health_check_interval: 1800, // 30 minutes
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    health_check_interval=1800,  # 30 minutes
+)
+```
+
+```go Go
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		HealthCheckInterval: kernel.Int(1800), // 30 minutes
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+### Sessions that expire faster than the interval
+
+For an eligible connection, Kernel continues reauthenticating when every health check finds the session expired. A successful login resets the automatic reauthentication state, so a site whose session TTL is shorter than your health check interval is reauthenticated on every cycle.
+
+If you're seeing the connection flip to `NEEDS_AUTH` frequently and want shorter detection windows, lower `health_check_interval` toward your plan's minimum.
+
+## Can this connection auto-reauth?
+
+Check the `can_reauth` boolean on a connection. It describes eligibility to attempt reauthentication, not whether the next login will succeed. It's `true` only when all of these conditions hold:
+
+1. **A previous login succeeded** — Kernel has recorded the result of a completed login.
+2. **A credential is linked** — It's stored in Kernel or sourced from [1Password](/integrations/1password).
+3. **No blocking requirement is recorded** — Kernel hasn't recorded a requirement that prevents an automatic attempt.
+
+Use `can_reauth_reason` to see why the connection is or isn't eligible. See [Get auth connection](https://kernel.sh/docs/api-reference/managed-auth/get-auth-connection) for the possible values.
+
+`can_reauth` reflects what Kernel knows about the previous login. A site can introduce a new requirement during a later attempt. If Kernel needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` so you can start a new login.
+
+### Flows that need input, a choice, or approval
+
+After a successful login, Kernel saves the login flow. If a later attempt needs input, a choice, or approval, the connection moves to `NEEDS_AUTH` instead of guessing how to proceed.
+
+You can handle these flows in two ways:
+
+- **Switch to TOTP** — if the site supports authenticator apps, add a `totp_secret` to your credential. KERNEL generates codes on demand, removing the need to manually provide that authenticator code. this doesn't eliminate other challenges or guarantee unattended reauthentication. if a code expires before the site accepts it, KERNEL retries with a fresh one.
+- **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
+
+## Triggering re-auth manually
+
+Call `.login()` on any connection to trigger authentication immediately, without waiting for the next scheduled health check. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
+
+This is useful when your workflow needs to ensure a connection is authenticated *right now*:
+
+<CodeGroup>
+```typescript TypeScript
+const state = await kernel.auth.connections.retrieve(auth.id);
+
+if (state.status === 'NEEDS_AUTH') {
+  const login = await kernel.auth.connections.login(auth.id);
+  // Handle login flow as usual
+}
+```
+
+```python Python
+state = await kernel.auth.connections.retrieve(auth.id)
+
+if state.status == "NEEDS_AUTH":
+    login = await kernel.auth.connections.login(auth.id)
+    # Handle login flow as usual
+```
+
+```go Go
+state, err := client.Auth.Connections.Get(ctx, auth.ID)
+if err != nil {
+	panic(err)
+}
+
+if state.Status == kernel.ManagedAuthStatusNeedsAuth {
+	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+	if err != nil {
+		panic(err)
+	}
+	_ = login
+	// Handle login flow as usual
+}
+```
+</CodeGroup>
+
+## When a login fails
+
+If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — the flow is marked `FAILED` and the event includes `error_code` and `error_message`.
+
+How much Kernel retries depends on the failure. A transient site problem (a 5xx page, a maintenance screen) is retried once against the login page before giving up. A conclusive rejection by the site — wrong credentials, a locked account, an unsupported method — is **not** retried, because retrying would burn attempts against a lockout or fail identically.
+
+Common codes:
+
+| Code | Meaning | Retried |
+|------|---------|---------|
+| `credentials_invalid` | The stored or submitted username or password was rejected by the site. | No |
+| `totp_code_rejected` | The site rejected an authenticator code Kernel submitted. | No; retry with a fresh code |
+| `totp_required` | Reauth requires an authenticator code that Kernel couldn't provide automatically. | No |
+| `sms_code_required` | Reauth requires a code sent by SMS. | No |
+| `email_code_required` | Reauth requires a code sent by email. | No |
+| `account_choice_required` | Reauth requires a person to select an account or identity. | No |
+| `customer_input_required` | Reauth requires another field or choice from a person. | No |
+| `external_action_required` | Reauth requires a push approval, link, or another action outside the browser. | No |
+| `account_locked` | The site locked or suspended the account. | No |
+| `unsupported_auth_method` | The site required a method Kernel doesn't currently support (e.g. passkeys). | No |
+| `rate_limited` | The site rate-limited the login attempt. | No; retry later |
+| `website_error` | The site returned an error, maintenance, or unavailable page. | Once |
+| `bot_detected` | The login page blocked the session as automated. | No |
+| `captcha_blocked` | A CAPTCHA was presented and couldn't be solved. | No |
+
+See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list.
+
+### Recovering
+
+- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`totp_code_rejected`** — Retry with a code from a new TOTP window. If independently generated codes keep failing, reconnect the account and update its TOTP secret. One rejected code does not prove that the saved secret is stale.
+- **`totp_required` / `sms_code_required` / `email_code_required`** — Start an interactive login and provide the requested code. Add a TOTP secret to the linked credential to make future authenticator-code challenges automatic.
+- **`account_choice_required` / `customer_input_required` / `external_action_required`** — Start an interactive login and complete the choice, field, or external approval. Kernel does not guess an identity or trigger notification-producing steps during unattended reauth.
+- **`account_locked`** — Unlock the account with the site directly. Calling `.login()` again before that will not help and may extend the lockout.
+- **`rate_limited`** — Wait for the site's retry window before starting another login.
+- **`bot_detected` / `captcha_blocked`** — Pin the connection to a cleaner [proxy](/auth/configuration#custom-proxy) (ISP or custom). For aggressive sites, also enable stealth and review the [bot detection guide](/browsers/bot-detection/overview).
+- **`unsupported_auth_method`** — Switch the account to a supported sign-in method (e.g. password + TOTP instead of a passkey) and re-link the credential.
+- **`website_error`** — Usually the site, not the connection. Retry later; if it persists, confirm the connection's `login_url` still points at a working login page.
+
+## Debugging a flaky connection
+
+Two tools handle most investigations:
+
+1. **Dashboard live view** — The **Browser Sessions** tab in the Kernel dashboard shows every auth browser session (logins, health checks, reauths) with a live view. Watch a session in real time to see exactly where it's getting stuck.
+
+2. **Session recordings** — To record only the next single login attempt without recording subsequent health checks and reauths, pass `record_session: true` on `.login()`:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id, {
+  record_session: true,
+});
+```
+
+```python Python
+login = await kernel.auth.connections.login(
+    auth.id,
+    record_session=True,
+)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{
+	RecordSession: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+To record every auth session on the connection (logins, health checks, and reauths), set `record_session: true` connection-wide — see [Record Sessions for Debugging](/auth/configuration#record-sessions-for-debugging).
+
+## See also
+
+- [Connection Configuration](/auth/configuration) — `health_check_interval`, `proxy`, `record_session`, and other shared options
+- [Credentials](/auth/credentials) — what gets stored and how it powers auto-reauth
+- [FAQ](/auth/faq) — quick answers to common questions

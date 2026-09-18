@@ -1,0 +1,69 @@
+---
+title: "Stream Telemetry"
+description: "Consume a session's live telemetry stream from the SDK or CLI"
+---
+
+Once a session has telemetry [enabled](/browsers/telemetry/overview), you can stream its events in real time. The stream stays open until the session terminates.
+
+## Via SDK
+
+Open the stream and iterate over the envelopes:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const stream = await kernel.browsers.telemetry.stream(sessionId);
+
+for await (const { seq, event } of stream) {
+  console.log(`#${seq} [${event.category}] ${event.type}`);
+}
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+with kernel.browsers.telemetry.stream(session_id) as stream:
+    for envelope in stream:
+        event = envelope.event
+        print(f"#{envelope.seq} [{event.category}] {event.type}")
+```
+</CodeGroup>
+
+To filter, check `event.category` and `event.type` in your loop. If the stream drops, re-open it with the last `seq` you processed as `last_event_id` to resume without gaps.
+
+## Via CLI
+
+Stream events to your terminal. The command runs until the session ends or you interrupt it:
+
+```bash
+kernel browsers telemetry stream <session-id>
+```
+
+### Filtering by category or event type
+
+```bash
+# Only network and console events
+kernel browsers telemetry stream <session-id> --categories=network,console
+
+# Only specific event types
+kernel browsers telemetry stream <session-id> --types=network_response,console_error
+
+# Machine-readable output
+# -o json emits newline-delimited JSON envelopes for piping:
+kernel browsers telemetry stream <session-id> -o json
+```
+
+### Resuming after a disconnect
+
+The stream is a single connection; it does not reconnect on its own. Each event carries a monotonic `seq`, so to resume without gaps you re-open the stream and pass the last `seq` you processed.
+
+```bash
+kernel browsers telemetry stream <session-id> --seq 1024
+```
+
+The server then replays events after that sequence number.
