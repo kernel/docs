@@ -9,11 +9,17 @@ Antigravity can complete the OAuth flow and still send `initialize` without the 
 If you hit that, [connect with an API key](#connect-with-an-api-key-workaround) instead of OAuth.
 </Warning>
 
-There's no Kernel CLI target for Antigravity yet, so add the server by hand.
+## Install with the Kernel CLI
+
+Run the following command:
+
+```bash
+kernel mcp install --target antigravity
+```
 
 ## Configure manually
 
-Open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace:
+Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace:
 
 ```json
 {
@@ -35,7 +41,7 @@ Authorize access in the browser window that opens, then copy the authorization c
 
 ## Connect with an API key (workaround)
 
-Get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead of authenticating:
+Get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead of authenticating. `kernel mcp install --target antigravity` always writes the OAuth config, so add the `headers` block by hand:
 
 ```json
 {
