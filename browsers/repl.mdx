@@ -110,12 +110,13 @@ Each call is evaluated as a fresh JavaScript module cell, but top-level bindings
 // Cell 1: declare reusable state and a helper function
 await kernel.browsers.repl(sessionId, {
   code: `
+    await gotoUrl('https://en.wikipedia.org');
     let searches = 0;
     async function search(query) {
       searches++;
-      await fillInput('input[aria-label="Search"]', query);
+      await fillInput('#searchInput', query);
       await pressKey('Enter');
-      return waitForElement('main', { state: 'visible', timeoutSec: 15 });
+      return waitForElement('#firstHeading', { state: 'visible', timeoutSec: 15 });
     }
   `,
 });
@@ -151,11 +152,15 @@ Helpers are available as bare globals and through the frozen `browser` namespace
 `accessibilitySnapshot()` returns a compact projection of Chromium's computed accessibility tree. Snapshot nodes can be passed directly to `click`, `fillInput`, `waitForElement`, and `uploadFile`, preserving the same actionability and physical-input behavior as selector actions:
 
 ```javascript
+await gotoUrl('https://en.wikipedia.org');
+await waitForLoad();
 const snapshot = await accessibilitySnapshot();
-const submit = snapshot.nodes.find(node => node.role === 'button' && node.name === 'Submit');
+const submit = snapshot.nodes.find(node => node.role === 'button' && node.name === 'Search');
 if (!submit) throw new Error('Submit button not found');
 await click(submit);
 ```
+
+Call `waitForLoad()` before snapshotting a page you just navigated to — the accessibility tree can still be settling (banners, late-loading widgets) immediately after `gotoUrl`, and a snapshot taken too early can miss nodes that are about to render.
 
 Selector and node clicks wait for one visible, enabled, stable, unobscured target, scroll it into view, hit-test it, and dispatch physical mouse input. Coordinate clicks (`click({x, y})`) remain a direct computer-use escape hatch.
 
