@@ -368,19 +368,6 @@ if not response.success:
 
 The Browser REPL is deliberately **unrestricted remote code execution inside the browser VM**. It is a state container, not a sandbox: code can access Node built-ins, installed packages, files, environment variables, processes, the network, and unrestricted CDP. Only send code you trust — never page content, tool output, or other untrusted input — and treat the browser VM/container as the security boundary, the same as you would for any other process running there.
 
-## Browser REPL vs Playwright Execution
-
-Both run inside the browser's VM with no CDP round-trip from your own machine, but they solve different problems:
-
-| | [Playwright Execution](/browsers/playwright-execution) | Browser REPL |
-|---|---|---|
-| State across calls | Fresh isolated context every call | Persists until reset or replaced |
-| API surface | `page`, `context`, `browser` (Playwright) | Browser-control helpers, `webmcp`, opt-in Patchright/Playwright, raw CDP |
-| Getting a value out | `return` a value | `repl.write(...)`, console methods, `repl.emitImage(...)` |
-| Best for | A single, self-contained Playwright script | Agent loops that build up helpers, inspect state, and keep going across many calls |
-
-Reach for Playwright Execution for a one-off script you'd otherwise write against `page`/`context`/`browser`. Reach for the Browser REPL when an agent needs to accumulate functions or variables across steps, mix in WebMCP or CDP, or avoid resending a full program on every call.
-
 ## Use cases
 
 ### Multi-step agent loops
