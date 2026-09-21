@@ -7,8 +7,6 @@ icon: "/images/integration-icons/val-town.svg"
 
 Because Val Town can't launch a local browser, Kernel lets you use tools like Puppeteer, Playwright, or Stagehand on Val Town by connecting to a remote browser session hosted on Kernel's infrastructure.
 
-<Tip>Check out the [Kernel browser loop val](https://www.val.town/x/kernel/kernel-browser-loop) for an example of running a looped browser automation on Val Town.</Tip>
-
 ## Quick start with Puppeteer
 
 1. Create a free [Kernel account](https://dashboard.onkernel.com/sign-up) and generate an API key from Settings → API Keys
@@ -43,3 +41,15 @@ Run an autonomous browser agent powered by Gemini 2.5's computer use capabilitie
    );
    ```
 4. The agent returns an object with a `success` status and a `message` containing the results.
+
+## Quick start with a browser-loop agent
+
+Run an autonomous Claude Sonnet 5 agent that switches between DOM tools (snapshot, find, click, fill, navigate, text) and computer-use tools (screenshot, pixel click, scroll, keyboard) in the same browser session.
+
+1. Remix the [Kernel browser loop val](https://www.val.town/x/kernel/kernel-browser-loop)
+2. Add the following to Environment Variables:
+   - `KERNEL_API_KEY` — from your [Kernel dashboard](https://dashboard.onkernel.com/)
+   - `ANTHROPIC_API_KEY` — from the [Anthropic Console](https://console.anthropic.com/settings/keys)
+3. Run `check.ts` to verify package compatibility and authenticate both APIs
+4. Run `main.ts` to execute the agent
+5. Watch the live-view URL logged at startup and review the tool trace in Logs
