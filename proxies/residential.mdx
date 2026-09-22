@@ -320,11 +320,22 @@ Not all ZIP codes have available residential IPs. If a ZIP code is unavailable, 
 
 ## Restricted destination routing
 
-Residential proxies with no targeting, country-only targeting, or US state targeting automatically route restricted destinations through a compatible upstream provider. This covers `.gov`, a set of country government domains such as `gov.uk`, `gov.au`, `gc.ca`, `gouv.fr`, and `go.jp`, and a set of banking and payment domains. ZIP, ASN, and non-US state targeting may return `restricted_route_unavailable`.
+Residential proxies automatically route restricted destinations through a compatible upstream provider. This covers `.gov`, a set of country government domains such as `gov.uk`, `gov.au`, `gc.ca`, `gouv.fr`, and `go.jp`, and a set of banking, payment, postal, and other commonly blocked destinations.
 
-The covered set is maintained by Kernel and is not exhaustive. A destination outside it uses the default provider, which returns [`provider_blacklisted`](/proxies/errors) if it blocks that destination. [Request an exception](/acceptable-use#requesting-an-exception) to have a destination added.
+Routing is available on proxies with no targeting, country-only targeting, US state targeting, or city targeting — city-targeted proxies get it only when a compatible route exists for that city at creation time. ZIP and ASN targeting, and state targeting outside the US, cannot carry the route at all; restricted destinations on those proxies use the proxy's normal provider and fail with [`provider_blacklisted`](/proxies/errors) if it blocks them.
 
-You may [check proxy health](/proxies/overview#check-proxy-health) against the destination URL before starting a browser.
+The covered set is maintained by Kernel and is not exhaustive. Government coverage outside `.gov` is domain by domain rather than by suffix, so a government domain that isn't in the set stays on the normal provider even when a related one is routed. [Request an exception](/acceptable-use#requesting-an-exception) to have a destination added.
+
+### How routing affects exit IPs
+
+Routed destinations don't follow the [rotation behavior](#ip-rotation-behavior) above:
+
+- The exit IP comes from the compatible provider's pool, not the pool serving the rest of your session. Only the covered hostname moves — subresources, CDNs, and redirects to hostnames outside the set keep the session's normal exit IP, so one page load can use both. A login that redirects through an identity provider outside the set crosses providers mid-flow.
+- A routed destination keeps one sticky exit IP per registrable domain rather than rotating per connection. Two covered destinations in one session — two government agencies, for example — get two different IPs.
+- Stickiness lasts roughly ten minutes after the last request to that destination. A session that idles past that and then resumes can continue from a different IP, which a site that pins a login to an IP might treat as a new session.
+- [Bypass hosts](#bypass-hosts) take precedence: a covered destination listed there connects through Kernel's direct egress instead of being routed.
+
+[Check proxy health](/proxies/overview#check-proxy-health) against the destination URL before starting a browser. The check resolves the route the same way a session does, so it confirms the destination is covered and the route is available.
 
 ## Bypass hosts
 
