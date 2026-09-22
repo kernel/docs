@@ -80,7 +80,7 @@ curl --fail-with-body https://api.onkernel.com/search/providers \
   -H "Authorization: Bearer $KERNEL_API_KEY"
 ```
 
-The response describes configured providers, their filter and content capabilities, and provider-native option schemas. Omitting `strategy` uses automatic routing. You can also select a pinned provider or an ordered fallback strategy; see the Search endpoints in the **API Reference** tab for request schemas.
+The response describes configured providers, their filter and content capabilities, and provider-native option schemas. Omitting `strategy` uses automatic routing, which is the recommended default. Provider-specific strategies and native options are advanced features; review the applicable provider availability and terms before using them.
 
 Portable parameters include `max_results`, `country`, `language`, `include_domains`, `exclude_domains`, `recency`, `start_date`, `end_date`, and `safe_search`. Support varies by provider. Set `strict_params: true` when supplied portable parameters must be honored exactly; otherwise, inspect warnings for unsupported or approximated values. Domain and safety filters aren't authorization boundaries.
 
