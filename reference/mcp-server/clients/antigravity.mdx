@@ -1,0 +1,59 @@
+---
+title: "Google Antigravity"
+description: "Connect Google Antigravity to the Kernel MCP server"
+---
+
+<Warning>
+Antigravity can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)).
+
+If you hit that, [connect with an API key](#connect-with-an-api-key-workaround) instead of OAuth.
+</Warning>
+
+## Install with the Kernel CLI
+
+Run the following command:
+
+```bash
+kernel mcp install --target antigravity
+```
+
+## Configure manually
+
+Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "serverUrl": "https://mcp.onkernel.com/mcp"
+    }
+  }
+}
+```
+
+Antigravity uses `serverUrl` for remote servers; `url` and `httpUrl` are ignored. Reload the window to pick up the change.
+
+## Connect
+
+Press **⌘/Ctrl ,** to open agent settings, go to the **Customizations** tab, and click **Authenticate** next to **kernel**.
+
+Authorize access in the browser window that opens, then copy the authorization code, paste it back into the settings panel, and click **Submit**. Antigravity stores the tokens in `~/.gemini/antigravity/mcp_oauth_tokens.json` and refreshes them for you.
+
+## Connect with an API key (workaround)
+
+Get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead of authenticating. `kernel mcp install --target antigravity` always writes the OAuth config, so add the `headers` block by hand:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "serverUrl": "https://mcp.onkernel.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_KERNEL_API_KEY"
+      }
+    }
+  }
+}
+```
+
+Leave the **Authenticate** button alone when using this — Antigravity sends the header on every request, including `initialize`.
