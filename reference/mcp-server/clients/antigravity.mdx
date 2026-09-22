@@ -3,11 +3,9 @@ title: "Google Antigravity"
 description: "Connect Google Antigravity to the Kernel MCP server"
 ---
 
-<Warning>
-Antigravity can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)).
-
-If you hit that, [connect with an API key](#connect-with-an-api-key-workaround) instead of OAuth.
-</Warning>
+<Note>
+Kernel connects to Antigravity over stdio through `mcp-remote` rather than as a remote `serverUrl` server. Antigravity's remote-server client can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)). `mcp-remote` runs the OAuth flow itself, so the token does not depend on that client.
+</Note>
 
 ## Install with the Kernel CLI
 
@@ -25,35 +23,43 @@ Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and
 {
   "mcpServers": {
     "kernel": {
-      "serverUrl": "https://mcp.onkernel.com/mcp"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp"]
     }
   }
 }
 ```
 
-Antigravity uses `serverUrl` for remote servers; `url` and `httpUrl` are ignored. Reload the window to pick up the change.
+If the entry previously used `serverUrl`, remove that key. Reload the window to pick up the change.
 
 ## Connect
 
-Press **⌘/Ctrl ,** to open agent settings, go to the **Customizations** tab, and click **Authenticate** next to **kernel**.
+Go to **Settings → Customizations**, scroll to **Installed MCP Servers**, and click the reload button.
 
-Authorize access in the browser window that opens, then copy the authorization code, paste it back into the settings panel, and click **Submit**. Antigravity stores the tokens in `~/.gemini/antigravity/mcp_oauth_tokens.json` and refreshes them for you.
+`mcp-remote` opens a browser window for you to authorize access. Once it completes, Kernel shows as connected in the **Installed MCP Servers** list. Tokens are cached under `~/.mcp-auth` and refreshed for you.
 
-## Connect with an API key (workaround)
+## Connect with an API key
 
-Get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead of authenticating. `kernel mcp install --target antigravity` always writes the OAuth config, so add the `headers` block by hand:
+For headless or scripted use, where no browser is available to complete the OAuth flow, get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead. `kernel mcp install --target antigravity` always writes the OAuth config, so add the `--header` argument by hand:
 
 ```json
 {
   "mcpServers": {
     "kernel": {
-      "serverUrl": "https://mcp.onkernel.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_KERNEL_API_KEY"
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.onkernel.com/mcp",
+        "--header",
+        "Authorization:${KERNEL_AUTH_HEADER}"
+      ],
+      "env": {
+        "KERNEL_AUTH_HEADER": "Bearer YOUR_KERNEL_API_KEY"
       }
     }
   }
 }
 ```
 
-Leave the **Authenticate** button alone when using this — Antigravity sends the header on every request, including `initialize`.
+The key goes in `env` rather than inline in `args` so that it stays out of the process list, and the header value carries no space around the colon because `npx` mangles spaces inside `args` on some platforms.
