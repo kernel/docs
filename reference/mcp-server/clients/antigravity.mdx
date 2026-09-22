@@ -40,7 +40,17 @@ Go to **Settings → Customizations**, scroll to **Installed MCP Servers**, and 
 
 ## Connect with an API key
 
-For headless or scripted use, where no browser is available to complete the OAuth flow, get a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) and pass it as a header instead. `kernel mcp install --target antigravity` always writes the OAuth config, so add the `--header` argument by hand:
+For headless or scripted use, where no browser is available to complete the OAuth flow, authenticate with a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) instead. `kernel mcp install --target antigravity` always writes the OAuth config, so wire this up by hand.
+
+Put the key in a header file that only you can read:
+
+```bash
+mkdir -p ~/.kernel
+install -m 600 /dev/null ~/.kernel/mcp-headers.txt
+echo "Authorization: Bearer YOUR_KERNEL_API_KEY" > ~/.kernel/mcp-headers.txt
+```
+
+Then point `mcp-remote` at it:
 
 ```json
 {
@@ -51,15 +61,14 @@ For headless or scripted use, where no browser is available to complete the OAut
         "-y",
         "mcp-remote",
         "https://mcp.onkernel.com/mcp",
-        "--header",
-        "Authorization:${KERNEL_AUTH_HEADER}"
-      ],
-      "env": {
-        "KERNEL_AUTH_HEADER": "Bearer YOUR_KERNEL_API_KEY"
-      }
+        "--header-file",
+        "/Users/you/.kernel/mcp-headers.txt"
+      ]
     }
   }
 }
 ```
 
-The key goes in `env` rather than inline in `args` so that it stays out of the process list, and the header value carries no space around the colon because `npx` mangles spaces inside `args` on some platforms.
+Use an absolute path. `mcp-remote` opens the file directly, so a leading `~` isn't expanded and a relative path resolves against whatever directory Antigravity launched it from.
+
+`--header Authorization:...` takes the value inline instead, but the key then sits in the process arguments, where any other account on the machine can read it from the process list.
