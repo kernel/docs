@@ -471,7 +471,7 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 </CodeGroup>
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 50000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
 `merchant_url` supplies provider context and restricts the destination for card use. see [fill the checkout](#fill-the-checkout) for exact page and origin requirements; `state.domains` is metadata, not an authorization rule.
 
@@ -601,7 +601,7 @@ the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`amount` uses minor currency units. link accepts 1–500000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+`amount` uses minor currency units. link accepts 1–50000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
