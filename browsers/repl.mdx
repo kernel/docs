@@ -1,6 +1,6 @@
 ---
 title: "Browser REPL"
-description: "Execute persistent JavaScript in the same VM as your browser"
+description: "Execute JavaScript in a persistent REPL on the same VM as your browser"
 ---
 
 Execute JavaScript in a persistent Node.js runtime that lives alongside Chromium inside your browser's VM. Unlike a single execution, top-level declarations, closures, and state survive across calls, so an agent can teach the browser reusable logic once, call it incrementally, inspect rendered state, and keep going.
@@ -19,6 +19,10 @@ When you send code through the Browser REPL:
 ## Quick example
 
 <CodeGroup>
+```bash CLI
+kernel browsers repl <session_id> 'await gotoUrl("https://example.com"); repl.write(await pageInfo());'
+```
+
 ```typescript Typescript/Javascript
 import Kernel from '@onkernel/sdk';
 
@@ -96,10 +100,6 @@ func main() {
 	}
 }
 ```
-
-```bash CLI
-kernel browsers repl <session_id> 'await gotoUrl("https://example.com"); repl.write(await pageInfo());'
-```
 </CodeGroup>
 
 ## Persistence across calls
@@ -166,7 +166,7 @@ Selector and node clicks wait for one visible, enabled, stable, unobscured targe
 
 ## WebMCP helpers
 
-Code sent to the REPL can use `webmcp` alongside the browser-control helpers:
+Code sent to the REPL can use `webmcp` alongside the browser-control helpers — it's a passthrough to the [WebMCP API](/browsers/webmcp):
 
 - `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just the active page.
 - `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
@@ -300,6 +300,10 @@ Output and protocol limits are bounded; check `response.content_truncated` if yo
 `timeout_sec` bounds how long a single call may run — it defaults to 60 seconds and accepts up to 300. Set `reset: true` to terminate the current REPL, start a fresh one, and evaluate `code` against it in the same call (useful for recovering from a bad state without a separate round trip):
 
 <CodeGroup>
+```bash CLI
+kernel browsers repl <session_id> --reset --timeout-sec 10 "repl.write('starting clean')"
+```
+
 ```typescript Typescript/Javascript
 const response = await kernel.browsers.repl(sessionId, {
   code: `repl.write('starting clean')`,
@@ -315,10 +319,6 @@ response = kernel.browsers.repl(
     reset=True,
     timeout_sec=10,
 )
-```
-
-```bash CLI
-kernel browsers repl <session_id> --reset --timeout-sec 10 "repl.write('starting clean')"
 ```
 </CodeGroup>
 
