@@ -318,11 +318,13 @@ ZIP code targeting is US-only and cannot be combined with `state` or `city`. The
 Not all ZIP codes have available residential IPs. If a ZIP code is unavailable, proxy creation will fail with a message suggesting alternatives: a nearby ZIP, city/state targeting, or country-only targeting.
 </Warning>
 
-## .gov support
+## Restricted destination routing
 
-Residential proxies with no targeting, country-only targeting, or US state targeting automatically route `.gov` requests through a compatible upstream provider. ZIP, ASN, and non-US state targeting may return `restricted_route_unavailable`.
+Residential proxies with no targeting, country-only targeting, or US state targeting automatically route restricted destinations through a compatible upstream provider. This covers `.gov`, a set of country government domains such as `gov.uk`, `gov.au`, `gc.ca`, `gouv.fr`, and `go.jp`, and a set of banking and payment domains. ZIP, ASN, and non-US state targeting may return `restricted_route_unavailable`.
 
-You may [check proxy health](/proxies/overview#check-proxy-health) against a `.gov` URL before starting a browser.
+The covered set is maintained by Kernel and is not exhaustive. A destination outside it uses the default provider, which returns [`provider_blacklisted`](/proxies/errors) if it blocks that destination. [Request an exception](/acceptable-use#requesting-an-exception) to have a destination added.
+
+You may [check proxy health](/proxies/overview#check-proxy-health) against the destination URL before starting a browser.
 
 ## Bypass hosts
 

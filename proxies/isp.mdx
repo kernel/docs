@@ -95,11 +95,11 @@ func main() {
 - **`country`** (optional) - ISO 3166 country code. Supported values are `US`, `SG`, `GB`, `FR`, and `DE`. Defaults to `US`.
 - **`bypass_hosts`** (optional) - Array of hostnames that bypass the proxy and connect directly (max 100 entries)
 
-## .gov support
+## Restricted destinations
 
-If your workload targets `.gov`, use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting. Kernel's default egress reaches `.gov` directly, so running without a proxy also works.
+ISP proxies don't route restricted destinations automatically. Kernel attaches the provider that carries `.gov`, country government domains, and banking and payment destinations to residential proxies only, so those requests from an ISP proxy fall back to the default provider, which carries some of them and returns a `502` on the rest.
 
-ISP proxies don't route `.gov` automatically today. Kernel attaches the provider that handles `.gov` to residential proxies only, so a `.gov` request from an ISP proxy falls back to the default provider, which carries some `.gov` destinations and returns a `502` on the rest.
+If your workload targets them, use a [residential proxy](/proxies/residential#restricted-destination-routing) with no targeting, country-only targeting, or US state targeting.
 
 ## Bypass hosts
 

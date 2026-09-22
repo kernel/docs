@@ -15,11 +15,11 @@ The header is set on every branded proxy-layer error response, including WebSock
 | `upstream_connect_failed` | The connection to the destination failed. | Yes |
 | `upstream_dns_failure` | The upstream proxy host could not be resolved. | Yes |
 | `origin_tls_timeout` | The proxy reached the destination, but the destination did not complete its TLS handshake in time. | Yes |
-| `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes, except on `.gov` destinations. There, create a new residential proxy with no targeting, country-only targeting, or a U.S. state, confirm it with [`POST /proxies/{id}/check`](https://kernel.sh/docs/api-reference/proxies/check-proxy-health), then use it for the session. |
+| `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes, except on destinations that require [automatic routing](/proxies/residential#restricted-destination-routing). There, create a new residential proxy with no targeting, country-only targeting, or a U.S. state, confirm it with [`POST /proxies/{id}/check`](https://kernel.sh/docs/api-reference/proxies/check-proxy-health), then use it for the session. |
 | `proxy_unavailable` | A failure inside Kernel's own proxy layer, not your automation or the destination. | Yes |
 | `origin_response_incomplete` | The destination closed the connection before sending a complete response. | Only if safe. The destination may have received the request, so retry only when repeating the action cannot cause duplicate changes. |
 | `provider_rejected` | The upstream proxy provider rejected the request before the destination connection was established. | No. Try a different proxy or proxy type, and check the credentials on a [custom proxy](/proxies/custom). |
-| `provider_blacklisted` | The upstream proxy provider blocks this destination. | No. Try a different proxy or proxy type, or disable the proxy for this destination. |
+| `provider_blacklisted` | The upstream proxy provider blocks this destination. | No. A [residential proxy](/proxies/residential#restricted-destination-routing) with supported targeting carries many of these destinations; otherwise use a [custom proxy](/proxies/custom) or [request an exception](/acceptable-use#requesting-an-exception). |
 | `destination_blocked` | Kernel policy blocks connections to internal and private addresses. | No. Use a public destination address. |
 
 ## Recovering from a proxy error
