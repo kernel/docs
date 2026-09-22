@@ -63,6 +63,12 @@ print(search["warnings"])
 ```
 </CodeGroup>
 
+If your installed CLI release includes Search, the equivalent command is:
+
+```bash
+kernel search "Playwright browser automation" --max-results 5
+```
+
 Inspect `results` for ranked URLs, titles, and descriptions. Check `warnings` for parameters that were approximated or omitted, and `attempts` for provider execution history. Save the response if you need it beyond its `expires_at` timestamp; `GET /search/{id}` retrieves retained results, not a fresh search.
 
 ## Discover providers and filters
@@ -86,6 +92,6 @@ Deferred retrieval through `POST /search/{id}/contents` isn't available yet and 
 
 ## CLI and MCP access
 
-The released Kernel CLI doesn't yet provide a `kernel search` command. Use the cURL examples above from your terminal with an API key; `kernel login` isn't required for these HTTP requests.
+The current released Kernel CLI might not include `kernel search` yet. If your installed release includes it, use the CLI example above; otherwise, use the HTTP examples with an API key. `kernel login` isn't required for HTTP requests.
 
-The hosted Kernel MCP server doesn't yet expose the web Search API as a tool. Its [`search_docs`](/reference/mcp-server/tools/search-docs) tool searches Kernel documentation only. Installing MCP configuration with [`kernel mcp install`](/reference/cli/mcp) doesn't add web search support.
+The hosted Kernel MCP server currently exposes [`search_docs`](/reference/mcp-server/tools/search-docs) for Kernel documentation. Web Search API support is a separate MCP capability and depends on the server release and your organization's Search access.
