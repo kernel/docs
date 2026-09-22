@@ -5,7 +5,7 @@ description: "Find browser and proxy settings that can reach the site you want t
 
 **status:** <Badge color="yellow">preview</Badge>
 
-give the config registry a public url and it returns browser and proxy settings that have worked for that site. if we don't have a recommendation yet, you can start an analysis against the live site and poll for the result.
+give the config registry a public url and it returns browser and proxy settings that have worked for that site. if we don't have a recommendation yet, you can start an analysis against the live site and wait for the result.
 
 recommendations are advisory. you decide whether to use them, and <span className="kernel-brand-name">KERNEL</span> won't create a browser or proxy until you ask it to.
 
@@ -44,7 +44,7 @@ a null `recommendation` means the registry doesn't have a usable answer for this
 
 ### 2. run an analysis when needed
 
-`resolve` starts an analysis or joins one already running for the same url. analysis usually takes several minutes. the initial response has a null `recommendation`, so poll the returned analysis id until its status is no longer `running`.
+`resolve` starts an analysis or joins one already running for the same url. analysis usually takes several minutes. the initial response has a null `recommendation`, so pass the returned analysis id to the sdk waiter.
 
 <CodeGroup>
 
@@ -53,11 +53,7 @@ const started = await kernel.configRegistry.resolve({
   url: 'https://www.kernel.sh/docs',
 });
 
-let result = started;
-while (result.analysis?.status === 'running') {
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
-}
+const result = await kernel.configRegistry.analyses.waitForResult(started.analysis!.id);
 
 if (result.recommendation?.type === 'recommendation') {
   console.log(result.recommendation);
@@ -69,10 +65,7 @@ if (result.recommendation?.type === 'recommendation') {
 ```python Python
 started = kernel.config_registry.resolve(url="https://www.kernel.sh/docs")
 
-result = started
-while result.analysis and result.analysis.status == "running":
-    time.sleep(5)
-    result = kernel.config_registry.analyses.retrieve(started.analysis.id)
+result = kernel.config_registry.analyses.wait_for_result(started.analysis.id)
 
 if result.recommendation and result.recommendation.type == "recommendation":
     print(result.recommendation)
@@ -81,6 +74,8 @@ else:
 ```
 
 </CodeGroup>
+
+the waiters poll every five seconds by default. use `maxWaitMs` in typescript or `max_wait_seconds` in python to bound the local wait. timing out stops waiting but doesn't cancel the analysis.
 
 the terminal analysis statuses are `completed`, `failed`, `canceled`, and `expired`. when an analysis finishes without a recommendation, inspect `recommendation` and `analysis.failure` for the reason and retry guidance.
 
@@ -146,7 +141,7 @@ the dashboard generates equivalent typescript, python, and cli snippets for each
 | method | use it when | behavior |
 | --- | --- | --- |
 | `lookup` | you want the best answer already in the registry | returns immediately, doesn't start work, and always reflects current knowledge |
-| `resolve` | `lookup` returned null or you want fresh evidence | starts or joins an analysis and returns an analysis id to poll |
+| `resolve` | `lookup` returned null or you want fresh evidence | starts or joins an analysis and returns an analysis id to pass to the sdk waiter |
 
 a completed analysis is a stable historical record. retrieving its id always returns what that run concluded, even after later analyses produce new knowledge. use `lookup` when you want the latest recommendation instead.
 
@@ -200,11 +195,7 @@ an analysis may also return short guidance based on what it observed while navig
 
 ```typescript TypeScript
 // assuming you've started an analysis
-let result = started;
-while (result.analysis?.status === 'running') {
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-  result = await kernel.configRegistry.analyses.retrieve(started.analysis!.id);
-}
+const result = await kernel.configRegistry.analyses.waitForResult(started.analysis!.id);
 
 if (result.guidance) {
   console.log(result.guidance);
@@ -213,10 +204,7 @@ if (result.guidance) {
 
 ```python Python
 # assuming you've started an analysis
-result = started
-while result.analysis and result.analysis.status == "running":
-    time.sleep(5)
-    result = kernel.config_registry.analyses.retrieve(started.analysis.id)
+result = kernel.config_registry.analyses.wait_for_result(started.analysis.id)
 
 if result.guidance:
     print(result.guidance)

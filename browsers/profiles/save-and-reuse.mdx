@@ -251,6 +251,37 @@ if err != nil {
 You can't load a profile into a browser that already has one. The browser must have been created without a profile configuration.
 </Warning>
 
+Loading a profile this way restores all of its saved tabs, which can leave the browser with several tabs open at once. Pass [`start_url`](https://www.kernel.sh/docs/api-reference/browsers/update-browser-session#body-start-url) in the same `update()` call to collapse those restored tabs down to a single tab at the page you specify.
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.browsers.update(browser.session_id, {
+  profile: { name: 'checkout-session' },
+  start_url: 'https://example.com/dashboard',
+});
+```
+
+```python Python
+await kernel.browsers.update(
+    browser.session_id,
+    profile={"name": "checkout-session"},
+    start_url="https://example.com/dashboard",
+)
+```
+
+```go Go
+_, err = client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("checkout-session"),
+	},
+	StartURL: kernel.String("https://example.com/dashboard"),
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
 ## Rename and manage profiles
 
 Renaming a profile doesn't recreate or change its stored state. The new name must be unique within the project.

@@ -5,13 +5,39 @@ description: "Use Agentcard to approve browser checkouts against an enrolled pay
 
 [agentcard](https://www.agentcard.sh/) collects a user's card in a hosted enrollment flow and authorizes each browser checkout against that enrolled payment method. the card number and cvc stay with agentcard. your agent receives non-secret aliases.
 
-agentcard is the credential provider, not the merchant's payment processor. at
-the browser form layer, it works with any web checkout that accepts standard
-card details, and the merchant's processor doesn't need to be stripe. end-to-end
-handoff also requires the outgoing request to match a [native processor
-adapter](/integrations/payments/overview#checkout-and-processor-coverage).
-<span className="kernel-brand-name">KERNEL</span> currently has adapters for
-request formats used by stripe, shopify, square, recurly, and razorpay.
+KERNEL's native integration holds a recognized checkout request while the user approves it, lets agentcard execute it, and replays the processor response to the browser. this alias-based integration is an exception to KERNEL's [`fill` api](/vaults/fill), not another form of that operation. see [payments on KERNEL](/browsers/payments) for the shared offering and lifecycle.
+
+agentcard is the wallet provider, not the merchant's payment processor. end-to-end handoff requires a [recognized processor request](#checkout-and-processor-coverage); the merchant's processor doesn't need to be stripe.
+
+## Checkout and processor coverage
+
+agentcard's alias handoff uses native adapters for these checkout request formats:
+
+| merchant processor or platform | flow | recognized HTTPS `POST` request formats                                                                                                                                                     |
+| ------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| stripe                         | ordinary approval hold | form requests to `api.stripe.com/v1/payment_methods`, `/v1/tokens`, `/v1/payment_intents/{id}/confirm`, and `/v1/payment_pages/{id}/confirm`                                                |
+| shopify                        | ordinary approval hold | JSON card-session requests to `checkout.pci.shopifyinc.com/sessions` and `deposit.<region>.shopifycs.com/sessions`                                                                          |
+| square                         | prepared single-use checkout (currently enabled) | JSON card-nonce requests to `pci-connect.squareup.com/v2/card-nonce` and `pci-connect.squareupsandbox.com/v2/card-nonce`                                                                    |
+| recurly                        | ordinary approval hold | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
+| razorpay                       | ordinary approval hold; reconcile payment status with the merchant | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
+| braintree                      | prepared single-use checkout only | GraphQL guest tokenization requests to `payments.braintree-api.com/graphql` and `payments.sandbox.braintree-api.com/graphql`                                                               |
+| worldpay                       | prepared single-use checkout only | Access Checkout card-session requests to `access.worldpay.com/sessions/card` and `try.access.worldpay.com/sessions/card`                                                                   |
+| bambora                        | prepared single-use checkout only | card-token requests to `api.na.bambora.com/scripts/tokenization/tokens` and `api.bam.shift4api.net/scripts/tokenization/tokens`                                                           |
+| mercado pago                   | prepared single-use checkout only | fresh-card token requests to `api.mercadopago.com/v1/card_tokens`                                                                                                                          |
+
+for example, an attached browser can enter agentcard aliases into a shopify checkout. shopify remains the merchant platform; agentcard supplies the credential and approval flow.
+
+for ordinary approval holds, the outgoing request must contain the complete alias
+set and match the adapter's expected HTTPS method, host, path, content type, and
+card-field layout. prepared checkout rows require the card item to complete
+`prepare_checkout` before native submission; Braintree, Worldpay, Bambora and
+Mercado Pago don't support the ordinary hold flow. The current KERNEL deployment
+has prepared checkout enabled, so new Square checkouts must use
+`prepare_checkout`, and an unprepared request is rejected rather than falling back
+to an ordinary hold. The ordinary Square hold flow is retained for compatibility
+with deployments that haven't enabled prepared checkout. Encrypted payloads,
+different request layouts, and
+unrecognized processor endpoints pass through without native handoff.
 
 <span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
 support the same processors supported by agentcard's direct SDK. email
@@ -69,7 +95,7 @@ setup below before following the shared payment lifecycle.
 
 ### bring your own agentcard oauth client
 
-register a [provider configuration](/vaults/overview#provider-configurations) once for
+register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for
 your organization. configurations are shared across projects, so authenticate
 this step with an [organization-scoped api key](/info/api-keys). project-scoped
 credentials can reference an existing configuration when creating a wallet, but
@@ -345,7 +371,12 @@ const card = await kernel.vaults.items.upsert("notebook-order", {
   },
 });
 
-if (card.state.status !== "ready" || !card.state.aliases) {
+if (
+  card.type !== "card" ||
+  card.state.provider !== "agentcard" ||
+  card.state.status !== "ready" ||
+  !card.state.aliases
+) {
   throw new Error(`card is ${card.state.status}`);
 }
 ```
@@ -364,7 +395,12 @@ card = kernel.vaults.items.upsert(
     },
 )
 
-if card.state.status != "ready" or card.state.aliases is None:
+if (
+    card.type != "card"
+    or card.state.provider != "agentcard"
+    or card.state.status != "ready"
+    or card.state.aliases is None
+):
     raise RuntimeError(f"card is {card.state.status}")
 ```
 
@@ -677,3 +713,29 @@ merchant created the expected order. return `indeterminate` when the sources
 disagree or the merchant record is unavailable, and don't retry automatically.
 
 pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
+
+## Item reference
+
+wallet and card items accept these `spec` fields. fields not listed here are rejected. a card's `spec.wallet` must reference an agentcard wallet in the same vault.
+
+| item | required fields | optional fields |
+| --- | --- | --- |
+| wallet | `provider: 'agentcard'` | `provider_config`; `user_id` for a user already enrolled in the organization under the same configuration |
+| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`                                        |
+
+agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
+
+card updates replace the complete `spec`; they are not partial merges. agentcard card items can update while `requested` or `ready`, but not while approval is pending.
+
+### Item states
+
+- **wallet:** `pending_authorization`, `connected`, `degraded`
+- **card:** `requested`, `ready`, `pending_approval`, `degraded`, `recovery_required`
+
+for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery). a reusable card returning to `ready` does not prove purchase success.
+
+card state can include `masks.brand` and `masks.last4`, and read-only `aliases`: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
+
+the aliases include a luhn-valid 16-digit number, a three-digit cvc, and an expiry month and year. they pass client-side validation but can't resolve unless the browser session and vault are bound together.
+
+deleting a card invalidates its aliases. deleting a wallet also invalidates its dependent cards.

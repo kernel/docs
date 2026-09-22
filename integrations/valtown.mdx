@@ -41,3 +41,15 @@ Run an autonomous browser agent powered by Gemini 2.5's computer use capabilitie
    );
    ```
 4. The agent returns an object with a `success` status and a `message` containing the results.
+
+## Quick start with a browser-loop agent
+
+Run an autonomous Claude Sonnet 5 agent that switches between DOM tools (snapshot, find, click, fill, navigate, text) and computer-use tools (screenshot, pixel click, scroll, keyboard) in the same browser session.
+
+1. Remix the [Kernel browser loop val](https://www.val.town/x/kernel/kernel-browser-loop)
+2. Add the following to Environment Variables:
+   - `KERNEL_API_KEY` — from your [Kernel dashboard](https://dashboard.onkernel.com/)
+   - `ANTHROPIC_API_KEY` — from the [Anthropic Console](https://console.anthropic.com/settings/keys)
+3. Run `check.ts` to verify package compatibility and authenticate both APIs
+4. Run `main.ts` to execute the agent
+5. Watch the live-view URL logged at startup and review the tool trace in Logs
