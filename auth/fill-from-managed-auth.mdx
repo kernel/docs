@@ -31,7 +31,7 @@ Choose [Fill from Vault](/auth/fill-from-vault) with a Kernel credential item wh
 
 ## Requirements
 
-- The connection saves credentials. That's the default; a connection created with `save_credentials: false` has nothing to reuse.
+- The connection holds a Kernel credential. Managed Auth saves one by default after a successful login. A connection created with `save_credentials: false` qualifies only if you linked a [pre-stored credential](/auth/credentials#pre-store-credentials) when creating it.
 - The connection's credential is stored in Kernel. Connections backed by [1Password](/integrations/1password) keep their values in 1Password and can't back an item.
 - The connection, the vault, and the browser belong to the same project.
 
@@ -56,7 +56,7 @@ These examples continue in order, using GitHub as the login destination. Set `KE
 
     <CreateManagedAuthCredentialItem />
 
-    The request returns `404` when no connection has that id, and `409` when the connection hasn't saved a credential yet, belongs to another project, or is backed by an external provider such as 1Password. The `409` error names the condition. Fix the connection through the Managed Auth API, for example by finishing the login, then create the item again. Repeating the same request for an existing key returns the existing item.
+    The request returns `404` when no connection has that id, and `409` when the connection hasn't saved any credential values yet, belongs to another project, or is backed by an external provider such as 1Password. The `409` error names the condition. Fix the connection through the Managed Auth API, for example by finishing the login, then create the item again. Repeating the same request for an existing key returns the existing item.
   </Step>
   <Step title="Attach the vault to a browser">
     Attach the vault when you create the browser. The attachment can't change during the session and grants access to every item in the vault.
@@ -76,7 +76,7 @@ These examples continue in order, using GitHub as the login destination. Set `KE
     `completed` means the selected fields were filled, not that login succeeded. If `fill` fails, returns an uncertain outcome, or loses its response, stop and [inspect the outcome](/vaults/fill#handle-the-outcome) rather than retrying automatically.
   </Step>
   <Step title="Submit and handle the response">
-    After `fill` completes, your application or agent submits the login form once and verifies the site's response. If the site asks for an authenticator code and `state.fields` includes `totp`, navigate to that prompt and invoke `fill` again with a single `totp` binding, for example `{ "field": "totp", "selector": "#app_totp" }` on `https://github.com/sessions/two-factor/app`. Kernel generates the code at fill time. Handle any other prompt through your own interface.
+    After `fill` completes, your application or agent submits the login form once and verifies the site's response. If the site asks for an authenticator code and `state.fields` includes `totp`, navigate to that prompt and invoke `fill` again with a single `totp` binding, for example `{ "field": "totp", "selector": "#app_totp" }` on `https://github.com/sessions/two-factor/app`. Kernel generates the code at fill time. Some sites submit the code as soon as it's entered, so check the page state after the fill. Handle any other prompt through your own interface.
 
     Delete the demo browser when finished. Deleting the item later doesn't affect the connection or its credential.
   </Step>
@@ -101,7 +101,7 @@ Kernel computes the item's status each time you read it, from the connection it 
 | `unavailable` | `connection_not_found` | The connection was deleted. |
 | `unavailable` | `external_credential` | The connection now uses an external credential provider. |
 
-An unavailable item advertises no operations. Managed Auth owns the connection and its credential, so recover through the Managed Auth API, for example by starting a new login that saves the credential again. Once the connection holds a saved Kernel credential again, the item reads it and reports `ready`. You don't need to recreate it.
+An unavailable item advertises no operations. Managed Auth owns the connection and its credential, so recover through the Managed Auth API. For `no_credential` and `external_credential`, start a new login or relink a Kernel credential; once the connection holds a saved Kernel credential again, the item reads it and reports `ready` without being recreated. For `connection_not_found`, the item can't recover, because its `connection_id` is fixed: delete it and create a new item for the replacement connection.
 
 ## How it differs from a Kernel credential item
 
