@@ -1,0 +1,91 @@
+---
+title: "Search"
+description: "Search the web through Kernel's HTTP API and discover provider capabilities."
+---
+
+Search the web with `POST /search`. Kernel routes your query to a configured search provider and returns normalized results, provider attempt history, and warnings.
+
+<Note>
+Search requires access to be enabled for your organization. A `404` with code `search_disabled` means your organization doesn't have access. Contact Kernel to request access. Provider availability depends on the service configuration.
+</Note>
+
+## Run a search
+
+Create an [API key](/info/api-keys) and set `KERNEL_API_KEY` in your environment. These examples use HTTP directly, so they don't require a particular Kernel SDK version.
+
+<CodeGroup>
+```bash cURL
+curl --fail-with-body https://api.onkernel.com/search \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Playwright browser automation","max_results":5}'
+```
+
+```typescript TypeScript
+const response = await fetch("https://api.onkernel.com/search", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.KERNEL_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    query: "Playwright browser automation",
+    max_results: 5,
+  }),
+});
+if (!response.ok) throw new Error(await response.text());
+const search = await response.json();
+console.log(search.results);
+console.log(search.warnings);
+```
+
+```python Python
+import json
+import os
+from urllib.request import Request, urlopen
+
+request = Request(
+    "https://api.onkernel.com/search",
+    data=json.dumps({
+        "query": "Playwright browser automation",
+        "max_results": 5,
+    }).encode(),
+    headers={
+        "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
+        "Content-Type": "application/json",
+    },
+    method="POST",
+)
+with urlopen(request) as response:
+    search = json.load(response)
+print(search["results"])
+print(search["warnings"])
+```
+</CodeGroup>
+
+Inspect `results` for ranked URLs, titles, and descriptions. Check `warnings` for parameters that were approximated or omitted, and `attempts` for provider execution history. Save the response if you need it beyond its `expires_at` timestamp; `GET /search/{id}` retrieves retained results, not a fresh search.
+
+## Discover providers and filters
+
+Use discovery rather than assuming a provider is available:
+
+```bash
+curl --fail-with-body https://api.onkernel.com/search/providers \
+  -H "Authorization: Bearer $KERNEL_API_KEY"
+```
+
+The response describes configured providers, their filter and content capabilities, and provider-native option schemas. Omitting `strategy` uses automatic routing. You can also select a pinned provider or an ordered fallback strategy; see the Search endpoints in the **API Reference** tab for request schemas.
+
+Portable parameters include `max_results`, `country`, `language`, `include_domains`, `exclude_domains`, `recency`, `start_date`, `end_date`, and `safe_search`. Support varies by provider. Set `strict_params: true` when supplied portable parameters must be honored exactly; otherwise, inspect warnings for unsupported or approximated values. Domain and safety filters aren't authorization boundaries.
+
+## Content retrieval limits
+
+Some providers support inline content. Check provider discovery before requesting it. Don't assume a result includes full page text or that every provider supports the same content options.
+
+Deferred retrieval through `POST /search/{id}/contents` isn't available yet and returns `404`. Its presence in the API schema doesn't indicate that it is ready to use.
+
+## CLI and MCP access
+
+The released Kernel CLI doesn't yet provide a `kernel search` command. Use the cURL examples above from your terminal with an API key; `kernel login` isn't required for these HTTP requests.
+
+The hosted Kernel MCP server doesn't yet expose the web Search API as a tool. Its [`search_docs`](/reference/mcp-server/tools/search-docs) tool searches Kernel documentation only. Installing MCP configuration with [`kernel mcp install`](/reference/cli/mcp) doesn't add web search support.
