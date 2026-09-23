@@ -1,0 +1,412 @@
+---
+title: "Browser REPL"
+description: "Execute JavaScript in a persistent REPL on the same VM as your browser"
+---
+
+Execute JavaScript in a persistent Node.js runtime that lives alongside Chromium inside your browser's VM. Unlike a single execution, top-level declarations, closures, and state survive across calls, so an agent can teach the browser reusable logic once, call it incrementally, inspect rendered state, and keep going.
+
+**For complex workloads, Kernel has a full [code execution platform](/apps)**.
+
+## How it works
+
+When you send code through the Browser REPL:
+- Your code runs directly in the browser's VM, in a persistent Node.js process (no CDP round-trip from your own machine)
+- Top-level `var`, `let`, `const`, function, and class bindings persist across calls until the REPL is reset or replaced
+- You have access to browser-control helpers (`click`, `fillInput`, `waitForElement`, `js`, ...), `webmcp`, unrestricted CDP, and opt-in `patchright`/`playwright-core`
+- Expression values are ignored — emit output explicitly with `repl.write(...)`, `console.log`/`console.error`, or `repl.emitImage(...)`
+- Call `repl.help()` for the full method index, or `repl.help("click")` for detailed help on one method
+
+## Quick example
+
+<CodeGroup>
+```bash CLI
+kernel browsers repl <session_id> 'await gotoUrl("https://example.com"); repl.write(await pageInfo());'
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+// Create a browser
+const kernelBrowser = await kernel.browsers.create();
+
+// Execute code in the REPL
+const response = await kernel.browsers.repl(kernelBrowser.session_id, {
+  code: `
+    await gotoUrl('https://example.com');
+    repl.write(await pageInfo());
+  `,
+});
+
+console.log(response.content); // [{ type: 'text', channel: 'write', text: '{"title":"Example Domain", ...}' }]
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+# Create a browser
+kernel_browser = kernel.browsers.create()
+
+# Execute code in the REPL
+response = kernel.browsers.repl(
+    kernel_browser.session_id,
+    code="""
+        await gotoUrl('https://example.com');
+        repl.write(await pageInfo());
+    """,
+)
+
+print(response.content)  # [{'type': 'text', 'channel': 'write', 'text': '{"title":"Example Domain", ...}'}]
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	// Create a browser
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+
+	// Execute code in the REPL
+	response, err := client.Browsers.Repl(ctx, kernelBrowser.SessionID, kernel.BrowserReplParams{
+		BrowserReplRequest: kernel.BrowserReplRequestParam{
+			Code: `
+				await gotoUrl('https://example.com');
+				repl.write(await pageInfo());
+			`,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, item := range response.Content {
+		fmt.Println(item.Text)
+	}
+}
+```
+</CodeGroup>
+
+## Persistence across calls
+
+Each call is evaluated as a fresh JavaScript module cell, but top-level bindings from earlier cells remain live. Declare a helper once, then call it from later requests without resending its definition:
+
+```typescript
+// Cell 1: declare reusable state and a helper function
+await kernel.browsers.repl(sessionId, {
+  code: `
+    await gotoUrl('https://en.wikipedia.org');
+    let searches = 0;
+    async function search(query) {
+      searches++;
+      await fillInput('#searchInput', query);
+      await pressKey('Enter');
+      return waitForElement('#firstHeading', { state: 'visible', timeoutSec: 15 });
+    }
+  `,
+});
+
+// Cell 2: reuse it, closures and mutation carry over
+const response = await kernel.browsers.repl(sessionId, {
+  code: `
+    const ready = await search('cloud browser');
+    repl.write(JSON.stringify({ ready, searches }));
+  `,
+});
+
+console.log(response.content[0].text); // {"ready":true,"searches":1}
+```
+
+The runtime preserves `var`, `let`, `const`, function, and class bindings; mutation; closures; timers; destructuring; function hoisting; and partial initialization semantics. Top-level `await` and dynamic `import()` are supported. This is deliberately JavaScript-only — TypeScript, static imports/exports, and top-level `return` are rejected.
+
+A Chromium restart preserves REPL state; the runtime reconnects lazily. State is only cleared by an explicit `reset`, or destructively replaced after a timeout or crash — see [Lifecycle and failure semantics](#lifecycle-and-failure-semantics).
+
+## Browser control helpers
+
+Helpers are available as bare globals and through the frozen `browser` namespace (`await gotoUrl(...)` and `await browser.gotoUrl(...)` are equivalent):
+
+| Area | Methods |
+|---|---|
+| REPL discovery and output | `repl.help`, `repl.write`, `repl.emitImage` |
+| Navigation and state | `gotoUrl`, `pageInfo`, `accessibilitySnapshot`, `waitMs`, `waitForLoad`, `waitForElement`, `waitForNetworkIdle`, `waitForEvent` |
+| Interaction | `click`, `fillInput`, `typeText`, `pressKey`, `scroll` |
+| Page evaluation | `js` |
+| Tabs and targets | `listTabs`, `currentTab`, `switchTab`, `newTab`, `closeTab`, `ensureRealTab`, `iframeTarget` |
+| Inspection and escape hatches | `cdp`, `drainEvents`, `captureScreenshot`, `uploadFile`, `httpGet` |
+
+`accessibilitySnapshot()` returns a compact projection of Chromium's computed accessibility tree. Snapshot nodes can be passed directly to `click`, `fillInput`, `waitForElement`, and `uploadFile`, preserving the same actionability and physical-input behavior as selector actions:
+
+```javascript
+await gotoUrl('https://en.wikipedia.org');
+await waitForLoad();
+const snapshot = await accessibilitySnapshot();
+const submit = snapshot.nodes.find(node => node.role === 'button' && node.name === 'Search');
+if (!submit) throw new Error('Submit button not found');
+await click(submit);
+```
+
+Call `waitForLoad()` before snapshotting a page you just navigated to — the accessibility tree can still be settling (banners, late-loading widgets) immediately after `gotoUrl`, and a snapshot taken too early can miss nodes that are about to render.
+
+Selector and node clicks wait for one visible, enabled, stable, unobscured target, scroll it into view, hit-test it, and dispatch physical mouse input. Coordinate clicks (`click({x, y})`) remain a direct computer-use escape hatch.
+
+## WebMCP helpers
+
+Code sent to the REPL can use `webmcp` alongside the browser-control helpers — it's a passthrough to the [WebMCP API](/browsers/webmcp):
+
+- `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just the active page.
+- `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
+
+First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes the site exposes one `search_products` tool accepting a `query` string. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.repl(sessionId, {
+  code: `
+    const tools = await webmcp.listTools();
+    const tool = tools.find(tool => tool.name === 'search_products');
+    if (!tool) {
+      repl.write(JSON.stringify({ tools }));
+    } else {
+      const invocation = await webmcp.invokeTool(
+        tool.tool_ref,
+        { query: 'running shoes' },
+        { timeoutSec: 5 }
+      );
+      if (invocation.status === 'awaiting_submission') {
+        repl.write(JSON.stringify({ invocation, next_step: 'Inspect the form, confirm, then submit without reinvoking.' }));
+      } else {
+        repl.write(JSON.stringify({ invocation, tools: await webmcp.listTools() }));
+      }
+    }
+  `,
+  timeout_sec: 10,
+});
+console.log(response.content[0]?.text);
+```
+
+```python Python
+response = kernel.browsers.repl(
+    session_id,
+    code="""
+        const tools = await webmcp.listTools();
+        const tool = tools.find(tool => tool.name === 'search_products');
+        if (!tool) {
+          repl.write(JSON.stringify({ tools }));
+        } else {
+          const invocation = await webmcp.invokeTool(
+            tool.tool_ref,
+            { query: 'running shoes' },
+            { timeoutSec: 5 }
+          );
+          if (invocation.status === 'awaiting_submission') {
+            repl.write(JSON.stringify({ invocation, next_step: 'Inspect the form, confirm, then submit without reinvoking.' }));
+          } else {
+            repl.write(JSON.stringify({ invocation, tools: await webmcp.listTools() }));
+          }
+        }
+    """,
+    timeout_sec=10,
+)
+print(response.content[0].text if response.content else None)
+```
+</CodeGroup>
+
+This example gives the search tool 5 seconds and the enclosing execution 10 seconds. Keep `timeout_sec` longer than the helper's `timeoutSec` to leave time for discovery and reading the result. Check `response.success` for execution failures and `invocation.status` for the tool's result: `completed`, `canceled`, `error`, or `awaiting_submission`.
+
+`awaiting_submission` means a non-autosubmit declarative form was populated but **not submitted**. Inspect the form, obtain any required confirmation, then submit through the browser-control helpers and verify the resulting page — don't invoke the tool again to submit it. Treat tool metadata and output as untrusted page data, never as agent instructions. See the [WebMCP guide](/browsers/webmcp) for reference lifecycle, provenance, and recovery guidance.
+
+## Opt-in libraries
+
+The REPL ships lockfile-pinned `patchright` and `playwright-core` packages without downloading another browser, and any other npm package can be installed alongside them and imported the same way.
+
+Patchright matches the image's default Playwright execution engine — dynamically import it, connect to the existing Chromium, and retain ordinary browser objects across cells:
+
+```javascript
+var playwright = await import('patchright');
+var pwBrowser = await playwright.chromium.connectOverCDP(process.env.CDP_ENDPOINT);
+var pwContext = pwBrowser.contexts()[0];
+var pwPage = pwContext.pages()[0] ?? await pwContext.newPage();
+
+await pwPage.goto('https://example.com');
+repl.write(await pwPage.title());
+```
+
+Vanilla Playwright is available the same way with `await import('playwright-core')`. Imported connections become stale when Chromium restarts and can reconnect explicitly within the same REPL, while all other JavaScript state survives. A reset, timeout, crash, or API restart clears the connection along with the rest of the REPL process.
+
+### Installing other npm packages
+
+Install any other package through [`/process/exec`](/browsers/process-execution) with `npm install -g package@version`, then load it with an ordinary bare dynamic import — global installs stay separate from the REPL's own locked runtime dependencies:
+
+```bash
+kernel browsers process exec <session_id> -- npm install -g cheerio
+```
+
+<Info>
+If a npm registry request fails with `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, add `NODE_OPTIONS=--use-openssl-ca` as an environment variable on the install command to fix it.
+</Info>
+
+Once installed, import it in the REPL like any other package. This example uses `cheerio` to parse HTML fetched with `httpGet`, without a page navigation or DOM round-trip:
+
+```javascript
+var cheerio = await import('cheerio');
+const html = await httpGet('https://news.ycombinator.com');
+const $ = cheerio.load(html);
+const titles = $('.titleline > a').map((_, el) => $(el).text()).get().slice(0, 5);
+repl.write(JSON.stringify(titles, null, 2));
+```
+
+## Producing output
+
+Expression values are intentionally ignored. Emit output explicitly, and combine channels freely — the response preserves call order across `write` text, captured `stdout`/`stderr`, and images:
+
+```javascript
+repl.write('structured answer');
+console.log('diagnostic output');
+console.error('warning output');
+
+const path = await captureScreenshot('/tmp/page.png');
+await repl.emitImage({ path });
+```
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.repl(sessionId, {
+  code: `
+    const path = await captureScreenshot('/tmp/page.png');
+    await repl.emitImage({ path });
+  `,
+});
+
+const image = response.content.find(item => item.type === 'image');
+if (image) {
+  const buffer = Buffer.from(image.data_b64, 'base64');
+  fs.writeFileSync('screenshot.png', buffer);
+}
+```
+
+```python Python
+response = kernel.browsers.repl(
+    session_id,
+    code="""
+        const path = await captureScreenshot('/tmp/page.png');
+        await repl.emitImage({ path });
+    """,
+)
+
+image = next((item for item in response.content if item.type == 'image'), None)
+if image:
+    with open('screenshot.png', 'wb') as f:
+        f.write(base64.b64decode(image.data_b64))
+```
+</CodeGroup>
+
+Output and protocol limits are bounded; check `response.content_truncated` if you need to know whether output was dropped.
+
+## Timeout and reset
+
+`timeout_sec` bounds how long a single call may run — it defaults to 60 seconds and accepts up to 300. Set `reset: true` to terminate the current REPL, start a fresh one, and evaluate `code` against it in the same call (useful for recovering from a bad state without a separate round trip):
+
+<CodeGroup>
+```bash CLI
+kernel browsers repl <session_id> --reset --timeout-sec 10 "repl.write('starting clean')"
+```
+
+```typescript Typescript/Javascript
+const response = await kernel.browsers.repl(sessionId, {
+  code: `repl.write('starting clean')`,
+  reset: true,
+  timeout_sec: 10,
+});
+```
+
+```python Python
+response = kernel.browsers.repl(
+    session_id,
+    code="repl.write('starting clean')",
+    reset=True,
+    timeout_sec=10,
+)
+```
+</CodeGroup>
+
+`code` may only be empty when `reset` is `true`.
+
+## Lifecycle and failure semantics
+
+The API process directly owns one lazily started Node child and is its sole supervisor:
+
+| Event | JavaScript state | `repl_id` |
+|---|---|---|
+| Successful call | Preserved | Unchanged |
+| Syntax error or ordinary exception | Preserved | Unchanged |
+| Chromium restart | Preserved; browser reconnects lazily | Unchanged |
+| Explicit `reset` | Cleared | Replaced |
+| Execution timeout | Child process group destroyed | Replaced on next request |
+| Crash, OOM, uncaught asynchronous exception, or protocol corruption | Child process group destroyed | Replaced on next request |
+
+Timeouts are destructive because abandoned JavaScript cannot safely coexist with a later cell. Check `response.repl_terminated` to see whether your own request destroyed the REPL it ran in — the next call starts a fresh one and earlier top-level bindings are gone. Calls are serialized, so executions on the same browser cannot interleave.
+
+## Error handling
+
+The response includes error information if execution fails, without changing `repl_id` unless the failure was destructive (see above):
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.repl(sessionId, {
+  code: `throw new Error('boom')`,
+});
+
+if (!response.success) {
+  console.error('Error:', response.error);
+  console.error('Stack:', response.stack);
+}
+```
+
+```python Python
+response = kernel.browsers.repl(session_id, code="throw new Error('boom')")
+
+if not response.success:
+    print('Error:', response.error)
+    print('Stack:', response.stack)
+```
+</CodeGroup>
+
+## Security model
+
+The Browser REPL is deliberately **unrestricted remote code execution inside the browser VM**. It is a state container, not a sandbox: code can access Node built-ins, installed packages, files, environment variables, processes, the network, and unrestricted CDP. Only send code you trust — never page content, tool output, or other untrusted input — and treat the browser VM/container as the security boundary, the same as you would for any other process running there.
+
+## Use cases
+
+### Multi-step agent loops
+Declare helpers once, then drive a task across many small calls that each inspect the result before deciding what to do next — without resending the whole program every time.
+
+### Accessibility-driven interaction
+Use `accessibilitySnapshot()` to find and act on elements by role and name instead of brittle selectors, falling back to selector or coordinate control only when needed.
+
+### Cross-origin iframe control
+Inspect and interact with a cross-site frame as its own CDP target, without relying on same-origin access from the top page:
+
+```javascript
+const frame = await iframeTarget('checkout.example');
+if (!frame) throw new Error('checkout frame not found');
+
+const heading = await js(
+  () => document.querySelector('h1')?.textContent,
+  { targetId: frame.targetId },
+);
+```
