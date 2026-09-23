@@ -17,7 +17,7 @@ kernel mcp install --target antigravity
 
 ## Configure manually
 
-Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace:
+Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace. This Linux example uses a cache directory under `/home/user`; change it to an absolute directory in your home directory:
 
 ```json
 {
@@ -30,7 +30,8 @@ Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and
         "https://mcp.onkernel.com/mcp",
         "--static-oauth-client-metadata",
         "{\"client_name\":\"Antigravity\"}"
-      ]
+      ],
+      "env": {"MCP_REMOTE_CONFIG_DIR": "/home/user/.mcp-auth/kernel-antigravity"}
     }
   }
 }
@@ -39,6 +40,8 @@ Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and
 If the entry previously used `serverUrl`, remove that key. Reload the window to pick up the change.
 
 `--static-oauth-client-metadata` names the OAuth client. Without it, `mcp-remote` registers as **MCP CLI Proxy** and the Kernel consent screen asks you to trust that name instead of Antigravity.
+
+The latest Kernel CLI gives Antigravity its own auth cache. After rerunning `kernel mcp install --target antigravity`, authorize again. If you already set `MCP_REMOTE_CONFIG_DIR`, the CLI preserves it; use a directory dedicated to Antigravity. To clear an old registration, close Antigravity and remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). This also signs out other clients using that cache.
 
 ## Connect
 

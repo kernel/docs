@@ -11,8 +11,8 @@ kernel mcp install --target goose
 
 The command will display the YAML configuration to add to your Goose config file.
 
-**One-click install:**
-Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fmcp.onkernel.com%2Fmcp&timeout=300&id=kernel&name=Kernel&description=Access%20Kernel%27s%20cloud-based%20browsers%20via%20MCP) to install Kernel on Goose in one click.
+**Install link:**
+Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fmcp.onkernel.com%2Fmcp&arg=--static-oauth-client-metadata&arg=%7B%22client_name%22%3A%22Goose%22%7D&env=MCP_REMOTE_CONFIG_DIR&timeout=300&id=kernel&name=Kernel&description=Access%20Kernel%27s%20cloud-based%20browsers%20via%20MCP) to add Kernel to Goose. When prompted, set `MCP_REMOTE_CONFIG_DIR` to an absolute directory dedicated to Goose so another client's cached registration can't be reused.
 
 ## Goose Desktop
 
@@ -22,7 +22,8 @@ Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fm
    - **Extension Name**: `Kernel`
    - **Type**: `STDIO`
    - **Description**: `Access Kernel's cloud-based browsers via MCP`
-   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp`
+   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp --static-oauth-client-metadata '{"client_name":"Goose"}'`
+   - **Environment variable**: Set `MCP_REMOTE_CONFIG_DIR` to an absolute directory dedicated to Goose.
    - **Timeout**: `300`
 4. Click `Save Changes` button.
 
@@ -36,6 +37,9 @@ Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fm
 3. Choose `Command-line Extension`.
 4. Follow the prompts:
    - **Extension name**: `Kernel`
-   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp`
+   - **Command**: `npx -y mcp-remote https://mcp.onkernel.com/mcp --static-oauth-client-metadata '{"client_name":"Goose"}'`
+   - **Environment variable**: Set `MCP_REMOTE_CONFIG_DIR` to an absolute directory dedicated to Goose.
    - **Timeout**: `300`
    - **Description**: `Access Kernel's cloud-based browsers via MCP`
+
+If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Goose, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Goose and authorize again. This also signs out other clients using that cache. The latest Kernel CLI prints a config with a separate Goose cache.

@@ -15,6 +15,12 @@ Kernel is available as an [official connector](https://claude.ai/directory/kerne
 
 <Info>On Claude for Work (Team/Enterprise), only Primary Owners or Owners can enable custom connectors for the org. After it's configured, each user still needs to go to **Settings → Connectors** and click **Connect** to authorize it for their account.</Info>
 
+## Existing Claude Desktop CLI setups
+
+If you connected Claude Desktop with `kernel mcp install --target claude`, rerun the command with the latest Kernel CLI and authorize again. By default, the updated config gives Claude Desktop its own `mcp-remote` auth cache, so the consent screen names Claude Desktop. If you already set `MCP_REMOTE_CONFIG_DIR` in the server's `env`, choose a separate directory for Claude Desktop yourself.
+
+For a manual `mcp-remote` setup, add `--static-oauth-client-metadata` followed by `{"client_name":"Claude Desktop"}` to the server's arguments, and set `MCP_REMOTE_CONFIG_DIR` in its `env` to an absolute directory dedicated to Claude Desktop. If the old registration still shows **MCP CLI Proxy**, close Claude Desktop, remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`), then reopen Claude Desktop and authorize again. This also signs out other clients using that cache.
+
 ## Claude Code CLI
 
 **Using Kernel CLI (recommended):**
