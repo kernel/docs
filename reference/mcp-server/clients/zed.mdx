@@ -19,13 +19,13 @@ kernel mcp install --target zed
   "context_servers": {
     "kernel": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp", "--static-oauth-client-metadata", "{\"client_name\":\"Zed\"}"],
+      "args": ["-y", "mcp-remote", "https://mcp.onkernel.com/mcp", "46097", "--static-oauth-client-metadata", "{\"client_name\":\"Zed\"}"],
       "env": {"MCP_REMOTE_CONFIG_DIR": "/home/user/.mcp-auth/kernel-zed"}
     }
   }
 }
 ```
 
-`mcp-remote` reuses the first client's cached registration for the same server URL unless each client has a separate `MCP_REMOTE_CONFIG_DIR`.
+Each client needs a separate `MCP_REMOTE_CONFIG_DIR` and OAuth callback port. The `46097` argument sets Zed's port so it can authorize while other clients are running. The CLI preserves an existing explicit port; if you customize it, choose an unused port that no other client uses.
 
 If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Zed, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Zed and authorize again. This also signs out other clients using that cache. Running `kernel mcp install --target zed` with the latest CLI configures a separate cache unless you already set `MCP_REMOTE_CONFIG_DIR` in the server's `env`.
