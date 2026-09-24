@@ -9,7 +9,7 @@ description: "Connect Goose Desktop and Goose CLI to the Kernel MCP server"
 kernel mcp install --target goose
 ```
 
-The command will display the YAML configuration to add to your Goose config file.
+The command displays YAML configuration for your Goose config file. Compare it with the settings below and add any missing callback port, client metadata, or cache directory before pasting it.
 
 Each client needs a separate OAuth callback port as well as a separate cache to authorize while other clients are running. The config below uses `46096` for Goose. If you customize it, choose an unused port that no other client uses.
 
@@ -44,4 +44,4 @@ Click [here](goose://extension?cmd=npx&arg=-y&arg=mcp-remote&arg=https%3A%2F%2Fm
    - **Timeout**: `300`
    - **Description**: `Access Kernel's cloud-based browsers via MCP`
 
-If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Goose, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Goose and authorize again. This also signs out other clients using that cache. The latest Kernel CLI prints a config with a separate Goose cache.
+If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Goose, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Goose and authorize again. This also signs out other clients using that cache.

@@ -9,6 +9,8 @@ description: "Connect Windsurf to the Kernel MCP server"
 kernel mcp install --target windsurf
 ```
 
+Compare the installed Kernel entry with the manual example below. Add any missing OAuth metadata, callback port, or cache directory before authorizing.
+
 **Manual setup:**
 
 1. Press **⌘/Ctrl ,** to open settings.
@@ -31,4 +33,4 @@ kernel mcp install --target windsurf
 
 Each client needs a separate `MCP_REMOTE_CONFIG_DIR` and OAuth callback port. The `46095` argument sets Windsurf's port so it can authorize while other clients are running. The CLI preserves an existing explicit port; if you customize it, choose an unused port that no other client uses.
 
-If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Windsurf, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Windsurf and authorize again. This also signs out other clients using that cache. Running `kernel mcp install --target windsurf` with the latest CLI configures a separate cache unless you already set `MCP_REMOTE_CONFIG_DIR` in the server's `env`.
+If you previously authorized Kernel and the consent screen still shows **MCP CLI Proxy**, close Windsurf, update the config above, then remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). Reopen Windsurf and authorize again. This also signs out other clients using that cache.
