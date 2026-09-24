@@ -123,6 +123,12 @@ proxy = kernel.proxies.create(
 
 </CodeGroup>
 
+## Restricted destinations
+
+Mobile proxies don't route restricted destinations automatically. Kernel attaches the provider that carries `.gov`, country government domains, and a set of banking, payment, and postal destinations to residential proxies only, so those requests from a mobile proxy fall back to the default provider, which carries some of them and returns a `502` on the rest.
+
+If your workload targets them, use a [residential proxy](/proxies/residential#restricted-destination-routing) with no targeting, country-only targeting, US state targeting, or city targeting.
+
 ## Bypass hosts
 
 Configure specific hostnames to bypass the proxy:
