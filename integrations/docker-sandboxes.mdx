@@ -1,0 +1,247 @@
+---
+title: "Docker Sandboxes"
+description: "Give agents in Docker Sandboxes a Kernel cloud browser"
+icon: "/images/integration-icons/docker.svg"
+---
+
+[Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) runs AI coding agents like Claude Code in isolated microVMs, each with its own filesystem, Docker daemon, and network policy. The [Kernel kit](https://hub.docker.com/r/sbx/kernel-kit) adds Kernel to a sandbox with one flag. It installs the [Kernel CLI](/reference/cli), gives your agent a quick-reference guide, allows the network destinations Kernel needs, and keeps your API key on your host.
+
+Your agent runs in the sandbox, and its browser runs on Kernel. The agent doesn't need a local Chromium, and you don't have to open the sandbox's network to the sites it visits. The kit's source is in [`docker/sbx-kits-contrib`](https://github.com/docker/sbx-kits-contrib/tree/main/kernel).
+
+## Prerequisites
+
+- [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/install/), installed and signed in with `sbx login`
+- A [Kernel API key](https://dashboard.onkernel.com/api-keys)
+- Claude Code set up in Docker Sandboxes. See Docker's [agent guides](https://docs.docker.com/ai/sandboxes/agents/).
+
+This guide covers local sandboxes.
+
+## Run an agent with the Kernel kit
+
+<Steps>
+  <Step title="Store your Kernel API key">
+    Save your key in Docker Sandboxes' secret store on your host. `sbx` prompts you for the value:
+
+    ```bash
+    sbx secret set kernel
+    ```
+
+    `sbx` keeps the key in your OS keychain and makes it available to every sandbox.
+  </Step>
+  <Step title="Start Claude Code with the kit">
+    From your project directory, create a sandbox that runs Claude Code with the Kernel kit:
+
+    ```bash
+    sbx run claude --name kernel-demo --kit docker.io/sbx/kernel-kit:latest
+    ```
+
+    `sbx` mounts your current directory into the sandbox and installs the Kernel CLI while it creates the sandbox.
+  </Step>
+  <Step title="Approve the credential request">
+    The first time you run the kit, `sbx` asks you to approve sending your `kernel` credential to `api.onkernel.com`. You must approve it before the kit can use your key, because storing a secret doesn't give a third-party kit permission to use it. If you skipped the previous step, `sbx` asks for your key here.
+  </Step>
+  <Step title="Give your agent a browser task">
+    Ask your agent to use Kernel. For example:
+
+    > Use the Kernel CLI to open https://news.ycombinator.com in a Kernel browser and tell me the titles of the top three stories. Delete the browser when you're done.
+
+    The agent reads the kit's quick-reference guide, then uses the Kernel CLI or SDK to create and drive the browser.
+  </Step>
+</Steps>
+
+To return to the sandbox later, run `sbx run --name kernel-demo`. The sandbox keeps the kit, so you don't pass `--kit` again.
+
+<Tip>
+  To watch your agent work, ask it to create the browser without `--headless` and share the browser's [Live View](/browsers/live-view) URL.
+</Tip>
+
+## Verify the setup
+
+While the agent runs, open a second terminal on your host and run these checks against the sandbox:
+
+```bash
+# The Kernel CLI is installed
+sbx exec kernel-demo sh -lc 'kernel --version'
+
+# The sandbox has a placeholder, not your API key
+sbx exec kernel-demo sh -lc 'echo "$KERNEL_API_KEY"'
+
+# The host proxy authenticates Kernel API requests
+sbx exec kernel-demo kernel browsers list
+```
+
+The second command prints `proxy-managed`. The third command succeeds only if the proxy adds your key to the request. Browsers your agent creates also appear in the [Kernel Dashboard](https://dashboard.onkernel.com/browsers).
+
+## What the kit adds
+
+| Component | Location | Purpose |
+| --- | --- | --- |
+| Kernel CLI | `/usr/local/bin/kernel` | Installed with `npm install -g @onkernel/cli` when `sbx` creates the sandbox |
+| Quick-reference guide | `/home/agent/.kernel/quickstart.md` | CLI and SDK examples the agent reads before it uses Kernel |
+| Agent instructions | Your agent's instruction file | Tells the agent to read the guide and delete browsers when it's done |
+| Network rules | The sandbox's network policy | Allows Kernel, plus the package registries the CLI and SDKs install from |
+| Credential binding | The proxy on your host | Adds your API key to requests to `api.onkernel.com` |
+
+Docker Sandboxes writes the agent instructions outside your workspace, so the kit doesn't change your project's `CLAUDE.md`.
+
+The kit doesn't install the Kernel SDK. If your project uses it, see [Use the Kernel SDK in your project](#use-the-kernel-sdk-in-your-project).
+
+## Add Kernel's agent skills
+
+Kernel's [agent skills](/skills/overview) give your agent detailed guidance for the Kernel CLI and SDKs. To install the CLI skill for your sandboxes, run this on your host:
+
+```bash
+sbx skills add kernel/skills --skill kernel-cli
+```
+
+Omit `--skill` to install every Kernel skill.
+
+<Note>
+  `sbx skills` is an experimental Docker Sandboxes command. See Docker's [`sbx skills add` reference](https://docs.docker.com/reference/cli/sbx/skills/add/).
+</Note>
+
+## How your API key stays on your host
+
+The kit declares `KERNEL_API_KEY` as a proxy-managed credential. Inside the sandbox, the variable holds the placeholder `proxy-managed`. When the Kernel CLI or SDK sends a request to `api.onkernel.com`, a proxy on your host overwrites the `Authorization` header with your real key before forwarding the request. Your agent can create and control browsers, but it never has your key, so it can't leak it.
+
+The proxy adds your key only to requests to `api.onkernel.com`. The kit also allows browser connections such as `wss://proxy.<region>.onkernel.com:8443/...`, but the proxy doesn't intercept them. Those connections carry their own token, and intercepting them would break the browser connection.
+
+### Rotate or scope your key
+
+- To rotate your key, run `sbx secret set kernel` again. Running sandboxes pick up the change without a restart.
+- To use a different key in one sandbox, run `sbx secret set kernel --sandbox kernel-demo`. A sandbox-scoped key takes precedence over the global one.
+- To read your key from 1Password instead of storing it, run `sbx secret set kernel --ref 'op://Engineering/Kernel/credential'`. `sbx` resolves the reference on your host with the 1Password CLI, which must be installed and signed in.
+
+### Run without prompts
+
+In CI and other non-interactive runs, such as with `--detached`, nobody can approve the credential request. The sandbox still starts, but without your key, so Kernel requests fail authentication. To pre-approve the kit, run it interactively once, or add this entry to `~/.config/sbx/credentials.yaml` (`%APPDATA%\sbx\credentials.yaml` on Windows):
+
+```yaml
+bindings:
+  kernel:
+    apiKey:
+      domains: [api.onkernel.com]
+```
+
+## Use the Kernel SDK in your project
+
+The kit installs the CLI, not the SDK. If your agent writes code that uses Kernel, add the SDK to your project:
+
+<CodeGroup>
+```bash Typescript/Javascript
+npm install @onkernel/sdk playwright-core
+```
+
+```bash Python
+pip install kernel playwright
+```
+</CodeGroup>
+
+Use `playwright-core` instead of `playwright` in TypeScript projects. It includes `connectOverCDP` without downloading browsers you won't use. In Python, skip `playwright install` for the same reason.
+
+The SDK reads `KERNEL_API_KEY` from the environment, and the proxy supplies your real key, so your code doesn't need any sandbox-specific setup:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+import { chromium } from 'playwright-core';
+
+const kernel = new Kernel();
+const kernelBrowser = await kernel.browsers.create();
+
+const browser = await chromium.connectOverCDP(kernelBrowser.cdp_ws_url);
+const page = browser.contexts()[0].pages()[0];
+
+await page.goto('https://news.ycombinator.com');
+console.log(await page.title());
+
+await browser.close();
+await kernel.browsers.deleteByID(kernelBrowser.session_id);
+```
+
+```python Python
+import asyncio
+
+from kernel import Kernel
+from playwright.async_api import async_playwright
+
+kernel = Kernel()
+
+
+async def main():
+    kernel_browser = kernel.browsers.create()
+
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.connect_over_cdp(kernel_browser.cdp_ws_url)
+        page = browser.contexts[0].pages[0]
+
+        await page.goto("https://news.ycombinator.com")
+        print(await page.title())
+
+        await browser.close()
+
+    kernel.browsers.delete_by_id(kernel_browser.session_id)
+
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+## Network access
+
+The kit adds these rules to the sandbox's network policy, on top of the policy you chose the first time you ran `sbx`:
+
+| Destination | Why the kit allows it |
+| --- | --- |
+| `*.onkernel.com` | Kernel API requests and browser connections |
+| `registry.npmjs.org`, `*.npmjs.org` | Installing the Kernel CLI and TypeScript SDK |
+| `pypi.org`, `files.pythonhosted.org` | Installing the Python SDK |
+| `github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com` | Downloading the Kernel CLI binary during install |
+
+Websites your agent visits in a Kernel browser don't need rules in the sandbox, because the browser runs on Kernel. If your organization manages Docker Sandboxes policies centrally, those policies take precedence over the kit's rules. To see which requests a sandbox blocked, run:
+
+```bash
+sbx policy log kernel-demo
+```
+
+## Kit versions and compatibility
+
+- The kit uses Docker's v2 kit format. It works with built-in agents like `claude`, which also use v2 kits, but you can't combine it with v3 kits.
+- Add the kit when you create a sandbox. `sbx kit add` only accepts kits that set environment variables, install commands, and network rules, so it can't add this kit to an existing sandbox. To use Kernel in an existing project, create a new sandbox with `--kit`.
+- `latest` points to the newest published kit. To pin a version, use a dated tag from [Docker Hub](https://hub.docker.com/r/sbx/kernel-kit/tags), such as `docker.io/sbx/kernel-kit:20260924-d058fedc156325f87612d9bcd9bd313ab74ba100`. Dated tags never change.
+
+## Troubleshooting
+
+- If your agent reports `kernel: command not found`, the CLI install failed when `sbx` created the sandbox. Run `sbx policy log kernel-demo` to look for blocked npm or GitHub requests, then recreate the sandbox.
+- If Kernel requests fail authentication, the proxy isn't adding your key. Run `sbx secret ls` to confirm the `kernel` secret exists, then start the sandbox interactively to approve the credential request.
+- If browser creation succeeds but your agent can't connect to the browser, check `sbx policy log kernel-demo` for blocked `*.onkernel.com` requests. Your organization's sandbox policy might block them.
+- If your agent doesn't use Kernel, ask for it by name, for example "Use the Kernel CLI to…", or point it to `/home/agent/.kernel/quickstart.md`.
+
+## Clean up
+
+The kit tells your agent to delete browsers when it's done. To delete a browser yourself, use the [Kernel Dashboard](https://dashboard.onkernel.com/browsers) or the CLI:
+
+```bash
+sbx exec kernel-demo kernel browsers delete <session-id> -y
+```
+
+A browser with nothing connected to it enters [standby](/browsers/standby) after five seconds, which stops billing, and Kernel deletes it when its timeout elapses (60 seconds by default). See [Termination & timeouts](/browsers/termination) for details.
+
+Besides your stored key and its approval in `credentials.yaml`, the kit doesn't leave anything on your host. To remove your key and the sandbox, run:
+
+```bash
+sbx secret rm kernel
+sbx rm kernel-demo
+```
+
+Removing the sandbox doesn't change the files in your project directory.
+
+## Next steps
+
+- Watch your agent's browser with [Live View](/browsers/live-view)
+- Reduce bot detection with [stealth mode](/browsers/bot-detection/stealth)
+- Keep logins across sessions with [Profiles](/browsers/profiles) or [Managed Auth](/auth/managed-auth)
+- Record sessions with [Replays](/browsers/replays)
+- See every browser command in the [CLI reference](/reference/cli/browsers)
+- Use Kernel with Claude Code outside a sandbox with [Claude Code and Desktop](/integrations/claude/claude-code-and-desktop)
+- Learn more about kits in Docker's [Use kits](https://docs.docker.com/ai/sandboxes/customize/use-kits/) guide
