@@ -5,7 +5,7 @@ description: "Connect user wallets through KERNEL's native integrations"
 
 KERNEL's native wallet integrations connect a user's payment method to vault items and expose provider-hosted connection and approval through the KERNEL api. your application works with item references, advertised operations, and outcomes instead of passing raw card details to the agent.
 
-wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies approved single-use cards that you inject through KERNEL's [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
+wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies an approved one-use credential, a link pay token or a virtual card, that KERNEL injects through its [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
 
 for the platform capabilities, benefits, and end-to-end lifecycle, start with [payments on KERNEL](/browsers/payments).
 
@@ -22,7 +22,7 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
     icon="link"
   >
     collect a link wallet and approve a one-use credential for a specific
-    purchase.
+    checkout.
   </Card>
   <Card
     title="Agentcard"
@@ -44,18 +44,18 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 | ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | user eligibility          | requires a US phone number                               | —                                                                   |
 | payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
-| purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
-| payment handoff           | KERNEL's `fill` api injects values without passing them through application code or model context; values enter the browser | agentcard executes the intercepted request; KERNEL replays the response |
-| reuse                     | provider-issued single-use card | reusable card item; each checkout requires approval             |
+| purchase authorization    | creating the card item at final checkout starts approval | the user approves with Face ID                                      |
+| payment handoff           | KERNEL's `fill` api supplies a link pay token through the checkout's WebMCP tools or writes a virtual card into card fields, without passing values through application code or model context | agentcard executes the intercepted request; KERNEL replays the response |
+| reuse                     | immutable, one-use credential bound to one browser session and checkout page | reusable card item; each checkout requires approval             |
 | environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
-choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, single-use card. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
+choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, one-use credential. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
 
 both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
 
 ## Checkout and processor coverage
 
-KERNEL's `fill` api does not require a native processor adapter. for link-issued cards, the page must match the allowed merchant origin and provide supported checkout inputs. see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+link doesn't require a native processor adapter. KERNEL inspects the checkout when you create the card: stripe checkout pages that expose link pay token WebMCP tools get a merchant-bound link pay token, and other checkouts get a virtual card that needs supported card inputs. `fill` must target the exact browser session and page the card was created for. see [how KERNEL pays with link](/integrations/wallets/stripe-link#how-kernel-pays).
 
 agentcard's alias-based checkout requires a recognized processor request. see [agentcard's processor coverage](/integrations/wallets/agentcard#checkout-and-processor-coverage) for supported formats and limitations. neither field filling nor provider handoff guarantees processor acceptance or payment success.
 
@@ -109,13 +109,14 @@ operation; deletion is not payment recovery.
 
 configure [link by stripe](/integrations/wallets/stripe-link) or [agentcard](/integrations/wallets/agentcard), then follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
 
-the provider pages show the CLI commands for creating wallets and cards. once
-the card item is ready, the shared CLI flow is:
+the provider pages show the CLI commands for creating wallets and cards. the
+shared CLI flow around them is:
 
 ```bash CLI
 kernel vaults create --name user-12345
-kernel vaults items get user-12345 notebook-order --wait 60 -o json
 kernel browsers create --vault user-12345 -o json
+# create the card item, then wait for approval
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 
 `--wait` performs one bounded observation. it does not confirm that a payment

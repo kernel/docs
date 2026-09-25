@@ -19,6 +19,8 @@ retrieve the item and require `fill` in `available_operations`. KERNEL rechecks 
 
 the item must be ready and contain a stored value for each requested field. additional eligibility rules depend on the item and its provider; don't assume every item supports `fill`.
 
+read the advertised operation's `description` before invoking it. it names the inputs that item needs. credentials and link virtual cards need `fields` bindings; a link card paid with a link pay token needs only `browser_id` and `page_url`, and its result has an empty `fields` array.
+
 attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share items. use the browser's session id in `browser_id`, not its name. KERNEL rechecks the attachment and item lifecycle before writing.
 
 configure your sdk client with `maxRetries: 0` (typescript) or `max_retries=0` (python) for fill, and don't wrap it in a retry loop. the cli does not automatically retry fill requests.
@@ -27,7 +29,7 @@ configure your sdk client with `maxRetries: 0` (typescript) or `max_retries=0` (
 
 ## Map fields to inputs
 
-your request names the item and vault, the attached browser's `browser_id`, the current `page_url`, and field-selector bindings. field names come from the item's schema; they are not raw values. the following example uses a credential item with username and password fields.
+your request names the item and vault, the attached browser's `browser_id`, the current `page_url`, and, when the item needs them, field-selector bindings. field names come from the item's schema; they are not raw values. the following example uses a credential item with username and password fields.
 
 <Note>
   `fill` reads values from a ready credential item. if another vault
@@ -95,6 +97,8 @@ if result.status != "completed":
 
 when supplied, `page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. zero or multiple matching pages fail.
 
+**link cards:** `browser_id` and `page_url` must exactly match the card's `spec.browser_id` and `spec.page_url`; any other destination returns `403 destination_denied`.
+
 **credentials:** omit `page_url` only when the browser has exactly one open page. credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 
 each selector must identify exactly one editable input or select across the main frame and all descendant frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
@@ -112,7 +116,7 @@ the cli exits nonzero for `failed` or `unknown`, but retains the value-free resu
 | `unknown` | stop and reconcile; at least one field's outcome can't be determined |
 | transport error | treat the outcome as uncertain because writes may already have happened |
 
-known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`.
+known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`. `fields` is empty when the request had no bindings.
 
 `fill` doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded, a form was submitted, or payment succeeded.
 
@@ -122,4 +126,4 @@ known execution failures can return http `200` with a `failed` or `unknown` stat
 
 - [use vault credentials in a browser agent](/browsers/use-vault-credentials-in-browser-agent) for the full application and agent handoff.
 - [payments on KERNEL](/browsers/payments) for using vault items in checkout.
-- [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout) for card fields and merchant restrictions. [agentcard](/integrations/wallets/agentcard) uses an alias-based flow instead of `fill`.
+- [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout) for link pay token and virtual-card fills and their checkout binding. [agentcard](/integrations/wallets/agentcard) uses an alias-based flow instead of `fill`.
