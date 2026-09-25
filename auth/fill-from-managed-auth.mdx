@@ -69,14 +69,18 @@ These examples continue in order, using GitHub as the login destination. Set `KE
     <NavigateGitHubLogin />
   </Step>
   <Step title="Invoke the fill operation">
-    Retrieve the item, require `ready` and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names from `state.fields` and your selectors. Your application must authorize the destination before filling: `fill` doesn't compare the page with the connection's domain.
+    Retrieve the item, require `ready` and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names from `state.fields` and your selectors. Your application must authorize the destination before filling: `fill` doesn't compare the page with the connection's domain. The example sets `timeout_ms` to its 30-second maximum to leave room for several fields; the default is 10 seconds.
 
     <FillManagedAuthCredential />
 
     `completed` means the selected fields were filled, not that login succeeded. If `fill` fails, returns an uncertain outcome, or loses its response, stop and [inspect the outcome](/vaults/fill#handle-the-outcome) rather than retrying automatically.
   </Step>
   <Step title="Submit and handle the response">
-    After `fill` completes, your application or agent submits the login form once and verifies the site's response. If the site asks for an authenticator code and `state.fields` includes `totp`, navigate to that prompt and invoke `fill` again with a single `totp` binding, for example `{ "field": "totp", "selector": "#app_totp" }` on `https://github.com/sessions/two-factor/app`. Kernel generates the code at fill time. Some sites submit the code as soon as it's entered, so check the page state after the fill. Handle any other prompt through your own interface.
+    After `fill` completes, your application or agent submits the login form once and verifies the site's response.
+
+    - If the site asks for an authenticator code and `state.fields` includes `totp`, navigate to that prompt and invoke `fill` again with a single `totp` binding, for example `{ "field": "totp", "selector": "#app_totp" }` on `https://github.com/sessions/two-factor/app`. Kernel generates the code at fill time.
+    - Some sites submit the code as soon as it's entered, so check the page state after the fill.
+    - Handle any other prompt through your own interface.
 
     Delete the demo browser when finished. Deleting the item later doesn't affect the connection or its credential.
   </Step>
