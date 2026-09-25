@@ -108,6 +108,10 @@ kernel browsers update <session-id> --telemetry=off
 On update, a category list patches the current selection - categories you don't include keep their current state. To reset the selection instead, send `enabled: true` (it replaces the selection with the categories you provide, or the default set if you provide none); send `enabled: false` to turn telemetry off.
 </Info>
 
+## Exporting to your own backend
+
+You can also send a session's events to your own OpenTelemetry backend over OTLP/HTTP. Create a destination once for your organization, then select it with `telemetry.export.otlp.destination` when you create a browser. See [Export telemetry](/browsers/telemetry/export) for setup, limits, and how to confirm export is working.
+
 ## Retention
 
 Captured events are retained for 30 days, then expired. You can [stream](/browsers/telemetry/streaming) events live or pull them later for analysis within that window; after 30 days the events are no longer available.
@@ -116,4 +120,5 @@ Captured events are retained for 30 days, then expired. You can [stream](/browse
 
 - [Categories](/browsers/telemetry/categories) - every category, what it captures, the default set, and cost characteristics.
 - [Stream telemetry](/browsers/telemetry/streaming) - consume the live stream from the SDK, CLI, or raw SSE, with filtering and reconnection.
+- [Export telemetry](/browsers/telemetry/export) - send captured events to your own OpenTelemetry backend over OTLP.
 - For event payload schemas, see the [Stream telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/stream-telemetry-events-via-sse) endpoint in the API reference.
