@@ -5,14 +5,9 @@ description: "use link by stripe to approve a one-use payment credential for a b
 
 [link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and credential storage through vault items. oauth credentials and payment material use kms-backed envelope encryption.
 
-you create a link card item once the agent reaches the final checkout page in a browser with the vault attached. KERNEL inspects that page and picks how link pays:
+you create a link card item at the final checkout page, and KERNEL decides how link pays for that checkout. KERNEL's [`fill` api](/vaults/fill) then puts the approved credential into the attached browser without passing it through your application's code or model context. see [how KERNEL pays](#how-kernel-pays) for details.
 
-- **link pay token:** when the checkout is a stripe checkout page that exposes link pay token [WebMCP](/browsers/webmcp) tools, KERNEL uses a merchant-bound link pay token. `fill` needs no field selectors.
-- **virtual card:** otherwise, link issues a one-time virtual card that KERNEL's [`fill` api](/vaults/fill) writes into the page's card fields.
-
-you never choose the mode. either way, `fill` puts the approved credential into the attached browser without passing it through your application's code or model context, and returns outcomes, not values. `fill` never submits payment; the agent clicks pay afterward.
-
-link is the wallet provider, not the merchant's payment processor. the virtual-card path doesn't require a native processor adapter or a stripe merchant, but it needs uniquely selectable card inputs on the checkout page. for the overall offering, see [payments on KERNEL](/browsers/payments).
+link is the wallet provider, not the merchant's payment processor. for the overall offering, see [payments on KERNEL](/browsers/payments).
 
 
 ## Before you start
@@ -522,7 +517,7 @@ when you create the card, KERNEL inspects the checkout page through [WebMCP](/br
 | a stripe checkout page that exposes link pay token WebMCP tools | a merchant-bound link pay token that KERNEL passes to the page's WebMCP tool | `browser_id` and `page_url` only; no field selectors | 500000 |
 | any other checkout | a one-time virtual card that KERNEL writes into the page's card fields | `browser_id`, `page_url`, and `fields` selectors | 50000 |
 
-don't call the page's WebMCP tools yourself or pass a merchant account id. if the checkout doesn't support link pay tokens and `amount` exceeds 50000, creation returns `400`.
+the virtual-card path doesn't require a native processor adapter or a stripe merchant, but it needs uniquely selectable card inputs on the checkout page. don't call the page's WebMCP tools yourself or pass a merchant account id. if the checkout doesn't support link pay tokens and `amount` exceeds 50000, creation returns `400`.
 
 ### Change or retry a request
 
