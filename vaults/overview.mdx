@@ -66,7 +66,7 @@ credential backing isn't currently available.
 
 ### Inject values with KERNEL's fill api
 
-retrieve the item and require `fill` in `available_operations`. your controller authorizes the destination and supplies field names and selectors, not the stored values. KERNEL checks the browser attachment and item lifecycle, validates the target inputs, and writes values into the attached browser.
+retrieve the item and require `fill` in `available_operations`. your controller authorizes the destination and supplies the inputs the operation's description names, such as field names and selectors, not the stored values. KERNEL checks the browser attachment and item lifecycle, validates the target inputs, and writes values into the attached browser.
 
 `fill` returns value-free per-field outcomes. it doesn't submit a form or establish the site's acceptance. inspect failed or unknown outcomes before taking another action; don't automatically retry. see [fill browser fields](/vaults/fill) for the request and outcome contract.
 
@@ -86,7 +86,7 @@ is required for browser operations, including `fill`.
 | item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, or `card` |
 | alias              | non-sensitive, format-valid stand-in returned in state for eligible items; aliases belong to that item |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                  |
-| operation          | api action advertised in `available_operations`: `collect`, `authorize`, `prepare_checkout`, or `fill`, when eligible |
+| operation          | api action advertised in `available_operations`: `collect`, `prepare_checkout`, or `fill`, when eligible |
 | expansion          | live provider data advertised in `available_expansions`; the initial expansion is `payment_methods` |
 | event              | immutable item observation with `id`, `name`, optional `browser_id`, `data`, and `created_at`       |
 | browser attachment | vault reference fixed when the browser is created                                                   |

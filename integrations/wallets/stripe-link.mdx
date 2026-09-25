@@ -3,11 +3,11 @@ title: "link by stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and credential storage through vault items. oauth credentials and payment material use kms-backed envelope encryption.
 
-use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
+you create a link card item at the final checkout page, and KERNEL decides how link pays for that checkout. KERNEL's [`fill` api](/vaults/fill) then puts the approved credential into the attached browser without passing it through your application's code or model context. see [how KERNEL pays](#how-kernel-pays) for details.
 
-link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
+link is the wallet provider, not the merchant's payment processor. for the overall offering, see [payments on KERNEL](/browsers/payments).
 
 
 ## Before you start
@@ -184,10 +184,12 @@ that grant. continue with [Select a payment method](#select-a-payment-method).
 1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
 2. require the wallet to be `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
-4. create a `card` item with the purchase details.
-5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
-6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
-7. require the advertised `fill` operation, then supply the attached browser's session id, exact current top-level https `page_url`, and field/selector bindings. inspect every fill outcome before deciding whether to submit checkout once.
+4. create a browser with the vault attached, navigate it to the final checkout page, and verify the purchase.
+5. create a `card` item with that browser's session id, the checkout's exact `page_url`, and the purchase details. creation starts link's spend request and returns a `spend_approval` or `push_approval` action.
+6. present the action to the user and wait for `state.status` to become `ready`.
+7. invoke the advertised `fill` operation with the inputs its description names, inspect the outcome, then have the agent click the checkout's pay button once.
+
+creating the card item is the request for approval. card items are immutable and bound to one browser session and checkout page.
 
 ## Connect a wallet
 
@@ -375,7 +377,43 @@ kernel vaults wallets payment-methods user-12345 link-wallet -o json
 
 show the returned methods in a trusted user-facing surface, let the user choose one, and set its id as `LINK_PAYMENT_METHOD_ID`. missing capability metadata means eligibility is unknown. only `eligible: false` is an explicit negative result.
 
-## Create and authorize a card item
+## Open the checkout
+
+create the card item only after the agent reaches the final checkout page, the page where the next step is paying. KERNEL inspects that page when you create the card, so the browser session must be running, have the vault attached, and have the checkout open at that url.
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+  headless: false,
+  timeout_seconds: 1800,
+});
+// navigate the agent to checkout, then read the exact current top-level url
+const checkoutURL = "https://shop.example.com/checkout?cart=cart_8472";
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+    headless=False,
+    timeout_seconds=1800,
+)
+# navigate the agent to checkout, then read the exact current top-level url
+checkout_url = "https://shop.example.com/checkout?cart=cart_8472"
+```
+
+```bash CLI
+kernel browsers create --vault user-12345 -o json
+```
+
+</CodeGroup>
+
+`checkoutURL` / `checkout_url` is the browser's exact current top-level https url, including path, query, and fragment, obtained through your browser-control method. verify the merchant, amount, currency, and items in your controller before creating the card. see [verify and confirm the purchase](/browsers/enable-payments-in-browser-agent#2-verify-and-confirm-the-purchase).
+
+## Create a card item at checkout
+
+creating the card item starts link's spend request and the user's approval. use the session id from the browser above, not a browser name.
 
 <CodeGroup>
 
@@ -386,33 +424,32 @@ let card = await kernel.vaults.items.upsert("notebook-order", {
   spec: {
     provider: "link",
     wallet: wallet.key,
+    browser_id: browser.session_id,
+    page_url: checkoutURL,
     payment_method_id: paymentMethod.id,
     amount: 2306,
     currency: "usd",
     merchant_name: "example shop",
-    merchant_url: "https://shop.example.com",
     context:
       "buy one notebook from example shop for a total of 23.06 usd, including tax " +
       "and shipping. this request is for this purchase only and must not be repeated.",
   },
 });
 
-card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
-if (!card.available_operations.some(({ type }) => type === "authorize")) {
-  throw new Error("authorization is unavailable");
-}
-
-card = await kernel.vaults.items.performOperation(card.key, {
-  id_or_name: vault.id,
-  type: "authorize",
-});
 if (card.action && "url" in card.action) {
   await presentProviderAction({
     userID: authenticatedUser.id,
     vaultID: vault.id,
     item: card,
   });
+} else if (card.action?.name === "push_approval") {
+  console.log("complete the approval in your link app");
 }
+
+card = await kernel.vaults.items.retrieve(card.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
 ```
 
 ```python Python
@@ -423,11 +460,12 @@ card = kernel.vaults.items.upsert(
     spec={
         "provider": "link",
         "wallet": wallet.key,
+        "browser_id": browser.session_id,
+        "page_url": checkout_url,
         "payment_method_id": payment_method.id,
         "amount": 2306,
         "currency": "usd",
         "merchant_name": "example shop",
-        "merchant_url": "https://shop.example.com",
         "context": (
             "buy one notebook from example shop for a total of 23.06 usd, including tax "
             "and shipping. this request is for this purchase only and must not be repeated."
@@ -435,57 +473,115 @@ card = kernel.vaults.items.upsert(
     },
 )
 
-card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
-if not any(operation.type == "authorize" for operation in card.available_operations):
-    raise RuntimeError("authorization is unavailable")
-
-card = kernel.vaults.items.perform_operation(
-    card.key,
-    id_or_name=vault.id,
-    type="authorize",
-)
 if card.action is not None and hasattr(card.action, "url"):
     present_provider_action(
         user_id=authenticated_user.id,
         vault_id=vault.id,
         item=card,
     )
+elif card.action is not None and card.action.name == "push_approval":
+    print("complete the approval in your link app")
+
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id, wait=60)
 ```
 
 ```bash CLI
+# browser_id is the session_id returned by kernel browsers create
 kernel vaults cards create user-12345 notebook-order \
   --provider link \
   --spec '{
     "wallet": "link-wallet",
+    "browser_id": "k7q2m9x4p1w8",
+    "page_url": "https://shop.example.com/checkout?cart=cart_8472",
     "payment_method_id": "pm_123",
     "amount": 2306,
     "currency": "usd",
     "merchant_name": "example shop",
-    "merchant_url": "https://shop.example.com",
     "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
   }'
-kernel vaults items get user-12345 notebook-order -o json
-kernel vaults items invoke user-12345 notebook-order authorize --open
 kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 
 </CodeGroup>
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 50000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+the new card returns `state.status: pending_authorization` and an `action`. `spend_approval` includes a `url` the user opens to approve the purchase in link; `push_approval` means the user approves in their link app. after approval, the card becomes `ready` and advertises `fill`. one bounded wait can finish before approval does; retrieve the item again rather than creating another card.
 
-`merchant_url` supplies provider context and restricts the destination for card use. see [fill the checkout](#fill-the-checkout) for exact page and origin requirements; `state.domains` is metadata, not an authorization rule.
+`amount` uses minor currency units, so `2306` means 23.06 usd. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+
+### How KERNEL pays
+
+when you create the card, KERNEL inspects the checkout page through [WebMCP](/browsers/webmcp) and chooses how link pays. you never choose or see the mode; read the card's advertised `fill` operation instead.
+
+| checkout | payment credential | fill inputs | maximum `amount` |
+| --- | --- | --- | --- |
+| a stripe checkout page that exposes link pay token WebMCP tools | a merchant-bound link pay token that KERNEL passes to the page's WebMCP tool | `browser_id` and `page_url` only; no field selectors | 500000 |
+| any other checkout | a one-time virtual card that KERNEL writes into the page's card fields | `browser_id`, `page_url`, and `fields` selectors | 50000 |
+
+the virtual-card path doesn't require a native processor adapter or a stripe merchant, but it needs uniquely selectable card inputs on the checkout page. don't call the page's WebMCP tools yourself or pass a merchant account id. if the checkout doesn't support link pay tokens and `amount` exceeds 50000, creation returns `400`.
+
+### Change or retry a request
+
+card items are immutable. repeating the same `upsert` with an identical `spec` returns the existing item without inspecting the checkout again or repeating approval. a different `spec` at the same key returns `409`; `PATCH` isn't supported for cards.
+
+to change the purchase, browser, or checkout page, create a new card item under a new key. delete the old item when you no longer need it; deletion can be blocked while a provider outcome is unresolved. never create a replacement card to retry a payment whose outcome is uncertain.
+
+### Handle creation errors
+
+checkout inspection runs before KERNEL creates the item or contacts link. these errors mean no card was created and no approval started, so you can correct the cause and create the card again:
+
+| status | code | cause |
+| --- | --- | --- |
+| `400` | `ambiguous_page`, `timeout` | the page exposes conflicting WebMCP tools, or inspection didn't finish in time |
+| `403` | `destination_denied` | `page_url` isn't a valid https checkout url |
+| `404` | `browser_not_found` | the browser session doesn't exist |
+| `409` | `browser_unavailable` | the browser was deleted, belongs to another project, doesn't have the vault attached, or is busy with another vault operation |
+| `429` | — | rate limited; back off before creating the card again |
+| `500` | `browser_error` | checkout inspection failed in the browser |
 
 ## Fill the checkout
 
-after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-payment-fields).
+after the user completes approval, retrieve the card with `wait: 60`. continue only when it's `ready` and advertises `fill`. read that operation's `description`: it names the inputs this card needs. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-prepare-payment-input-and-submit-once).
 
-supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
+`browser_id` and `page_url` must exactly match the card's `spec.browser_id` and `spec.page_url`, and that page must still be open. any other browser or page returns `403 destination_denied`. the card must remain ready, unexpired, and undeleted, with an existing parent wallet. `timeout_ms` is optional.
 
-`page_url` is required, must use https without embedded credentials, and must share the https origin of `spec.merchant_url`. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the checkout path can differ from the stored merchant url, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
+`fill` never submits payment or clicks buttons. after a `completed` fill, the agent clicks the checkout's pay button once.
+
+### Fill a link pay token checkout
+
+when the advertised `fill` description says to omit fields, send only `browser_id` and `page_url`. KERNEL supplies the approved link pay token to the checkout through its verified WebMCP tool, and the result's `fields` array is empty.
+
+<CodeGroup>
+
+```typescript TypeScript
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+});
+```
+
+```python Python
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+)
+```
+
+```bash CLI
+jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" \
+  '{browser_id: $browser, page_url: $url}' |
+  kernel vaults items invoke user-12345 notebook-order fill --spec-file - -o json
+```
+
+</CodeGroup>
 
 ### Map card fields to inputs
 
-the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+when the advertised `fill` description asks for field/selector bindings, KERNEL writes the one-time virtual card into the page's card inputs. the examples below continue with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and the `browser` and `checkoutURL` / `checkout_url` the card is bound to. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
 
 | card field | value and format |
 | --- | --- |
@@ -559,7 +655,7 @@ if result.status != "completed":
 ```
 
 ```bash CLI
-# BROWSER_ID is the attached session ID; PAGE_URL is its exact current checkout URL.
+# BROWSER_ID and PAGE_URL are the card's spec.browser_id and spec.page_url.
 # Inspect the item and require the advertised fill operation before invoking it.
 kernel vaults items get user-12345 notebook-order -o json
 jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
@@ -576,17 +672,21 @@ jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
 
 </CodeGroup>
 
+if a completed fill reveals another card field, inspect the page and send a separate fill containing only the newly visible field. don't resubmit fields that were already filled.
+
 ### Handle the outcome
 
 the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
 
 see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses and reconciliation.
 
-`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+`fill` returns a value-free outcome. `completed` means KERNEL supplied the payment credential to the page, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
 
-single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
+validation errors before any write return `400`, `403`, `404`, or `409` with an error code such as `destination_denied`, `target_changed`, `ambiguous_page`, `browser_unavailable`, `field_unavailable`, `timeout`, or `execution_failed`. inspect and correct the cause before deciding on a new fill.
 
-don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
+one-time describes the provider-issued credential, not item consumption. `fill` doesn't consume the item or clear its encrypted material on the first write. expiry, deletion, and item lifecycle restrictions still apply; a ready item isn't evidence that a purchase can safely be repeated.
+
+don't create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
 
 ## Item reference
 
@@ -595,23 +695,25 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
-| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+| card | `provider`, `wallet`, `browser_id`, `page_url`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+
+wallet items also return a read-only `description` with server-generated guidance for agents.
 
 the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`amount` uses minor currency units. link accepts 1–50000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+`browser_id` is a running browser session id with the vault attached, not a reusable browser name. `page_url` is the exact final checkout url and must use https without embedded credentials. `amount` uses minor currency units: 1–500000 when the checkout supports link pay tokens and 1–50000 otherwise. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
-card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`.
+card items are immutable. create a new item to change any `spec` field.
 
 ### Item states
 
 - **wallet:** `pending_authorization`, `connected`, `declined`, `reconnect_required`, `degraded`
 - **card:** `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
 
-card state can include `masks.brand` and `masks.last4`. retrieve the card's advertised operations before using it. for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery); a ready item alone is not evidence that a purchase can safely be repeated.
+card state can include `masks.brand` and `masks.last4`. retrieve the card's advertised operations before using it. for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery); a ready item alone isn't evidence that a purchase can safely be repeated.
 
 deleting a card clears its stored provider value. deleting a wallet also invalidates its dependent cards.

@@ -12,7 +12,7 @@ verify and approve each purchase before completing checkout.
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
 - choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
-- use a low-value checkout you control. link is live-only and requires an https merchant origin and verified field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
+- use a low-value checkout you control. link is live-only and requires an https checkout page; checkouts without link pay token support also need verified card field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
 - identify how you'll read the merchant's trusted order record. you need it to confirm a matching paid order. deterministic checkout data can verify purchase details before submission, but without the order record afterward, the result remains indeterminate.
 
@@ -34,7 +34,7 @@ and authorization state. neither item is the user's underlying wallet or card.
 
 <Warning>
   - keep wallet enrollment and provider approval outside the agent and its browser. never put action urls, oauth codes, provider responses, api keys, or browser connection urls in model context.
-  - independently verify purchase details in your controller before creating, updating, or authorizing a card item. user confirmation alone doesn't validate an agent's proposal.
+  - independently verify purchase details in your controller before creating a card item. user confirmation alone doesn't validate an agent's proposal.
   - submit checkout once through the merchant's normal form. don't retry submission, automatically retry `fill`, or fall back from `fill` to aliases after failure or uncertainty.
   - report success only after the merchant's trusted order record confirms the matching paid order. a timeout, missing event, or browser deletion doesn't cancel a payment.
 </Warning>
@@ -177,15 +177,16 @@ connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser]
 
 navigate to checkout in this session before verifying the purchase. use the same
 session to inspect and submit it; the vault attachment includes items created later.
+link cards are bound to this session and the checkout page they're created on.
 
 ### 2. Verify and confirm the purchase
 
 1. let the agent propose the merchant, amount, currency, and item or cart contents. treat every proposed value as untrusted.
 2. independently obtain the expected values from a trusted source. prefer your order or cart backend. when no backend exists, use deterministic page extraction with fixed selectors or structured page data, not another model response.
 3. normalize the values in your controller and compare the proposal with the trusted result. compare the amount in minor currency units and require the merchant, currency, and item or cart contents to match.
-4. stop when any value is missing, cannot be verified, or disagrees. do not create or update a card item and do not invoke authorization.
+4. stop when any value is missing, cannot be verified, or disagrees. do not create a card item.
 5. show the independently verified values to the user and wait for explicit confirmation.
-6. freeze that verified, confirmed purchase object. derive the card specification and any authorization request from that same object. do not accept replacement values from the agent after confirmation.
+6. freeze that verified, confirmed purchase object. derive the card specification from that same object. do not accept replacement values from the agent after confirmation.
 
 for stripe payment links, see [checkout-specific notes](#checkout-specific-notes)
 for structured response fields and adaptive pricing.
@@ -212,33 +213,74 @@ step 2, a connected wallet in the same vault, and this browser session.
 <Tabs>
 <Tab title="Link by Stripe">
 
-#### Prepare and authorize the card
+#### Create the card at checkout
 
 1. list the wallet's payment methods and let the user select one.
-2. [create a link card item](/integrations/wallets/stripe-link) named `notebook-order` from the verified purchase and selected method.
-3. require `authorize` in `available_operations`, invoke it with that same purchase object, and present any returned action through your controller.
-4. wait for the card to become `ready`, then require `fill` immediately before use. link cards never expose `state.aliases`.
+2. with the agent on the final checkout page, read the browser's exact current top-level https url. `checkoutURL` / `checkout_url` below is that url, including query and fragment; no playwright page object is required.
+3. [create a link card item](/integrations/wallets/stripe-link#create-a-card-item-at-checkout) named `notebook-order` from the verified purchase, the selected method, `browser.session_id`, and `checkoutURL`. creating the card starts approval.
+4. present the returned `spend_approval` action through your controller, or tell the user to approve a `push_approval` in their link app.
+5. wait for the card to become `ready`, then require `fill` immediately before use. link cards never expose `state.aliases`.
 
 <CodeGroup>
 
 ```typescript TypeScript
-const card = await kernel.vaults.items.retrieve("notebook-order", {
+let card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "link",
+    wallet: wallet.key,
+    browser_id: browser.session_id,
+    page_url: checkoutURL,
+    payment_method_id: verifiedPurchase.paymentMethodID,
+    amount: verifiedPurchase.amount,
+    currency: verifiedPurchase.currency,
+    merchant_name: verifiedPurchase.merchantName,
+    context: verifiedPurchase.context,
+  },
+});
+if (card.action && "url" in card.action) {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: card,
+  });
+}
+
+card = await kernel.vaults.items.retrieve(card.key, {
   id_or_name: vault.id,
   wait: 60,
 });
-
 if (card.type !== "card" || card.state.status !== "ready") {
   throw new Error(`payment item is ${card.state.status}`);
 }
 ```
 
 ```python Python
-card = kernel.vaults.items.retrieve(
+card = kernel.vaults.items.upsert(
     "notebook-order",
     id_or_name=vault.id,
-    wait=60,
+    type="card",
+    spec={
+        "provider": "link",
+        "wallet": wallet.key,
+        "browser_id": browser.session_id,
+        "page_url": checkout_url,
+        "payment_method_id": verified_purchase.payment_method_id,
+        "amount": verified_purchase.amount,
+        "currency": verified_purchase.currency,
+        "merchant_name": verified_purchase.merchant_name,
+        "context": verified_purchase.context,
+    },
 )
+if card.action is not None and hasattr(card.action, "url"):
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=card,
+    )
 
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id, wait=60)
 if card.type != "card" or card.state.status != "ready":
     raise RuntimeError(f"payment item is {card.state.status}")
 ```
@@ -249,19 +291,20 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 </CodeGroup>
 
+KERNEL inspects the checkout when you create the card. if the page is a stripe checkout that exposes link pay token WebMCP tools, the card uses a merchant-bound link pay token; otherwise it uses a one-time virtual card. you don't choose the mode, and the card is bound to this browser session and page. a changed purchase or page needs a new card item under a new key. see [how KERNEL pays](/integrations/wallets/stripe-link#how-kernel-pays).
+
 <a id="link-invoke-fill" />
 
-#### Fill the approved fields
+#### Fill the approved credential
 
+your controller must authorize the destination before disclosure. `browser_id` and
+`page_url` must match the card's `spec.browser_id` and `spec.page_url` exactly.
 
-your controller must authorize the destination and selectors before disclosure.
-`checkoutURL` / `checkout_url` is the browser's exact current top-level https url,
-including query and fragment. it must share the origin of `spec.merchant_url`.
-no playwright page object is required. see [field requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+read the `fill` operation's `description` in `available_operations`; it tells you
+which inputs this card needs:
 
-`fill` supports stored [billing fields](/integrations/wallets/stripe-link#map-card-fields-to-inputs)
-as well as card fields. requesting an absent value returns `field_unavailable`
-before any writes.
+- **the description says to omit fields** (link pay token): send only `browser_id` and `page_url`. KERNEL supplies the token to the checkout's WebMCP tool, and the result's `fields` array is empty.
+- **the description asks for field bindings** (virtual card): also send `fields` for the page's card inputs. `fill` supports stored [billing fields](/integrations/wallets/stripe-link#map-card-fields-to-inputs) as well as card fields; requesting an absent value returns `field_unavailable` before any writes.
 
 <CodeGroup>
 
@@ -269,61 +312,69 @@ before any writes.
 const linkCard = await kernel.vaults.items.retrieve(card.key, {
   id_or_name: vault.id,
 });
-if (
-  linkCard.type !== "card" ||
-  linkCard.spec.provider !== "link" ||
-  !linkCard.available_operations.some((operation) => operation.type === "fill")
-) {
+const fillOperation = linkCard.available_operations.find(
+  (operation) => operation.type === "fill",
+);
+if (linkCard.type !== "card" || linkCard.spec.provider !== "link" || !fillOperation) {
   throw new Error("fill is unavailable for this card");
 }
+// the agent reads the description and proposes bindings, or none when told to
+// omit fields; your controller verifies every proposed selector
+const fields = await proposeFillFields({
+  browser,
+  description: fillOperation.description,
+});
 const result = await kernel.vaults.items.performOperation(linkCard.key, {
   id_or_name: vault.id,
   type: "fill",
   browser_id: browser.session_id,
   page_url: checkoutURL,
-  fields: [
-    { field: "number", selector: "#card-number" },
-    { field: "expiration", selector: "#expiry", format: "MM/YY" },
-    { field: "cvc", selector: "#security-code" },
-  ],
+  ...(fields.length > 0 && { fields }),
   timeout_ms: 10000,
 });
 if (result.type !== "fill") throw new Error("unexpected operation response");
 console.log(result.status, result.fields);
 if (result.status !== "completed") {
-  throw new Error("stop and reconcile per-field outcomes; do not retry");
+  throw new Error("stop and reconcile the fill outcome; do not retry");
 }
 ```
 
 ```python Python
+from kernel import omit
+
 link_card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
-if (
-    link_card.type != "card"
-    or link_card.spec.provider != "link"
-    or not any(operation.type == "fill" for operation in link_card.available_operations)
-):
+fill_operation = next(
+    (operation for operation in link_card.available_operations if operation.type == "fill"),
+    None,
+)
+if link_card.type != "card" or link_card.spec.provider != "link" or fill_operation is None:
     raise RuntimeError("fill is unavailable for this card")
+# the agent reads the description and proposes bindings, or none when told to
+# omit fields; your controller verifies every proposed selector
+fields = propose_fill_fields(browser=browser, description=fill_operation.description)
 result = kernel.vaults.items.perform_operation(
     link_card.key,
     id_or_name=vault.id,
     type="fill",
     browser_id=browser.session_id,
     page_url=checkout_url,
-    fields=[
-        {"field": "number", "selector": "#card-number"},
-        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
-        {"field": "cvc", "selector": "#security-code"},
-    ],
+    fields=fields or omit,
     timeout_ms=10000,
 )
 if result.type != "fill":
     raise RuntimeError("unexpected operation response")
 print(result.status, result.fields)
 if result.status != "completed":
-    raise RuntimeError("stop and reconcile per-field outcomes; do not retry")
+    raise RuntimeError("stop and reconcile the fill outcome; do not retry")
 ```
 
 </CodeGroup>
+
+`proposeFillFields` / `propose_fill_fields` represents your agent returning
+bindings such as `{ field: "number", selector: "#card-number" }` for the
+checkout's visible card inputs, including within payment frames. sending
+`fields` to a link pay token card, or omitting them for a virtual card, returns
+`400 invalid_request` before any write.
 
 retain each result's zero-based `index`, `status`, and optional `error_code`.
 `failed` may leave earlier writes in place; `unknown` or a transport error means
@@ -331,11 +382,12 @@ the outcome is uncertain. stop without retrying or switching to aliases. see the
 [`fill` outcome contract](/vaults/fill#handle-the-outcome) for details and [link checkout](/integrations/wallets/stripe-link#fill-the-checkout)
 for the cli equivalent.
 
-only continue on `completed`. inspect the checkout without reading card values
-back, complete the remaining customer fields and disclosures, and submit once.
-then [verify the outcome](#verify-the-outcome). filling is not payment success
-and doesn't consume the item or clear its encrypted material; the provider's
-single-use card semantics are separate from item state.
+only continue on `completed`. `fill` never clicks pay. inspect the checkout
+without reading card values back, complete the remaining customer fields and
+disclosures, and have the agent click the checkout's pay button once. then
+[verify the outcome](#verify-the-outcome). filling is not payment success and
+doesn't consume the item or clear its encrypted material; the provider's one-use
+credential semantics are separate from item state.
 
 </Tab>
 <Tab title="Agentcard">
@@ -346,10 +398,11 @@ aliases are placeholder card values resolved during provider handoff. the agent
 enters them instead of real card details, which stay outside the browser.
 
 [create an agentcard item](/integrations/wallets/agentcard) named `notebook-order`
-from the verified purchase, or reuse a ready item and update its specification
-when the api permits. pin an enrolled card with `card_id`, or let the user choose
-during approval. don't invoke `authorize`: authorization starts after the browser
-submits a recognized processor request containing aliases.
+from the verified purchase, or reuse a ready item whose specification already
+matches it. card specifications are immutable; a different purchase needs a new
+item. pin an enrolled card with `card_id`, or let the user choose during
+approval. authorization starts after the browser submits a recognized processor
+request containing aliases.
 
 retrieve the item and require `ready` before reading aliases:
 
@@ -712,33 +765,37 @@ card.
    if adaptive pricing is active, use the checkout's active presentment amount
    and currency rather than its base integration values.
    if any value is missing, cannot be verified, or disagrees, stop without
-   creating or authorizing a card.
+   creating a card.
 6. show me the verified merchant, amount, currency, and item or cart contents.
    wait for my explicit confirmation, then freeze that verified purchase object.
-7. list the wallet's payment methods and ask me which one to use. create a link
-   card item named `checkout-card` from that same verified, confirmed object and
-   the selected payment method. use the exact checkout url as `merchant_url` and
-   include a specific context of at least 100 characters.
-8. retrieve the card item and confirm that `authorize` appears in
-   `available_operations`. give me the exact cli command, but do not run it. ask
-   me to invoke authorization and complete any provider action from a trusted
-   terminal or application outside this agent. after i confirm completion,
-   retrieve the item again and require its status to be `ready`. do not print,
-   return, or open an action url.
-9. require `fill` in the card's `available_operations`. inspect the checkout's
-   inputs and invoke `kernel vaults items invoke user-12345 checkout-card fill`
-   with `--params` or `--spec-file`: browser_id is the attached session id,
-   page_url is the exact current top-level https url (including query and
-   fragment), and fields maps stored field names to unique css selectors.
-   the page must share the card's merchant_url origin. combined expiration
-   requires format MM/YY or MM/YYYY; timeout_ms is optional. request only needed
-   card and billing fields. fill writes actual values into the browser; do not
-   read them back, expose them in model context, or assume recordings omit them.
+7. list the wallet's payment methods and ask me which one to use. with the
+   browser on the final checkout page, create a link card item named
+   `checkout-card` from that same verified, confirmed object and the selected
+   payment method. set browser_id to the attached session id and page_url to the
+   exact current top-level https checkout url (including query and fragment),
+   and include a specific context of at least 100 characters. do not pass a
+   merchant account id or try to choose how link pays; KERNEL inspects the
+   checkout and decides. creating the card starts approval. do not print,
+   return, or open the returned action url. ask me to complete the approval
+   from a trusted terminal or application outside this agent.
+8. after i confirm approval, retrieve the item again and require its status to
+   be `ready`. if a creation or retrieval fails, stop and ask me; do not create
+   a second card.
+9. require `fill` in the card's `available_operations` and read its
+   description. invoke `kernel vaults items invoke user-12345 checkout-card fill`
+   with `--params` or `--spec-file`, using the card's browser_id and page_url
+   exactly. if the description says to omit fields, send no fields. otherwise,
+   inspect the checkout's card inputs and map stored field names to unique css
+   selectors; combined expiration requires format MM/YY or MM/YYYY, and
+   timeout_ms is optional. request only needed card and billing fields. fill
+   writes actual values into the browser; do not read them back, expose them in
+   model context, or assume recordings omit them.
 10. preserve the value-free fill result and every per-field outcome. continue
    only on `completed`; failed or unknown outcomes, transport errors, or missing
    required fields mean stop and reconcile. never automatically retry fill or
-   fall back to aliases. supply other customer fields only from approved user
-   data, complete any agent disclosure truthfully, then submit checkout once.
+   fall back to aliases. fill never submits payment. supply other customer
+   fields only from approved user data, complete any agent disclosure
+   truthfully, then click the checkout's pay button once.
 11. inspect the checkout result, fill outcomes, and item events. report success
    only when a trusted merchant order record confirms a paid order matching the
    frozen merchant, amount, currency, and items. fill or a success page alone
@@ -780,9 +837,9 @@ card.
    an agentcard card item named `checkout-card` from that same verified,
    confirmed object. include the selected `card_id`, or omit it so i can choose
    an enrolled card during approval.
-8. retrieve the card item and confirm its status is `ready`. do not invoke
-   `authorize`; agentcard starts authorization only when the attached browser
-   submits a recognized processor request containing the aliases.
+8. retrieve the card item and confirm its status is `ready`. agentcard starts
+   authorization only when the attached browser submits a recognized processor
+   request containing the aliases.
 9. give me the exact cli observation commands, but do not run them. ask me to
    start the trusted approval observer outside this agent. after i confirm it is
    running, use only the returned aliases with

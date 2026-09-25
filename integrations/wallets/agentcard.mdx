@@ -422,90 +422,19 @@ kernel vaults items get user-12345 notebook-order -o json
 
 ### Reuse a card item for a new purchase
 
-`upsert` can retrieve an identical item, but it cannot replace the purchase
-specification at an existing key. for a later purchase, retrieve the reusable
-agentcard item and use `update` with the complete new specification:
+agentcard card items are immutable. `upsert` with an identical `spec` returns the
+existing item, and a different `spec` at the same key returns `409`; `PATCH`
+isn't supported for cards. a ready item can be reused for another checkout with
+the same `merchant`, `amount`, `currency`, and `card_id`. each checkout still
+requires its own approval.
 
-<CodeGroup>
+for a purchase with different details, create a new card item under a new key,
+such as `book-order`, from that purchase's verified object. if the existing item
+is `pending_approval`, finish and reconcile that authorization before preparing
+another purchase. delete the old item when you no longer need it. never create
+a new item to retry a failed, timed-out, or indeterminate checkout.
 
-```typescript TypeScript
-let reusableCard = await kernel.vaults.items.retrieve("notebook-order", {
-  id_or_name: vault.id,
-  wait: 60,
-});
-
-if (
-  reusableCard.type !== "card" ||
-  reusableCard.spec.provider !== "agentcard" ||
-  (reusableCard.state.status !== "requested" &&
-    reusableCard.state.status !== "ready")
-) {
-  throw new Error(`card cannot be updated from ${reusableCard.state.status}`);
-}
-
-reusableCard = await kernel.vaults.items.update("notebook-order", {
-  id_or_name: vault.id,
-  spec: {
-    provider: "agentcard",
-    wallet: wallet.key,
-    merchant: "example books",
-    amount: 4199,
-    currency: "usd",
-  },
-});
-```
-
-```python Python
-reusable_card = kernel.vaults.items.retrieve(
-    "notebook-order",
-    id_or_name=vault.id,
-    wait=60,
-)
-
-if (
-    reusable_card.type != "card"
-    or reusable_card.spec.provider != "agentcard"
-    or reusable_card.state.status not in {"requested", "ready"}
-):
-    raise RuntimeError(
-        f"card cannot be updated from {reusable_card.state.status}"
-    )
-
-reusable_card = kernel.vaults.items.update(
-    "notebook-order",
-    id_or_name=vault.id,
-    spec={
-        "provider": "agentcard",
-        "wallet": wallet.key,
-        "merchant": "example books",
-        "amount": 4199,
-        "currency": "usd",
-    },
-)
-```
-
-```bash CLI
-kernel vaults items get user-12345 notebook-order --wait 60 -o json
-kernel vaults cards update user-12345 notebook-order \
-  --provider agentcard \
-  --spec '{
-    "wallet": "agentcard-wallet",
-    "merchant": "example books",
-    "amount": 4199,
-    "currency": "usd"
-  }'
-```
-
-</CodeGroup>
-
-the api accepts an agentcard card update only while the item is `requested` or
-`ready`. if it is `pending_approval`, finish and reconcile that authorization
-before preparing another purchase. if it is `degraded`, retrieve it to allow
-recovery and stop if it remains degraded. `update` replaces the full `spec`, so
-include `card_id` again when you want to keep the card pinned. never update an item
-to retry a failed, timed-out, or indeterminate checkout.
-
-agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
+agentcard has no per-item `test` flag or domain allowlist, and its cards aren't bound to a checkout page. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
 
 ## Complete the first checkout
 
@@ -515,7 +444,7 @@ use this sequence for an agentcard checkout:
 2. create a headful browser with the vault attached, surface `browser_live_view_url` through your trusted application, and navigate to the checkout. keep this same browser for verification and submission so location-dependent pricing cannot change between the confirmed purchase and the outgoing request.
 3. independently verify the merchant, items, active presentment amount, and active presentment currency from the merchant's trusted order or cart backend. if one isn't available, use documented structured checkout data or deterministic extraction for that checkout. for a stripe payment link specifically, prefer `account_settings.display_name`, `line_item_group.total`, `line_item_group.currency`, and `line_item_group.line_items` from the structured payment-link response. use dom text and test ids only as supplemental checks because stripe can duplicate or omit them across layouts.
 4. collect merchant-required fields such as email, billing name, and postal code from the end user. identify checkout-specific agent disclosures and instruct the agent to answer them truthfully in the normal form.
-5. show the verified purchase to the end user. after confirmation, create or update the card item from that same frozen object and require it to be `ready`. the vault attachment covers items created later in the same vault.
+5. show the verified purchase to the end user. after confirmation, create the card item from that same frozen object and require it to be `ready`. the vault attachment covers items created later in the same vault.
 6. start the card and event observer before checkout submission. keep it running concurrently while the browser request is held.
 7. give the browser agent the aliases, separately collected customer fields, and any required disclosure answer. submit the merchant form once and never retry submission.
 8. publish the approval action through the authenticated, expiring application flow. never send it to the checkout browser or agent.
@@ -669,9 +598,8 @@ event id, classify the attempt as indeterminate, and don't resubmit checkout.
 
 ## Handle checkout approval
 
-agentcard doesn't advertise the `authorize` operation. authorization begins
-only after an attached browser submits a recognized processor request containing
-the aliases.
+authorization begins only after an attached browser submits a recognized
+processor request containing the aliases.
 
 while the request is held, retrieve the card and send `action.url` through the
 same authenticated, expiring user-action flow used for enrollment. stop serving
@@ -725,7 +653,7 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 
 agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
 
-card updates replace the complete `spec`; they are not partial merges. agentcard card items can update while `requested` or `ready`, but not while approval is pending.
+card items are immutable. create a new item to change any `spec` field.
 
 ### Item states
 
