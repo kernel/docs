@@ -99,8 +99,20 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 | `KERNEL_CONNECTED` | `connected`, `capabilities` (recent images only) | Signaling is established. Frames are not necessarily rendering yet. |
 | `KERNEL_PLAYING` | `playing: true` | Video frames are rendering. |
 | `KERNEL_PAUSED` | `playing: false` | Playback has stopped. |
-| `KERNEL_CONNECTION_TIMEOUT` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The client's connection watchdog expired. Useful for diagnostics. |
+| `KERNEL_CONNECTION_TIMEOUT` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | A connect stage ran out its bound without completing. `reason` names the stage. |
+| `KERNEL_CONNECTION_FAILED` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The connect failed outright. `reason` says why. Nothing further happens until the iframe reloads. |
 | `KERNEL_READ_ONLY_CHANGED` | `readOnly`, `requestId` | Acknowledges a `KERNEL_SET_READ_ONLY` request. |
+
+Both terminal events carry the same `reason`, so branch on it instead of matching message text:
+
+| `reason` | Meaning |
+| --- | --- |
+| `transport` | the socket never opened inside its bound, or closed before signaling |
+| `signaling` | the socket opened but no offer arrived inside its bound |
+| `media` | a peer exists but ICE never reached `checking` inside its bound |
+| `peer` | peer construction or the remote offer threw |
+| `unsupported` | the browser has no `RTCPeerConnection` |
+| `server` | the server closed the connect |
 
 ### Accepted from the parent
 
@@ -111,12 +123,14 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 <Info>
     `KERNEL_CONNECTION_TIMEOUT`, `KERNEL_READ_ONLY_CHANGED` and `KERNEL_SET_READ_ONLY` require a recent browser image. `KERNEL_CONNECTED`, `KERNEL_PLAYING` and `KERNEL_PAUSED` are available on all current images, but `capabilities` is sent only by recent ones — older images post `{ type: 'KERNEL_CONNECTED', connected: true }`, so treat a missing `capabilities` as unknown rather than unsupported.
 
+    `KERNEL_CONNECTION_FAILED` requires a browser image that includes the connect-failure fix. On images without it the client fails silently instead, so treat a missing `KERNEL_CONNECTION_FAILED` as unknown rather than as a successful start, and keep gating on `KERNEL_PLAYING`. On images before that fix, `KERNEL_CONNECTION_TIMEOUT` carries `reason: 'connection timeout'` rather than a stage name.
+
     Messages are exchanged with the parent origin derived from `document.referrer`. If the referrer is unavailable — for example under a restrictive `Referrer-Policy` — the client cannot resolve your origin and will reject `KERNEL_SET_READ_ONLY`.
 </Info>
 
 ### Detecting a viewer that never starts
 
-Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the one signal that distinguishes a working viewer from one that is still connecting or has silently failed. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived:
+Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived:
 
 ```typescript Typescript/Javascript
 const iframe = document.querySelector('#kernel-live-view');
@@ -140,12 +154,18 @@ window.addEventListener('message', (event) => {
   if (event.origin !== liveViewOrigin) return;
   if (event.data?.type === 'KERNEL_PLAYING') clearTimeout(watchdog);
   if (event.data?.type === 'KERNEL_PAUSED') arm();
+  if (event.data?.type === 'KERNEL_CONNECTION_FAILED') showFallback(event.data);
+  if (event.data?.type === 'KERNEL_CONNECTION_TIMEOUT') showFallback(event.data);
 });
 
 arm();
 ```
 
 Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. The watchdog behind it is cleared once negotiation begins, so a connection that stalls after that point never emits it. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
+
+`KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly: a `peer` or `unsupported` reason is a property of the browser environment, so a remount repeats it, while a `transport` reason is worth one retry.
+
+The client does not retry a connect itself, so whatever `reason` you get is the first failure, and whether to try again is your call.
 
 ## Kiosk mode
 
