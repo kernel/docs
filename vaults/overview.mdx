@@ -62,6 +62,11 @@ credential backing isn't currently available.
 | third-party-backed credential | a provider connection supplies values to the item | possible future model; not available today |
 | provider-backed card | a supported wallet provider supplies payment material to the item | available today |
 
+a 1Password-backed credential item is in development. it uses a separate
+brokered-approval flow rather than copying values; see [1Password
+credentials](/vaults/1password) for how it compares and its current
+availability.
+
 <a id="fill-or-use-payment-aliases" />
 
 ### Inject values with KERNEL's fill api
@@ -201,5 +206,6 @@ for actions and unresolved provider outcomes, see [payment recovery](/integratio
 - [credential items](/vaults/credentials): define fields, collect values, and update them safely.
 - [use an existing credential vault](/vaults/existing-credential-vault): copy credentials from another vault and synchronize their lifecycle.
 - [fill browser fields](/vaults/fill): safely inject stored values into browser fields without passing them through your application or model.
+- [1Password credentials](/vaults/1password): compare KERNEL-hosted collection with 1Password brokered approval.
 - [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
 - [payments](/browsers/payments): connect wallets and let browser agents complete purchases.
