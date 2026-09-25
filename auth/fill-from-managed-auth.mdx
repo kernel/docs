@@ -11,9 +11,9 @@ import AttachCredentialVault from "/snippets/attach-credential-vault.mdx";
 import NavigateGitHubLogin from "/snippets/navigate-github-login.mdx";
 import FillManagedAuthCredential from "/snippets/fill-managed-auth-credential.mdx";
 
-Managed Auth saves the durable fields a user enters during login, such as an email and password, so it can attempt eligible reauthentication later. A credential item backed by a Managed Auth connection lets your application reuse that saved credential with [`fill`](/vaults/fill): your application or agent drives the login form in its own browser session, and Kernel writes the values, without collecting the credential a second time or returning it to your application.
+Managed Auth saves the durable fields a user enters during login, such as an email and password, as a credential. A vault credential item backed by the Managed Auth connection lets your application reuse that credential with [`fill`](/vaults/fill), even outside of a Managed Auth workflow. With `fill`, your application or agent drives the login form in its own browser session, and Kernel writes the values, without collecting the credential a second time or returning it to your application.
 
-The item stores no values of its own. It reads the connection's saved credential each time you read the item or invoke `fill`, so a password updated through Managed Auth is used immediately.
+The item stores no values of its own. It reads the connection's saved credential each time you read the item or invoke `fill`, so if the password changes in Managed Auth, the next `fill` uses the new one automatically.
 
 <Note>
   `fill` only writes stored values into fields you select. It doesn't discover fields, navigate, submit forms, verify authentication, monitor the session, or reauthenticate. Your application or agent owns each of those steps.
