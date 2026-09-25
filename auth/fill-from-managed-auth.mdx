@@ -1,0 +1,133 @@
+---
+title: "Fill from Managed Auth"
+description: "Reuse a credential collected through Managed Auth to fill a login form in a browser your application controls"
+---
+
+import ManagedAuthLoginForFill from "/snippets/managed-auth-login-for-fill.mdx";
+import CheckManagedAuthCredentialSaved from "/snippets/check-managed-auth-credential-saved.mdx";
+import CreateManagedAuthCredentialItem from "/snippets/create-managed-auth-credential-item.mdx";
+import ManagedAuthCredentialItemResponse from "/snippets/managed-auth-credential-item-response.mdx";
+import AttachCredentialVault from "/snippets/attach-credential-vault.mdx";
+import NavigateGitHubLogin from "/snippets/navigate-github-login.mdx";
+import FillManagedAuthCredential from "/snippets/fill-managed-auth-credential.mdx";
+
+Managed Auth saves the durable fields a user enters during login, such as an email and password, as a credential. A vault credential item backed by the Managed Auth connection lets your application reuse that credential with [`fill`](/vaults/fill), even outside of a Managed Auth workflow. With `fill`, your application or agent drives the login form in its own browser session, and Kernel writes the values, without collecting the credential a second time or returning it to your application.
+
+The item stores no values of its own. It reads the connection's saved credential each time you read the item or invoke `fill`, so if the password changes in Managed Auth, the next `fill` uses the new one automatically.
+
+<Note>
+  `fill` only writes stored values into fields you select. It doesn't discover fields, navigate, submit forms, verify authentication, monitor the session, or reauthenticate. Your application or agent owns each of those steps.
+</Note>
+
+## When to use it
+
+Fill from Managed Auth works best when:
+
+- your users already log in through Managed Auth with the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic).
+- a login prompt appears in a browser session that your application or agent controls, and you want to reuse the credential Managed Auth already holds.
+- you want one credential per user, maintained by Managed Auth, instead of a second copy collected into a vault.
+
+Choose [Fill from Vault](/auth/fill-from-vault) with a Kernel credential item when the credential isn't collected through Managed Auth. Choose [Managed Auth](/auth/managed-auth) on its own when you want Kernel to run the login for you.
+
+## Requirements
+
+- The connection holds a Kernel credential. Managed Auth saves one by default after a successful login. A connection created with `save_credentials: false` qualifies only if you linked a [pre-stored credential](/auth/credentials#pre-store-credentials) when creating it.
+- The connection's credential is stored in Kernel. Connections backed by [1Password](/integrations/1password) keep their values in 1Password and can't back an item.
+- The connection, the vault, and the browser belong to the same project.
+
+## How it works
+
+These examples continue in order, using GitHub as the login destination. Set `KERNEL_API_KEY` in your trusted backend environment. All examples use the default project.
+
+<Steps>
+  <Step title="Log in through Managed Auth">
+    Create a connection and complete a login with the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). Managed Auth saves the fields the user entered once the login succeeds.
+
+    <ManagedAuthLoginForFill />
+
+    Before continuing, confirm the connection holds a saved Kernel credential. The connection's `credential` field names it once it's saved:
+
+    <CheckManagedAuthCredentialSaved />
+
+    Wait for the saved credential, not for the connection's status. A connection that's `NEEDS_AUTH` still qualifies as long as it holds a saved credential.
+  </Step>
+  <Step title="Create the credential item from the connection">
+    Create a [vault](/vaults/overview) for the user, then create a credential item whose `spec` names the connection. The item is created `ready`, and `state.fields` lists the field names you can fill.
+
+    <CreateManagedAuthCredentialItem />
+
+    The request returns `404` when no connection has that id, and `409` when the connection hasn't saved any credential values yet, belongs to another project, or is backed by an external provider such as 1Password. The `409` error names the condition. Fix the connection through the Managed Auth API, for example by finishing the login, then create the item again. Repeating the same request for an existing key returns the existing item.
+  </Step>
+  <Step title="Attach the vault to a browser">
+    Attach the vault when you create the browser. The attachment can't change during the session and grants access to every item in the vault.
+
+    <AttachCredentialVault />
+  </Step>
+  <Step title="Navigate and identify the login fields">
+    Your application or agent navigates to the login page and picks a selector for each field it wants filled. The selectors in the next step target GitHub's login form; inspect the page and recheck them if it changes.
+
+    <NavigateGitHubLogin />
+  </Step>
+  <Step title="Invoke the fill operation">
+    Retrieve the item, require `ready` and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names from `state.fields` and your selectors. Your application must authorize the destination before filling: `fill` doesn't compare the page with the connection's domain. The example sets `timeout_ms` to its 30-second maximum to leave room for several fields; the default is 10 seconds.
+
+    <FillManagedAuthCredential />
+
+    `completed` means the selected fields were filled, not that login succeeded. If `fill` fails, returns an uncertain outcome, or loses its response, stop and [inspect the outcome](/vaults/fill#handle-the-outcome) rather than retrying automatically.
+  </Step>
+  <Step title="Submit and handle the response">
+    After `fill` completes, your application or agent submits the login form once and verifies the site's response.
+
+    - If the site asks for an authenticator code and `state.fields` includes `totp`, navigate to that prompt and invoke `fill` again with a single `totp` binding, for example `{ "field": "totp", "selector": "#app_totp" }` on `https://github.com/sessions/two-factor/app`. Kernel generates the code at fill time.
+    - Some sites submit the code as soon as it's entered, so check the page state after the fill.
+    - Handle any other prompt through your own interface.
+
+    Delete the demo browser when finished. Deleting the item later doesn't affect the connection or its credential.
+  </Step>
+</Steps>
+
+## What the item exposes
+
+Reading the item describes the credential without returning any values:
+
+<ManagedAuthCredentialItemResponse />
+
+Field names come from the login itself, so read them from `state.fields` instead of assuming them. Each entry carries a `type` of `text`, `email`, `password`, or `totp`. A `totp` entry appears when the credential includes a TOTP secret; `fill` writes a freshly generated code for it and never the secret. Entries change when the connection's credential changes, and the item's `version` stays at `1`, so compare `state.fields` rather than `version` to observe changes.
+
+## Item status
+
+Kernel computes the item's status each time you read it, from the connection it points at.
+
+| `state.status` | `state.status_reason` | Meaning |
+| --- | --- | --- |
+| `ready` | | The connection's saved credential can be read and `fill` is advertised. It doesn't mean a login succeeded. |
+| `unavailable` | `no_credential` | The credential was deleted or emptied after the item was created. |
+| `unavailable` | `connection_not_found` | The connection was deleted. |
+| `unavailable` | `external_credential` | The connection now uses an external credential provider. |
+
+An unavailable item advertises no operations. Managed Auth owns the connection and its credential, so recover through the Managed Auth API. For `no_credential` and `external_credential`, start a new login or relink a Kernel credential; once the connection holds a saved Kernel credential again, the item reads it and reports `ready` without being recreated. For `connection_not_found`, the item can't recover, because its `connection_id` is fixed: delete it and create a new item for the replacement connection.
+
+## How it differs from a Kernel credential item
+
+- There's no collection form and no `collect` operation. Managed Auth collects the login.
+- The item can't be edited. Change the credential through Managed Auth, by logging in again or updating the linked [credential](/auth/credentials), and the item picks the change up.
+- Field names and types mirror the saved credential instead of a field list you declare. `wait` doesn't apply, because the item is created ready.
+- Deleting the item leaves the connection and its credential in place. Deleting the connection or its credential makes the item unavailable.
+
+## Security boundary
+
+`fill` writes real values into the browser. Page scripts, extensions, developer tools, and an agent with unrestricted browser access can read them afterwards. Attaching a vault grants a browser access to all of its items, so attach it only to sessions authorized to use every item, and keep `fill` requests in your trusted backend. `fill` doesn't restrict credential items to the connection's domain, so authorize the destination in your application before invoking it.
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Fill Browser Fields" icon="input-text" href="/vaults/fill">
+    Map credential fields to browser inputs and handle completed, failed, or unknown outcomes.
+  </Card>
+  <Card title="Managed Auth Credentials" icon="key" href="/auth/credentials">
+    How Managed Auth saves credentials during login and how to update them.
+  </Card>
+  <Card title="Connection Lifecycle" icon="arrows-rotate" href="/auth/connection-lifecycle">
+    Health checks, reauthentication, and recovering a connection that needs input.
+  </Card>
+</CardGroup>
