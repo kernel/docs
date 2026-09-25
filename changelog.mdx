@@ -9,6 +9,37 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="September 25" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added **custom WebMCP tools**: register named groups of tools backed by the page or by CDP through the API or the [Browser REPL](/browsers/repl). They are discovered alongside a site's own WebMCP tools and called the same way. Manage them with `kernel browsers webmcp custom-tools list/add/remove` in the [CLI](https://github.com/kernel/cli), and call them from the [MCP server](/reference/mcp-server).
+- Added **per-host proxy routes** at browser creation: send specific hosts through a chosen proxy with the repeatable `--proxy-route` flag in the CLI, or through the MCP server.
+- Added **Search API** access through `kernel search`, `kernel search get`, and `kernel search providers` in the CLI, and a web search tool in the MCP server for accounts with Search enabled.
+- Added **profile binding to browser pool acquire**, so a browser taken from a pool can start with a specific profile loaded.
+- Added optional human-readable **labels** on [credential vault item](/vaults/credentials) fields. Stable field names still control updates and `fill`. Supported in the API, CLI, and MCP server.
+- Added the persistent [Browser REPL](/browsers/repl) as an MCP server tool. MCP vault tools can now call any vault operation the API advertises, and they return the provider's reason when a card authorization is rejected.
+- Improved `kernel mcp install`: added Google Antigravity as a target, gave each stdio client its own named OAuth identity and auth cache, and changed install to merge only the Kernel entry. Hand-edited client config is preserved and config files are written with private permissions.
+- Released [`@onkernel/vault-react`](https://www.npmjs.com/package/@onkernel/vault-react) 0.2.0 with a show/hide control for sensitive fields, and added the same control to the Kernel-hosted [credential](/vaults/credentials) collection form. Stored secrets stay omitted; only newly entered values can be revealed.
+- Paced [`fill`](/vaults/fill) writes character by character, with a short randomized delay between characters and between fields, so values enter the page at human typing speed.
+- Added `iframe` and `worker` to the published browser target types. The [telemetry](/browsers/telemetry/overview) collector already attached to both, but the public enum omitted them.
+- Added per-type filtering to the archived browser [telemetry](/browsers/telemetry/overview) events endpoint. It applies alongside the existing category filter, and an event must match both when both are set.
+- Added current [concurrency usage](/info/projects#concurrency-limits) to the org limits API and `kernel org limits get`: `concurrent_sessions_used` and `concurrent_sessions_available` count active browser sessions and browser pool reservations against your organization limit.
+- Added managed [proxy](/proxies/overview) selection to the dashboard's browser launch dialog for plans entitled to use them.
+- Split the dashboard's managed auth reauthentication status into **Auto**, **Best effort**, and **Needs human**, so a connection that depends on an optimistic TOTP retry is no longer shown as fully automatic.
+- Added playback speed control to session [replays](/browsers/replays).
+
+## Documentation updates
+
+- Added a [Browser REPL](/browsers/repl) guide, and rewrote the fx co-located agent cookbook to run `libfx` over the Browser REPL.
+- Added a Google Antigravity MCP client page and a Replit integration guide. Documented named MCP OAuth clients and how to migrate their auth caches.
+- Documented proxy error codes and the `X-Kernel-Proxy-Error` header, the parent-frame `postMessage` events the [live view](/browsers/live-view) exchanges with embedders — detecting a failed viewer, and toggling read-only mode without reloading the iframe — and computed telemetry readiness events.
+- Documented which events and identifiers each `captcha_type` emits, and the challenge statuses each observed type reports. Challenge results are emitted for hCaptcha, press-and-hold, and reCAPTCHA v2; other types emit task events only.
+- Documented credential field labels and how to check current concurrency usage.
+- Added guidance on measuring session memory with [process execution](/browsers/process-execution) and on taking accessibility tree snapshots in the Playwright execution guide.
+- Added a Jev browser use on Val Town cookbook, and documented the payment processors AgentCard supports.
+- Added [`create-site-skills`](/skills/create-site-skills) to the skills docs, a Vault React collection starter example, and a `kernel-browser-loop` val link to the Val Town guide. Also corrected the Link amount limit.
+</Update>
+
 <Update label="September 18" tags={["Product", "Docs"]}>
 ## Product updates
 

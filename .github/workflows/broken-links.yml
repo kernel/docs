@@ -16,7 +16,8 @@ jobs:
           node-version: "20"
 
       - name: Install Mintlify CLI
-        run: npm install -g mint
+        # Pinned: 4.2.931 can't install, its @mintlify/auth-edge dependency is unpublished
+        run: npm install -g mint@4.2.930
 
       - name: Check for broken links
         run: mint broken-links
