@@ -100,6 +100,7 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 | `KERNEL_PLAYING` | `playing: true` | Video frames are rendering. |
 | `KERNEL_PAUSED` | `playing: false` | Playback has stopped. |
 | `KERNEL_CONNECTION_TIMEOUT` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The client's connection watchdog expired. Useful for diagnostics. |
+| `KERNEL_CONNECTION_FAILED` | `reason`, `attempts`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The client has given up starting the viewer and will not try again until the iframe reloads. |
 | `KERNEL_READ_ONLY_CHANGED` | `readOnly`, `requestId` | Acknowledges a `KERNEL_SET_READ_ONLY` request. |
 
 ### Accepted from the parent
@@ -110,6 +111,8 @@ When the live view is embedded in an iframe, the client posts messages to the pa
 
 <Info>
     `KERNEL_CONNECTION_TIMEOUT`, `KERNEL_READ_ONLY_CHANGED` and `KERNEL_SET_READ_ONLY` require a recent browser image. `KERNEL_CONNECTED`, `KERNEL_PLAYING` and `KERNEL_PAUSED` are available on all current images, but `capabilities` is sent only by recent ones — older images post `{ type: 'KERNEL_CONNECTED', connected: true }`, so treat a missing `capabilities` as unknown rather than unsupported.
+
+    `KERNEL_CONNECTION_FAILED` requires a browser image that includes the connect-failure fix. On images without it the client fails silently instead, so treat a missing `KERNEL_CONNECTION_FAILED` as unknown rather than as a successful start, and keep gating on `KERNEL_PLAYING`.
 
     Messages are exchanged with the parent origin derived from `document.referrer`. If the referrer is unavailable — for example under a restrictive `Referrer-Policy` — the client cannot resolve your origin and will reject `KERNEL_SET_READ_ONLY`.
 </Info>
@@ -140,12 +143,17 @@ window.addEventListener('message', (event) => {
   if (event.origin !== liveViewOrigin) return;
   if (event.data?.type === 'KERNEL_PLAYING') clearTimeout(watchdog);
   if (event.data?.type === 'KERNEL_PAUSED') arm();
+  if (event.data?.type === 'KERNEL_CONNECTION_FAILED') showFallback(event.data);
 });
 
 arm();
 ```
 
 Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. The watchdog behind it is cleared once negotiation begins, so a connection that stalls after that point never emits it. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
+
+`KERNEL_CONNECTION_FAILED` is the terminal signal. It means the client has exhausted its attempts, or hit a failure it will not retry, and nothing further will happen until the iframe reloads. Surface a persistent message on it rather than remounting automatically: the failure is often a property of the browser environment, so a remount repeats it. `attempts` reports how many attempts were made before giving up.
+
+The client retries transient failures itself, up to three attempts one second apart. Internal retries are not reported to the parent, so `KERNEL_CONNECTION_TIMEOUT` is only posted on the final attempt, and a remount on that event duplicates a retry the client is already doing.
 
 ## Kiosk mode
 
