@@ -212,7 +212,7 @@ sbx policy log kernel-demo
 
 ## Troubleshooting
 
-- If your agent reports `kernel: command not found`, the CLI install failed when `sbx` created the sandbox. Run `sbx policy log kernel-demo` to look for blocked npm or GitHub requests, then recreate the sandbox.
+- If your agent reports `kernel: command not found`, the CLI install failed when `sbx` created the sandbox. Run `sbx policy log kernel-demo` to look for blocked npm or GitHub release downloads, then recreate the sandbox.
 - If Kernel requests fail authentication, the proxy isn't adding your key. Run `sbx secret ls` to confirm the `kernel` secret exists, then start the sandbox interactively to approve the credential request.
 - If browser creation succeeds but your agent can't connect to the browser, check `sbx policy log kernel-demo` for blocked `*.onkernel.com` requests. Your organization's sandbox policy might block them.
 - If your agent doesn't use Kernel, ask for it by name, for example "Use the Kernel CLI to…", or point it to `/home/agent/.kernel/quickstart.md`.
