@@ -35,7 +35,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 
 ## Create a browser pool
 
-Create a browser pool with a size and the configuration every browser in it should use.
+Create a browser pool with a size and the configuration every browser in it should use. Headful browsers default to 8GiB of memory. Set `memory: "16GiB"` on create or update to request more memory. 16GiB pools run only on eligible Hypeman CPU hosts in the pool's configured region; if none are available, the request fails rather than starting a smaller browser.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -297,7 +297,21 @@ Browser pools shine at higher concurrency, but even a small one is worth it when
 
 ## Update a browser pool
 
-Update the browser pool's configuration. By default, existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
+Update the browser pool's configuration. By default, existing idle browsers keep their current configuration and memory allocation; only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration. Acquired browsers keep their original allocation until they're destroyed or replaced.
+
+To change a 16GiB pool to headless, first set `memory: "8GiB"` while it's still headful. This clears the 16GiB override. Then set `headless: true`, optionally with `discard_all_idle: true` to replace idle browsers immediately. You can't combine `headless: true` and `memory: "8GiB"` in one update because headless browsers use their own default allocation.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+await kernel.browserPools.update("my-pool", { memory: "8GiB" });
+await kernel.browserPools.update("my-pool", { headless: true, discard_all_idle: true });
+```
+
+```python Python
+kernel.browser_pools.update("my-pool", memory="8GiB")
+kernel.browser_pools.update("my-pool", headless=True, discard_all_idle=True)
+```
+</CodeGroup>
 
 <CodeGroup>
 ```typescript Typescript/Javascript
