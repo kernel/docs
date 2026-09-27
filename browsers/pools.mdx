@@ -35,7 +35,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 
 ## Create a browser pool
 
-Create a browser pool with a size and the configuration every browser in it should use. Headful pools can set `memory: "16GiB"`, which requires Hypeman hosts in the pool's region.
+Create a browser pool with a size and the configuration every browser in it should use.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -48,6 +48,7 @@ const pool = await kernel.browserPools.create({
   size: 10,
   stealth: true,
   headless: false,
+  memory: "16GiB",
   timeout_seconds: 600,
   start_url: "https://example.com",
   viewport: {
@@ -69,6 +70,7 @@ pool = kernel.browser_pools.create(
     size=10,
     stealth=True,
     headless=False,
+    memory="16GiB",
     timeout_seconds=600,
     start_url="https://example.com",
     viewport={
@@ -100,6 +102,7 @@ func main() {
 		Size:           10,
 		Stealth:        kernel.Bool(true),
 		Headless:       kernel.Bool(false),
+		Memory:         kernel.BrowserMemoryRequest16GiB,
 		TimeoutSeconds: kernel.Int(600),
 		StartURL:       kernel.String("https://example.com"),
 		Viewport: shared.BrowserViewportParam{
