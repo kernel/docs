@@ -1,6 +1,6 @@
 ---
 title: "Entering Code Mode with Browser REPL"
-description: "Give an AI SDK agent one tool that runs JavaScript next to the browser, so it writes programs instead of calling one tool per action"
+description: "Connect an AI SDK agent to the Kernel MCP server and let it control the browser only through the Browser REPL, so it writes programs instead of calling one tool per action"
 ---
 
 Most browser agents get one tool per action: click, type, snapshot, drag. Every action is a model round trip, and multi-item work — "move every card", "fill every row" — becomes one call per item, with the model re-reading the conversation each time.
@@ -9,7 +9,7 @@ Most browser agents get one tool per action: click, type, snapshot, drag. Every 
 
 The [Browser REPL](/browsers/repl) fits code mode well. It runs JavaScript in a persistent Node.js process on the browser's VM, so there's no CDP round trip from your machine, and top-level bindings survive across calls, so the model can define a helper once and reuse it for the rest of the task.
 
-This cookbook builds a code-mode agent with [AI SDK](https://ai-sdk.dev)'s [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent), a single `browserRepl` tool, and OpenAI's `gpt-6-luna` at medium reasoning. The browser's lifecycle stays outside the agent loop.
+This cookbook connects [AI SDK](https://ai-sdk.dev)'s [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent) to the [Kernel MCP server](/reference/mcp-server), turns off the Playwright execution and computer-use tools, and tells the agent to control the browser only through the server's built-in `browser_repl` tool. The model is OpenAI's `gpt-6-luna` at medium reasoning, and the browser's lifecycle stays outside the agent loop.
 
 ## The example task
 
@@ -20,7 +20,7 @@ Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks,
 then drag every item card to the Done column.
 ```
 
-In that cookbook, the Playwright `browser_drag` tool can't move a card: the board uses pointer-based drag-and-drop, which needs several intermediate `mousemove` events, so the agent hands off to computer use. In code mode, the model writes the pointer path itself with `cdp("Input.dispatchMouseEvent", ...)`, wraps it in a helper, and reuses that helper for every card.
+In that cookbook, the Playwright `browser_drag` tool can't move a card: the board uses pointer-based drag-and-drop, which needs several intermediate `mousemove` events, so the agent hands off to computer use. In code mode, the model writes a drag with enough intermediate pointer movement itself, then runs it for every card.
 
 ## Tool calling vs. code mode
 
@@ -30,107 +30,65 @@ In that cookbook, the Playwright `browser_drag` tool can't move a card: the boar
 | work over many items | one call per item | one loop or helper, reused |
 | state between steps | the conversation | the conversation, plus REPL bindings such as helpers and cached lookups |
 | checking a result | another tool call | part of the same program |
-| what the model learns up front | a schema per tool | the REPL's helper API, in the instructions |
+| what the model learns up front | a schema per tool | the REPL's helper API, from the tool description |
 
 Code mode trades per-action control for fewer round trips. You no longer see each click as its own tool call, so the program has to verify its own work and write back what it changed.
 
 ## How it's put together
 
-**The browser lives outside the agent.** `main()` creates the browser and starts a replay, builds the agent with a tool bound to that browser's session ID, runs `agent.generate()`, and deletes the browser in a `finally` block. The agent never creates or deletes browsers, so a run that fails or hits its step limit can't leak a session. The same split lets you point the agent at a browser from a [pool](/browsers/pools) or one with a [profile](/browsers/profiles), or run several prompts against one browser, without changing the agent.
+**The browser lives outside the agent.** `main()` creates the browser and starts a replay with the Kernel SDK, gives the agent the session ID in its instructions, runs `agent.generate()`, and deletes the browser in a `finally` block. The instructions tell the agent not to create or delete browsers, so a run that fails or hits its step limit can't leak a session. The same split lets you point the agent at a browser from a [pool](/browsers/pools) or one with a [profile](/browsers/profiles) without changing the agent.
+
+**The tools come from the Kernel MCP server.** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools as AI SDK tools, ready to pass to `ToolLoopAgent`.
+
+**Only `browser_repl` controls the browser.** `activeTools` removes `execute_playwright_code` and `computer_action` from what the model can call, and the instructions tell it to rely on the built-in `browser_repl` tool for all browser control. The MCP tool's own description documents the REPL helpers, output rules, and failure semantics, so the instructions only add the workflow and a few task-specific tips.
+
+**Every call gets the tool's full budget.** The MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150. The script wraps the tool's `execute` so every call runs with 150 seconds. A timeout is destructive — it destroys the REPL and every helper the model defined — so a generous budget keeps a slow cell from wiping the agent's state.
+
+**A cell is never sent twice.** The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell that's still running is never retried and its clicks and drags never repeat. Syntax errors and exceptions come back as tool results with `success: false`, so the model can fix the code and try again, and screenshots from `repl.emitImage` come back as image content.
 
 **`ToolLoopAgent` runs the loop.** It calls the model, runs the tool calls it makes, and feeds the results back until the model answers without calling a tool or the run reaches `isStepCount(25)`. `reasoning: "medium"` sets the reasoning effort through AI SDK's provider-neutral option.
-
-**One tool, defined with `tool()`.** `browserRepl` takes a `code` string and an optional `reset` flag:
-
-- **`execute` calls the REPL with a 5-minute budget.** `timeout_sec: 300` is the most the REPL accepts. A single cell can do a lot — a drag sends dozens of mouse events and waits for the board to settle — and a timeout is destructive: it destroys the REPL and every helper the model defined. A generous budget keeps a slow cell from wiping the agent's state.
-- **`execute` sets a longer SDK timeout and turns off retries.** The Kernel SDK defaults to a 60-second request timeout and retries requests that time out. For the REPL, that means a cell that's still running gets cut off and sent again, repeating its clicks and drags. The tool sets the request timeout 30 seconds above `timeout_sec` and disables retries.
-- **`toModelOutput` turns the REPL result into content parts.** `repl.write`, `stdout`, and `stderr` output becomes text parts labeled with their channel, and `repl.emitImage` output becomes image file parts, so the model can ask for a screenshot when the page's state is unclear.
-- **Failures come back as results, not exceptions.** A thrown error in the cell comes back with its message and stack, so the model can fix the code and try again. If `repl_terminated` is set, the tool tells the model its bindings are gone so it redefines helpers instead of calling ones that no longer exist.
-
-The instructions do two jobs. They tell the model to write programs rather than single actions, and they include a short reference for the REPL helpers, so the model doesn't spend calls on `repl.help()` or on mistakes like redeclaring a top-level `const` in a later cell.
 
 ## Setup
 
 ```bash
-npm install ai @ai-sdk/openai @onkernel/sdk zod tsx
+npm install ai @ai-sdk/openai @ai-sdk/mcp @onkernel/sdk tsx
 KERNEL_API_KEY=... OPENAI_API_KEY=... npx tsx code-mode-browser-repl.ts
 ```
 
-`@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tool and the browser lifecycle don't change.
+The same `KERNEL_API_KEY` authenticates both the Kernel SDK and the MCP server. `@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tools and the browser lifecycle don't change.
 
 ## The script
 
 ```ts code-mode-browser-repl.ts
+import { createMCPClient } from "@ai-sdk/mcp";
 import { openai } from "@ai-sdk/openai";
 import Kernel from "@onkernel/sdk";
-import { ToolLoopAgent, isStepCount, tool } from "ai";
-import { z } from "zod";
+import { ToolLoopAgent, isStepCount, type ToolSet } from "ai";
 
 const TASK_PROMPT =
 	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
 	"then drag every item card to the Done column.";
 
-// Each browserRepl call gets up to 5 minutes, the REPL's maximum.
-const REPL_TIMEOUT_SEC = 300;
+// The Kernel MCP server's browser_repl tool accepts at most 150 seconds per call.
+const REPL_TIMEOUT_SEC = 150;
 // Agent steps before the loop gives up.
 const MAX_STEPS = 25;
+// Browser control goes through browser_repl, so the other control tools are turned off.
+const DISABLED_TOOLS = new Set(["execute_playwright_code", "computer_action"]);
 
-const INSTRUCTIONS = `You complete browser tasks by writing JavaScript for the browserRepl tool. Each call runs as a cell in a persistent Node.js REPL on the browser's VM.
+const instructions = (sessionId: string) => `You complete browser tasks in the Kernel browser session ${sessionId}.
+
+Rely on the built-in browser_repl tool to control the browser. It runs JavaScript as a cell in a persistent Node.js REPL on the browser's VM. Pass session_id "${sessionId}" on every call. Don't create, update, or delete browsers; the session is already running and is cleaned up after you finish.
 
 How to work:
 1. Start by navigating and inspecting. Write back a compact summary of what matters (headings, buttons, inputs, and their text), not a raw dump.
 2. After that, write programs, not single actions. One cell completes a whole step: it finds every element it needs, acts on each one, verifies the result, and writes back what changed. Prefer one cell that handles every item over one cell per item.
 3. Define helpers you'll need again as top-level functions; they persist across cells. A top-level const or let can't be declared again in a later cell, so pick new names or use var.
 
-REPL reference:
-- Expression values are discarded. Return data with repl.write(string).
-- gotoUrl(url) doesn't wait; follow it with waitForLoad(). waitMs(ms) sleeps.
-- accessibilitySnapshot() returns {nodes: [{role, name, backendNodeId}]}.
-- click(target) and fillInput(target, text) accept a CSS selector, a snapshot node, {backendNodeId}, or {x, y}.
-- js(fn, {arg}) runs fn in the page and returns a JSON-serializable result. DOM nodes and DOMRects come back empty, so copy the fields you need.
-- cdp(method, params) sends any DevTools Protocol command.
+Tips:
+- js(fn, {arg}) returns JSON-serializable values only. DOMRects come back empty, so copy x, y, width, and height.
 - For drag-and-drop, send cdp("Input.dispatchMouseEvent", ...): mousePressed, then ten or more mouseMoved events along the path, then mouseReleased.
-- captureScreenshot(path) saves a PNG; await repl.emitImage({path}) returns it to you. Use it when the page's state is unclear.
-- repl.help("name") prints the docs for any helper.
 - Each call can run for ${REPL_TIMEOUT_SEC} seconds. A timeout destroys the REPL and every binding in it.`;
-
-function browserReplTool(kernel: Kernel, sessionId: string) {
-	return tool({
-		description:
-			"Run JavaScript in the browser's persistent REPL. Top-level bindings persist across calls. " +
-			"Returns ordered write/stdout/stderr text and any images emitted with repl.emitImage.",
-		inputSchema: z.object({
-			code: z.string().describe("JavaScript to evaluate. Top-level await is supported; static imports are not."),
-			reset: z.boolean().optional().describe("Discard all REPL state before running code."),
-		}),
-		execute: async ({ code, reset }) => {
-			console.log(`[browserRepl]\n${code}`);
-			const result = await kernel.browsers.repl(
-				sessionId,
-				{ code, reset, timeout_sec: REPL_TIMEOUT_SEC },
-				// Outlast the REPL's own timeout, and never re-send a cell that may already have run.
-				{ timeout: (REPL_TIMEOUT_SEC + 30) * 1000, maxRetries: 0 },
-			);
-			const text = (result.content ?? []).map((item) => (item.type === "text" ? item.text : "<image>")).join("\n");
-			console.log(`[result${result.success ? "" : `, error: ${result.error}`}]\n${text.slice(0, 800)}`);
-			return result;
-		},
-		toModelOutput: ({ output }) => {
-			const value = (output.content ?? []).map((item) =>
-				item.type === "text"
-					? { type: "text" as const, text: `[${item.channel}] ${item.text}` }
-					: { type: "file" as const, mediaType: item.mime_type, data: { type: "data" as const, data: item.data_b64 } },
-			);
-			if (!output.success) value.push({ type: "text", text: `Error: ${output.error}\n${output.stack ?? ""}` });
-			if (output.repl_terminated) {
-				value.push({ type: "text", text: "The REPL was terminated. All top-level bindings are gone; redefine helpers before using them." });
-			}
-			if (output.content_truncated) value.push({ type: "text", text: "Output was truncated. Write less per call." });
-			if (value.length === 0) value.push({ type: "text", text: "(no output; use repl.write to return values)" });
-			return { type: "content", value };
-		},
-	});
-}
 
 async function main(): Promise<void> {
 	const kernel = new Kernel();
@@ -140,19 +98,46 @@ async function main(): Promise<void> {
 	const replay = await kernel.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
 
+	const mcp = await createMCPClient({
+		transport: {
+			type: "http",
+			url: "https://mcp.onkernel.com/mcp",
+			headers: { Authorization: `Bearer ${process.env.KERNEL_API_KEY}` },
+		},
+	});
+
 	try {
+		const tools: ToolSet = await mcp.tools();
+
+		// Give every browser_repl call the full budget instead of the tool's 60-second default.
+		const browserRepl = tools.browser_repl;
+		tools.browser_repl = {
+			...browserRepl,
+			execute: (input: { code?: string }, options) => {
+				console.log(`[browser_repl]\n${input.code ?? ""}`);
+				return browserRepl.execute!({ ...input, timeout_sec: REPL_TIMEOUT_SEC }, options);
+			},
+		};
+
 		const agent = new ToolLoopAgent({
 			model: openai("gpt-6-luna"),
 			reasoning: "medium",
-			instructions: INSTRUCTIONS,
-			tools: { browserRepl: browserReplTool(kernel, browser.session_id) },
+			instructions: instructions(browser.session_id),
+			tools,
+			activeTools: Object.keys(tools).filter((name) => !DISABLED_TOOLS.has(name)),
 			stopWhen: isStepCount(MAX_STEPS),
+			onStepFinish: (step) => {
+				for (const call of step.toolCalls) {
+					if (call.toolName !== "browser_repl") console.log(`[${call.toolName}] ${JSON.stringify(call.input)}`);
+				}
+			},
 		});
 
 		const result = await agent.generate({ prompt: TASK_PROMPT });
 		console.log(`finish reason: ${result.finishReason}, steps: ${result.steps.length}`);
 		console.log(result.text);
 	} finally {
+		await mcp.close();
 		await kernel.browsers.replays.stop(replay.replay_id, { id_or_name: browser.session_id });
 		console.log(`replay ready: ${replay.replay_view_url}`);
 		await kernel.browsers.deleteByID(browser.session_id);
@@ -164,43 +149,41 @@ void main();
 
 ## What a run looks like
 
-In three test runs, `gpt-6-luna` finished the task in 15 to 17 `browserRepl` calls. Most of the early cells inspected the page: the navigation, the filter panel, and where each card sits. Every run hit a few errors and fixed them on the next call: `click()` rejects a selector that matches more than one visible element and says how many it matched, and a syntax error in a long one-line cell comes back with its position, so the model had what it needed to correct the code.
+In three test runs, `gpt-6-luna` finished the task in 11 to 15 `browser_repl` calls. The early cells inspected the page through filtered accessibility snapshots, then opened **Filters** and selected Alice. A few calls failed and were fixed on the next try — for example, passing a bare `backendNodeId` number to `click()` instead of the node.
 
-Once it found the cards, the model defined a drag helper and used it in the same cell:
+In the shorter run, the model imported `patchright` inside the REPL, as the tool description suggests, and moved both cards from one loop with Playwright's `dragTo()`, whose `steps` option sends the intermediate pointer movement the board needs:
 
 ```javascript
-async function dragAt(x1, y1, x2, y2) {
-  await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: x1, y: y1 });
-  await cdp("Input.dispatchMouseEvent", { type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1 });
-  for (let i = 1; i <= 12; i++) {
-    await cdp("Input.dispatchMouseEvent", {
-      type: "mouseMoved",
-      x: x1 + ((x2 - x1) * i) / 12,
-      y: y1 + ((y2 - y1) * i) / 12,
-      button: "left",
-      buttons: 1,
-    });
-    await waitMs(30);
-  }
-  await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", x: x2, y: y2, button: "left", buttons: 0 });
-  await waitMs(700);
+var taskTitles = ["Fix login authentication bug", "Fix mobile responsive issues"];
+var doneColumn = pwPage.getByRole("heading", { name: "Done", exact: true }).locator("..").locator("..");
+var dragResults = [];
+for (var title of taskTitles) {
+  var heading = pwPage.getByRole("heading", { name: title, exact: true });
+  var card = heading.locator("../..");
+  await card.dragTo(doneColumn, { targetPosition: { x: 160, y: 120 }, steps: 16 });
+  await pwPage.waitForTimeout(600);
+  dragResults.push({
+    title,
+    done: await doneColumn.getByRole("heading", { name: title, exact: true }).count(),
+  });
 }
-await dragAt(1100, 270, 1580, 260);
+repl.write(JSON.stringify(dragResults));
 ```
 
-Because `dragAt` is a top-level declaration, a later cell moved the second card with one line, `await dragAt(1100, 270, 1580, 430)`, and the last cell read the column counts back to confirm that Done held both cards.
+The `pwPage` binding came from an earlier cell, and the loop checked each card's new column before writing back. In another run, the model sent the drag as raw `cdp("Input.dispatchMouseEvent", ...)` events instead. Both approaches run inside `browser_repl`.
 
 ## Notes
 
-- **Expect some exploration.** Code mode reduces round trips for the work itself, but the model still has to learn the page. Richer first-cell summaries in the instructions, or a known target page, cut down the inspection calls.
+- **Turning off `execute_playwright_code` doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
+- **The model can still call the other Kernel MCP tools.** `activeTools` only removes the two you list. In two of three test runs, the model also checked `webmcp` for a site-provided action and, finding none, called `get_more_tools`, which reports a missing capability to Kernel. For tighter control, add names to `DISABLED_TOOLS` or build `activeTools` from an allowlist such as `["browser_repl"]`.
+- **Need cells longer than 150 seconds?** The REST API accepts `timeout_sec` up to 300. Define your own tool that calls [`kernel.browsers.repl()`](/browsers/repl) directly, with a request timeout above `timeout_sec` and retries turned off.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
-- **Code mode doesn't have to be the only tool.** You can add computer-use tools next to `browserRepl` for canvas-drawn UI or native dialogs, or let the model use coordinate clicks (`click({x, y})`) inside the REPL.
 - **The whole run is recorded.** The script wraps the agent run in `kernel.browsers.replays.start()` / `.stop()`, so every cell's effect lands on one replay video.
 - **Python.** AI SDK is TypeScript-only. The REPL call itself works the same from the Python SDK — see [Browser REPL](/browsers/repl).
 
 ## Next steps
 
 - [Browser REPL](/browsers/repl) — helpers, persistence, and lifecycle semantics
+- [Kernel MCP server](/reference/mcp-server) — transports, authentication, and the full tool list
 - [Vercel AI SDK](/integrations/vercel/ai-sdk) — other ways to use Kernel browsers from AI SDK
 - [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — the tool-per-action version of the same task
-- [Replays](/browsers/replays) — record a session end to end
