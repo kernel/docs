@@ -76,7 +76,7 @@ This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium 
 - **Results:** the MCP tool returns `success: false` with the error for syntax errors and exceptions, and the AI SDK MCP client passes screenshots from `repl.emitImage` to the model as image content.
 - **Instructions:** the MCP tool's own description documents the REPL helpers, so the instructions only add the workflow and a few task-specific tips.
 
-`ToolLoopAgent` runs the loop: it calls the model, runs the tool calls it makes, and feeds the results back until the model answers without calling a tool or the run reaches `isStepCount(40)`. The limit leaves room for the lifecycle calls on top of the task itself.
+`ToolLoopAgent` runs the loop: it calls the model, runs the tool calls it makes, and feeds the results back until the model answers without calling a tool or the run reaches `isStepCount(50)`. The limit leaves room for the lifecycle, WebMCP, and other Kernel MCP calls on top of the task itself; the longest test run used 35 steps.
 
 ### Setup
 
@@ -102,7 +102,7 @@ const TASK_PROMPT =
 // The Kernel MCP server's browser_repl tool accepts at most 150 seconds per call.
 const REPL_TIMEOUT_SEC = 150;
 // Agent steps before the loop gives up.
-const MAX_STEPS = 40;
+const MAX_STEPS = 50;
 // The agent creates the browser under this name and uses it as the session_id for every browser tool.
 const SESSION_NAME = `code-mode-${Date.now()}`;
 // Browser control goes through webmcp and browser_repl, so the other control tools are turned off,
