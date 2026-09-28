@@ -79,7 +79,7 @@ Use the MCP tool when your harness speaks MCP: you get a maintained tool descrip
 This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium reasoning. Everything the agent does goes through the Kernel MCP server, including creating and deleting its own browser. Here's how it covers each piece:
 
 - **Browser REPL tool:** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools, including `manage_browsers`, `manage_replays`, `webmcp`, and `browser_repl`, as AI SDK tools.
-- **Agent-owned lifecycle:** the script picks a unique session name. The instructions tell the agent to create a browser with that name through `manage_browsers` (stealth on, a 300-second inactivity timeout), start a recording with `manage_replays`, stop the recording and report its URL when it's done, and delete the browser. If the run ends before the agent deletes it, the `finally` block deletes the session by name with the Kernel SDK. A `NotFoundError` there means the agent already cleaned up.
+- **Agent-owned lifecycle:** the script picks a unique session name. The instructions tell the agent to create a browser with that name through `manage_browsers` (stealth on, a 300-second inactivity timeout), start a recording with `manage_replays`, stop the recording and delete the browser when it's done, and end its answer with the session and replay IDs. If the run ends before the agent deletes it, the `finally` block deletes the session by name with the Kernel SDK. A `NotFoundError` there means the agent already cleaned up.
 - **WebMCP and the REPL as the control paths:** `activeTools` removes `execute_playwright_code` and `computer_action`, plus `get_more_tools` and `submit_feedback`, which send reports to Kernel. The instructions tell the agent to rely on the built-in `browser_repl` tool and not to create any browser besides its own.
 - **WebMCP first:** the instructions tell the agent to call `webmcp` with `list` after opening a site, invoke a listed tool when one fits, list again after navigating, and use `browser_repl` for everything else.
 - **Budget and retries:** the MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150, so the script wraps the tool's `execute` to run every call with 150 seconds. The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell is never sent twice.
@@ -125,7 +125,7 @@ Session lifecycle:
 1. Create a browser with manage_browsers: action "create", name "${SESSION_NAME}", stealth true, timeout_seconds 300.
 2. Start a recording with manage_replays: action "start", session_id "${SESSION_NAME}".
 3. Do the task. Pass session_id "${SESSION_NAME}" on every browser tool call.
-4. When you're done, or can't finish, stop the recording with manage_replays action "stop" and report the replay's view URL, then delete the browser with manage_browsers action "delete". Don't create any other browsers.
+4. When you're done, or can't finish, stop the recording with manage_replays action "stop", then delete the browser with manage_browsers action "delete". Don't create any other browsers. End your answer with the session ID and replay ID.
 
 You control the browser with two tools:
 
@@ -198,7 +198,7 @@ void main();
 
 ### What a run looks like
 
-In two test runs of the default task, the agent created its browser and started a recording, then listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (6 calls per run) before writing its summaries. In one run it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the other it navigated with `gotoUrl()` inside the REPL. Both runs ended by stopping the recording and deleting the browser, in 14 and 22 steps.
+In three test runs of the default task, the agent created its browser and started a recording, then listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (4 to 6 calls per run) before writing its summaries. In one run it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the others it navigated inside the REPL. Every run ended by stopping the recording and deleting the browser, in 14 to 22 steps.
 
 The model chooses its tools and writes its own code on every run, so expect the exact calls to vary from run to run.
 
@@ -209,7 +209,7 @@ The model chooses its tools and writes its own code on every run, so expect the 
 - **WebMCP works inside the REPL too.** `webmcp.listTools()` and `webmcp.invokeTool()` are available in `browser_repl` cells, so a harness can skip the separate `webmcp` tool and let the model check for structured actions in code. The separate tool makes the structured attempt its own visible step and comes with Kernel's guidance for populated forms and uncertain outcomes.
 - **Writing your own REPL tool?** Call [`kernel.browsers.repl()`](/browsers/repl) with `timeout_sec` up to 300, set the SDK request timeout above `timeout_sec`, and turn off the SDK's retries for that call. The Kernel SDKs default to a 60-second request timeout with automatic retries, which would cut off a long cell and send it again.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
-- **Record the run.** The agent starts a replay right after creating the browser and stops it before deleting the browser, so every cell's effect lands on one video. The replay's view URL carries an access token, so treat the agent's final answer like a credential if you log or share it.
+- **Record the run.** The agent starts a replay right after creating the browser and stops it before deleting the browser, so every cell's effect lands on one video. The agent ends its answer with the session and replay IDs instead of the replay's view URL: the URL is long and carries an access token, and models don't copy it reliably. Download the video with `kernel browsers replays download <session> <replay_id>`; the session name works even after the browser is deleted.
 - **Other languages.** The example is TypeScript because AI SDK is TypeScript-only. The pattern carries over to any language: use the Kernel MCP server from a harness that supports MCP, or wrap the Python SDK's `kernel.browsers.repl()` as a tool.
 
 ## Next steps
