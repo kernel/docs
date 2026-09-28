@@ -76,4 +76,15 @@ import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
   </Card>
 </Columns>
 
-[Concepts](/info/concepts) covers Kernel's object model, and [browsers on unikernels](/info/unikernels) covers the architecture underneath it.
+## under the hood
+
+Every Kernel browser runs Chromium on its own [Unikraft-based unikernel](/info/unikernels): a single-purpose VM that carries only what the browser needs, isolated at the hypervisor level instead of sharing a host kernel with other tenants. Browsers already sandbox untrusted web content across processes, which covers the internal isolation a unikernel leaves out.
+
+That architecture is what makes these possible:
+
+- **Fast starts.** Browsers are created in about 30ms at P50 — see [performance](/browsers/performance).
+- **Standby without losing state.** After five seconds with no activity, a browser enters [standby](/browsers/standby): its state stays the same and it stops accruing usage cost.
+- **Root access that's safe to give.** Each session is a single-tenant VM, so [SSH](/browsers/ssh), [process execution](/browsers/process-execution), and [file I/O](/browsers/file-io) stay contained to that session.
+- **Code next to the browser.** [Playwright execution](/browsers/playwright-execution) and the [code execution platform](/apps/develop) run your code alongside the browser, which removes round-trip latency, unexpected disconnects, and screenshot bandwidth.
+
+The browser images are open source at [kernel/kernel-images](https://github.com/kernel/kernel-images). [Browsers on unikernels](/info/unikernels) goes deeper on the design, and [concepts](/info/concepts) defines the objects you'll work with.
