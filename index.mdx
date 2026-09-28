@@ -7,28 +7,23 @@ mode: "wide"
 
 KERNEL gives your agents and automations sandboxed chromium browsers in the cloud. each browser runs in its own vm, starts in about 30ms, and can be driven with playwright, computer controls, cdp, or webdriver bidi. around the browser, we provide what agents need on real websites: stealth and proxies, authentication, payments, browser pools, and live view, replays, and telemetry for debugging.
 
-<Columns className="responsive-columns" cols={2}>
-  <Card title="see all products" img="/images/chromium.svg" href="/overview/products">
-    browsers, stealth, proxies, auth, payments, and everything else, each linking to its docs.
-  </Card>
-  <Card title="quickstart" img="/images/overview/quickstart.svg" href="/start/quickstart">
-    hand setup to your coding agent with one prompt, or create your first browser yourself.
-  </Card>
-</Columns>
-
 ## why we built it this way
 
-most browser infrastructure runs chromium in containers orchestrated by kubernetes, with warm pools to hide slow starts. we [pioneered](https://news.ycombinator.com/item?id=43705144) a different approach: running chromium on unikernels, single-purpose vms that carry only what the browser needs. browsers already sandbox untrusted web content across processes, which covers the internal isolation a unikernel leaves out.
+most browser infrastructure runs chromium in containers orchestrated by kubernetes, with warm pools to hide slow starts. we [pioneered](https://news.ycombinator.com/item?id=43705144) a different approach: running chromium on unikernels, single-purpose vms that carry only what the browser needs.
 
 <Frame>
   <img src="/images/overview/unikernel-vs-containers.svg" alt="on the left, three chromium containers share one host kernel. on the right, each chromium runs on its own unikernel vm above a hypervisor." />
 </Frame>
 
-that choice is why a browser starts in about 30ms ([performance](/browsers/performance)), why an idle browser can go into [standby](/browsers/standby) after five seconds and keep its state without accruing usage cost, and why [ssh](/browsers/ssh) and [process execution](/browsers/process-execution) are safe to hand an agent: every session is its own vm. [browsers on unikernels](/info/unikernels) goes deeper on the design.
+a unikernel carries the browser and nothing else, so there's little to boot or keep running, and that changes what the browser lifecycle costs:
+
+- **lifecycle actions are fast.** a browser is created in about 30ms at p50 ([performance](/browsers/performance)), so you can create one per task instead of keeping a warm pool alive to hide start-up time.
+- **idle browsers go into standby.** after five seconds with no activity, a browser enters [standby](/browsers/standby): it keeps its state and stops accruing usage cost until your code or agent reconnects.
+- **root access is safe to hand an agent.** every browser is its own vm, isolated at the hypervisor rather than sharing a host kernel with other tenants, so [ssh](/browsers/ssh) and [process execution](/browsers/process-execution) stay contained to that session.
 
 ## open source
 
-our browser image and vm runtime are on github.
+we value open source and transparency, so we publish the chromium image behind KERNEL browsers and the vm runtime we built to run them on github. you can read exactly what your agent's browser runs on, run it yourself, or contribute.
 
 <Columns cols={2}>
   <Card title="kernel-images" icon="github" href="https://github.com/kernel/kernel-images">
@@ -36,5 +31,19 @@ our browser image and vm runtime are on github.
   </Card>
   <Card title="hypeman" icon="github" href="https://github.com/kernel/hypeman">
     the vm runtime for oci images, supporting cloud hypervisor, firecracker, qemu, and apple virtualization.framework.
+  </Card>
+</Columns>
+
+## get started
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="see all products" img="/images/chromium.svg" href="/overview/products">
+    browsers, stealth, proxies, auth, payments, and everything else, each linking to its docs.
+  </Card>
+  <Card title="quickstart" img="/images/overview/quickstart.svg" href="/start/quickstart">
+    hand setup to your coding agent with one prompt, or create your first browser yourself.
+  </Card>
+  <Card title="cookbooks" img="/images/overview/cookbooks.svg" href="/cookbooks">
+    end-to-end recipes you can clone and run, from computer use fallbacks to agentic payments.
   </Card>
 </Columns>

@@ -91,7 +91,7 @@ Most of what you'll tune at creation time falls into four buckets:
 
 `browsers.create()` boots a browser for you on the spot. That's the right call while you're building, and for workloads that run occasionally.
 
-Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/info/pricing#rate-limiting) on browser creation that you'll otherwise hit at volume.
+Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/browsers/concurrency-and-limits#rate-limits) on browser creation that you'll otherwise hit at volume.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -133,7 +133,7 @@ kernel browser-pools acquire checkout-pool
 ```
 </CodeGroup>
 
-An acquired browser returns the same fields as one you created directly, so the rest of your code is identical. Idle browsers in a browser pool aren't billed — you pay only while a browser is acquired and running — though browser pool capacity does count against your [concurrency limit](/info/pricing#concurrency-limits).
+An acquired browser returns the same fields as one you created directly, so the rest of your code is identical. Idle browsers in a browser pool aren't billed — you pay only while a browser is acquired and running — though browser pool capacity does count against your [concurrency limit](/browsers/concurrency-and-limits#concurrency).
 
 ## Lifecycle
 

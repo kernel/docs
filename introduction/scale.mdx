@@ -13,7 +13,7 @@ A [browser pool](/browsers/pools) keeps a set of identically-configured browsers
 
 - **Low-latency acquisition** — the browser is already booted with your configuration applied (including settings like custom viewports, extensions, and kiosk-mode live view that otherwise [restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser), so `acquire` hands you one that's ready to drive.
 - **Reserved, pre-configured capacity** — a fixed set of browsers on your exact configuration, ready before traffic arrives.
-- **Higher creation throughput** — acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on `browsers.create()` that high-volume workloads hit.
+- **Higher creation throughput** — acquiring from a pool isn't subject to the [rate limit](/browsers/concurrency-and-limits#rate-limits) on `browsers.create()` that high-volume workloads hit.
 
 The tradeoff: a browser pool counts against your concurrency limit whether or not its browsers are currently acquired — a pool sized to 40 holds 40 of your limit. Idle pooled browsers aren't billed, but they hold the slot.
 

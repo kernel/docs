@@ -25,12 +25,12 @@ You can. Running one Chrome locally is easy, and it's the right call while you'r
 
 **Your loop can run next to the browser.** The [Playwright execution API](/browsers/playwright-execution) runs your code inside the browser's VM, and the [code execution platform](/apps/develop) deploys your whole agent there. No round trip per action, no CDP connection to babysit, and no CDP fingerprint on the wire. See [how you drive the browser](/introduction/control) for how to choose.
 
-**Auth is a product, not a cookie jar.** [Managed auth](/auth/overview) handles the login, MFA prompts, SSO redirects, and background reauthentication, then persists the result as a profile your agent attaches to any browser.
+**Auth and payments are built on primitives.** [Vaults](/vaults/overview) hold credentials and payment items that a browser fills into a page without your agent ever reading them. [Profiles](/browsers/profiles) persist cookies, storage, and logins across sessions. [Authentication](/auth/overview) builds on both: fill a login from a vault, or let managed auth handle the login, MFA prompts, SSO redirects, and background reauthentication, then save the result as a profile your agent attaches to any browser. [Payments](/browsers/payments) use the same vaults, so an agent can complete a checkout through Link or AgentCard without seeing card data.
 
 ## When Kernel isn't the answer
 
 If the site you need has a real API, use the API. Browsers are the right tool when the work only exists behind a UI — a portal with no API, a checkout flow, a document you can only reach after logging in, or a task that a computer-use model has to see to do.
 
 <Card title="See all products" href="/overview/products" horizontal>
-  Every primitive and product, each linking to its documentation.
+  Every product, each linking to its documentation.
 </Card>
