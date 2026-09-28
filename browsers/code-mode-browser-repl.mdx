@@ -1,0 +1,419 @@
+---
+title: "Code Mode with the Browser REPL"
+description: "Give an agent one tool that runs JavaScript next to the browser, so it writes programs instead of calling one tool per action"
+---
+
+Most browser agents get one tool per action: click, type, snapshot, drag. Every action is a model round trip, and multi-item work — "move every card", "fill every row" — becomes one call per item, with the model re-reading the conversation each time.
+
+**Code mode** gives the model a single tool that runs code. The model writes a program that finds every element it needs, acts on each one, and checks the result, and the harness returns only what the program writes back. Loops, retries, and verification happen in code instead of in the conversation.
+
+The [Browser REPL](/browsers/repl) fits code mode well. It runs JavaScript in a persistent Node.js process on the browser's VM, so there's no CDP round trip from your machine, and top-level bindings survive across calls, so the model can define a helper once and reuse it for the rest of the task.
+
+This cookbook builds a code-mode agent with one `browser_repl` tool, the Anthropic Messages API, and a 5-minute budget per call.
+
+## The example task
+
+The agent runs the same task as [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback), against [magnitasks.com](https://magnitasks.com), a public Kanban-style board:
+
+```
+Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks,
+then drag every item card to the Done column.
+```
+
+In that cookbook, the Playwright `browser_drag` tool can't move a card: the board uses pointer-based drag-and-drop, which needs several intermediate `mousemove` events, so the agent hands off to computer use. In code mode, the model writes the pointer path itself with `cdp("Input.dispatchMouseEvent", ...)`, then drags every card from one loop.
+
+## Tool calling vs. code mode
+
+| | one tool per action | code mode |
+| --- | --- | --- |
+| a step is | one tool call and one model round trip | as many actions as the program contains |
+| work over many items | one call per item | one loop in one call |
+| state between steps | the conversation | the conversation, plus REPL bindings such as helpers and cached lookups |
+| checking a result | another tool call | part of the same program |
+| what the model learns up front | a schema per tool | the REPL's helper API, in the system prompt |
+
+Code mode trades per-action control for fewer round trips. You no longer see each click as its own tool call, so the program has to verify its own work and write back what it changed.
+
+## How the harness works
+
+The harness exposes one tool, `browser_repl`, with a `code` string and an optional `reset` flag, and runs each call with `kernel.browsers.repl()`:
+
+- **5-minute budget per call.** `timeout_sec: 300` is the most the REPL accepts. A single cell can do a lot — the drag loop in this task sends dozens of mouse events per card and waits for the board to settle — and a timeout is destructive: it destroys the REPL and every helper the model defined. A generous budget keeps a slow cell from wiping the agent's state.
+- **Longer SDK timeout, no retries.** The Kernel SDKs default to a 60-second request timeout and retry requests that time out. For the REPL, that means a cell that's still running gets cut off and sent again, repeating its clicks and drags. The harness sets the request timeout 30 seconds above `timeout_sec` and disables retries for REPL calls.
+- **Results in call order.** `repl.write`, `stdout`, and `stderr` output becomes text blocks labeled with their channel, and `repl.emitImage` output becomes image blocks, so the model can ask for a screenshot when the page's state is unclear.
+- **Failures the model can act on.** A thrown error comes back with its stack and `is_error: true`. If `repl_terminated` is set, the harness tells the model its bindings are gone so it redefines helpers instead of calling ones that no longer exist.
+
+The system prompt does two jobs. It tells the model to write programs rather than single actions, and it includes a short reference for the REPL helpers, so the model doesn't spend calls on `repl.help()` or on mistakes like redeclaring a top-level `const` in a later cell.
+
+## Setup
+
+<CodeGroup>
+```bash Typescript/Javascript
+npm install @onkernel/sdk @anthropic-ai/sdk tsx
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... npx tsx code-mode-browser-repl.ts
+```
+
+```bash Python
+pip install kernel anthropic
+KERNEL_API_KEY=... ANTHROPIC_API_KEY=... python code_mode_browser_repl.py
+```
+</CodeGroup>
+
+The script defaults to `claude-opus-5`. Set `CLAUDE_MODEL` to try another model.
+
+## The script
+
+<CodeGroup>
+```ts Typescript/Javascript
+import Anthropic from "@anthropic-ai/sdk";
+import Kernel from "@onkernel/sdk";
+
+const TASK_PROMPT =
+	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
+	"then drag every item card to the Done column.";
+
+const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5";
+
+// Each browser_repl call gets up to 5 minutes, the REPL's maximum.
+const REPL_TIMEOUT_SEC = 300;
+// Model turns before the loop gives up.
+const MAX_TURNS = 25;
+
+const SYSTEM_PROMPT = `You complete browser tasks by writing JavaScript for the browser_repl tool. Each call runs as a cell in a persistent Node.js REPL on the browser's VM.
+
+How to work:
+1. Start by navigating and inspecting. Write back a compact summary of what matters (headings, buttons, inputs, and their text), not a raw dump.
+2. After that, write programs, not single actions. One cell completes a whole step: it finds every element it needs, acts on each one, verifies the result, and writes back what changed. Prefer one cell that handles every item over one cell per item.
+3. Define helpers you'll need again as top-level functions; they persist across cells. A top-level const or let can't be declared again in a later cell, so pick new names or use var.
+
+REPL reference:
+- Expression values are discarded. Return data with repl.write(string).
+- gotoUrl(url) doesn't wait; follow it with waitForLoad(). waitMs(ms) sleeps.
+- accessibilitySnapshot() returns {nodes: [{role, name, backendNodeId}]}.
+- click(target) and fillInput(target, text) accept a CSS selector, a snapshot node, {backendNodeId}, or {x, y}.
+- js(fn, {arg}) runs fn in the page and returns a JSON-serializable result. DOM nodes and DOMRects come back empty, so copy the fields you need.
+- cdp(method, params) sends any DevTools Protocol command.
+- For drag-and-drop, send cdp("Input.dispatchMouseEvent", ...): mousePressed, then ten or more mouseMoved events along the path, then mouseReleased.
+- captureScreenshot(path) saves a PNG; await repl.emitImage({path}) returns it to you. Use it when the page's state is unclear.
+- repl.help("name") prints the docs for any helper.
+- Each call can run for ${REPL_TIMEOUT_SEC} seconds. A timeout destroys the REPL and every binding in it.`;
+
+const replTool: Anthropic.Tool = {
+	name: "browser_repl",
+	description:
+		"Run JavaScript in the browser's persistent REPL. Top-level bindings persist across calls. " +
+		"Returns ordered write/stdout/stderr text and any images emitted with repl.emitImage.",
+	input_schema: {
+		type: "object",
+		properties: {
+			code: { type: "string", description: "JavaScript to evaluate. Top-level await is supported; static imports are not." },
+			reset: { type: "boolean", description: "Discard all REPL state before running code." },
+		},
+		required: ["code"],
+	},
+};
+
+type ReplInput = { code: string; reset?: boolean };
+
+async function runRepl(
+	kernel: Kernel,
+	sessionId: string,
+	toolUseId: string,
+	input: ReplInput,
+): Promise<Anthropic.ToolResultBlockParam> {
+	const result = await kernel.browsers.repl(
+		sessionId,
+		{ code: input.code, reset: input.reset, timeout_sec: REPL_TIMEOUT_SEC },
+		// Outlast the REPL's own timeout, and never re-send a cell that may already have run.
+		{ timeout: (REPL_TIMEOUT_SEC + 30) * 1000, maxRetries: 0 },
+	);
+
+	const content: Anthropic.ToolResultBlockParam["content"] = [];
+	for (const item of result.content ?? []) {
+		if (item.type === "text") {
+			content.push({ type: "text", text: `[${item.channel}] ${item.text}` });
+		} else {
+			content.push({
+				type: "image",
+				source: { type: "base64", media_type: item.mime_type as Anthropic.Base64ImageSource["media_type"], data: item.data_b64 },
+			});
+		}
+	}
+	if (!result.success) content.push({ type: "text", text: `Error: ${result.error}\n${result.stack ?? ""}` });
+	if (result.repl_terminated) {
+		content.push({ type: "text", text: "The REPL was terminated. All top-level bindings are gone; redefine helpers before using them." });
+	}
+	if (result.content_truncated) content.push({ type: "text", text: "Output was truncated. Write less per call." });
+	if (content.length === 0) content.push({ type: "text", text: "(no output; use repl.write to return values)" });
+
+	return { type: "tool_result", tool_use_id: toolUseId, content, is_error: !result.success };
+}
+
+function summarize(result: Anthropic.ToolResultBlockParam): string {
+	if (!Array.isArray(result.content)) return "";
+	return result.content
+		.map((block) => (block.type === "text" ? block.text.slice(0, 400) : `<${block.type}>`))
+		.join("\n");
+}
+
+async function main(): Promise<void> {
+	const kernel = new Kernel();
+	const anthropic = new Anthropic();
+
+	const browser = await kernel.browsers.create({ stealth: true });
+	const replay = await kernel.browsers.replays.start(browser.session_id);
+	console.log(`recording started: ${replay.replay_view_url}`);
+
+	try {
+		const messages: Anthropic.MessageParam[] = [{ role: "user", content: TASK_PROMPT }];
+
+		for (let turn = 1; turn <= MAX_TURNS; turn++) {
+			const response = await anthropic.messages.create({
+				model: MODEL,
+				max_tokens: 16000,
+				system: SYSTEM_PROMPT,
+				tools: [replTool],
+				messages,
+			});
+			messages.push({ role: "assistant", content: response.content });
+
+			if (response.stop_reason !== "tool_use") {
+				console.log(`final stopReason: ${response.stop_reason}`);
+				for (const block of response.content) {
+					if (block.type === "text") console.log(block.text);
+				}
+				return;
+			}
+
+			const toolResults: Anthropic.ToolResultBlockParam[] = [];
+			for (const block of response.content) {
+				if (block.type !== "tool_use") continue;
+				const input = block.input as ReplInput;
+				console.log(`[turn ${turn}] browser_repl\n${input.code}`);
+				const result = await runRepl(kernel, browser.session_id, block.id, input);
+				console.log(`[turn ${turn}] result${result.is_error ? " (error)" : ""}\n${summarize(result)}`);
+				toolResults.push(result);
+			}
+			messages.push({ role: "user", content: toolResults });
+		}
+		console.log(`stopped after ${MAX_TURNS} turns`);
+	} finally {
+		await kernel.browsers.replays.stop(replay.replay_id, { id_or_name: browser.session_id });
+		console.log(`replay ready: ${replay.replay_view_url}`);
+		await kernel.browsers.deleteByID(browser.session_id);
+	}
+}
+
+void main();
+```
+
+```python Python
+import os
+
+import anthropic
+from kernel import Kernel
+
+TASK_PROMPT = (
+    "Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, "
+    "then drag every item card to the Done column."
+)
+
+MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5")
+
+# Each browser_repl call gets up to 5 minutes, the REPL's maximum.
+REPL_TIMEOUT_SEC = 300
+# Model turns before the loop gives up.
+MAX_TURNS = 25
+
+SYSTEM_PROMPT = (
+    """You complete browser tasks by writing JavaScript for the browser_repl tool. Each call runs as a cell in a persistent Node.js REPL on the browser's VM.
+
+How to work:
+1. Start by navigating and inspecting. Write back a compact summary of what matters (headings, buttons, inputs, and their text), not a raw dump.
+2. After that, write programs, not single actions. One cell completes a whole step: it finds every element it needs, acts on each one, verifies the result, and writes back what changed. Prefer one cell that handles every item over one cell per item.
+3. Define helpers you'll need again as top-level functions; they persist across cells. A top-level const or let can't be declared again in a later cell, so pick new names or use var.
+
+REPL reference:
+- Expression values are discarded. Return data with repl.write(string).
+- gotoUrl(url) doesn't wait; follow it with waitForLoad(). waitMs(ms) sleeps.
+- accessibilitySnapshot() returns {nodes: [{role, name, backendNodeId}]}.
+- click(target) and fillInput(target, text) accept a CSS selector, a snapshot node, {backendNodeId}, or {x, y}.
+- js(fn, {arg}) runs fn in the page and returns a JSON-serializable result. DOM nodes and DOMRects come back empty, so copy the fields you need.
+- cdp(method, params) sends any DevTools Protocol command.
+- For drag-and-drop, send cdp("Input.dispatchMouseEvent", ...): mousePressed, then ten or more mouseMoved events along the path, then mouseReleased.
+- captureScreenshot(path) saves a PNG; await repl.emitImage({path}) returns it to you. Use it when the page's state is unclear.
+- repl.help("name") prints the docs for any helper.
+"""
+    + f"- Each call can run for {REPL_TIMEOUT_SEC} seconds. A timeout destroys the REPL and every binding in it."
+)
+
+REPL_TOOL = {
+    "name": "browser_repl",
+    "description": (
+        "Run JavaScript in the browser's persistent REPL. Top-level bindings persist across calls. "
+        "Returns ordered write/stdout/stderr text and any images emitted with repl.emitImage."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "code": {
+                "type": "string",
+                "description": "JavaScript to evaluate. Top-level await is supported; static imports are not.",
+            },
+            "reset": {
+                "type": "boolean",
+                "description": "Discard all REPL state before running code.",
+            },
+        },
+        "required": ["code"],
+    },
+}
+
+
+def run_repl(
+    kernel: Kernel, session_id: str, tool_use_id: str, tool_input: dict
+) -> dict:
+    # Outlast the REPL's own timeout, and never re-send a cell that may already have run.
+    result = kernel.with_options(max_retries=0).browsers.repl(
+        session_id,
+        code=tool_input["code"],
+        reset=bool(tool_input.get("reset", False)),
+        timeout_sec=REPL_TIMEOUT_SEC,
+        timeout=REPL_TIMEOUT_SEC + 30,
+    )
+
+    content = []
+    for item in result.content or []:
+        if item.type == "text":
+            content.append({"type": "text", "text": f"[{item.channel}] {item.text}"})
+        else:
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": item.mime_type,
+                        "data": item.data_b64,
+                    },
+                }
+            )
+    if not result.success:
+        content.append(
+            {"type": "text", "text": f"Error: {result.error}\n{result.stack or ''}"}
+        )
+    if result.repl_terminated:
+        content.append(
+            {
+                "type": "text",
+                "text": "The REPL was terminated. All top-level bindings are gone; redefine helpers before using them.",
+            }
+        )
+    if result.content_truncated:
+        content.append(
+            {"type": "text", "text": "Output was truncated. Write less per call."}
+        )
+    if not content:
+        content.append(
+            {"type": "text", "text": "(no output; use repl.write to return values)"}
+        )
+
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_use_id,
+        "content": content,
+        "is_error": not result.success,
+    }
+
+
+def summarize(result: dict) -> str:
+    return "\n".join(
+        block["text"][:400] if block["type"] == "text" else f"<{block['type']}>"
+        for block in result["content"]
+    )
+
+
+def main() -> None:
+    kernel = Kernel()
+    client = anthropic.Anthropic()
+
+    browser = kernel.browsers.create(stealth=True)
+    replay = kernel.browsers.replays.start(browser.session_id)
+    print(f"recording started: {replay.replay_view_url}")
+
+    try:
+        messages = [{"role": "user", "content": TASK_PROMPT}]
+
+        for turn in range(1, MAX_TURNS + 1):
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=16000,
+                system=SYSTEM_PROMPT,
+                tools=[REPL_TOOL],
+                messages=messages,
+            )
+            messages.append({"role": "assistant", "content": response.content})
+
+            if response.stop_reason != "tool_use":
+                print(f"final stop_reason: {response.stop_reason}")
+                for block in response.content:
+                    if block.type == "text":
+                        print(block.text)
+                return
+
+            tool_results = []
+            for block in response.content:
+                if block.type != "tool_use":
+                    continue
+                print(f"[turn {turn}] browser_repl\n{block.input['code']}")
+                result = run_repl(kernel, browser.session_id, block.id, block.input)
+                print(
+                    f"[turn {turn}] result{' (error)' if result['is_error'] else ''}\n{summarize(result)}"
+                )
+                tool_results.append(result)
+            messages.append({"role": "user", "content": tool_results})
+
+        print(f"stopped after {MAX_TURNS} turns")
+    finally:
+        kernel.browsers.replays.stop(replay.replay_id, id_or_name=browser.session_id)
+        print(f"replay ready: {replay.replay_view_url}")
+        kernel.browsers.delete_by_id(browser.session_id)
+
+
+if __name__ == "__main__":
+    main()
+```
+</CodeGroup>
+
+## What a run looks like
+
+In testing, `claude-opus-5` finished the task in about a dozen `browser_repl` calls. The first few cells inspected the page and applied the filter. Then the model defined two helpers — `getBoard()`, which reads each column's cards and their coordinates with `js()`, and `dragTo()`, which sends a press, a path of `mouseMoved` events, and a release through `cdp()`. After one drag to confirm the approach worked, it moved every remaining card in a single cell, trimmed here:
+
+```javascript
+let log = [];
+for (let iter = 0; iter < 10; iter++) {
+  const board = await getBoard();
+  const done = board.find(c => c.col === "Done");
+  const pending = board.filter(c => c.col !== "Done").flatMap(c => c.cards);
+  if (!pending.length) { log.push("no cards left outside Done"); break; }
+  const card = pending[0];
+  await dragTo(card.x, card.y, done.dropX, done.dropY);
+  log.push(`moved "${card.title}" -> Done`);
+}
+repl.write(log.join("\n"));
+```
+
+Because `getBoard` and `dragTo` were top-level declarations in an earlier cell, this cell calls them without redefining anything. The last cell checked the column counts and took a screenshot to confirm the result.
+
+## Notes
+
+- **Model choice matters more in code mode.** The approach assumes the model writes multi-step programs. In the same tests, `claude-sonnet-5` tended to take one action per cell and often ran out of turns before finishing. Compare models on your own tasks with `CLAUDE_MODEL` before you pick one.
+- **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
+- **Code mode doesn't have to be the only tool.** You can add computer-use tools next to `browser_repl` for canvas-drawn UI or native dialogs, or let the model use coordinate clicks (`click({x, y})`) inside the REPL.
+- **The whole run is recorded.** The script wraps the run in `kernel.browsers.replays.start()` / `.stop()`, so every cell's effect lands on one replay video.
+
+## Next steps
+
+- [Browser REPL](/browsers/repl) — helpers, persistence, and lifecycle semantics
+- [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — the tool-per-action version of the same task
+- [Computer Controls](/browsers/computer-controls) — the OS-level input API for screenshot-driven agents
+- [Replays](/browsers/replays) — record a session end to end
