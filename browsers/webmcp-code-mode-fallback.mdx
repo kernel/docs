@@ -12,7 +12,7 @@ Together, they give the agent two ways to act: structured tools when the page pr
 
 ## The example task
 
-The example's default task runs against [bikesandbacon.com](https://www.bikesandbacon.com), a cycling blog that registers WebMCP tools:
+The example task runs against [bikesandbacon.com](https://www.bikesandbacon.com), a cycling blog that registers WebMCP tools:
 
 ```
 Go to bikesandbacon.com and find the top 3 newest articles
@@ -21,16 +21,6 @@ the full article.
 ```
 
 The task needs both paths. The site's WebMCP tools include `get_latest_articles`, which covers finding the newest articles. Summarizing each full article means reading the article pages, and code mode in the Browser REPL covers anything the site's tools don't.
-
-<Tip>
-**Try a site with no WebMCP tools.** [magnitasks.com](https://magnitasks.com), a public Kanban-style board, doesn't register any WebMCP tools, so the agent falls back to code mode for the whole task. Replace `TASK_PROMPT` in the script with:
-
-```ts
-const TASK_PROMPT =
-	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
-	"then drag every item card to the Done column.";
-```
-</Tip>
 
 ## Adding the pattern to any harness
 
@@ -132,7 +122,6 @@ How to work in browser_repl:
 
 Tips:
 - js(fn, {arg}) returns JSON-serializable values only. DOMRects come back empty, so copy x, y, width, and height.
-- For drag-and-drop, send cdp("Input.dispatchMouseEvent", ...): mousePressed, then ten or more mouseMoved events along the path, then mouseReleased.
 - Each call can run for ${REPL_TIMEOUT_SEC} seconds. A timeout destroys the REPL and every binding in it.`;
 
 async function main(): Promise<void> {
@@ -191,14 +180,14 @@ void main();
 
 ### What a run looks like
 
-In four test runs of the default task, the agent created its browser, listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (3 to 6 calls per run) before writing its summaries. In two runs it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the others it navigated inside the REPL. Every run ended by deleting the browser, in 13 to 22 steps.
+In five test runs, the agent created its browser, listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (3 to 12 calls per run) before writing its summaries. In two runs it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the others it navigated inside the REPL. Every run ended by deleting the browser, in 13 to 22 steps.
 
 The model chooses its tools and writes its own code on every run, so expect the exact calls to vary from run to run.
 
 ## Notes
 
 - **Turning off Playwright execution doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
-- **Filter MCP tools you don't want the model to call.** `activeTools` only removes the tools in `DISABLED_TOOLS`, so the model can still reach the rest of the Kernel MCP server. In testing, it switched its session to a residential proxy after the site timed out. For tighter control, build `activeTools` from an allowlist, such as `["manage_browsers", "webmcp", "browser_repl"]`.
+- **Filter MCP tools you don't want the model to call.** `activeTools` only removes the tools in `DISABLED_TOOLS`, so the model can still reach the rest of the Kernel MCP server. In testing, the agent once switched its session to a residential proxy after a site timed out. For tighter control, build `activeTools` from an allowlist, such as `["manage_browsers", "webmcp", "browser_repl"]`.
 - **WebMCP works inside the REPL too.** `webmcp.listTools()` and `webmcp.invokeTool()` are available in `browser_repl` cells, so a harness can skip the separate `webmcp` tool and let the model check for structured actions in code. The separate tool makes the structured attempt its own visible step and comes with Kernel's guidance for populated forms and uncertain outcomes.
 - **Writing your own REPL tool?** Call [`kernel.browsers.repl()`](/browsers/repl) with `timeout_sec` up to 300, set the SDK request timeout above `timeout_sec`, and turn off the SDK's retries for that call. The Kernel SDKs default to a 60-second request timeout with automatic retries, which would cut off a long cell and send it again.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
