@@ -22,18 +22,18 @@ The tradeoff: a browser pool counts against your concurrency limit whether or no
 
 ## When to use a pool vs on-demand
 
+Stick with **on-demand `browsers.create()`** when:
+
+- you're still building
+- your configuration changes per user (a pool is one fixed config)
+- you need a GPU browser (not available in pools)
+
 Reach for a **browser pool** when:
 
 - you've built and scaled your workload, and every run uses the same workload attributes
 - acquisition latency matters — a cold start is unacceptable (for example, a synchronous, user-facing action)
 - traffic is steady or high-frequency enough to keep the browser pool utilized
 - you're hitting the `browsers.create()` rate limit at volume
-
-Stick with **on-demand `browsers.create()`** when:
-
-- you're still building
-- your configuration changes per user (a pool is one fixed config)
-- you need a GPU browser (not available in pools)
 
 Concurrency and request patterns are how you *size* a pool once you've decided to use one — not a threshold that gates whether pools are worth it. Even a small pool pays off when acquisition latency matters and demand is steady.
 
