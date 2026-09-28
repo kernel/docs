@@ -5,11 +5,41 @@ description: "Run Kernel browsers from the agent frameworks, models, and platfor
 mode: "wide"
 ---
 
-Kernel browsers work with any tool that speaks the Chrome DevTools Protocol or WebDriver BiDi. The guides below cover the integrations with first-class support. For anything else, see [how you drive the browser](/introduction/control).
+Kernel browsers work with any tool that speaks the Chrome DevTools Protocol or WebDriver BiDi. The guides below cover the integrations with first-class support. For anything else, see [how you drive the browser](/introduction/control). For every integration from one vendor on one page, see [Claude](/integrations/claude/overview) and [Vercel](/integrations/vercel/overview).
 
-## Agent frameworks
+Sections follow the pieces of a browser agent described in [important concepts](/overview/concepts).
 
-Build the agent — the model loop that decides what to do — and give it a Kernel browser as a tool.
+## Add a browser to an agent you already use
+
+Give a finished agent or coding tool a Kernel browser, usually through MCP, a plugin, or a config setting. You don't write the loop.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Claude Code and Desktop" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-code-and-desktop">
+    Give Claude Code and Claude Desktop a Kernel browser.
+  </Card>
+  <Card title="Claude Managed Agents" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-managed-agents">
+    Run Anthropic's hosted agent harness against Kernel browsers.
+  </Card>
+  <Card title="Replit" icon="/images/integration-icons/replit.svg" href="/integrations/replit">
+    Give Replit Agent a Kernel browser.
+  </Card>
+  <Card title="Eve" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/eve-extension">
+    Give your Vercel Eve agent a Kernel browser.
+  </Card>
+  <Card title="Foreman" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/foreman">
+    Give your Foreman agent a Kernel browser.
+  </Card>
+  <Card title="fx" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/fx">
+    Give Vercel's fx coding agent a Kernel browser over MCP.
+  </Card>
+  <Card title="Hermes Agent" icon="/images/integration-icons/nousresearch.svg" href="/integrations/hermes-agent">
+    Run Hermes Agent browser tools on Kernel browsers.
+  </Card>
+</Columns>
+
+## Build your own agent
+
+Agent frameworks for writing the loop yourself, with a Kernel browser as one of its tools.
 
 <Columns className="responsive-columns" cols={3}>
   <Card title="Browser Use" icon="/images/integration-icons/browser-use-logo-transparent.svg" href="/integrations/browser-use">
@@ -20,28 +50,6 @@ Build the agent — the model loop that decides what to do — and give it a Ker
   </Card>
   <Card title="Vercel AI SDK" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/ai-sdk">
     Give AI SDK agents Kernel browser tools.
-  </Card>
-  <Card title="Hermes Agent" icon="/images/integration-icons/nousresearch.svg" href="/integrations/hermes-agent">
-    Run Hermes Agent browser tools on Kernel browsers.
-  </Card>
-</Columns>
-
-## Browser automation frameworks
-
-Drive the page itself — navigate, click, fill, extract — against a Kernel browser.
-
-<Columns className="responsive-columns" cols={3}>
-  <Card title="Stagehand" icon="/images/integration-icons/stagehand-logo-transparent.svg" href="/integrations/stagehand">
-    Mix code and natural language browser automation on Kernel.
-  </Card>
-  <Card title="Agent Browser" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/agent-browser">
-    Vercel's browser automation CLI for AI agents.
-  </Card>
-  <Card title="Vibium" icon="/images/integration-icons/vibium.svg" href="/integrations/vibium">
-    Drive Kernel browsers with a WebDriver BiDi automation framework.
-  </Card>
-  <Card title="Playwright" icon="code" href="/browsers/playwright-execution">
-    Run Playwright code inside the browser's VM, or connect over CDP.
   </Card>
 </Columns>
 
@@ -70,36 +78,36 @@ Run a vision model's screenshot-and-act loop against a Kernel browser. See the [
   </Card>
 </Columns>
 
-## Agents and coding tools
+## Browser automation frameworks
 
-Give an agent you already use a Kernel browser.
+Drive the page itself — navigate, click, fill, extract — against a Kernel browser.
 
 <Columns className="responsive-columns" cols={3}>
-  <Card title="Claude Managed Agents" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-managed-agents">
-    Run Anthropic's hosted agent harness against Kernel browsers.
+  <Card title="Playwright" icon="code" href="/browsers/playwright-execution">
+    Run Playwright code inside the browser's VM, or connect over CDP.
   </Card>
-  <Card title="Eve" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/eve-extension">
-    Give your Vercel Eve agent a Kernel browser.
+  <Card title="Stagehand" icon="/images/integration-icons/stagehand-logo-transparent.svg" href="/integrations/stagehand">
+    Mix code and natural language browser automation on Kernel.
   </Card>
-  <Card title="Claude Code and Desktop" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-code-and-desktop">
-    Give Claude Code and Claude Desktop a Kernel browser.
+  <Card title="Agent Browser" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/agent-browser">
+    Vercel's browser automation CLI for AI agents.
   </Card>
-  <Card title="Replit" icon="/images/integration-icons/replit.svg" href="/integrations/replit">
-    Give Replit Agent a Kernel browser.
-  </Card>
-  <Card title="Foreman" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/foreman">
-    Give your Foreman agent a Kernel browser.
-  </Card>
-  <Card title="fx" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/fx">
-    Give Vercel's fx coding agent a Kernel browser over MCP.
+  <Card title="Vibium" icon="/images/integration-icons/vibium.svg" href="/integrations/vibium">
+    Drive Kernel browsers with a WebDriver BiDi automation framework.
   </Card>
 </Columns>
 
-## Wallets
+## Credentials, identity, and payments
 
-Connect a user's payment method so an agent can complete a checkout without seeing card data. See [payments](/browsers/payments) for how checkouts work end to end.
+Give the browser what it needs to log in, prove who it is, and check out, without handing secrets to your agent. See [authentication](/auth/overview) and [payments](/browsers/payments) for how these work end to end.
 
 <Columns className="responsive-columns" cols={3}>
+  <Card title="1Password" icon="/images/integration-icons/1password-logo-transparent.svg" href="/integrations/1password">
+    Use credentials from your 1Password vaults.
+  </Card>
+  <Card title="Web Bot Auth" icon="badge-check" href="/browsers/bot-detection/web-bot-auth">
+    Give your agents a verifiable identity that sites can check.
+  </Card>
   <Card title="Link by Stripe" icon="/images/integration-icons/stripe.svg" href="/integrations/wallets/stripe-link">
     Approve a one-use payment credential for a browser checkout.
   </Card>
@@ -111,13 +119,16 @@ Connect a user's payment method so an agent can complete a checkout without seei
   </Card>
 </Columns>
 
-## Platforms and infrastructure
+## Deploy and provision
 
 Provision and run Kernel from the platforms you deploy on.
 
 <Columns className="responsive-columns" cols={3}>
   <Card title="Vercel Marketplace" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/marketplace">
     Add Kernel to a Vercel project through the Marketplace.
+  </Card>
+  <Card title="Vercel Template" icon="/images/integration-icons/vercel.svg" href="https://github.com/kernel/vercel-example">
+    Deploy browser automations to Vercel from a starter template.
   </Card>
   <Card title="Stripe Projects" icon="/images/integration-icons/stripe.svg" href="/integrations/stripe-projects">
     Provision Kernel browsers and plans with the Stripe Projects CLI.
@@ -128,36 +139,14 @@ Provision and run Kernel from the platforms you deploy on.
   <Card title="Val Town" icon="/images/integration-icons/val-town.svg" href="/integrations/valtown">
     Run browser automations from Val Town's serverless runtime.
   </Card>
-  <Card title="Vercel Template" icon="/images/integration-icons/vercel.svg" href="https://github.com/kernel/vercel-example">
-    Deploy browser automations to Vercel from a starter template.
-  </Card>
 </Columns>
 
-## Tools
+## Observability
 
-Connect Kernel to the rest of your stack.
+Send traces and evaluations from browser agents to the tools you already monitor with.
 
 <Columns className="responsive-columns" cols={3}>
-  <Card title="1Password" icon="/images/integration-icons/1password-logo-transparent.svg" href="/integrations/1password">
-    Use credentials from your 1Password vaults.
-  </Card>
   <Card title="Laminar" icon="/images/integration-icons/laminar-outline.svg" href="/integrations/laminar">
     Trace and evaluate browser agents with Laminar.
-  </Card>
-  <Card title="Web Bot Auth" icon="badge-check" href="/browsers/bot-detection/web-bot-auth">
-    Give your agents a verifiable identity that sites can check.
-  </Card>
-</Columns>
-
-## By vendor
-
-Every Kernel integration from one vendor, on one page.
-
-<Columns className="responsive-columns" cols={3}>
-  <Card title="Claude" icon="/images/integration-icons/claude.svg" href="/integrations/claude/overview">
-    Claude Code, Claude Desktop, the Agent SDK, and Managed Agents.
-  </Card>
-  <Card title="Vercel" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/overview">
-    The AI SDK, Agent Browser, Eve, Foreman, fx, and the Marketplace.
   </Card>
 </Columns>

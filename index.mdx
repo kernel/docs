@@ -7,9 +7,22 @@ mode: "wide"
 
 KERNEL gives your agents and automations sandboxed chromium browsers in the cloud. each browser runs in its own vm, starts in about 30ms, and can be driven with playwright, computer controls, cdp, or webdriver bidi. around the browser, we provide what agents need on real websites: stealth and proxies, authentication, payments, browser pools, and live view, replays, and telemetry for debugging.
 
+<Columns className="responsive-columns" cols={2}>
+  <Card title="see all products" img="/images/chromium.svg" href="/overview/products">
+    browsers, stealth, proxies, auth, payments, and everything else, each linking to its docs.
+  </Card>
+  <Card title="quickstart" img="/images/overview/quickstart.svg" href="/start/quickstart">
+    hand setup to your coding agent with one prompt, or create your first browser yourself.
+  </Card>
+</Columns>
+
 ## why we built it this way
 
 most browser infrastructure runs chromium in containers orchestrated by kubernetes, with warm pools to hide slow starts. we [pioneered](https://news.ycombinator.com/item?id=43705144) a different approach: running chromium on unikernels, single-purpose vms that carry only what the browser needs. browsers already sandbox untrusted web content across processes, which covers the internal isolation a unikernel leaves out.
+
+<Frame>
+  <img src="/images/overview/unikernel-vs-containers.svg" alt="on the left, three chromium containers share one host kernel. on the right, each chromium runs on its own unikernel vm above a hypervisor." />
+</Frame>
 
 that choice is why a browser starts in about 30ms ([performance](/browsers/performance)), why an idle browser can go into [standby](/browsers/standby) after five seconds and keep its state without accruing usage cost, and why [ssh](/browsers/ssh) and [process execution](/browsers/process-execution) are safe to hand an agent: every session is its own vm. [browsers on unikernels](/info/unikernels) goes deeper on the design.
 
@@ -23,53 +36,5 @@ our browser image and vm runtime are on github.
   </Card>
   <Card title="hypeman" icon="github" href="https://github.com/kernel/hypeman">
     the vm runtime for oci images, supporting cloud hypervisor, firecracker, qemu, and apple virtualization.framework.
-  </Card>
-</Columns>
-
-## start here
-
-<Columns cols={3}>
-  <Card title="see all products" href="/overview/products">
-    every primitive and product, each linking to its docs.
-  </Card>
-  <Card title="quickstart" href="/start/quickstart">
-    hand setup to your coding agent, or create your first browser yourself.
-  </Card>
-  <Card title="cookbooks" href="/cookbooks">
-    end-to-end recipes you can clone and run.
-  </Card>
-</Columns>
-
-## how it works
-
-<Columns cols={3}>
-  <Card title="configure" href="/introduction/create">
-    pick the shape of the browser: headless, stealth, proxies, profiles, and credentials.
-  </Card>
-  <Card title="control" href="/introduction/control">
-    drive it with playwright execution, computer use, cdp, or webdriver bidi, and choose where your loop runs.
-  </Card>
-  <Card title="scale" href="/introduction/scale">
-    keep browsers ready in pools and plan around concurrency limits.
-  </Card>
-  <Card title="observe" href="/introduction/observe">
-    watch sessions live, record replays, and stream telemetry.
-  </Card>
-  <Card title="manage" href="/info/projects">
-    organize work with projects, api keys, audit logs, and spending caps.
-  </Card>
-</Columns>
-
-## plans and enterprise
-
-<Columns cols={3}>
-  <Card title="plans and pricing" href="/info/pricing">
-    usage rates, plan limits, and what each plan includes.
-  </Card>
-  <Card title="enterprise" href="/info/enterprise">
-    security, hipaa, zero data retention, and custom limits.
-  </Card>
-  <Card title="contact sales" href="/info/contact-sales">
-    talk to us about an enterprise plan, custom limits, or a pilot.
   </Card>
 </Columns>
