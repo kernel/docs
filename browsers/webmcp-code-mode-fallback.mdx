@@ -12,14 +12,25 @@ Together, they give the agent two ways to act: structured tools when the page pr
 
 ## The example task
 
-The example runs the same task as [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback), against [magnitasks.com](https://magnitasks.com), a public Kanban-style board:
+The example's default task runs against [bikesandbacon.com](https://www.bikesandbacon.com), a cycling blog that registers WebMCP tools:
 
 ```
-Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks,
-then drag every item card to the Done column.
+Go to bikesandbacon.com and find the top 3 newest articles
+on the site. Then visit each article's page and summarize
+the full article.
 ```
 
-In that cookbook, the Playwright `browser_drag` tool can't move a card: the board uses pointer-based drag-and-drop, which needs several intermediate `mousemove` events, so the agent hands off to computer use. magnitasks.com doesn't register any WebMCP tools, so the agent checks, finds none, and falls back to code mode for the whole task. There, the model writes a drag with enough intermediate pointer movement itself, then runs it for every card.
+The task needs both paths. The site's WebMCP tools include `get_latest_articles`, which covers finding the newest articles. Summarizing each full article means reading the article pages, and code mode in the Browser REPL covers anything the site's tools don't.
+
+<Tip>
+**Try a site with no WebMCP tools.** [magnitasks.com](https://magnitasks.com), a public Kanban-style board, doesn't register any WebMCP tools, so the agent falls back to code mode for the whole task. Replace `TASK_PROMPT` in the script with:
+
+```ts
+const TASK_PROMPT =
+	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
+	"then drag every item card to the Done column.";
+```
+</Tip>
 
 ## Tool calling vs. code mode
 
@@ -95,8 +106,8 @@ import Kernel from "@onkernel/sdk";
 import { ToolLoopAgent, isStepCount, type ToolSet } from "ai";
 
 const TASK_PROMPT =
-	"Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks, " +
-	"then drag every item card to the Done column.";
+	"Go to bikesandbacon.com and find the top 3 newest articles on the site. " +
+	"Then visit each article's page and summarize the full article.";
 
 // The Kernel MCP server's browser_repl tool accepts at most 150 seconds per call.
 const REPL_TIMEOUT_SEC = 150;
@@ -185,48 +196,11 @@ async function main(): Promise<void> {
 void main();
 ```
 
-<Tip>
-**Try a site that registers WebMCP tools.** [bikesandbacon.com](https://www.bikesandbacon.com) registers WebMCP tools, including `get_latest_articles`. To see the structured path, replace `TASK_PROMPT` in the script with:
-
-```ts
-const TASK_PROMPT =
-	"Go to bikesandbacon.com and find the top 3 newest articles on the site.";
-```
-
-In two test runs, the agent listed the page's WebMCP tools, invoked `get_latest_articles` with `{ limit: 3 }`, and returned the three articles with their dates and links. It never called `browser_repl`, and each run finished in 8 or 9 steps, including creating, recording, and deleting the browser.
-</Tip>
-
 ### What a run looks like
 
-In two test runs, `gpt-6-luna` finished the task in 19 and 35 steps (11 and 21 `browser_repl` calls). Both runs did the lifecycle calls in order: `manage_browsers` create, `manage_replays` start, then the task, then `manage_replays` stop and `manage_browsers` delete. The harness cleanup never had to run. magnitasks.com doesn't register any WebMCP tools, so each `webmcp` list came back empty and the agent continued in code mode.
+In two test runs of the default task, the agent created its browser and started a recording, then listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (6 calls per run) before writing its summaries. In one run it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the other it navigated with `gotoUrl()` inside the REPL. Both runs ended by stopping the recording and deleting the browser, in 14 and 22 steps.
 
-The longer run hit upstream timeouts loading the site. The agent diagnosed that on its own: it checked the site with `browser_curl`, looked up recommended settings with `manage_config_registry`, tested a proxy with `manage_proxies`, and switched the session to a residential proxy with `manage_browsers` update before it continued. That's what an agent with the full MCP toolset can do — useful, but it also changes billable session settings. See the notes below for how to narrow the tools.
-
-For the drag itself, runs varied. In one test run, the model defined a drag helper with raw CDP mouse events, used it on the first card, and checked the board in the same cell:
-
-```javascript
-var dragCard = async (sx, sy, tx, ty) => {
-  await cdp("Input.dispatchMouseEvent", { type: "mouseMoved", x: sx, y: sy, button: "none" });
-  await cdp("Input.dispatchMouseEvent", { type: "mousePressed", x: sx, y: sy, button: "left", buttons: 1 });
-  await waitMs(120);
-  for (let i = 1; i <= 16; i++) {
-    let t = i / 16;
-    await cdp("Input.dispatchMouseEvent", {
-      type: "mouseMoved",
-      x: sx + (tx - sx) * t,
-      y: sy + (ty - sy) * t,
-      button: "left",
-      buttons: 1,
-    });
-    await waitMs(25);
-  }
-  await cdp("Input.dispatchMouseEvent", { type: "mouseReleased", x: tx, y: ty, button: "left", buttons: 0 });
-  await waitMs(500);
-};
-await dragCard(1104, 280, 1600, 250);
-```
-
-Because `dragCard` is a top-level binding, the next cell called it again for the second card and read the column counts back to confirm that Done held both cards. Other runs connected Patchright inside the REPL and moved the cards with Playwright's mouse API.
+The model chooses its tools and writes its own code on every run, so expect the exact calls to vary from run to run.
 
 ## Notes
 
@@ -244,4 +218,4 @@ Because `dragCard` is a top-level binding, the next cell called it again for the
 - [Kernel MCP server](/reference/mcp-server) — transports, authentication, and the full tool list
 - [WebMCP](/browsers/webmcp) — discovering and invoking the structured tools a page registers
 - [Vercel AI SDK](/integrations/vercel/ai-sdk) — other ways to use Kernel browsers from AI SDK
-- [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — the tool-per-action version of the same task
+- [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — a Playwright-first agent that falls back to computer use
