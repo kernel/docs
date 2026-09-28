@@ -10,9 +10,13 @@ This guide covers how to run Kernel in production at scale — which architectur
 
 A [browser pool](/browsers/pools) keeps a set of identically-configured browsers ready for immediate use. Compared to creating browsers on demand, it gives you:
 
-- **Low-latency acquisition** — the browser is already booted with your configuration applied (including settings like custom viewports, extensions, and kiosk-mode live view that otherwise [restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser), so `acquire` hands you one that's ready to drive.
+- **Lowest-latency acquisition** — the browser is already booted with your configuration applied (including settings like custom viewports, extensions, and kiosk-mode live view that otherwise [restart Chromium](/browsers/performance#troubleshooting-latency) on a fresh browser), so `acquire` hands you one that's ready to drive.
 - **Reserved, pre-configured capacity** — a fixed set of browsers on your exact configuration, ready before traffic arrives.
 - **Higher creation throughput** — acquiring from a pool isn't subject to the [rate limit](/info/pricing#rate-limiting) on `browsers.create()` that high-volume workloads hit.
+
+<Info>
+  If you're on an Enterprise plan, speak with your account manager about applicable rate limits for `browsers.create()` and what's best for your workloads.
+</Info>
 
 The tradeoff: a browser pool counts against your concurrency limit whether or not its browsers are currently acquired — a pool sized to 40 holds 40 of your limit. Idle pooled browsers aren't billed, but they hold the slot.
 
@@ -20,15 +24,15 @@ The tradeoff: a browser pool counts against your concurrency limit whether or no
 
 Reach for a **browser pool** when:
 
-- you're running the same workload repeatedly, in production
+- you've built and scaled your workload, and every run uses the same workload attributes
 - acquisition latency matters — a cold start is unacceptable (for example, a synchronous, user-facing action)
 - traffic is steady or high-frequency enough to keep the browser pool utilized
 - you're hitting the `browsers.create()` rate limit at volume
 
 Stick with **on-demand `browsers.create()`** when:
 
-- volume is low, bursty, one-off, or you're still developing
-- each session needs a different configuration (a pool is one fixed config)
+- you're still building
+- your configuration changes per user (a pool is one fixed config)
 - you need a GPU browser (not available in pools)
 
 Concurrency and request patterns are how you *size* a pool once you've decided to use one — not a threshold that gates whether pools are worth it. Even a small pool pays off when acquisition latency matters and demand is steady.
