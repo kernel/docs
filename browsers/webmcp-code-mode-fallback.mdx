@@ -32,18 +32,6 @@ const TASK_PROMPT =
 ```
 </Tip>
 
-## Tool calling vs. code mode
-
-| | one tool per action | code mode |
-| --- | --- | --- |
-| a step is | one tool call and one model round trip | as many actions as the program contains |
-| work over many items | one call per item | one loop or helper, reused |
-| state between steps | the conversation | the conversation, plus REPL bindings such as helpers and cached lookups |
-| checking a result | another tool call | part of the same program |
-| what the model learns up front | a schema per tool | the REPL's helper API, from the tool description and instructions |
-
-Code mode trades per-action control for fewer round trips. You no longer see each click as its own tool call, so the program has to verify its own work and write back what it changed.
-
 ## Adding the pattern to any harness
 
 Whatever harness you use — AI SDK, another agent framework, or your own loop over a model API — the pattern needs the same pieces.
