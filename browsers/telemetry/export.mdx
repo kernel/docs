@@ -116,7 +116,7 @@ kernel browsers create --telemetry=console,network --telemetry-export-otlp honey
 ```
 </CodeGroup>
 
-Export sends what the session captures, so capture must be on in the same request. Pass `enabled: true` or a category list alongside the destination; otherwise the request fails with `telemetry.export.otlp.destination requires telemetry capture to be enabled`. The CLI implies `--telemetry=all` when you pass `--telemetry-export-otlp` without `--telemetry`.
+Export sends what the session captures, so capture must be on in the same request. Pass `enabled: true` or a category list alongside the destination; otherwise the request fails with `telemetry.export.otlp.destination requires telemetry capture to be enabled`. On `kernel browsers create`, the CLI implies `--telemetry=all` when you pass a destination with `--telemetry-export-otlp` without `--telemetry`.
 
 Provide exactly one of `id` or `name`. Setting a destination turns export on, so you don't need to pass `enabled: true` under `otlp`, and combining a destination with `enabled: false` is rejected.
 
@@ -215,6 +215,16 @@ Header names are matched case-insensitively, so `authorization` replaces a store
 ## Managed auth connections
 
 [Managed auth](/auth/overview) logins run in a browser too, so they can export the same way. Set `browser.telemetry` with an `export` block when you create or update a connection, or on a single login, using the same shape as browser create. In the CLI, pass `--telemetry-export-otlp` to `kernel auth connections create`, `update`, or `login`.
+
+On connection create, passing a destination implies `--telemetry=all` if you omit `--telemetry`. When selecting a destination on update or login, you must pass `--telemetry` in the same command, even if the connection already has capture enabled. This keeps the CLI from replacing your category selection with the default set:
+
+```bash CLI
+kernel auth connections update <connection-id> \
+  --telemetry=console,network --telemetry-export-otlp honeycomb-prod
+
+kernel auth connections login <connection-id> \
+  --telemetry=console,network --telemetry-export-otlp honeycomb-prod
+```
 
 Kernel stores the resolved destination ID on the connection, so renaming the destination later doesn't change where the connection's logins export.
 
