@@ -91,7 +91,7 @@ Most of what you'll tune at creation time falls into four buckets:
 
 `browsers.create()` boots a browser for you on the spot. That's the right call while you're building and when your configuration changes per user as you scale.
 
-Start considering a [browser pool](/browsers/pools) once you're scaling beyond self-serve tiers and every run in a workload uses the same attributes. Pools are also the right choice when you need to acquire browsers at a rate that would exceed the [rate limit](/info/pricing#rate-limiting) on `browsers.create()`. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Configurations that restart Chromium on creation, such as custom viewports, extensions, and kiosk mode, are already applied.
+Start considering a [browser pool](/browsers/pools) once you're scaling beyond self-serve tiers and every run in a workload uses the same attributes. Pools are also the right choice when you need to acquire browsers at a rate that would exceed the [rate limit](/info/pricing#rate-limiting) on `browsers.create()`. If you're on the Enterprise tier and rate limiting is a concern, speak with your account manager to assess the best path forward. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Configurations that restart Chromium on creation, such as custom viewports, extensions, and kiosk mode, are already applied.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
