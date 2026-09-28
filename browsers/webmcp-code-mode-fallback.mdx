@@ -66,9 +66,9 @@ Use the MCP tool when your harness speaks MCP: you get a maintained tool descrip
 
 This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium reasoning. Everything the agent does goes through the Kernel MCP server, including creating and deleting its own browser. Here's how it covers each piece:
 
-- **Browser REPL tool:** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools, including `manage_browsers`, `manage_replays`, `webmcp`, and `browser_repl`, as AI SDK tools.
-- **Agent-owned lifecycle:** the script picks a unique session name. The instructions tell the agent to create a browser with that name through `manage_browsers` (stealth on, a 300-second inactivity timeout), start a recording with `manage_replays`, stop the recording and delete the browser when it's done, and end its answer with the session and replay IDs. If the run ends before the agent deletes it, the `finally` block deletes the session by name with the Kernel SDK. A `NotFoundError` there means the agent already cleaned up.
-- **WebMCP and the REPL as the control paths:** `activeTools` removes `execute_playwright_code` and `computer_action`, plus `get_more_tools` and `submit_feedback`, which send reports to Kernel. The instructions tell the agent to rely on the built-in `browser_repl` tool and not to create any browser besides its own.
+- **Browser REPL tool:** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools, including `manage_browsers`, `webmcp`, and `browser_repl`, as AI SDK tools.
+- **Agent-owned lifecycle:** the script picks a unique session name. The instructions tell the agent to create a browser with that name through `manage_browsers` (stealth on, a 300-second inactivity timeout) and to delete it when it's done. If the run ends before the agent deletes it, the `finally` block deletes the session by name with the Kernel SDK. A `NotFoundError` there means the agent already cleaned up.
+- **WebMCP and the REPL as the control paths:** `activeTools` removes `execute_playwright_code` and `computer_action`, plus `manage_replays` and the `get_more_tools` and `submit_feedback` tools, which send reports to Kernel. The instructions tell the agent to rely on the built-in `browser_repl` tool and not to create any browser besides its own.
 - **WebMCP first:** the instructions tell the agent to call `webmcp` with `list` after opening a site, invoke a listed tool when one fits, list again after navigating, and use `browser_repl` for everything else.
 - **Budget and retries:** the MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150, so the script wraps the tool's `execute` to run every call with 150 seconds. The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell is never sent twice.
 - **Results:** the MCP tool returns `success: false` with the error for syntax errors and exceptions, and the AI SDK MCP client passes screenshots from `repl.emitImage` to the model as image content.
@@ -83,7 +83,7 @@ npm install ai @ai-sdk/openai @ai-sdk/mcp @onkernel/sdk tsx
 KERNEL_API_KEY=... OPENAI_API_KEY=... npx tsx webmcp-code-mode-fallback.ts
 ```
 
-The same `KERNEL_API_KEY` authenticates the MCP server and the Kernel SDK, which the script uses only for the cleanup call. Recording replays requires a paid Kernel plan; on the free tier, drop step 2 and the replay part of step 4 from the instructions. `@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tools and the browser lifecycle don't change.
+The same `KERNEL_API_KEY` authenticates the MCP server and the Kernel SDK, which the script uses only for the cleanup call. `@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tools and the browser lifecycle don't change.
 
 ### The script
 
@@ -104,16 +104,21 @@ const MAX_STEPS = 50;
 // The agent creates the browser under this name and uses it as the session_id for every browser tool.
 const SESSION_NAME = `code-mode-${Date.now()}`;
 // Browser control goes through webmcp and browser_repl, so the other control tools are turned off,
-// along with the tools that send reports to Kernel.
-const DISABLED_TOOLS = new Set(["execute_playwright_code", "computer_action", "get_more_tools", "submit_feedback"]);
+// along with replays and the tools that send reports to Kernel.
+const DISABLED_TOOLS = new Set([
+	"execute_playwright_code",
+	"computer_action",
+	"manage_replays",
+	"get_more_tools",
+	"submit_feedback",
+]);
 
 const INSTRUCTIONS = `You complete browser tasks with the Kernel MCP tools.
 
 Session lifecycle:
 1. Create a browser with manage_browsers: action "create", name "${SESSION_NAME}", stealth true, timeout_seconds 300.
-2. Start a recording with manage_replays: action "start", session_id "${SESSION_NAME}".
-3. Do the task. Pass session_id "${SESSION_NAME}" on every browser tool call.
-4. When you're done, or can't finish, stop the recording with manage_replays action "stop", then delete the browser with manage_browsers action "delete". Don't create any other browsers. End your answer with the session ID and replay ID.
+2. Do the task. Pass session_id "${SESSION_NAME}" on every browser tool call.
+3. When you're done, or can't finish, delete the browser with manage_browsers action "delete". Don't create any other browsers.
 
 You control the browser with two tools:
 
@@ -186,18 +191,18 @@ void main();
 
 ### What a run looks like
 
-In three test runs of the default task, the agent created its browser and started a recording, then listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (4 to 6 calls per run) before writing its summaries. In one run it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the others it navigated inside the REPL. Every run ended by stopping the recording and deleting the browser, in 14 to 22 steps.
+In four test runs of the default task, the agent created its browser, listed the page's WebMCP tools and got the newest articles from `get_latest_articles`. It read each article's full text in `browser_repl` (3 to 6 calls per run) before writing its summaries. In two runs it opened the article pages with the site's `navigate_to_page` WebMCP tool; in the others it navigated inside the REPL. Every run ended by deleting the browser, in 13 to 22 steps.
 
 The model chooses its tools and writes its own code on every run, so expect the exact calls to vary from run to run.
 
 ## Notes
 
 - **Turning off Playwright execution doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
-- **Filter MCP tools you don't want the model to call.** `activeTools` only removes the tools in `DISABLED_TOOLS`, so the model can still reach the rest of the Kernel MCP server. In testing, it switched its session to a residential proxy after the site timed out. For tighter control, build `activeTools` from an allowlist, such as `["manage_browsers", "manage_replays", "webmcp", "browser_repl"]`.
+- **Filter MCP tools you don't want the model to call.** `activeTools` only removes the tools in `DISABLED_TOOLS`, so the model can still reach the rest of the Kernel MCP server. In testing, it switched its session to a residential proxy after the site timed out. For tighter control, build `activeTools` from an allowlist, such as `["manage_browsers", "webmcp", "browser_repl"]`.
 - **WebMCP works inside the REPL too.** `webmcp.listTools()` and `webmcp.invokeTool()` are available in `browser_repl` cells, so a harness can skip the separate `webmcp` tool and let the model check for structured actions in code. The separate tool makes the structured attempt its own visible step and comes with Kernel's guidance for populated forms and uncertain outcomes.
 - **Writing your own REPL tool?** Call [`kernel.browsers.repl()`](/browsers/repl) with `timeout_sec` up to 300, set the SDK request timeout above `timeout_sec`, and turn off the SDK's retries for that call. The Kernel SDKs default to a 60-second request timeout with automatic retries, which would cut off a long cell and send it again.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
-- **Record the run.** The agent starts a replay right after creating the browser and stops it before deleting the browser, so every cell's effect lands on one video. The agent ends its answer with the session and replay IDs instead of the replay's view URL: the URL is long and carries an access token, and models don't copy it reliably. Download the video with `kernel browsers replays download <session> <replay_id>`; the session name works even after the browser is deleted.
+- **Recording a run.** To capture a replay video, remove `manage_replays` from `DISABLED_TOOLS` and have the agent start a recording right after creating the browser and stop it before deleting the browser. Replays require a paid Kernel plan. Ask the agent for the replay ID rather than the replay's view URL, which is long and carries an access token, then download the video with `kernel browsers replays download <session> <replay_id>`.
 - **Other languages.** The example is TypeScript because AI SDK is TypeScript-only. The pattern carries over to any language: use the Kernel MCP server from a harness that supports MCP, or wrap the Python SDK's `kernel.browsers.repl()` as a tool.
 
 ## Next steps
