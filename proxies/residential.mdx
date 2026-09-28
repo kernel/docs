@@ -4,19 +4,33 @@ title: "Residential Proxies"
 
 Residential proxies route traffic through real residential IP addresses. They support advanced targeting options including city, state, and operating system.
 
-<Info>
-Residential proxies use **rotating exit IPs** — each new connection may route through a different residential IP address within your targeted region. This is because residential traffic is routed through real consumer devices that may go offline at any time, so the network assigns a new available exit node per connection. This means different browser tabs or requests to different websites within the same session can show different public IPs. If you need a consistent IP address across all connections, use an [ISP proxy](/proxies/isp) instead.
-</Info>
+## Routing and IP behavior
 
-## IP Rotation Behavior
+KERNEL routes residential proxy traffic across multiple providers. This expands destination coverage and allows connections to fall back when a provider rejects a destination. You use the same residential proxy configuration without managing separate provider integrations.
 
-Residential proxies assign a new exit IP for each new TCP connection. In practice:
+### Provider selection
 
-- **Same website across tabs**: Tabs connecting to the same domain typically share a TCP connection (via HTTP connection pooling), so they usually see the same IP.
-- **Different websites across tabs**: Tabs connecting to different domains open separate connections, so they will likely exit through different residential IPs.
-- **Reconnections**: If a connection is closed and re-established (e.g., after a timeout or page idle), the new connection may get a different exit IP.
+Each browser session gets a preferred provider through a deterministic, weighted allocation. This isn't per-request random provider rotation. With the same session, proxy, and routing configuration, the preferred provider stays the same.
 
-This behavior is inherent to residential proxy networks, where traffic is routed through real consumer devices that come online and offline dynamically.
+For each new connection, we consider the preferred provider, destination restrictions, and compatible alternatives. Compatibility depends on your proxy's targeting options and the destination port; an alternate provider isn't always available. Different destinations within a browser session may use different providers.
+
+### Automatic failover
+
+We route around known provider restrictions. When a provider returns a recognized destination-policy rejection during connection setup, we can retry through another compatible provider **before sending your browser's request to the destination**. We don't replay an origin request that has already been sent.
+
+We temporarily cache provider-specific restrictions so subsequent connections can skip that provider for the affected destination. Attempts are bounded and share a connection-setup deadline. If no compatible route succeeds, the connection fails.
+
+Website responses, including origin errors, rate limits, and bot challenges, don't trigger this failover. Switching providers doesn't guarantee access to a website.
+
+### IP consistency
+
+A consistent provider selection doesn't guarantee a consistent exit IP. Some provider routes use sticky sessions to request the same exit IP across connections, while others rotate IPs. Even connections to the same destination can get different IPs.
+
+- **Open connections** stay on their current provider and exit IP. Routing updates affect new connections rather than interrupting open ones.
+- **New connections** may use a different exit IP because of failover, routing updates, sticky-session expiry, or residential device availability.
+- **Different destinations** may use different providers and exit IPs within the same browser session.
+
+If you need a consistent exit IP across connections and browser sessions, use an [ISP proxy](/proxies/isp) instead.
 
 ## Configuration
 
