@@ -1,19 +1,19 @@
 ---
 title: "Entering Code Mode with Browser REPL"
-description: "Connect an AI SDK agent to the Kernel MCP server and let it control the browser only through the Browser REPL, so it writes programs instead of calling one tool per action"
+description: "Give any agent harness code mode with a single Browser REPL tool, shown with AI SDK and the Kernel MCP server"
 ---
 
 Most browser agents get one tool per action: click, type, snapshot, drag. Every action is a model round trip, and multi-item work — "move every card", "fill every row" — becomes one call per item, with the model re-reading the conversation each time.
 
 **Code mode** gives the model a single tool that runs code. The model writes a program that finds the elements it needs, acts on them, and checks the result, and the harness returns only what the program writes back. Loops, retries, and verification happen in code instead of in the conversation.
 
-The [Browser REPL](/browsers/repl) fits code mode well. It runs JavaScript in a persistent Node.js process on the browser's VM, so there's no CDP round trip from your machine, and top-level bindings survive across calls, so the model can define a helper once and reuse it for the rest of the task.
+The [Browser REPL](/browsers/repl) is what makes code mode work for browser agents. It runs JavaScript in a persistent Node.js process on the browser's VM, so there's no CDP round trip from your machine, and top-level bindings survive across calls, so the model can define a helper once and reuse it for the rest of the task.
 
-This cookbook connects [AI SDK](https://ai-sdk.dev)'s [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent) to the [Kernel MCP server](/reference/mcp-server), turns off the Playwright execution and computer-use tools, and tells the agent to control the browser only through the server's built-in `browser_repl` tool. The model is OpenAI's `gpt-6-luna` at medium reasoning, and the browser's lifecycle stays outside the agent loop.
+Code mode isn't tied to a particular agent framework. Any harness that can call tools can run it: give the model a browser REPL tool, keep the browser's lifecycle outside the loop, and make the REPL the only way the model controls the browser. This cookbook covers what that takes in any harness, then shows one working example: [AI SDK](https://ai-sdk.dev)'s [`ToolLoopAgent`](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool-loop-agent) using the `browser_repl` tool from the [Kernel MCP server](/reference/mcp-server).
 
 ## The example task
 
-The agent runs the same task as [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback), against [magnitasks.com](https://magnitasks.com), a public Kanban-style board:
+The example runs the same task as [Using Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback), against [magnitasks.com](https://magnitasks.com), a public Kanban-style board:
 
 ```
 Go to magnitasks.com, navigate to Tasks, filter for Alice's tasks,
@@ -30,25 +30,49 @@ In that cookbook, the Playwright `browser_drag` tool can't move a card: the boar
 | work over many items | one call per item | one loop or helper, reused |
 | state between steps | the conversation | the conversation, plus REPL bindings such as helpers and cached lookups |
 | checking a result | another tool call | part of the same program |
-| what the model learns up front | a schema per tool | the REPL's helper API, from the tool description |
+| what the model learns up front | a schema per tool | the REPL's helper API, from the tool description and instructions |
 
 Code mode trades per-action control for fewer round trips. You no longer see each click as its own tool call, so the program has to verify its own work and write back what it changed.
 
-## How it's put together
+## Adding code mode to any harness
 
-**The browser lives outside the agent.** `main()` creates the browser and starts a replay with the Kernel SDK, gives the agent the session ID in its instructions, runs `agent.generate()`, and deletes the browser in a `finally` block. The instructions tell the agent not to create or delete browsers, so a run that fails or hits its step limit can't leak a session. The same split lets you point the agent at a browser from a [pool](/browsers/pools) or one with a [profile](/browsers/profiles) without changing the agent.
+Whatever harness you use — AI SDK, another agent framework, or your own loop over a model API — code mode needs the same pieces.
 
-**The tools come from the Kernel MCP server.** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools as AI SDK tools, ready to pass to `ToolLoopAgent`.
+**A browser REPL tool.** The model's only browser tool takes a JavaScript cell and a session ID, runs the cell in the Browser REPL, and returns its output. You can get one of two ways:
 
-**Only `browser_repl` controls the browser.** `activeTools` removes `execute_playwright_code` and `computer_action` from what the model can call, and the instructions tell it to rely on the built-in `browser_repl` tool for all browser control. The MCP tool's own description documents the REPL helpers, output rules, and failure semantics, so the instructions only add the workflow and a few task-specific tips.
+| | Kernel MCP `browser_repl` | your own tool around `kernel.browsers.repl()` |
+| --- | --- | --- |
+| works with | any harness that can connect to an MCP server | any harness that can register a function tool |
+| tool description | written by Kernel, and documents the REPL helpers and failure semantics | written by you |
+| per-call time limit | up to 150 seconds | up to 300 seconds |
+| comes with | the rest of the Kernel MCP tools, which you filter | only what you define |
 
-**Every call gets the tool's full budget.** The MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150. The script wraps the tool's `execute` so every call runs with 150 seconds. A timeout is destructive — it destroys the REPL and every helper the model defined — so a generous budget keeps a slow cell from wiping the agent's state.
+Use the MCP tool when your harness speaks MCP: you get a maintained tool description and no tool code to write. Write your own tool when your harness can't connect to MCP servers, or when single cells need more than 150 seconds.
 
-**A cell is never sent twice.** The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell that's still running is never retried and its clicks and drags never repeat. Syntax errors and exceptions come back as tool results with `success: false`, so the model can fix the code and try again, and screenshots from `repl.emitImage` come back as image content.
+**A browser that lives outside the loop.** Create the browser before the agent runs, give the agent its session ID, and delete the browser when the run ends, in a `finally` block or its equivalent. The agent never creates or deletes browsers, so a run that fails or hits its step limit can't leak a session, and you can point the same agent at a browser from a [pool](/browsers/pools) or one with a [profile](/browsers/profiles).
 
-**`ToolLoopAgent` runs the loop.** It calls the model, runs the tool calls it makes, and feeds the results back until the model answers without calling a tool or the run reaches `isStepCount(25)`. `reasoning: "medium"` sets the reasoning effort through AI SDK's provider-neutral option.
+**The REPL as the only control path.** Turn off tools that control the browser another way, such as Playwright execution and computer use, and tell the model in its instructions to rely on the REPL tool. Otherwise the model can slip back into one-action-per-call tools and you lose the point of code mode.
 
-## Setup
+**A generous per-call budget, and no retries.** A timeout is destructive: it destroys the REPL and every helper the model defined, so give each call the most time the tool allows. And never let the harness or its HTTP client re-send a cell after a timeout or dropped connection — the first attempt may still be running, and a retry repeats its clicks and drags.
+
+**Results the model can act on.** Return the cell's written output, errors with their stack, and any screenshots to the model as tool results rather than raising them as exceptions, so it can fix its code and try again. If a result says the REPL was terminated, the model needs to know its helpers are gone.
+
+**Instructions that ask for programs.** Tell the model to inspect first, then write cells that complete a whole step and verify it, and to define reusable helpers at the top level. Without that nudge, models tend to send one action per cell, which gives back most of the round trips code mode saves.
+
+## Example: AI SDK with the Kernel MCP server
+
+This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium reasoning, and takes the REPL tool from the Kernel MCP server. Here's how it covers each piece:
+
+- **Browser REPL tool:** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools, including `browser_repl`, as AI SDK tools.
+- **Browser outside the loop:** `main()` creates the browser and starts a replay with the Kernel SDK, puts the session ID in the agent's instructions, runs `agent.generate()`, and deletes the browser in `finally`.
+- **REPL as the only control path:** `activeTools` removes `execute_playwright_code` and `computer_action`, and the instructions tell the agent to rely on the built-in `browser_repl` tool and not to create or delete browsers.
+- **Budget and retries:** the MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150, so the script wraps the tool's `execute` to run every call with 150 seconds. The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell is never sent twice.
+- **Results:** the MCP tool returns `success: false` with the error for syntax errors and exceptions, and the AI SDK MCP client passes screenshots from `repl.emitImage` to the model as image content.
+- **Instructions:** the MCP tool's own description documents the REPL helpers, so the instructions only add the workflow and a few task-specific tips.
+
+`ToolLoopAgent` runs the loop: it calls the model, runs the tool calls it makes, and feeds the results back until the model answers without calling a tool or the run reaches `isStepCount(25)`.
+
+### Setup
 
 ```bash
 npm install ai @ai-sdk/openai @ai-sdk/mcp @onkernel/sdk tsx
@@ -57,7 +81,7 @@ KERNEL_API_KEY=... OPENAI_API_KEY=... npx tsx code-mode-browser-repl.ts
 
 The same `KERNEL_API_KEY` authenticates both the Kernel SDK and the MCP server. `@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tools and the browser lifecycle don't change.
 
-## The script
+### The script
 
 ```ts code-mode-browser-repl.ts
 import { createMCPClient } from "@ai-sdk/mcp";
@@ -147,7 +171,7 @@ async function main(): Promise<void> {
 void main();
 ```
 
-## What a run looks like
+### What a run looks like
 
 In three test runs, `gpt-6-luna` finished the task in 11 to 15 `browser_repl` calls. The early cells inspected the page through filtered accessibility snapshots, then opened **Filters** and selected Alice. A few calls failed and were fixed on the next try — for example, passing a bare `backendNodeId` number to `click()` instead of the node.
 
@@ -174,12 +198,12 @@ The `pwPage` binding came from an earlier cell, and the loop checked each card's
 
 ## Notes
 
-- **Turning off `execute_playwright_code` doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
-- **The model can still call the other Kernel MCP tools.** `activeTools` only removes the two you list. In two of three test runs, the model also checked `webmcp` for a site-provided action and, finding none, called `get_more_tools`, which reports a missing capability to Kernel. For tighter control, add names to `DISABLED_TOOLS` or build `activeTools` from an allowlist such as `["browser_repl"]`.
-- **Need cells longer than 150 seconds?** The REST API accepts `timeout_sec` up to 300. Define your own tool that calls [`kernel.browsers.repl()`](/browsers/repl) directly, with a request timeout above `timeout_sec` and retries turned off.
+- **Turning off Playwright execution doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
+- **Filter MCP tools you don't want the model to call.** In the example, `activeTools` only removes the two tools it lists. In two of three test runs, the model also checked `webmcp` for a site-provided action and, finding none, called `get_more_tools`, which reports a missing capability to Kernel. For tighter control, add names to `DISABLED_TOOLS` or build `activeTools` from an allowlist such as `["browser_repl"]`.
+- **Writing your own REPL tool?** Call [`kernel.browsers.repl()`](/browsers/repl) with `timeout_sec` up to 300, set the SDK request timeout above `timeout_sec`, and turn off the SDK's retries for that call. The Kernel SDKs default to a 60-second request timeout with automatic retries, which would cut off a long cell and send it again.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
-- **The whole run is recorded.** The script wraps the agent run in `kernel.browsers.replays.start()` / `.stop()`, so every cell's effect lands on one replay video.
-- **Python.** AI SDK is TypeScript-only. The REPL call itself works the same from the Python SDK — see [Browser REPL](/browsers/repl).
+- **Record the run.** The example wraps the agent run in `kernel.browsers.replays.start()` / `.stop()`, so every cell's effect lands on one replay video.
+- **Other languages.** The example is TypeScript because AI SDK is TypeScript-only. The pattern carries over to any language: use the Kernel MCP server from a harness that supports MCP, or wrap the Python SDK's `kernel.browsers.repl()` as a tool.
 
 ## Next steps
 
