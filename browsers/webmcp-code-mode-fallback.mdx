@@ -187,6 +187,17 @@ async function main(): Promise<void> {
 void main();
 ```
 
+<Tip>
+**Try a site that registers WebMCP tools.** [bikesandbacon.com](https://www.bikesandbacon.com) registers WebMCP tools, including `get_latest_articles`. To see the structured path, replace `TASK_PROMPT` in the script with:
+
+```ts
+const TASK_PROMPT =
+	"Go to bikesandbacon.com and find the top 3 newest articles on the site.";
+```
+
+In two test runs, the agent listed the page's WebMCP tools, invoked `get_latest_articles` with `{ limit: 3 }`, and returned the three articles with their dates and links. It never called `browser_repl`, and each run finished in 8 or 9 steps, including creating, recording, and deleting the browser.
+</Tip>
+
 ### What a run looks like
 
 In two test runs, `gpt-6-luna` finished the task in 19 and 35 steps (11 and 21 `browser_repl` calls). Both runs did the lifecycle calls in order: `manage_browsers` create, `manage_replays` start, then the task, then `manage_replays` stop and `manage_browsers` delete. The harness cleanup never had to run. magnitasks.com doesn't register any WebMCP tools, so each `webmcp` list came back empty and the agent continued in code mode.
