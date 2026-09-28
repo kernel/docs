@@ -25,18 +25,16 @@ We build crazy fast, open source infra for AI agents to access the internet. Tru
 ## start here
 
 <Columns cols={3}>
-  <Card title="Create" href="/introduction/create">
-    Spin up a browser and pick the shape — headless, stealth, GPU, profiles.
+  <Card title="Quickstart" href="/start/quickstart">
+    Create a browser, drive it, and clean up in a few lines of code.
   </Card>
-  <Card title="Control" href="/introduction/control">
-    Drive it with computer use, playwright execution, CDP, or WebDriver BiDi.
+  <Card title="See all products" href="/overview/products">
+    Every primitive and product, each linking to its docs.
   </Card>
-  <Card title="Observe" href="/introduction/observe">
-    Watch it live, record replays, and capture screenshots.
+  <Card title="Cookbooks" href="/cookbooks">
+    End-to-end recipes you can clone and run.
   </Card>
 </Columns>
-
-[Concepts](/info/concepts) covers Kernel's object model, and [browsers on unikernels](/info/unikernels) covers the architecture underneath it.
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
@@ -58,23 +56,24 @@ import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
   </div>
 </div>
 
-## prod setup
+## how it works
 
-Our [app platform](/apps/develop) is a serverless compute service for running agent loops triggered on demand or by scheduled events without having to provision or manage sandboxes. Your agent runs co-located with its browser to minimize network latency.
+<Columns cols={3}>
+  <Card title="Configure" href="/introduction/create">
+    Pick the shape of the browser — headless, stealth, proxies, profiles, and credentials.
+  </Card>
+  <Card title="Control" href="/introduction/control">
+    Drive it with playwright execution, computer use, CDP, or WebDriver BiDi, and choose where your loop runs.
+  </Card>
+  <Card title="Scale" href="/introduction/scale">
+    Keep browsers ready in pools and plan around concurrency limits.
+  </Card>
+  <Card title="Observe" href="/introduction/observe">
+    Watch sessions live, record replays, and stream telemetry.
+  </Card>
+  <Card title="Manage" href="/info/projects">
+    Organize work with projects, API keys, audit logs, and spending caps.
+  </Card>
+</Columns>
 
-Scaffold a project from a template:
-
-```bash
-kernel create --template computer-use
-```
-
-Deploy and invoke it on demand:
-
-```bash
-kernel deploy agent.ts
-kernel invoke my-agent my-task --payload '{"url": "https://example.com"}'
-```
-
-### scaling 
-
-[browser pools](/browsers/pools) keep browsers ready to use and pre-configured, so you skip start-up latency on every task and idle browsers aren't billed. reach for them once you're running the same workload repeatedly, need low-latency acquisition, or are scaling steady, high-frequency traffic — on-demand `browsers.create()` stays the right call for occasional, bursty, or one-off work.
+[Concepts](/info/concepts) covers Kernel's object model, and [browsers on unikernels](/info/unikernels) covers the architecture underneath it.
