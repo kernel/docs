@@ -9,7 +9,7 @@ Kernel browsers work with any tool that speaks the Chrome DevTools Protocol or W
 
 ## Agent frameworks
 
-Build the agent in code and run its browser on Kernel.
+Build the agent — the model loop that decides what to do — and give it a Kernel browser as a tool.
 
 <Columns className="responsive-columns" cols={3}>
   <Card title="Browser Use" icon="/images/integration-icons/browser-use-logo-transparent.svg" href="/integrations/browser-use">
@@ -18,39 +18,49 @@ Build the agent in code and run its browser on Kernel.
   <Card title="Claude Agent SDK" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-agent-sdk">
     Build Claude agents that drive Kernel browsers with playwright execution.
   </Card>
-  <Card title="Stagehand" icon="/images/integration-icons/stagehand-logo-transparent.svg" href="/integrations/stagehand">
-    Mix code and natural language browser automation on Kernel.
-  </Card>
   <Card title="Vercel AI SDK" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/ai-sdk">
     Give AI SDK agents Kernel browser tools.
-  </Card>
-  <Card title="Vibium" icon="/images/integration-icons/vibium.svg" href="/integrations/vibium">
-    Drive Kernel browsers with a WebDriver BiDi automation framework.
   </Card>
   <Card title="Hermes Agent" icon="/images/integration-icons/nousresearch.svg" href="/integrations/hermes-agent">
     Run Hermes Agent browser tools on Kernel browsers.
   </Card>
 </Columns>
 
-## Computer use models
+## Browser automation frameworks
 
-Run a vision model's screenshot-and-act loop against a Kernel browser.
+Drive the page itself — navigate, click, fill, extract — against a Kernel browser.
 
 <Columns className="responsive-columns" cols={3}>
-  <Card title="Overview" icon="/images/integration-icons/computer-cursor-rounded.svg" href="/integrations/computer-use/overview">
-    How computer use agents run on Kernel browsers.
+  <Card title="Stagehand" icon="/images/integration-icons/stagehand-logo-transparent.svg" href="/integrations/stagehand">
+    Mix code and natural language browser automation on Kernel.
   </Card>
+  <Card title="Agent Browser" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/agent-browser">
+    Vercel's browser automation CLI for AI agents.
+  </Card>
+  <Card title="Vibium" icon="/images/integration-icons/vibium.svg" href="/integrations/vibium">
+    Drive Kernel browsers with a WebDriver BiDi automation framework.
+  </Card>
+  <Card title="Playwright" icon="code" href="/browsers/playwright-execution">
+    Run Playwright code inside the browser's VM, or connect over CDP.
+  </Card>
+</Columns>
+
+## Computer use models
+
+Run a vision model's screenshot-and-act loop against a Kernel browser. See the [computer use overview](/integrations/computer-use/overview) for how the loop works.
+
+<Columns className="responsive-columns" cols={3}>
   <Card title="Anthropic" icon="/images/integration-icons/claude.svg" href="/integrations/computer-use/anthropic">
     Claude computer use.
   </Card>
-  <Card title="Gemini" icon="/images/integration-icons/computer-cursor-rounded.svg" href="/integrations/computer-use/gemini">
-    Gemini computer use.
+  <Card title="OpenAI" icon="openai" href="/integrations/computer-use/openai">
+    OpenAI computer-using agent.
+  </Card>
+  <Card title="Gemini" icon="google" href="/integrations/computer-use/gemini">
+    Gemini 2.5 Computer Use.
   </Card>
   <Card title="Yutori" icon="/images/integration-icons/computer-cursor-rounded.svg" href="/integrations/computer-use/yutori">
-    Yutori Navigator pixels-to-actions model.
-  </Card>
-  <Card title="OpenAI" icon="/images/integration-icons/computer-cursor-rounded.svg" href="/integrations/computer-use/openai">
-    OpenAI computer use.
+    Yutori Navigator n1.5 pixels-to-actions model.
   </Card>
   <Card title="OpenAGI" icon="/images/integration-icons/computer-cursor-rounded.svg" href="/integrations/computer-use/openagi">
     OpenAGI Lux computer use model.
@@ -65,9 +75,6 @@ Run a vision model's screenshot-and-act loop against a Kernel browser.
 Give an agent you already use a Kernel browser.
 
 <Columns className="responsive-columns" cols={3}>
-  <Card title="Agent Browser" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/agent-browser">
-    Vercel's browser automation CLI for AI agents.
-  </Card>
   <Card title="Claude Managed Agents" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-managed-agents">
     Run Anthropic's hosted agent harness against Kernel browsers.
   </Card>
