@@ -184,42 +184,6 @@ async function main(): Promise<void> {
 void main();
 ```
 
-### What a run looks like
-
-In five test runs, the agent finished in 10 to 14 steps, with 6 to 11 `browser_repl` calls and no other browser tool. The last two used the allowlist above, and the agent called only `manage_browsers` and `browser_repl`. Every WebMCP call happened in code: the first cells opened the site, listed its WebMCP tools, and invoked `get_latest_articles` with `{ limit: 3 }`. The returned output included each article's title, date, and URL.
-
-In one run, the model then read all three articles in a single cell. It visited each URL from the tool's output, listed the page's WebMCP tools again, and read the article text with `js()`:
-
-```javascript
-var articlesFull5 = [];
-var urls5 = [
-  "https://bikesandbacon.com/post/muc-off-nano-tech-bike-cleaner-review",
-  "https://bikesandbacon.com/post/ai-bike-fit-at-home-guide",
-  "https://bikesandbacon.com/post/redshift-quickdraw-saddle-bag-review-discount",
-];
-for (var i5 = 0; i5 < urls5.length; i5++) {
-  if (i5 > 0) {
-    await gotoUrl(urls5[i5]);
-    await waitForLoad();
-  }
-  var tools5 = await webmcp.listTools();
-  var one5 = await js(() => {
-    var a = document.querySelector("main article");
-    var p = a?.querySelector(".prose") || a;
-    return {
-      url: location.href,
-      title: document.querySelector("main h1")?.innerText || document.title,
-      body: p?.innerText.trim() || "",
-      headings: [...(a?.querySelectorAll("h2,h3") || [])].map((h) => h.innerText.trim()),
-    };
-  });
-  articlesFull5.push({ tools_count: tools5.length, ...one5 });
-}
-repl.write(JSON.stringify(articlesFull5));
-```
-
-The model chooses its tools and writes its own code on every run, so expect the exact cells to vary from run to run.
-
 ## Notes
 
 - **Turning off Playwright execution doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
