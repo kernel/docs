@@ -1,0 +1,212 @@
+---
+title: "MPP Browser with Link"
+description: "buy a KERNEL browser with link and read Hacker News headlines using playwright."
+---
+
+this cookbook buys one KERNEL browser through the [machine payments protocol](/info/mpp), connects over cdp with playwright, and prints the first seven Hacker News headlines. you don't need a KERNEL account or api key.
+
+the command makes a real payment. the current offer is $0.50 for a 30-minute browser. confirm the amount in link before approving it. link through the link cli is the supported payment flow; standalone card credentials and stablecoins aren't supported.
+
+## Set up
+
+install and sign in to the [link cli](https://docs.stripe.com/agentic-commerce/link-cli/machine-payments):
+
+```bash
+npm install -g @stripe/link-cli
+link-cli auth login
+```
+
+save one of the files below and install its playwright dependency. each file uses the production mpp endpoint, displays the link approval url, and waits for approval before connecting to the paid browser.
+
+<Tabs>
+  <Tab title="TypeScript">
+
+```bash
+npm init -y
+npm pkg set type=module
+npm install playwright-core tsx
+npx tsx headlines.ts
+```
+
+```ts headlines.ts
+import { spawnSync } from "node:child_process";
+import { chromium } from "playwright-core";
+
+const MPP_URL = "https://api.onkernel.com/mpp/browsers";
+const CONTEXT =
+  "Buy one Kernel browser session to visit Hacker News, read its first seven story headlines, and print them to the terminal as a Link MPP payment demonstration.";
+
+type LinkOutput = {
+  id?: string;
+  status?: number | string;
+  approval_url?: string;
+  body?: string;
+  message?: string;
+  _next?: { pay_argv: { command: string; args: string[] } };
+};
+
+function linkCli(...args: string[]): LinkOutput {
+  const result = spawnSync("link-cli", [...args, "--format", "json"], {
+    encoding: "utf8",
+  });
+  if (result.error) throw result.error;
+
+  const output = JSON.parse(result.stdout) as LinkOutput | LinkOutput[];
+  const last = Array.isArray(output) ? output.at(-1) : output;
+  if (!last) throw new Error("Link CLI returned no result");
+  if (result.status !== 0) {
+    throw new Error(`Link CLI: ${last.message}`);
+  }
+  return last;
+}
+
+function buyBrowser(): { cdp_ws_url: string; session_id: string; expires_at: string } {
+  let purchase = linkCli(
+    "mpp",
+    "pay",
+    MPP_URL,
+    "--method",
+    "POST",
+    "--context",
+    CONTEXT,
+  );
+
+  if (purchase._next) {
+    if (!purchase.id || !purchase.approval_url) {
+      throw new Error("Link did not return an approval request");
+    }
+    console.log(`Approve the payment in Link: ${purchase.approval_url}`);
+    const approval = linkCli(
+      "spend-request",
+      "retrieve",
+      purchase.id,
+      "--interval",
+      "2",
+      "--max-attempts",
+      "300",
+    );
+    if (approval.status !== "approved") {
+      throw new Error(`Link spend request ended with status ${approval.status}`);
+    }
+
+    const continuation = purchase._next.pay_argv;
+    if (
+      continuation.command !== "mpp" ||
+      continuation.args[0] !== "pay" ||
+      continuation.args[1] !== MPP_URL
+    ) {
+      throw new Error("Unexpected Link payment continuation");
+    }
+    purchase = linkCli("mpp", ...continuation.args);
+  }
+
+  if (purchase.status !== 200 || !purchase.body) {
+    throw new Error(`Browser purchase returned HTTP ${purchase.status}`);
+  }
+  return JSON.parse(purchase.body);
+}
+
+const session = buyBrowser();
+console.log(`Browser session: ${session.session_id} (expires ${session.expires_at})`);
+
+const browser = await chromium.connectOverCDP(session.cdp_ws_url);
+try {
+  const context = browser.contexts()[0];
+  if (!context) throw new Error("Kernel browser has no default context");
+  const page = context.pages()[0] ?? (await context.newPage());
+  await page.goto("https://news.ycombinator.com/", { waitUntil: "domcontentloaded" });
+  const headlines = page.locator(".athing .titleline > a");
+  await headlines.nth(6).waitFor();
+  for (let index = 0; index < 7; index++) {
+    console.log(`${index + 1}. ${await headlines.nth(index).innerText()}`);
+  }
+} finally {
+  await browser.close();
+}
+```
+
+  </Tab>
+  <Tab title="Python">
+
+```bash
+python3 -m pip install playwright
+python3 headlines.py
+```
+
+```python headlines.py
+import json
+import subprocess
+
+from playwright.sync_api import sync_playwright
+
+MPP_URL = "https://api.onkernel.com/mpp/browsers"
+CONTEXT = "Buy one KERNEL browser to read and print the first seven Hacker News headlines."
+
+
+def link_cli(*args: str) -> dict:
+    result = subprocess.run(
+        ["link-cli", *args, "--format", "json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = json.loads(result.stdout)
+    last = output[-1] if isinstance(output, list) else output
+    if not last:
+        raise RuntimeError("Link CLI returned no result")
+    if result.returncode:
+        raise RuntimeError(f"Link CLI: {last.get('message')}")
+    return last
+
+
+def buy_browser() -> dict:
+    purchase = link_cli(
+        "mpp", "pay", MPP_URL, "--method", "POST", "--context", CONTEXT,
+    )
+    if purchase.get("_next"):
+        request_id = purchase.get("id")
+        approval_url = purchase.get("approval_url")
+        if not request_id or not approval_url:
+            raise RuntimeError("Link did not return an approval request")
+        print(f"Approve the payment in Link: {approval_url}")
+        approval = link_cli(
+            "spend-request", "retrieve", request_id,
+            "--interval", "2", "--max-attempts", "300",
+        )
+        if approval.get("status") != "approved":
+            raise RuntimeError(f"Link spend request ended with status {approval.get('status')}")
+
+        continuation = purchase["_next"]["pay_argv"]
+        args = continuation["args"]
+        if continuation["command"] != "mpp" or args[:2] != ["pay", MPP_URL]:
+            raise RuntimeError("Unexpected Link payment continuation")
+        purchase = link_cli("mpp", *args)
+
+    if purchase.get("status") != 200 or not purchase.get("body"):
+        raise RuntimeError(f"Browser purchase returned HTTP {purchase.get('status')}")
+    return json.loads(purchase["body"])
+
+
+session = buy_browser()
+print(f"Browser session: {session['session_id']} (expires {session['expires_at']})")
+
+with sync_playwright() as playwright:
+    browser = playwright.chromium.connect_over_cdp(session["cdp_ws_url"])
+    try:
+        if not browser.contexts:
+            raise RuntimeError("KERNEL browser has no default context")
+        context = browser.contexts[0]
+        page = context.pages[0] if context.pages else context.new_page()
+        page.goto("https://news.ycombinator.com/", wait_until="domcontentloaded")
+        headlines = page.locator(".athing .titleline > a")
+        headlines.nth(6).wait_for()
+        for index in range(7):
+            print(f"{index + 1}. {headlines.nth(index).inner_text()}")
+    finally:
+        browser.close()
+```
+
+  </Tab>
+</Tabs>
+
+the link cli creates the approval request for you. if you receive an indeterminate response after approving, inspect the existing payment before starting another purchase. the browser session ends at `expires_at`.
