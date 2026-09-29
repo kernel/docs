@@ -77,14 +77,14 @@ This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium 
 
 ```bash
 npm install ai @ai-sdk/openai @ai-sdk/mcp @onkernel/sdk tsx
-KERNEL_API_KEY=... OPENAI_API_KEY=... npx tsx webmcp-code-mode-fallback.ts
+KERNEL_API_KEY=... OPENAI_API_KEY=... npx tsx code-mode-browser-repl-webmcp.ts
 ```
 
 The same `KERNEL_API_KEY` authenticates the MCP server and the Kernel SDK, which the script uses only for the cleanup call. `@ai-sdk/openai` calls OpenAI directly with `OPENAI_API_KEY`. To use another provider, swap the `model` passed to `ToolLoopAgent`; the tools and the browser lifecycle don't change.
 
 ### The script
 
-```ts webmcp-code-mode-fallback.ts
+```ts code-mode-browser-repl-webmcp.ts
 import { createMCPClient } from "@ai-sdk/mcp";
 import { openai } from "@ai-sdk/openai";
 import Kernel from "@onkernel/sdk";
