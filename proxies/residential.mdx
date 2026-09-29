@@ -4,27 +4,15 @@ title: "Residential Proxies"
 
 Residential proxies route traffic through real residential IP addresses. They support advanced targeting options including city, state, and operating system.
 
-## Routing and IP behavior
+### Proxy provider selection
 
-KERNEL routes residential proxy traffic across multiple providers. This expands destination coverage and allows connections to fall back when a provider rejects a destination. You use the same residential proxy configuration without managing separate provider integrations.
+KERNEL routes residential proxy traffic across multiple providers. This expands destination coverage and makes the proxy network more reliable.
 
-### Provider selection
+For each session, KERNEL chooses one of the proxy providers to be the preferred provider for that session, based on KERNEL's desired proxy traffic split.
 
-Each browser session gets a preferred provider through a deterministic, weighted allocation. This isn't per-request random provider rotation. With the same session, proxy, and routing configuration, the preferred provider stays the same.
-
-For each new connection, we consider the preferred provider, destination restrictions, and compatible alternatives. Compatibility depends on your proxy's targeting options and the destination port; an alternate provider isn't always available. Different destinations within a browser session may use different providers.
-
-### Automatic failover
-
-We route around known provider restrictions. When a provider returns a recognized destination-policy rejection during connection setup, we can retry through another compatible provider **before sending your browser's request to the destination**. We don't replay an origin request that has already been sent.
-
-We temporarily cache provider-specific restrictions so subsequent connections can skip that provider for the affected destination. Attempts are bounded and share a connection-setup deadline. If no compatible route succeeds, the connection fails.
-
-Website responses, including origin errors, rate limits, and bot challenges, don't trigger this failover. Switching providers doesn't guarantee access to a website.
+When making a connection through the proxy network to a target site, KERNEL will choose a different provider for this connection than the session's default if the default does not support the target destination or provider has an outage. Different destinations within a browser session may use different providers.
 
 ### IP consistency
-
-A consistent provider selection doesn't guarantee a consistent exit IP. Some provider routes use sticky sessions to request the same exit IP across connections, while others rotate IPs. Even connections to the same destination can get different IPs.
 
 - **Open connections** stay on their current provider and exit IP. Routing updates affect new connections rather than interrupting open ones.
 - **New connections** may use a different exit IP because of failover, routing updates, sticky-session expiry, or residential device availability.
