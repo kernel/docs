@@ -291,7 +291,7 @@ open the approval url printed by the script. a link push notification might not 
 
 ## Retry and expiration
 
-a challenge buys one browser. save the paid response, especially `session_id`, `cdp_ws_url`, and `expires_at`. if you use the link cli, rerunning the command or script starts a new purchase; the cli doesn't expose the credential it sent or pay an already completed spend request again. if the result is uncertain, inspect the existing spend request and payment before taking another action.
+a challenge buys one browser. save the paid response, especially `session_id`, `cdp_ws_url`, and `expires_at`. if you use the link cli, rerunning the command or script starts a new payment request and, if approved, buys another browser. the cli doesn't expose the credential it sent or pay an already completed spend request again. if the result is uncertain, inspect the existing spend request and payment before taking another action.
 
 an mpp client that retains the same payment credential can retry the same paid request while the browser is active; KERNEL returns the same browser without another charge. this recovery path isn't available through the link cli.
 
