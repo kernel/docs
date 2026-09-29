@@ -15,7 +15,7 @@ description: "Pay for a KERNEL browser with stripe's machine payments protocol"
 2. your wallet approves the offer and retries the same request with `Authorization: Payment <credential>`.
 3. KERNEL verifies and charges the credential, creates the browser, and returns its connection urls in a `200` response. the `Payment-Receipt` header contains the mpp receipt.
 
-the staging route currently accepts stripe shared payment tokens backed by card or link. it doesn't currently accept stablecoin payments. the payment challenge expires after 30 minutes by default; that is the time available to approve the offer, not the browser's lifetime.
+the staging route accepts [stripe shared payment tokens](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) (`spt_...`) only. `card` and `link` in the `402` challenge describe payment methods the token can represent; you can't send card details or a standalone card credential to this endpoint. stablecoin payments aren't offered. the payment challenge expires after 30 minutes by default; that is the time available to approve the offer, not the browser's lifetime.
 
 ## Try it on staging
 
