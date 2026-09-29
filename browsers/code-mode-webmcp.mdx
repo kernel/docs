@@ -64,7 +64,7 @@ This example uses AI SDK's `ToolLoopAgent` with OpenAI's `gpt-6-luna` at medium 
 
 - **Browser REPL tool:** `createMCPClient()` from `@ai-sdk/mcp` connects to `https://mcp.onkernel.com/mcp` over streamable HTTP, authenticating with your Kernel API key as a bearer token (see [MCP authentication](/reference/mcp-server/authentication)). `mcp.tools()` returns the server's tools, including `manage_browsers` and `browser_repl`, as AI SDK tools.
 - **Agent-owned lifecycle:** the script picks a unique session name. The instructions tell the agent to create a browser with that name through `manage_browsers` (stealth on, a 300-second inactivity timeout) and to delete it when it's done. If the run ends before the agent deletes it, the `finally` block deletes the session by name with the Kernel SDK. A `NotFoundError` there means the agent already cleaned up.
-- **Disabled tools:** `activeTools` removes `execute_playwright_code`, `computer_action`, and the standalone `webmcp` tool, plus `manage_replays` and the `get_more_tools` and `submit_feedback` tools, which send reports to Kernel. The instructions tell the agent to do everything in `browser_repl` and not to create any browser besides its own.
+- **Allowed tools:** `activeTools` is an allowlist of two tools: `manage_browsers` for the agent's own session and `browser_repl` for everything else. The other Kernel MCP tools, including `execute_playwright_code`, `computer_action`, and the standalone `webmcp` tool, stay unavailable to the model, and their definitions aren't sent on every step. The instructions tell the agent to do everything in `browser_repl` and not to create any browser besides its own.
 - **WebMCP from inside the REPL:** the instructions describe `webmcp.listTools()` and `webmcp.invokeTool()`, tell the agent to try them before the browser helpers, and to list again after navigating.
 - **Budget and retries:** the MCP `browser_repl` tool defaults to `timeout_sec: 60` and accepts at most 150, so the script wraps the tool's `execute` to run every call with 150 seconds. The MCP client's `maxRetries` defaults to `0` for tool calls, so a cell is never sent twice.
 - **Results:** each `browser_repl` call returns what the cell wrote with `repl.write()` or `console.log()`, such as the article list from `get_latest_articles` or an article's text. Syntax errors and exceptions come back with `success: false` and the error, and screenshots from `repl.emitImage` come back as image content.
@@ -100,16 +100,11 @@ const REPL_TIMEOUT_SEC = 150;
 const MAX_STEPS = 50;
 // The agent creates the browser under this name and uses it as the session_id for every browser tool.
 const SESSION_NAME = `code-mode-${Date.now()}`;
-// Browser control, including the page's WebMCP tools, goes through browser_repl. The other control
-// tools are turned off, along with replays and the tools that send reports to Kernel.
-const DISABLED_TOOLS = new Set([
-	"execute_playwright_code",
-	"computer_action",
-	"webmcp",
-	"manage_replays",
-	"get_more_tools",
-	"submit_feedback",
-]);
+// The only Kernel MCP tools the agent can call: manage_browsers for its own session, and browser_repl for
+// everything else, including the page's WebMCP tools. Add more if your task needs them, such as
+// manage_proxies to route traffic through a proxy, webmcp to call WebMCP tools outside the REPL, or
+// manage_replays to record the session.
+const ACTIVE_TOOLS = ["manage_browsers", "browser_repl"];
 
 const INSTRUCTIONS = `You complete browser tasks with the Kernel MCP tools.
 
@@ -162,7 +157,7 @@ async function main(): Promise<void> {
 			reasoning: "medium",
 			instructions: INSTRUCTIONS,
 			tools,
-			activeTools: Object.keys(tools).filter((name) => !DISABLED_TOOLS.has(name)),
+			activeTools: ACTIVE_TOOLS,
 			stopWhen: isStepCount(MAX_STEPS),
 			onStepFinish: (step) => {
 				for (const call of step.toolCalls) {
@@ -191,7 +186,7 @@ void main();
 
 ### What a run looks like
 
-In three test runs, the agent finished in 10 to 14 steps, with 6 to 10 `browser_repl` calls and no other browser tool. Every WebMCP call happened in code: the first cells opened the site, listed its WebMCP tools, and invoked `get_latest_articles` with `{ limit: 3 }`. The returned output included each article's title, date, and URL.
+In five test runs, the agent finished in 10 to 14 steps, with 6 to 11 `browser_repl` calls and no other browser tool. The last two used the allowlist above, and the agent called only `manage_browsers` and `browser_repl`. Every WebMCP call happened in code: the first cells opened the site, listed its WebMCP tools, and invoked `get_latest_articles` with `{ limit: 3 }`. The returned output included each article's title, date, and URL.
 
 In one run, the model then read all three articles in a single cell. It visited each URL from the tool's output, listed the page's WebMCP tools again, and read the article text with `js()`:
 
@@ -228,11 +223,11 @@ The model chooses its tools and writes its own code on every run, so expect the 
 ## Notes
 
 - **Turning off Playwright execution doesn't remove Playwright.** The REPL ships `patchright` and `playwright-core`, and the model can import them in a cell. If you want the model to use only the native helpers, say so in the instructions.
-- **Filter MCP tools you don't want the model to call.** `activeTools` only removes the tools in `DISABLED_TOOLS`, so the model can still reach the rest of the Kernel MCP server. For tighter control, build `activeTools` from an allowlist, such as `["manage_browsers", "browser_repl"]`.
-- **Prefer WebMCP as its own tool?** The Kernel MCP server also has a standalone `webmcp` tool. Remove it from `DISABLED_TOOLS` to make each WebMCP list or invoke its own tool call, with Kernel's tool description covering populated forms and uncertain outcomes. That makes the structured step easy to see in a trace, but each call is a separate model round trip, and the model can't act on a tool's output in the same program.
+- **Add tools only when the task needs them.** `ACTIVE_TOOLS` keeps the model to two tools. The Kernel MCP server has about 30, including API key, vault, and proxy management, and every active tool's definition is sent on every step. Add a tool to the list when your task calls for it, such as `manage_proxies` to route traffic through a proxy.
+- **Prefer WebMCP as its own tool?** The Kernel MCP server also has a standalone `webmcp` tool. Add it to `ACTIVE_TOOLS` to make each WebMCP list or invoke its own tool call, with Kernel's tool description covering populated forms and uncertain outcomes. That makes the structured step easy to see in a trace, but each call is a separate model round trip, and the model can't act on a tool's output in the same program.
 - **Writing your own REPL tool?** Call [`kernel.browsers.repl()`](/browsers/repl) with `timeout_sec` up to 300, set the SDK request timeout above `timeout_sec`, and turn off the SDK's retries for that call. The Kernel SDKs default to a 60-second request timeout with automatic retries, which would cut off a long cell and send it again.
 - **Treat model-written code as untrusted.** The Browser REPL is [unrestricted code execution inside the browser VM](/browsers/repl#security-model), and page content can influence the code the model writes. Keep secrets you wouldn't hand to the page out of the VM's environment and filesystem.
-- **Recording a run.** To capture a replay video, remove `manage_replays` from `DISABLED_TOOLS` and have the agent start a recording right after creating the browser and stop it before deleting the browser. Replays require a paid Kernel plan.
+- **Recording a run.** To capture a replay video, add `manage_replays` to `ACTIVE_TOOLS` and have the agent start a recording right after creating the browser and stop it before deleting the browser. Replays require a paid Kernel plan.
 - **Other languages.** The example is TypeScript because AI SDK is TypeScript-only. The pattern carries over to any language: use the Kernel MCP server from a harness that supports MCP, or wrap the Python SDK's `kernel.browsers.repl()` as a tool.
 
 ## Next steps
