@@ -5,6 +5,8 @@ description: "Let browser agents complete purchases without handling raw payment
 
 your browser agent can complete purchases with KERNEL while your application keeps control of the purchase and user approval. native [wallet integrations](/integrations/wallets/overview) connect the user's payment method to a [vault](/vaults/overview), so your agent works with payment items rather than raw card details.
 
+to pay KERNEL directly for a browser session without an account, see [buy a browser with mpp](/browsers/mpp). that payment grants browser access; the wallet integrations on this page handle purchases at merchant checkouts.
+
 KERNEL's [`fill` api](/vaults/fill) safely injects stored values into browser fields without passing them through your application's injection code or the model's context. you provide an item reference, browser, and field selectors; KERNEL writes the values and returns per-field outcomes, not the values. wallet integrations supply payment material and approval; `fill` is a KERNEL operation shared with non-payment vault items.
 
 agentcard uses an integration-specific alternative: the agent enters non-sensitive aliases, and KERNEL holds a recognized checkout request for approval before agentcard executes it and KERNEL replays the response. the underlying card stays outside the browser.
