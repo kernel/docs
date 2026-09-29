@@ -100,10 +100,7 @@ const REPL_TIMEOUT_SEC = 150;
 const MAX_STEPS = 50;
 // The agent creates the browser under this name and uses it as the session_id for every browser tool.
 const SESSION_NAME = `code-mode-${Date.now()}`;
-// The only Kernel MCP tools the agent can call: manage_browsers for its own session, and browser_repl for
-// everything else, including the page's WebMCP tools. Add more if your task needs them, such as
-// manage_proxies to route traffic through a proxy, webmcp to call WebMCP tools outside the REPL, or
-// manage_replays to record the session.
+// The only Kernel MCP tools the agent can call.
 const ACTIVE_TOOLS = ["manage_browsers", "browser_repl"];
 
 const INSTRUCTIONS = `You complete browser tasks with the Kernel MCP tools.
