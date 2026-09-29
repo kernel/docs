@@ -28,7 +28,7 @@ Idle browsers in a pool aren't billed, but the pool's capacity counts against yo
 A few constraints to weigh before moving a workload onto a browser pool:
 
 - **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
-- **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
+- **One fixed configuration per browser pool.** Each acquisition can override `start_url` and load a profile; everything else in the pool's configuration is fixed — see [Create a browser pool](#create-a-browser-pool) and [Profiles with browser pools](#profiles-with-browser-pools).
 - **A profile set on the browser pool loads read-only**, and a browser pool holds one at a time — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools) for how to persist state per user.
 - **Browser pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
 - **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
@@ -205,37 +205,30 @@ As a best practice, release each browser when you're done with it — that retur
 
 ## Profiles with browser pools
 
-A [profile](/browsers/profiles) carries login state, including cookies and local storage, into a browser. Use [Managed Auth](/auth/managed-auth) to populate that state and monitor its health. Put the profile on the browser pool when every browser should share one identity; leave it off and attach it after acquiring when each task needs its own (see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools)).
+A [profile](/browsers/profiles) carries login state, including cookies and local storage, into a browser. Use [Managed Auth](/auth/managed-auth) to populate that state and monitor its health. Put the profile on the browser pool when every browser should share one identity; leave it off and load a profile on each acquisition when each task needs its own (see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools)).
 
 A profile attached to the pool is loaded **read-only**. Every browser in the pool shares it, so `save_changes` doesn't apply and is silently ignored if sent — this prevents concurrent writes from corrupting the profile.
 
 ### Per-user profiles with browser pools
 
-Because that profile is shared and read-only, it can't hold per-user login state for many users at once. To serve many users from one browser pool, create it with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it keeps that user's state from reaching the next acquirer.
-
-The read-only rule covers the pool's own profile, not one attached after acquiring: that profile belongs to the browser, so `save_changes` applies as it does on any other browser. Pass `save_changes: true` when you attach it — it defaults to `false`, and without it the browser is destroyed on release without writing the user's session back.
+Because that profile is shared and read-only, it can't hold per-user login state for many users at once. To serve many users from one browser pool, create it with no profile — stealth, proxies, extensions, and viewport still live on the pool — and pass the user's profile to `acquire`:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
-const browser = await kernel.browserPools.acquire("my-pool");
-
-await kernel.browsers.update(browser.session_id, {
-  profile: { name: "user-8f21c3", save_changes: true }
+const browser = await kernel.browserPools.acquire("my-pool", {
+  profile: { name: "user-8f21c3", save_changes: true },
 });
 
 // ... drive the browser as that user ...
 
 await kernel.browserPools.release("my-pool", {
   session_id: browser.session_id,
-  reuse: false,
 });
 ```
 
 ```python Python
-browser = kernel.browser_pools.acquire("my-pool")
-
-kernel.browsers.update(
-    browser.session_id,
+browser = kernel.browser_pools.acquire(
+    "my-pool",
     profile={"name": "user-8f21c3", "save_changes": True},
 )
 
@@ -244,22 +237,17 @@ kernel.browsers.update(
 kernel.browser_pools.release(
     "my-pool",
     session_id=browser.session_id,
-    reuse=False,
 )
 ```
 
 ```go Go
-browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{})
-if err != nil {
-	panic(err)
-}
-
-if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
+browser, err := client.BrowserPools.Acquire(ctx, "my-pool", kernel.BrowserPoolAcquireParams{
 	Profile: shared.BrowserProfileParam{
 		Name:        kernel.String("user-8f21c3"),
 		SaveChanges: kernel.Bool(true),
 	},
-}); err != nil {
+})
+if err != nil {
 	panic(err)
 }
 
@@ -267,14 +255,19 @@ if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdate
 
 if err := client.BrowserPools.Release(ctx, "my-pool", kernel.BrowserPoolReleaseParams{
 	SessionID: browser.SessionID,
-	Reuse:     kernel.Bool(false),
 }); err != nil {
 	panic(err)
 }
 ```
 </CodeGroup>
 
-A profile can only be loaded into a browser that was created without one, which is why the pool itself has to stay profile-free.
+A browser acquired with a profile is destroyed and replaced on release instead of being reused, so one user's state can't reach the next acquirer. The `reuse` flag doesn't change that. Pass `save_changes: true` to write that browser's state back to the profile when it's destroyed — it defaults to `false`.
+
+The pool must have no profile of its own, because a profile can only be loaded into a browser created without one. Acquiring with a profile from a pool that already has one returns `profile_already_loaded`.
+
+Loading a profile restarts Chromium, so an acquisition with one takes longer than a bare acquisition. Give the pool headroom for it, or acquire before the work that needs the browser.
+
+If you can't tell which profile you need until the browser is in hand, you can still attach one afterward with a [browser update](/api-reference/browsers/update-browser-session).
 
 ### Refresh on profile update
 
