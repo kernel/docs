@@ -5,9 +5,7 @@ description: "buy a KERNEL browser through mpp with link"
 
 [machine payments protocol (mpp)](https://mpp.dev/) is an open protocol co-authored by stripe and tempo. it uses an http `402` challenge so an agent can pay for an api request without a checkout page. KERNEL accepts mpp payments for browser sessions: an agent pays with a stripe shared payment token, then connects to the browser over cdp. this route doesn't require a KERNEL account or api key.
 
-<Warning>
-  this is a staging preview at `https://api.dev.onkernel.com/mpp/browsers`. the current offer is $0.50 for one stealth, headful browser for 30 minutes. read the `402` challenge or [openapi offer](https://api.dev.onkernel.com/openapi.json) for the current price and duration before paying.
-</Warning>
+the offer is $0.50 for one stealth, headful browser for 30 minutes by default. read the `402` challenge or [openapi offer](https://api.onkernel.com/openapi.json) for the current price and duration before paying.
 
 ## How the payment works
 
@@ -15,22 +13,22 @@ description: "buy a KERNEL browser through mpp with link"
 2. your wallet approves the offer and retries the same request with `Authorization: Payment <credential>`.
 3. KERNEL verifies and charges the credential, creates the browser, and returns its connection urls in a `200` response. the `Payment-Receipt` header contains the mpp receipt.
 
-the documented buyer flow for this preview uses link. the buyer approves the payment through link, and the link cli retries with a credential containing a [stripe shared payment token](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) (`spt_...`). KERNEL validates the token, not its issuer, so another compatible client can also supply an spt.
+the documented buyer flow uses link. the buyer approves the payment through link, and the link cli retries with a credential containing a [stripe shared payment token](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) (`spt_...`). KERNEL validates the token, not its issuer, so another compatible client can also supply an spt.
 
 you can't send card details or a standalone card credential to this endpoint, and stablecoin payments aren't offered. `card` in the `402` challenge describes an underlying spt method, not a separate card flow. the payment challenge expires after 30 minutes by default; that is the time available to approve the offer, not the browser's lifetime.
 
-## Try it on staging
+## Pay with link
 
-use [stripe's link cli](https://docs.stripe.com/agentic-commerce/link-cli/machine-payments) to pay through link. the `--test` flag uses test payment credentials.
+use [stripe's link cli](https://docs.stripe.com/agentic-commerce/link-cli/machine-payments) to pay through link. configure oauth to include `payment_scope.methods.agentic`, then use the `402` challenge to create a shared payment token spend request. after the buyer approves that request, set `SPEND_REQUEST_ID` to its id and pay:
 
 ```bash
-link-cli mpp pay https://api.dev.onkernel.com/mpp/browsers --method POST --test
+link-cli mpp pay https://api.onkernel.com/mpp/browsers --spend-request-id "$SPEND_REQUEST_ID" --method POST
 ```
 
 to inspect the offer without paying, send an unauthenticated request:
 
 ```bash
-curl -i -X POST https://api.dev.onkernel.com/mpp/browsers
+curl -i -X POST https://api.onkernel.com/mpp/browsers
 ```
 
 you can send an optional `{"email":"agent@example.com"}` json body if you want the stripe receipt sent to that address. otherwise KERNEL uses the billing email shared by the payment token, if available.
