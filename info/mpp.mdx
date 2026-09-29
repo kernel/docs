@@ -9,20 +9,20 @@ the offer is $0.50 for one stealth, headful browser for 30 minutes by default. r
 
 ## How the payment works
 
-1. `POST /mpp/browsers` without a payment credential. KERNEL returns `402 Payment Required` with the offer in `WWW-Authenticate: Payment`.
-2. your wallet approves the offer and retries the same request with `Authorization: Payment <credential>`.
+1. `link-cli mpp pay` sends `POST /mpp/browsers` without a payment credential. KERNEL returns `402 Payment Required` with the offer in `WWW-Authenticate: Payment`.
+2. the link cli gives you an approval url. after you approve the payment through link, it retries the request with `Authorization: Payment <credential>`.
 3. KERNEL verifies and charges the credential, creates the browser, and returns its connection urls in a `200` response. the `Payment-Receipt` header contains the mpp receipt.
 
-the documented buyer flow uses link. the buyer approves the payment through link, and the link cli retries with a credential containing a [stripe shared payment token](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) (`spt_...`). KERNEL validates the token, not its issuer, so another compatible client can also supply an spt.
+link through the link cli is the only supported payment flow for now. after approval, the cli sends a credential containing a [stripe shared payment token](https://docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens) (`spt_...`) to KERNEL.
 
-you can't send card details or a standalone card credential to this endpoint, and stablecoin payments aren't offered. `card` in the `402` challenge describes an underlying spt method, not a separate card flow. the payment challenge expires after 30 minutes by default; that is the time available to approve the offer, not the browser's lifetime.
+you can't send card details or a standalone card credential to this endpoint, and stablecoin payments aren't offered. the payment challenge expires after 30 minutes by default; that is the time available to approve the offer, not the browser's lifetime.
 
 ## Pay with link
 
-use [stripe's link cli](https://docs.stripe.com/agentic-commerce/link-cli/machine-payments) to pay through link. configure oauth to include `payment_scope.methods.agentic`, then use the `402` challenge to create a shared payment token spend request. after the buyer approves that request, set `SPEND_REQUEST_ID` to its id and pay:
+run [stripe's link cli](https://docs.stripe.com/agentic-commerce/link-cli/machine-payments) to pay through link. the command reads the `402` challenge, gives you an approval link, and completes the payment after you approve it. you don't need to create a spend request separately.
 
 ```bash
-link-cli mpp pay https://api.onkernel.com/mpp/browsers --spend-request-id "$SPEND_REQUEST_ID" --method POST
+link-cli mpp pay https://api.onkernel.com/mpp/browsers --method POST
 ```
 
 to inspect the offer without paying, send an unauthenticated request:
@@ -78,6 +78,6 @@ the paid time starts when the charge succeeds; use `expires_at` in the response 
 
 mpp is a payment protocol, not a browser feature. when a merchant exposes an mpp endpoint, an agent can pay that merchant directly without opening a checkout page. a browser is still useful when the task requires a site's interface, login, or checkout and the site doesn't expose the needed action through mpp.
 
-KERNEL's mpp endpoint handles a different purchase: **the agent pays KERNEL for browser access**. it lets an agent with a compatible wallet acquire one browser without account setup. the purchase returns connection urls only; it doesn't provision a vault or merchant payment credential.
+KERNEL's mpp endpoint handles a different purchase: **the agent pays KERNEL for browser access**. it lets an agent using the link cli acquire one browser without account setup. the purchase returns connection urls only; it doesn't provision a vault or merchant payment credential.
 
 for merchant checkout with KERNEL's wallet integrations, use [payments for browser agents](/browsers/payments) with an account-based browser. for projects, api keys, and ongoing browser management, use [account-based browser access](/introduction/create).
