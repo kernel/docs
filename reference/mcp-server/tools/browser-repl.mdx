@@ -8,7 +8,7 @@ Execute JavaScript in a persistent Node.js runtime inside an existing Kernel bro
 Unlike [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code), the Browser REPL keeps top-level bindings, closures, timers, and dynamically imported modules across calls. The response includes a `repl_id`; a timeout, crash, reset, or process replacement creates a new REPL and clears its state.
 
 <Warning>
-The Browser REPL provides unrestricted code execution inside the browser VM. Code can access Node.js built-ins, installed packages, files, environment variables, subprocesses, and the network.
+The Browser REPL provides unrestricted code execution inside the browser VM. Code can access Node.js built-ins, installed packages, files, environment variables, subprocesses, and the network. Only send code you trust — never page content or tool output.
 </Warning>
 
 ## Parameters
