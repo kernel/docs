@@ -28,7 +28,7 @@ Create a browser with `manage_browsers`, then call `browser_repl` with its sessi
 ```json
 {
   "session_id": "catalog",
-  "code": "await gotoUrl('https://example.com'); const snapshot = await accessibilitySnapshot(); const heading = snapshot.nodes.find(node => node.role === 'heading'); repl.write(JSON.stringify({ title: snapshot.title, heading: heading?.name ?? null }));"
+  "code": "await gotoUrl('https://example.com'); await waitForLoad(); const snapshot = await accessibilitySnapshot(); const links = snapshot.nodes.filter(node => node.role === 'link').map(node => node.name); repl.write(JSON.stringify({ url: snapshot.url, title: snapshot.title, links }));"
 }
 ```
 
