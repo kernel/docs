@@ -33,8 +33,21 @@ Residential and mobile proxies use **rotating exit IPs** that may change per con
 Create a proxy configuration from the types above that can be reused across browser sessions:
 
 <Info>
-Automatic proxy cleanup is currently paused. When enabled, KERNEL automatically deletes unused proxy configurations if your organization has more than 100 active configurations. A configuration is eligible only if it's more than 60 days old and hasn't been attached to a browser session in the last 60 days. Configurations still attached to sessions, pools, instances, or managed auth connections are retained.
+Proxy configurations persist until you explicitly delete them. KERNEL doesn't delete configurations because of inactivity. Reuse existing configurations across browser sessions, and delete configurations you no longer need.
 </Info>
+
+Your organization can store the following number of proxy configurations across all projects:
+
+| Plan | Stored proxies |
+| --- | ---: |
+| Free | 1,500 |
+| Hobbyist | 6,000 |
+| Start-Up | 160,000 |
+| Enterprise | 250,000 |
+
+Trials use the Start-Up limit. An organization-specific override can replace the plan default; contact support if you need a higher limit.
+
+At the limit, creating a proxy returns HTTP `403` with code `resource_limit_exceeded`. Existing proxies remain available, even if a plan change puts you above the limit. Delete configurations to free capacity, or contact support to increase your limit. Deleted configurations don't count toward the limit and may later be permanently removed once no resources reference them.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
