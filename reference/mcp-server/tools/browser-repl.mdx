@@ -32,7 +32,23 @@ Create a browser with `manage_browsers`, then call `browser_repl` with its sessi
 }
 ```
 
-Expression values aren't emitted automatically. Use `repl.write(...)`, captured console methods, or `await repl.emitImage(...)` for agent-visible output. Keep observations focused; filter `accessibilitySnapshot().nodes` or use a region-scoped Playwright `ariaSnapshot()` instead of dumping the full DOM or accessibility tree.
+Returns:
+
+```json
+{
+  "success": true,
+  "repl_id": "kcm4w4oa0f21rtgvfxj9rtuk",
+  "content": [
+    { "index": 0, "type": "text", "channel": "write", "text": "{\"url\":\"https://example.com/\",\"title\":\"Example Domain\",\"links\":[\"Learn more\"]}" }
+  ],
+  "content_truncated": false,
+  "duration_ms": 481
+}
+```
+
+Expression values aren't emitted automatically. Use `repl.write(...)`, captured console methods (`channel` is `stdout` or `stderr`), or `await repl.emitImage(...)`. Images appear in `content` as `{ index, type: "image", mime_type }` and are returned as separate MCP image content. Keep observations focused: filter `accessibilitySnapshot().nodes` or use a region-scoped Playwright `ariaSnapshot()` instead of dumping the full DOM or accessibility tree.
+
+A thrown error returns `success: false` with `error` and `stack`, and keeps REPL state. `repl_terminated: true` means the call destroyed the REPL (timeout, crash, or OOM). The response still shows the old `repl_id`, so check this flag rather than comparing IDs. The next call starts a fresh REPL with no earlier bindings.
 
 ## Runtime capabilities
 
