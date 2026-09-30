@@ -9,6 +9,12 @@ KERNEL's native integration holds a recognized checkout request while the user a
 
 agentcard is the wallet provider, not the merchant's payment processor. end-to-end handoff requires a [recognized processor request](#checkout-and-processor-coverage); the merchant's processor doesn't need to be stripe.
 
+AgentCard can match a cardholder autopilot rule using a declared checkout
+origin. Origin matching is not payment approval itself: an eligible autopilot
+rule can authorize the request, while an ineligible rule can still fall back to
+user approval. It doesn't guarantee that the processor accepts the request or
+that the payment succeeds.
+
 ## Checkout and processor coverage
 
 agentcard's alias handoff uses native adapters for these checkout request formats:
@@ -368,6 +374,7 @@ const card = await kernel.vaults.items.upsert("notebook-order", {
     merchant: "example shop",
     amount: 2306,
     currency: "usd",
+    checkout_origin: "https://shop.example.com",
   },
 });
 
@@ -392,6 +399,7 @@ card = kernel.vaults.items.upsert(
         "merchant": "example shop",
         "amount": 2306,
         "currency": "usd",
+        "checkout_origin": "https://shop.example.com",
     },
 )
 
@@ -411,7 +419,8 @@ kernel vaults cards create user-12345 notebook-order \
     "wallet": "agentcard-wallet",
     "merchant": "example shop",
     "amount": 2306,
-    "currency": "usd"
+    "currency": "usd",
+    "checkout_origin": "https://shop.example.com"
   }'
 kernel vaults items get user-12345 notebook-order -o json
 ```
@@ -419,6 +428,21 @@ kernel vaults items get user-12345 notebook-order -o json
 </CodeGroup>
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. omitting `card_id` lets the cardholder select an enrolled card on the approval screen. to pin a card, request the wallet's advertised `payment_methods` expansion and set a returned id as `spec.card_id`.
+
+`checkout_origin` is optional. set it to the checkout's canonical origin: an
+HTTPS origin with a lowercase host, no default port, and no path (for example,
+`https://shop.example.com`), or an HTTP `localhost` origin for local test
+pages (for example, `http://localhost:3000`). For non-prepared checkout
+authorizations, Kernel sends this caller-supplied origin to AgentCard for
+cardholder autopilot rule matching. If you omit it, the existing approval
+behavior remains. Prepared checkout uses the `merchant_origin` from its
+preparation instead of this field. Card updates replace the full `spec`, so
+include `checkout_origin` again when you want to keep using it.
+
+Kernel doesn't compare `checkout_origin` with the browser's current page. Your
+application must derive or validate the origin from a trusted checkout context
+and must not treat it as proof of the page's identity. Continue to verify the
+merchant and purchase independently before checkout submission.
 
 ### Reuse a card item for a new purchase
 
@@ -451,6 +475,7 @@ reusableCard = await kernel.vaults.items.update("notebook-order", {
     merchant: "example books",
     amount: 4199,
     currency: "usd",
+    checkout_origin: "https://books.example.com",
   },
 });
 ```
@@ -480,6 +505,7 @@ reusable_card = kernel.vaults.items.update(
         "merchant": "example books",
         "amount": 4199,
         "currency": "usd",
+        "checkout_origin": "https://books.example.com",
     },
 )
 ```
@@ -492,7 +518,8 @@ kernel vaults cards update user-12345 notebook-order \
     "wallet": "agentcard-wallet",
     "merchant": "example books",
     "amount": 4199,
-    "currency": "usd"
+    "currency": "usd",
+    "checkout_origin": "https://books.example.com"
   }'
 ```
 
@@ -721,7 +748,7 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'agentcard'` | `provider_config`; `user_id` for a user already enrolled in the organization under the same configuration |
-| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`                                        |
+| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`, `checkout_origin`                    |
 
 agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
 
