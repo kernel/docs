@@ -18,7 +18,7 @@ The Browser REPL provides unrestricted code execution inside the browser VM. Cod
 | `session_id` | Browser session ID or name. Required. |
 | `code` | JavaScript cell to evaluate. Supports top-level `await` and dynamic `import()`. Required unless `reset` is `true`. |
 | `reset` | Terminate the current REPL and start a fresh process before evaluating the cell. Pass `true` with an empty `code` value to clear the state. Defaults to `false`. |
-| `timeout_sec` | Maximum cell execution time from 1 to 150 seconds. A timeout terminates the REPL. Defaults to 60 seconds. |
+| `timeout_sec` | Maximum cell execution time from 1 to 150 seconds. A timeout terminates the REPL. Defaults to 60 seconds. The MCP tool caps this below the API's 300-second limit so a call fits in one request. |
 | `project` | Optional project name or ID. |
 
 ## Example
