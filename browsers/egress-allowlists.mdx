@@ -67,7 +67,7 @@ Kernel rejects:
 - Wildcards over any [public suffix](https://publicsuffix.org/), including provider domains such as `*.github.io`, `*.cloudfront.net`, `*.vercel.app`, and `*.herokuapp.com`. List the specific host instead, such as `d111111abcdef8.cloudfront.net`.
 - Private, loopback, link-local, and other reserved IP ranges. To reach private services, use [private networking](/browsers/private-networking).
 - Entries that overlap `network.private_hosts`. Private hosts bypass Kernel's egress proxy, so an allowlist can't filter them.
-- The `WebRtcIPHandling` and `WebRtcIPHandlingUrl` [Chrome policies](/browsers/chrome-policies) in `chrome_policy`. Either one can let WebRTC send traffic around the egress proxy. Adding an allowlist with `update()` to a browser created with one of them is rejected too.
+- [Chrome policies](/browsers/chrome-policies) in `chrome_policy` that can send traffic around the egress proxy: `WebRtcIPHandling` and `WebRtcIPHandlingUrl` for WebRTC, and `DnsOverHttpsMode` (unless it's `off`), `DnsOverHttpsTemplates`, `DnsOverHttpsTemplatesWithIdentifiers`, and `DnsOverHttpsSalt` for secure DNS. Adding an allowlist with `update()` to a browser created with one of them is rejected too.
 - Non-canonical forms, such as CIDRs with host bits set or IPv4-mapped IPv6 addresses.
 
 ## When a destination is blocked
@@ -144,7 +144,7 @@ An agent that drives the browser over CDP can also create a browser context with
   - Programs you run in the browser VM, for example with [process execution](/browsers/process-execution).
   - Browser contexts created over CDP with their own proxy settings, such as Playwright's `browser.newContext({ proxy })`.
   - Extensions with the `proxy` permission, which can switch Chromium to direct connections.
-  - DNS lookups Chromium makes itself, including DNS-over-HTTPS that you turn on with a Chrome policy. Requests that go through the egress proxy are resolved by the proxy, not in the VM.
+  - DNS lookups that don't go through the proxy, such as Chromium's lookups for hosts in `network.private_hosts`. Requests through the egress proxy are resolved by the proxy, and Kernel rejects the Chrome policies that turn on secure DNS for allowlisted browsers.
 - Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` so all traffic goes through the egress proxy.
 - Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
 - [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, or add one with `update()` to a browser acquired from a pool.
