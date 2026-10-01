@@ -147,4 +147,4 @@ An agent that drives the browser over CDP can also create a browser context with
   - DNS lookups Chromium makes itself, including DNS-over-HTTPS that you turn on with a Chrome policy. Requests that go through the egress proxy are resolved by the proxy, not in the VM.
 - Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` so all traffic goes through the egress proxy.
 - Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
-- [Browser pools](/browsers/pools) don't support allowlists.
+- [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, or add one with `update()` to a browser acquired from a pool.
