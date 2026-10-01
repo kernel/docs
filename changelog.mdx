@@ -12,27 +12,36 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 <Update label="October 2" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Added **[1Password Agentic Autofill](/vaults/1password)** (preview). Your end users can approve access to logins that stay in their own 1Password account, so they don't have to store them in Kernel. Kernel fills them into the browser. Connect an account with `kernel vaults credentials connect <vault> <account-key> --provider 1password` in the [CLI](https://github.com/kernel/cli), through the [MCP server](/reference/mcp-server)'s vault credential tools, or from the dashboard.
-- Added **[MPP browser purchases](/info/mpp)**. Agents can buy a stealth, headful browser session through the Machine Payments Protocol, without a Kernel account or API key.
-- Extended the `memory` option to [browser pools](/browsers/pools): create or update a pool with `16GiB` instead of the default `8GiB`, and the pool reports its effective allocation. Updates apply to newly warmed browsers, so leased browsers keep the allocation they started with.
-- Added an optional `checkout_origin` field to the [AgentCard](/integrations/wallets/agentcard) card spec, used to match autopilot rules. Supported in the MCP server.
-- The MCP server's vault tools now return the API's error codes and messages. Vault provider configs now include the Link publishable key.
-- [WebMCP](/browsers/webmcp) tool listings now include tools that sites register through a `navigator.modelContext` polyfill, so they can be listed and invoked like native page tools.
-- Added common Ubuntu desktop fonts to the headful browser image, so the fonts a page can detect look more like a typical Linux desktop.
-- Launched a new browser-first onboarding flow in the dashboard.
-- Added the managed auth [reauthentication](/auth/configuration) controls to the dashboard: a **Health checks** switch that turns scheduled checks off entirely, and a separate toggle for automatic reauthentication. Both were already available through the API and CLI.
-- The dashboard now shows an **Unverified** state for managed auth connections whose health check was skipped because no check URL is set.
+### Auth
+
+- Added **[1Password Agentic Autofill](/vaults/1password)** (preview). Your end users can approve access to logins that stay in their own 1Password account. Once your organization has preview access, connect accounts through the CLI, MCP server, or dashboard.
+- The MCP server’s vault tools now return the API’s error codes and messages.
+- Added managed auth [reauthentication](/auth/configuration) controls to the dashboard: a **Health checks** switch and a separate toggle for automatic reauthentication. Both were already available through the API and CLI.
+- The dashboard now shows **Unverified** for managed auth connections whose health check was skipped because no check URL is set.
+
+### Payments
+
+- Added **[MPP browser purchases](/info/mpp)**. Agents can buy a stealth, headful browser session through the Machine Payments Protocol without a Kernel account or API key.
+- Added optional `checkout_origin` to the [AgentCard](/integrations/wallets/agentcard) card spec for autopilot rule matching. Supported in the MCP server.
+- Vault provider configs now include the Link publishable key.
+
+### Browsers
+
+- Extended `memory` to [browser pools](/browsers/pools). Create or update a pool with `16GiB` instead of the default `8GiB`. Updates apply to newly created browsers; existing browsers keep their original allocation.
+- [WebMCP](/browsers/webmcp) listings now include tools registered through a `navigator.modelContext` polyfill, so you can discover and invoke them like native page tools.
+- Added common Ubuntu desktop fonts to the headful browser image, making the fonts a page can detect more typical of a Linux desktop.
+- Launched browser-first onboarding in the dashboard.
 
 ## Documentation updates
 
-- Added a [1Password Agentic Autofill](/vaults/1password) guide covering setup, how to ask the user about 1Password with Kernel credentials as the fallback, and its limits for private vaults and passkeys.
-- Added an [Export Telemetry](/browsers/telemetry/export) guide for sending session events to your own OpenTelemetry backend over OTLP.
-- Added a [Buy a Browser with MPP](/info/mpp) guide that walks through the `402` payment flow.
-- Added a [Code Mode with Browser REPL and WebMCP](/browsers/code-mode-webmcp) guide and a Browser REPL page in the MCP server reference.
-- Added cookbooks for [e2e Web Testing](/cookbooks/e2e-kernel) and a [Personal Shopper with Link and Eve](/cookbooks/personal-shopper).
-- Rewrote the [Web Bot Auth](/browsers/bot-detection/web-bot-auth) guide around opt-in access to Kernel's WBA token, enabled selectively on request for Startup and Enterprise plans, and linked it from the bot anti-detection overview and the stealth guide. Bot Anti-Detection now opens the Intermediate section, with no page URLs changed.
+- Added a [1Password Agentic Autofill](/vaults/1password) guide covering setup, credential collection as a fallback, and private vault and passkey limitations.
+- Added [Export Telemetry](/browsers/telemetry/export) for sending session events to your OpenTelemetry backend over OTLP.
+- Added [Buy a Browser with MPP](/info/mpp), covering the `402` payment flow.
+- Added [Code Mode with Browser REPL and WebMCP](/browsers/code-mode-webmcp) and a Browser REPL page in the MCP reference.
+- Added cookbooks for [e2e Web Testing](/cookbooks/e2e-kernel) and [Personal Shopper with Link and Eve](/cookbooks/personal-shopper).
+- Rewrote [Web Bot Auth](/browsers/bot-detection/web-bot-auth) around opt-in access to Kernel’s WBA token for Startup and Enterprise plans. Added links from the bot anti-detection overview and stealth guide, and moved Bot Anti-Detection to the start of the Intermediate section.
 - Documented [browser pool](/browsers/pools) memory options.
-- Split the cookbooks page into common patterns and harnesses & models sections, and now recommend the `kernel` CLI in the skills docs.
+- Split cookbooks into common patterns and harnesses & models, and updated the skills docs to recommend the `kernel` CLI.
 </Update>
 
 <Update label="September 25" tags={["Product", "Docs"]}>
