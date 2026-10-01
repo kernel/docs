@@ -9,12 +9,6 @@ KERNEL's native integration holds a recognized checkout request while the user a
 
 agentcard is the wallet provider, not the merchant's payment processor. end-to-end handoff requires a [recognized processor request](#checkout-and-processor-coverage); the merchant's processor doesn't need to be stripe.
 
-AgentCard can match a cardholder autopilot rule using a declared checkout
-origin. Origin matching is not payment approval itself: an eligible autopilot
-rule can authorize the request, while an ineligible rule can still fall back to
-user approval. It doesn't guarantee that the processor accepts the request or
-that the payment succeeds.
-
 ## Checkout and processor coverage
 
 agentcard's alias handoff uses native adapters for these checkout request formats:
@@ -434,10 +428,14 @@ HTTPS origin with a lowercase host, no default port, and no path (for example,
 `https://shop.example.com`), or an HTTP `localhost` origin for local test
 pages (for example, `http://localhost:3000`). For non-prepared checkout
 authorizations, Kernel sends this caller-supplied origin to AgentCard for
-cardholder autopilot rule matching. If you omit it, the existing approval
-behavior remains. Prepared checkout uses the `merchant_origin` from its
-preparation instead of this field. Card updates replace the full `spec`, so
-include `checkout_origin` again when you want to keep using it.
+cardholder autopilot rule matching. This origin match isn't payment approval
+itself: an eligible autopilot rule can authorize the request, while an
+ineligible rule can still fall back to user approval. If you omit the field,
+the existing approval behavior remains. Prepared checkout uses the
+`merchant_origin` from its preparation instead of this field. Card updates
+replace the full `spec`, so include `checkout_origin` again when you want to
+keep using it. An autopilot match doesn't guarantee processor acceptance or
+payment success.
 
 Kernel doesn't compare `checkout_origin` with the browser's current page. Your
 application must derive or validate the origin from a trusted checkout context
