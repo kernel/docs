@@ -97,7 +97,7 @@ if result.status != "completed":
 
 when supplied, `page_url` must exactly match one current top-level page, including path, query, and fragment. it isn't a navigation instruction or a prefix match. zero or multiple matching pages fail.
 
-**link cards:** `browser_id` and `page_url` must exactly match the card's `spec.browser_id` and `spec.page_url`; any other destination returns `403 destination_denied`.
+**link cards:** `browser_id` and `page_url` must exactly match the ones passed to `authorize`. a card authorized without them accepts any page on the https origin of `spec.merchant_url`. any other destination returns `403 destination_denied`.
 
 **credentials:** omit `page_url` only when the browser has exactly one open page. credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 

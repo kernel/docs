@@ -434,7 +434,7 @@ is `pending_approval`, finish and reconcile that authorization before preparing
 another purchase. delete the old item when you no longer need it. never create
 a new item to retry a failed, timed-out, or indeterminate checkout.
 
-agentcard has no per-item `test` flag or domain allowlist, and its cards aren't bound to a checkout page. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
+agentcard has no per-item `test`, `merchant_url`, or domain allowlist. `merchant` is the name shown on the approval screen, not an enforced browsing origin. sandbox or live behavior comes from the agentcard credential configured for the integration and must match your application-owned `AGENTCARD_MODE` assertion before you use the aliases.
 
 ## Complete the first checkout
 
@@ -598,8 +598,9 @@ event id, classify the attempt as indeterminate, and don't resubmit checkout.
 
 ## Handle checkout approval
 
-authorization begins only after an attached browser submits a recognized
-processor request containing the aliases.
+agentcard doesn't advertise the `authorize` operation. authorization begins
+only after an attached browser submits a recognized processor request containing
+the aliases.
 
 while the request is held, retrieve the card and send `action.url` through the
 same authenticated, expiring user-action flow used for enrollment. stop serving

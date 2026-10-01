@@ -44,9 +44,9 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 | ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | user eligibility          | requires a US phone number                               | —                                                                   |
 | payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
-| purchase authorization    | creating the card item at final checkout starts approval | the user approves with Face ID                                      |
+| purchase authorization    | `authorize` operation at the final checkout page         | the user approves with Face ID                                      |
 | payment handoff           | KERNEL's `fill` api supplies a link pay token through the checkout's WebMCP tools or writes a virtual card into card fields, without passing values through application code or model context | agentcard executes the intercepted request; KERNEL replays the response |
-| reuse                     | immutable, one-use credential bound to one browser session and checkout page | reusable card item; each checkout requires approval             |
+| reuse                     | immutable, one-use credential bound to the browser session and checkout page it's authorized for | reusable card item; each checkout requires approval             |
 | environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
 choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, one-use credential. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
@@ -55,7 +55,7 @@ both integrations may provide additional benefits, including card rewards and ch
 
 ## Checkout and processor coverage
 
-link doesn't require a native processor adapter. KERNEL inspects the checkout when you create the card: stripe checkout pages that expose link pay token WebMCP tools get a merchant-bound link pay token, and other checkouts get a virtual card that needs supported card inputs. `fill` must target the exact browser session and page the card was created for. see [how KERNEL pays with link](/integrations/wallets/stripe-link#how-kernel-pays).
+link doesn't require a native processor adapter. KERNEL inspects the checkout when you authorize the card at the final checkout page: stripe checkout pages that expose link pay token WebMCP tools get a merchant-bound link pay token, and other checkouts get a virtual card that needs supported card inputs. `fill` must target the exact browser session and page passed to `authorize`; a card authorized without them fills only on its `merchant_url` origin. see [how KERNEL pays with link](/integrations/wallets/stripe-link#how-kernel-pays).
 
 agentcard's alias-based checkout requires a recognized processor request. see [agentcard's processor coverage](/integrations/wallets/agentcard#checkout-and-processor-coverage) for supported formats and limitations. neither field filling nor provider handoff guarantees processor acceptance or payment success.
 
@@ -115,7 +115,7 @@ shared CLI flow around them is:
 ```bash CLI
 kernel vaults create --name user-12345
 kernel browsers create --vault user-12345 -o json
-# create the card item, then wait for approval
+# create the card item and authorize it at checkout, then wait for approval
 kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 

@@ -5,7 +5,7 @@ description: "use link by stripe to approve a one-use payment credential for a b
 
 [link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a one-use payment credential for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and credential storage through vault items. oauth credentials and payment material use kms-backed envelope encryption.
 
-you create a link card item at the final checkout page, and KERNEL decides how link pays for that checkout. KERNEL's [`fill` api](/vaults/fill) then puts the approved credential into the attached browser without passing it through your application's code or model context. see [how KERNEL pays](#how-kernel-pays) for details.
+you create a link card item for the purchase and authorize it at the final checkout page, where KERNEL decides how link pays for that checkout. KERNEL's [`fill` api](/vaults/fill) then puts the approved credential into the attached browser without passing it through your application's code or model context. see [how KERNEL pays](#how-kernel-pays) for details.
 
 link is the wallet provider, not the merchant's payment processor. for the overall offering, see [payments on KERNEL](/browsers/payments).
 
@@ -184,12 +184,13 @@ that grant. continue with [Select a payment method](#select-a-payment-method).
 1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
 2. require the wallet to be `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
-4. create a browser with the vault attached, navigate it to the final checkout page, and verify the purchase.
-5. create a `card` item with that browser's session id, the checkout's exact `page_url`, and the purchase details. creation starts link's spend request and returns a `spend_approval` or `push_approval` action.
-6. present the action to the user and wait for `state.status` to become `ready`.
-7. invoke the advertised `fill` operation with the inputs its description names, inspect the outcome, then have the agent click the checkout's pay button once.
+4. create a `card` item with the purchase details. it's `requested` and advertises `authorize`.
+5. navigate a browser with the vault attached to the final checkout page and verify the purchase.
+6. after explicit user approval, invoke `authorize` with that browser's session id and the checkout's exact `page_url`. KERNEL inspects the checkout, binds `fill` to that browser and page, and returns a `spend_approval` or `push_approval` action.
+7. present the action to the user and wait for `state.status` to become `ready`.
+8. invoke the advertised `fill` operation with the inputs its description names, inspect the outcome, then have the agent click the checkout's pay button once.
 
-creating the card item is the request for approval. card items are immutable and bound to one browser session and checkout page.
+card items are immutable, and the first authorization fixes the checkout binding.
 
 ## Connect a wallet
 
@@ -377,9 +378,76 @@ kernel vaults wallets payment-methods user-12345 link-wallet -o json
 
 show the returned methods in a trusted user-facing surface, let the user choose one, and set its id as `LINK_PAYMENT_METHOD_ID`. missing capability metadata means eligibility is unknown. only `eligible: false` is an explicit negative result.
 
-## Open the checkout
+## Create and authorize a card item
 
-create the card item only after the agent reaches the final checkout page, the page where the next step is paying. KERNEL inspects that page when you create the card, so the browser session must be running, have the vault attached, and have the checkout open at that url.
+create the card from the verified purchase, then authorize it once the agent reaches the final checkout page, the page where the next step is paying. creating the card doesn't contact link; authorizing it at checkout starts the spend request and the user's approval.
+
+### Create the card item
+
+<CodeGroup>
+
+```typescript TypeScript
+let card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "link",
+    wallet: wallet.key,
+    payment_method_id: paymentMethod.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com",
+    context:
+      "buy one notebook from example shop for a total of 23.06 usd, including tax " +
+      "and shipping. this request is for this purchase only and must not be repeated.",
+  },
+});
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "link",
+        "wallet": wallet.key,
+        "payment_method_id": payment_method.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com",
+        "context": (
+            "buy one notebook from example shop for a total of 23.06 usd, including tax "
+            "and shipping. this request is for this purchase only and must not be repeated."
+        ),
+    },
+)
+```
+
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider link \
+  --spec '{
+    "wallet": "link-wallet",
+    "payment_method_id": "pm_123",
+    "amount": 2306,
+    "currency": "usd",
+    "merchant_name": "example shop",
+    "merchant_url": "https://shop.example.com",
+    "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+```
+
+</CodeGroup>
+
+the new card is `requested` and advertises `authorize`. `amount` uses minor currency units, so `2306` means 23.06 usd. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+
+### Open the checkout
+
+authorize the card while the checkout is open in a running browser session with the vault attached.
 
 <CodeGroup>
 
@@ -409,33 +477,26 @@ kernel browsers create --vault user-12345 -o json
 
 </CodeGroup>
 
-`checkoutURL` / `checkout_url` is the browser's exact current top-level https url, including path, query, and fragment, obtained through your browser-control method. verify the merchant, amount, currency, and items in your controller before creating the card. see [verify and confirm the purchase](/browsers/enable-payments-in-browser-agent#2-verify-and-confirm-the-purchase).
+`checkoutURL` / `checkout_url` is the browser's exact current top-level https url, including path, query, and fragment, obtained through your browser-control method. verify the merchant, amount, currency, and items in your controller before authorizing. see [verify and confirm the purchase](/browsers/enable-payments-in-browser-agent#2-verify-and-confirm-the-purchase).
 
-## Create a card item at checkout
+### Authorize at checkout
 
-creating the card item starts link's spend request and the user's approval. use the session id from the browser above, not a browser name.
+after explicit user approval, retrieve the card, require `authorize` in `available_operations`, and invoke it with the browser's session id, not a browser name, and the exact checkout url. KERNEL inspects that page, chooses how link pays, binds `fill` to that browser and page, and starts approval.
 
 <CodeGroup>
 
 ```typescript TypeScript
-let card = await kernel.vaults.items.upsert("notebook-order", {
-  id_or_name: vault.id,
-  type: "card",
-  spec: {
-    provider: "link",
-    wallet: wallet.key,
-    browser_id: browser.session_id,
-    page_url: checkoutURL,
-    payment_method_id: paymentMethod.id,
-    amount: 2306,
-    currency: "usd",
-    merchant_name: "example shop",
-    context:
-      "buy one notebook from example shop for a total of 23.06 usd, including tax " +
-      "and shipping. this request is for this purchase only and must not be repeated.",
-  },
-});
+card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (!card.available_operations.some(({ type }) => type === "authorize")) {
+  throw new Error("authorization is unavailable");
+}
 
+card = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+});
 if (card.action && "url" in card.action) {
   await presentProviderAction({
     userID: authenticatedUser.id,
@@ -453,26 +514,17 @@ card = await kernel.vaults.items.retrieve(card.key, {
 ```
 
 ```python Python
-card = kernel.vaults.items.upsert(
-    "notebook-order",
-    id_or_name=vault.id,
-    type="card",
-    spec={
-        "provider": "link",
-        "wallet": wallet.key,
-        "browser_id": browser.session_id,
-        "page_url": checkout_url,
-        "payment_method_id": payment_method.id,
-        "amount": 2306,
-        "currency": "usd",
-        "merchant_name": "example shop",
-        "context": (
-            "buy one notebook from example shop for a total of 23.06 usd, including tax "
-            "and shipping. this request is for this purchase only and must not be repeated."
-        ),
-    },
-)
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if not any(operation.type == "authorize" for operation in card.available_operations):
+    raise RuntimeError("authorization is unavailable")
 
+card = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="authorize",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+)
 if card.action is not None and hasattr(card.action, "url"):
     present_provider_action(
         user_id=authenticated_user.id,
@@ -487,62 +539,56 @@ card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id, wait=60)
 
 ```bash CLI
 # browser_id is the session_id returned by kernel browsers create
-kernel vaults cards create user-12345 notebook-order \
-  --provider link \
-  --spec '{
-    "wallet": "link-wallet",
-    "browser_id": "k7q2m9x4p1w8",
-    "page_url": "https://shop.example.com/checkout?cart=cart_8472",
-    "payment_method_id": "pm_123",
-    "amount": 2306,
-    "currency": "usd",
-    "merchant_name": "example shop",
-    "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
-  }'
+kernel vaults items invoke user-12345 notebook-order authorize --open \
+  --params '{"browser_id": "k7q2m9x4p1w8", "page_url": "https://shop.example.com/checkout?cart=cart_8472"}'
 kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 
 </CodeGroup>
 
-the new card returns `state.status: pending_authorization` and an `action`. `spend_approval` includes a `url` the user opens to approve the purchase in link; `push_approval` means the user approves in their link app. after approval, the card becomes `ready` and advertises `fill`. one bounded wait can finish before approval does; retrieve the item again rather than creating another card.
+authorization returns `state.status: pending_authorization` and an `action`. `spend_approval` includes a `url` the user opens to approve the purchase in link; `push_approval` means the user approves in their link app. after approval, the card becomes `ready` and advertises `fill`. one bounded wait can finish before approval does; retrieve the item again rather than authorizing again or creating another card.
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+`browser_id` and `page_url` are optional but must be passed together. if you omit both, KERNEL skips checkout inspection and link issues a virtual card that can fill any page on the `merchant_url` origin. pass both whenever the browser is at checkout: link pay tokens require them, and they restrict `fill` to that exact page.
 
 ### How KERNEL pays
 
-when you create the card, KERNEL inspects the checkout page through [WebMCP](/browsers/webmcp) and chooses how link pays. you never choose or see the mode; read the card's advertised `fill` operation instead.
+when you authorize with `browser_id` and `page_url`, KERNEL inspects the checkout page through [WebMCP](/browsers/webmcp) and chooses how link pays. you never choose or see the mode; read the card's advertised `fill` operation instead.
 
 | checkout | payment credential | fill inputs | maximum `amount` |
 | --- | --- | --- | --- |
 | a stripe checkout page that exposes link pay token WebMCP tools | a merchant-bound link pay token that KERNEL passes to the page's WebMCP tool | `browser_id` and `page_url` only; no field selectors | 500000 |
-| any other checkout | a one-time virtual card that KERNEL writes into the page's card fields | `browser_id`, `page_url`, and `fields` selectors | 50000 |
+| any other checkout, or an authorization without `browser_id` and `page_url` | a one-time virtual card that KERNEL writes into the page's card fields | `browser_id`, `page_url`, and `fields` selectors | 50000 |
 
-the virtual-card path doesn't require a native processor adapter or a stripe merchant, but it needs uniquely selectable card inputs on the checkout page. don't call the page's WebMCP tools yourself or pass a merchant account id. if the checkout doesn't support link pay tokens and `amount` exceeds 50000, creation returns `400`.
+the virtual-card path doesn't require a native processor adapter or a stripe merchant, but it needs uniquely selectable card inputs on the checkout page. don't call the page's WebMCP tools yourself or pass a merchant account id. if the checkout needs a virtual card and `amount` exceeds 50000, authorization returns `400 invalid_request` without contacting link; delete the card and create a new one with a smaller amount.
 
 ### Change or retry a request
 
-card items are immutable. repeating the same `upsert` with an identical `spec` returns the existing item without inspecting the checkout again or repeating approval. a different `spec` at the same key returns `409`; `PATCH` isn't supported for cards.
+card items are immutable. repeating the same `upsert` with an identical `spec` returns the existing item without contacting link or authorizing it. a different `spec` at the same key returns `409`; `PATCH` isn't supported for cards.
 
-to change the purchase, browser, or checkout page, create a new card item under a new key. delete the old item when you no longer need it; deletion can be blocked while a provider outcome is unresolved. never create a replacement card to retry a payment whose outcome is uncertain.
+the first authorization that reaches link fixes the card's checkout binding. while the card is `pending_authorization`, `authorize` re-checks the existing spend request without creating another payment: repeat the same `browser_id` and `page_url`, or omit both. a different browser or page returns `409`, and so does adding checkout context to a card authorized without it.
 
-### Handle creation errors
+to change the purchase, browser, or checkout page, create a new card item under a new key. delete the old item when you no longer need it; deletion can be blocked while a provider outcome is unresolved. never create a replacement card or repeat `authorize` to retry a payment whose outcome is uncertain.
 
-checkout inspection runs before KERNEL creates the item or contacts link. these errors mean no card was created and no approval started, so you can correct the cause and create the card again:
+### Handle authorization errors
+
+checkout inspection runs before KERNEL contacts link. these errors mean no spend request started, so you can correct the cause and authorize again:
 
 | status | code | cause |
 | --- | --- | --- |
+| `400` | `invalid_request` | only one of `browser_id` and `page_url` was sent, or the checkout needs a virtual card and `amount` exceeds 50000 |
 | `400` | `ambiguous_page`, `timeout` | the page exposes conflicting WebMCP tools, or inspection didn't finish in time |
 | `403` | `destination_denied` | `page_url` isn't a valid https checkout url |
 | `404` | `browser_not_found` | the browser session doesn't exist |
 | `409` | `browser_unavailable` | the browser was deleted, belongs to another project, doesn't have the vault attached, or is busy with another vault operation |
-| `429` | — | rate limited; back off before creating the card again |
 | `500` | `browser_error` | checkout inspection failed in the browser |
+
+a `409` for a different checkout binding isn't an inspection error. keep the original binding, or create a new card.
 
 ## Fill the checkout
 
 after the user completes approval, retrieve the card with `wait: 60`. continue only when it's `ready` and advertises `fill`. read that operation's `description`: it names the inputs this card needs. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-prepare-payment-input-and-submit-once).
 
-`browser_id` and `page_url` must exactly match the card's `spec.browser_id` and `spec.page_url`, and that page must still be open. any other browser or page returns `403 destination_denied`. the card must remain ready, unexpired, and undeleted, with an existing parent wallet. `timeout_ms` is optional.
+pass the `browser_id` and `page_url` you used to authorize the card, and keep that page open. any other browser or page returns `403 destination_denied`. for a card authorized without them, `page_url` must use https and share the origin of `spec.merchant_url`, including host and port; other subdomains are denied. the card must remain ready, unexpired, and undeleted, with an existing parent wallet. `timeout_ms` is optional.
 
 `fill` never submits payment or clicks buttons. after a `completed` fill, the agent clicks the checkout's pay button once.
 
@@ -581,7 +627,7 @@ jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" \
 
 ### Map card fields to inputs
 
-when the advertised `fill` description asks for field/selector bindings, KERNEL writes the one-time virtual card into the page's card inputs. the examples below continue with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and the `browser` and `checkoutURL` / `checkout_url` the card is bound to. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+when the advertised `fill` description asks for field/selector bindings, KERNEL writes the one-time virtual card into the page's card inputs. the examples below continue with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and the `browser` and `checkoutURL` / `checkout_url` used to authorize it. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
 
 | card field | value and format |
 | --- | --- |
@@ -655,7 +701,7 @@ if result.status != "completed":
 ```
 
 ```bash CLI
-# BROWSER_ID and PAGE_URL are the card's spec.browser_id and spec.page_url.
+# BROWSER_ID and PAGE_URL are the browser session and page url used to authorize the card.
 # Inspect the item and require the advertised fill operation before invoking it.
 kernel vaults items get user-12345 notebook-order -o json
 jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
@@ -686,7 +732,7 @@ validation errors before any write return `400`, `403`, `404`, or `409` with an 
 
 one-time describes the provider-issued credential, not item consumption. `fill` doesn't consume the item or clear its encrypted material on the first write. expiry, deletion, and item lifecycle restrictions still apply; a ready item isn't evidence that a purchase can safely be repeated.
 
-don't create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
+don't repeat `authorize` or create a replacement item to retry an unknown purchase. inspect outcomes, item events, and the merchant's order state first.
 
 ## Item reference
 
@@ -695,7 +741,7 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
-| card | `provider`, `wallet`, `browser_id`, `page_url`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
 
 wallet items also return a read-only `description` with server-generated guidance for agents.
 
@@ -703,7 +749,7 @@ the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`browser_id` is a running browser session id with the vault attached, not a reusable browser name. `page_url` is the exact final checkout url and must use https without embedded credentials. `amount` uses minor currency units: 1–500000 when the checkout supports link pay tokens and 1–50000 otherwise. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+`amount` uses minor currency units, from 1 to 500000; authorization rejects more than 50000 when the checkout needs a virtual card. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
