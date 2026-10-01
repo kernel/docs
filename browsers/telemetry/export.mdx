@@ -123,7 +123,11 @@ Provide exactly one of `id` or `name`. Setting a destination turns export on, so
 Every captured category is exported except `screenshot` and `monitor`, whose events stay available through [streaming](/browsers/telemetry/streaming).
 
 <Warning>
-Export is bound at session creation. `browsers update` ignores `telemetry.export`, so a session keeps the destination it was created with; to export somewhere else, create a new session. Turning capture off on update also stops export, and turning capture back on resumes export to the same destination. [Browser pools](/browsers/pools) don't support export: pool create, update, and acquire reject `telemetry.export` with a `400`.
+Export is bound at session creation:
+
+- **Destination is fixed:** `browsers update` ignores `telemetry.export`, so a session keeps the destination it was created with. To export somewhere else, create a new session.
+- **Capture controls export:** turning capture off on update also stops export, and turning capture back on resumes export to the same destination.
+- **No browser pools:** [browser pools](/browsers/pools) don't support export. Pool create, update, and acquire reject `telemetry.export` with a `400`.
 </Warning>
 
 ## What arrives in your backend
@@ -330,7 +334,11 @@ kernel auth connections login <connection-id> \
 ```
 </CodeGroup>
 
-`kernel auth connections update` takes the same flags as `login`. On connection create, passing a destination implies `--telemetry=all` if you omit `--telemetry`. When selecting a destination on update or login, you must pass `--telemetry` in the same command, even if the connection already has capture enabled. This keeps the CLI from replacing your category selection with the default set.
+In the CLI:
+
+- `kernel auth connections update` takes the same flags as `login`.
+- On connection create, passing a destination implies `--telemetry=all` if you omit `--telemetry`.
+- When selecting a destination on update or login, you must pass `--telemetry` in the same command, even if the connection already has capture enabled. This keeps the CLI from replacing your category selection with the default set.
 
 Kernel stores the resolved destination ID on the connection, so renaming the destination later doesn't change where the connection's logins export.
 
