@@ -16,7 +16,7 @@ The agent framework, or harness, runs the loop: it sends context to the model, r
 
 A harness's key pieces include:
 
-- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It doesn't drive the browser itself: it returns a tool call, such as "click at (420, 280)", and the harness carries it out.
+- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It doesn't drive the browser itself: it returns a tool call and the harness carries it out.
 - **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
 - **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code".
 - **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn.
