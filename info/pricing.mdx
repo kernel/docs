@@ -62,6 +62,28 @@ Concurrency, rate limits, and per-browser resources for each plan are on [concur
 
 ## FAQ
 
+<Accordion title="How does billing work across a browser's lifecycle? Am I charged for the full timeout_seconds, or only while it's actively in use?">
+  Only for active runtime. `timeout_seconds` sets an idle auto-delete ceiling, not a billing window. Once a browser goes idle — 5 seconds after the last CDP or Live View activity — it enters Standby Mode and stops accruing usage cost, even if it stays alive until the timeout is reached. Deleting a browser early doesn't lower cost any further (idle time is already free), but it does free up your concurrency slot sooner.
+</Accordion>
+<Accordion title="How can I control my team's usage spending?">
+  Set an organization or project [spending cap](/info/spending-caps).
+</Accordion>
+<Accordion title="How are browser pools charged?">
+  you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
+
+  Note: A browser pool counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit.
+</Accordion>
+<Accordion title="How is Managed Auth charged?">
+Managed Auth is included on all plans with no per-connection fees. It uses browser sessions for login, health checks, and eligible automatic reauthentication. These count toward your browser usage and concurrency like any other browser session.
+
+Auth sessions are fast, typically 5-30 seconds each, and most website sessions remain valid for days. For example, monitoring 100 auth connections typically costs less than $5/month in browser usage.
+</Accordion>
+<Accordion title="Does it cost money to use Vaults and Agentic Payments?">
+Free users can create up to three vaults. Unlimited vaults are included in paid plans. There are no surcharges to use Kernel's agentic payments products.
+</Accordion>
+<Accordion title="What do regional browsers cost?">
+Regional browsers are charged at the same usage rates as our default, US-based browsers.
+</Accordion>
 <Accordion title="How are app invocations charged?">
 App invocations are billed for active compute time, not per API call. The invocation rate in [Usage Rates](#usage-rates) is based on the current 4 GB memory allocation at $0.0000166667 per GB-second.
 
@@ -70,26 +92,4 @@ Billing starts when your code begins executing and stops when it finishes. You a
 Browsers created by an invocation are billed separately for their active runtime at the browser rates above. Services your code calls, such as an LLM API, also bill you independently.
 
 The [app invocation limits](/browsers/concurrency-and-limits#concurrency) are concurrency limits, not a number of invocations included with your plan.
-</Accordion>
-<Accordion title="how can i control my team's usage spending?">
-  see this guide on [spending controls](/info/spending-caps).
-</Accordion>
-<Accordion title="How does billing work across a browser's lifecycle? Am I charged for the full timeout_seconds, or only while it's actively in use?">
-  Only for active runtime. `timeout_seconds` sets an idle auto-delete ceiling, not a billing window. Once a browser goes idle — 5 seconds after the last CDP or Live View activity — it enters Standby Mode and stops accruing usage cost, even if it stays alive until the timeout is reached. Deleting a browser early doesn't lower cost any further (idle time is already free), but it does free up your concurrency slot sooner.
-</Accordion>
-<Accordion title="How are browser pools charged?">
-  you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
-
-  Note: A browser pool counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
-</Accordion>
-<Accordion title="How is Managed Auth charged?">
-Managed Auth is included on all plans with no per-connection fees. It uses browser sessions for login, health checks, and eligible automatic reauthentication. These count toward your browser usage and concurrency like any other browser session.
-
-Auth sessions are fast, typically 5-30 seconds each, and most website sessions remain valid for days. For example, monitoring 100 auth connections typically costs less than $5/month in browser usage.
-</Accordion>
-<Accordion title="What do regional browsers cost?">
-Regional browsers are charged at the same usage rates as our default, US-based browsers.
-</Accordion>
-<Accordion title="Does it cost money to use Vaults and Agentic Payments?">
-Free users can create up to three vaults. Unlimited vaults are included in paid plans. There are no surcharges to use Kernel's agentic payments products.
 </Accordion>
