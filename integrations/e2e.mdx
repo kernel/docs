@@ -37,7 +37,10 @@ export default {
   targets: [
     {
       name: "kernel",
-      engine: web({ browser: kernel() }),
+      engine: web({
+        browser: kernel({ viewport: { width: 1920, height: 1080 } }),
+        viewport: null,
+      }),
       app: { url: "https://staging.example.com" },
     },
   ],
