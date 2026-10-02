@@ -17,7 +17,7 @@ most browser infrastructure runs chromium in containers orchestrated by kubernet
 
 a unikernel carries the browser and nothing else, so there's little to boot or keep running. running every browser this way has many benefits, including:
 
-- **lifecycle actions are fast.** a browser is created in about 30ms at p50 ([performance](/browsers/performance)), so you can create one per task instead of keeping a warm pool alive to hide start-up time.
+- **lifecycle actions are fast.** a browser is created in about 30ms at p50 ([benchmarks](https://www.kernel.sh/benchmarks)), so you can create one per task instead of keeping a warm pool alive to hide start-up time.
 - **idle browsers go into standby.** after five seconds with no activity, a browser enters [standby](/browsers/standby): it keeps its state and stops accruing usage cost until your code or agent reconnects.
 - **code on the vm is safe to hand an agent.** every browser is its own vm, isolated at the hypervisor rather than sharing a host kernel with other tenants, so the [browser repl](/browsers/repl), [process execution](/browsers/process-execution), and root access over [ssh](/browsers/ssh) stay contained to that session.
 
