@@ -18,17 +18,13 @@ A harness is made of five pieces:
 
 - **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It never touches the browser; it returns a tool call and the harness carries it out. [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes.
 - **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
-- **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code". The [MCP server](/reference/mcp-server) exposes KERNEL as tools, and [WebMCP](/browsers/webmcp) lets your agent call the tools a site exposes.
-- **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn. [Agent Skills](/skills/overview) teach coding agents how to use KERNEL.
-- **Browser automation framework:** turns tool calls into actions on the page, through the DOM with selectors (Playwright, Puppeteer) or through the screen with clicks at coordinates (computer use). Most agents combine the two. KERNEL runs [Playwright execution](/browsers/playwright-execution), [computer controls](/browsers/computer-controls), and the [Browser REPL](/browsers/repl) on the same browser, and [Browser Loop](/browsers/browser-loop) handles the handoff. [Agent Browser](/integrations/vercel/agent-browser) and [Stagehand](/integrations/stagehand) are ready-made starting points.
-
-**On KERNEL:** the loop can run next to the browser. The [code execution platform](/apps/develop) deploys your agent alongside its browser, so actions don't cross the network. See [how you drive the browser](/introduction/control) for where the loop should run, and the [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) cookbook for combining DOM and screen actions.
+- **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code".
+- **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn.
+- **Browser automation framework:** turns tool calls into actions on the page, through the DOM with selectors (Playwright, Puppeteer) or through the screen with clicks at coordinates (computer use). Most agents combine the two: DOM actions for most steps, and computer use where the DOM doesn't cooperate.
 
 ## Browser infrastructure
 
-Browser infrastructure is where the browser runs and what it carries. KERNEL creates each chromium browser in its own vm, and around it handles what agents need on real websites: [stealth](/browsers/bot-detection/overview) and [proxies](/proxies/overview), [profiles](/browsers/profiles), [logins](/auth/overview), [payments](/browsers/payments), and [live view, replays, and telemetry](/introduction/observe) for debugging.
-
-**On KERNEL:** [Config Registry](/config-registry) gives you browser and proxy settings that have already worked on the site you're automating.
+Browser infrastructure is where the browser runs and what it carries: the browser itself, and what an agent needs to use it on real websites, such as stealth, proxies, saved logins, payment methods, and a way to see what happened. KERNEL is browser infrastructure.
 
 ## The internet
 
@@ -44,5 +40,18 @@ Real websites weren't built for agents. They check for bots, put the useful page
 | A selector breaks or a page action fails | The browser automation framework, or switch to [computer controls](/browsers/computer-controls) |
 | The site blocks the browser, shows a CAPTCHA, or the login is lost | Browser infrastructure: [stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), [authentication](/auth/overview) |
 | The agent is slow between actions | Where the loop runs: see [how you drive the browser](/introduction/control) |
+
+## How KERNEL optimizes each piece
+
+| Piece | What KERNEL provides |
+| --- | --- |
+| Agent framework | [Code execution platform](/apps/develop) to run the whole loop next to its browser. [Browser Loop](/browsers/browser-loop) for browser tools your framework can drop in. [Integrations](/integrations/overview) for the frameworks you already use. |
+| Model | [Computer controls](/browsers/computer-controls) that match what computer use models emit, and guides for each [computer use model](/integrations/computer-use/overview). |
+| System prompt | [Cookbooks](/cookbooks) with working prompts for common browser tasks, such as the [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) agent. |
+| Tools | The [MCP server](/reference/mcp-server) exposes KERNEL as tools. [WebMCP](/browsers/webmcp) lets your agent call the structured tools a site exposes instead of guessing which controls to click. |
+| Skills | [Agent Skills](/skills/overview) teach coding agents the KERNEL CLI, SDKs, bot detection, and auth. [Create site skills](/skills/create-site-skills) turns a working flow on one site into a reusable skill. |
+| Browser automation framework | [Playwright execution](/browsers/playwright-execution) runs Playwright inside the browser's vm in one call. The [Browser REPL](/browsers/repl) keeps helpers alive across turns. Both run on the same browser as computer controls, so an agent can switch between DOM and screen actions. [Agent Browser](/integrations/vercel/agent-browser) and [Stagehand](/integrations/stagehand) work as ready-made starting points. |
+| Browser infrastructure | [Stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), [profiles](/browsers/profiles), [vaults](/vaults/overview), [authentication](/auth/overview), and [payments](/browsers/payments). [Config Registry](/config-registry) for settings that have worked on a site. [Live view, replays, and telemetry](/introduction/observe) for debugging. |
+| The internet | [Web Bot Auth](/browsers/bot-detection/web-bot-auth) gives your agent a verifiable identity that sites can check, instead of looking like a bot. |
 
 For the objects you'll work with in KERNEL's API, such as browsers, browser pools, apps, and invocations, see [KERNEL objects](/info/concepts).
