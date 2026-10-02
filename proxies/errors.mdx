@@ -4,7 +4,7 @@ title: "Proxy Errors"
 
 When a request cannot be completed at the proxy layer, Kernel serves a branded error page and sets the `X-Kernel-Proxy-Error` response header to a typed code.
 
-The header is set on every branded proxy-layer error response, including WebSocket and subresource requests where the page body never renders. The status is always `502`, including for timeouts, so use the header rather than the status to decide what went wrong.
+The header is set on every branded proxy-layer error response, including WebSocket and subresource requests where the page body never renders. The status is `502` for every proxy-layer failure, including timeouts, and `403` when the session's [egress allowlist](/browsers/egress-allowlists) blocks the destination. Use the header rather than the status to decide what went wrong.
 
 ## Error codes
 
@@ -21,6 +21,7 @@ The header is set on every branded proxy-layer error response, including WebSock
 | `provider_rejected` | The upstream proxy provider rejected the request before the destination connection was established. | No. Try a different proxy or proxy type, and check the credentials on a [custom proxy](/proxies/custom). |
 | `provider_blacklisted` | The upstream proxy provider blocks this destination. | No. Try a different proxy or proxy type, or disable the proxy for this destination. |
 | `destination_blocked` | Kernel policy blocks connections to internal and private addresses. | No. Use a public destination address. |
+| `network_policy_denied` | The destination isn't in the session's [egress allowlist](/browsers/egress-allowlists), so Kernel didn't connect to it. The status is `403`. | No. If the session needs the destination, add it to `network.allowed_hosts` from your own code. |
 
 ## Recovering from a proxy error
 

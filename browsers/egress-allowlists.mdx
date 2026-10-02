@@ -1,0 +1,150 @@
+---
+title: "Egress Allowlists"
+description: "Limit the destinations a browser session can reach"
+---
+
+Use `network.allowed_hosts` to limit which destinations a browser session can reach. Kernel's egress proxy refuses any destination that isn't on the list, so pages can't load from unlisted hosts or send data to them. That covers navigations, subresources, `fetch()` and XHR, and WebSockets.
+
+An allowlist limits the damage a prompt injection can do: an agent tricked into sending data to an attacker's server gets a refusal instead of a connection.
+
+## Create a browser with an allowlist
+
+Set the allowlist when you create the browser:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  start_url: 'https://shop.example.com/orders',
+  network: {
+    allowed_hosts: ['shop.example.com', '*.shop.example.com', 'payments.example.net'],
+  },
+});
+
+console.log(browser.network?.allowed_hosts);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    start_url="https://shop.example.com/orders",
+    network={
+        "allowed_hosts": ["shop.example.com", "*.shop.example.com", "payments.example.net"],
+    },
+)
+
+print(browser.network.allowed_hosts)
+```
+</CodeGroup>
+
+The allowlist applies from the browser's first request, including the load of `start_url`. The API rejects a `start_url` that the list doesn't allow. The browser's `network.allowed_hosts` returns the list as Kernel stored it: trimmed, lowercased, and deduplicated.
+
+If Kernel can't start a browser that enforces the allowlist, the request fails with a `500` rather than starting a browser without it.
+
+## Supported entries
+
+You can provide up to 100 entries, each no longer than 253 characters:
+
+- Exact hostnames: `shop.example.com`
+- A single leading wildcard: `*.example.com` matches subdomains at any depth, such as `api.example.com` and `cdn.eu.example.com`, but not `example.com` itself. Add both entries to allow a domain and its subdomains.
+- Public IPv4 addresses: `203.0.113.10`
+- Bracketed public IPv6 addresses: `[2001:4860:4860::8888]`
+- Canonical public CIDRs: `8.8.4.0/24` or `2001:4860::/32`
+
+Each entry matches every port on its host, so entries can't include ports. They also can't include schemes or paths. Write internationalized domain names in their ASCII (`xn--`) form.
+
+IP and CIDR entries only match destinations written as an IP address, such as `https://203.0.113.10/`. They never match a hostname that resolves into the range, so add the hostname itself.
+
+Kernel rejects:
+
+- An empty list (`[]`). Omit `allowed_hosts` for unfiltered egress.
+- Wildcards over any [public suffix](https://publicsuffix.org/), including provider domains such as `*.github.io`, `*.cloudfront.net`, `*.vercel.app`, and `*.herokuapp.com`. List the specific host instead, such as `d111111abcdef8.cloudfront.net`.
+- Private, loopback, link-local, and other reserved IP ranges. To reach private services, use [private networking](/browsers/private-networking).
+- Entries that overlap `network.private_hosts`. Private hosts bypass Kernel's egress proxy, so an allowlist can't filter them.
+- [Chrome policies](/browsers/chrome-policies) in `chrome_policy` that can send traffic around the egress proxy: `WebRtcIPHandling` and `WebRtcIPHandlingUrl` for WebRTC, and `DnsOverHttpsMode` (unless it's `off`), `DnsOverHttpsTemplates`, `DnsOverHttpsTemplatesWithIdentifiers`, and `DnsOverHttpsSalt` for secure DNS. Adding an allowlist with `update()` to a browser created with one of them is rejected too.
+- Non-canonical forms, such as CIDRs with host bits set or IPv4-mapped IPv6 addresses.
+
+## When a destination is blocked
+
+Kernel answers a request for an unlisted destination with a `403` and sets the `X-Kernel-Proxy-Error` header to `network_policy_denied`. A navigation shows a Kernel error page that names the blocked host and says that retrying won't help, so an agent reading the page can tell a policy refusal from a website's own `403`. `fetch()`, XHR, and subresource requests fail with the same status and header, and WebSocket handshakes fail.
+
+HTTPS connections on ports other than 443 get a bare `403` without the page, which Chromium reports as `net::ERR_TUNNEL_CONNECTION_FAILED`.
+
+Blocked requests are also reported as `proxy_error` [telemetry](/browsers/telemetry/overview) events with the code `network_policy_denied`. See [proxy errors](/proxies/errors) for the other codes.
+
+## Change the allowlist during a session
+
+Replace the allowlist on a running browser with `update()`. Chromium keeps running and open pages stay loaded:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.browsers.update(browser.session_id, {
+  network: {
+    allowed_hosts: ['shop.example.com', '*.shop.example.com'],
+  },
+});
+```
+
+```python Python
+kernel.browsers.update(
+    browser.session_id,
+    network={
+        "allowed_hosts": ["shop.example.com", "*.shop.example.com"],
+    },
+)
+```
+</CodeGroup>
+
+The new list takes effect without restarting the browser:
+
+- New requests to destinations the new list doesn't allow are refused within a few seconds, and Kernel closes open connections to them within about 30 seconds. Connections to destinations it still allows, such as an open WebSocket, stay open.
+- During a Kernel deploy, an open connection to a removed host can survive for up to 10 minutes. New requests to it are still refused within a few seconds.
+- A `start_url` in the same update must be allowed by the new list. Kernel navigates to it only after the new list is in effect.
+- Omitting `allowed_hosts` leaves the list unchanged, and `[]` is rejected.
+- If the update fails with a `500`, retry it. The new list might already apply to some requests.
+
+Only `allowed_hosts` can change after creation. Adding an allowlist to a browser created without one isn't supported on every browser and returns `400 not_supported` when it isn't, so create the browser with an allowlist when you know you'll need one.
+
+To remove the allowlist and return to unfiltered egress, set `allowed_hosts` to `null`:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.browsers.update(browser.session_id, {
+  network: { allowed_hosts: null },
+});
+```
+
+```python Python
+kernel.browsers.update(
+    browser.session_id,
+    network={"allowed_hosts": None},
+)
+```
+</CodeGroup>
+
+<Note>
+Chromium can show a page from its HTTP cache without sending a request. After you remove a host, a page Chromium cached earlier might still render, even though new requests to that host are refused.
+</Note>
+
+## Keep the allowlist out of the agent's reach
+
+An allowlist only constrains a browser if the agent driving it can't change it. Anyone holding your Kernel API key can update or remove the allowlist, or create a new browser without one. Set and change allowlists from your own code, and don't give the agent your API key or connect it to the Kernel [MCP server](/reference/mcp-server).
+
+An agent that drives the browser over CDP can also create a browser context with its own proxy settings, and the allowlist doesn't cover that context. See [limitations](#limitations).
+
+## Limitations
+
+- Only Chromium's HTTP(S) and WebSocket traffic through Kernel's egress proxy is filtered. The browser VM has a direct route to the internet, so anything else can leave it unfiltered, including:
+  - Programs you run in the browser VM, for example with [process execution](/browsers/process-execution).
+  - Browser contexts created over CDP with their own proxy settings, such as Playwright's `browser.newContext({ proxy })`.
+  - Extensions with the `proxy` permission, which can switch Chromium to direct connections.
+  - DNS lookups that don't go through the proxy, such as Chromium's lookups for hosts in `network.private_hosts`. Requests through the egress proxy are resolved by the proxy, and Kernel rejects the Chrome policies that turn on secure DNS for allowlisted browsers.
+- Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` so all traffic goes through the egress proxy.
+- Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
+- [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, or add one with `update()` to a browser acquired from a pool.
