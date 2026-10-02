@@ -1,0 +1,56 @@
+---
+title: "e2e"
+description: "Run agentic end-to-end tests in Kernel cloud browsers"
+icon: "/images/integration-icons/tester-army.png"
+---
+
+[e2e](https://e2e.tester.army/docs) is an end-to-end testing framework for web and mobile apps. It combines natural-language agent actions and assertions with deterministic locator assertions. With the Kernel browser provider, your web targets run in hosted Chromium.
+
+## Install the provider
+
+Install the Kernel provider and SDK alongside e2e:
+
+<CodeGroup>
+```bash npm
+npm install --save-dev @e2e-dev/kernel @onkernel/sdk
+```
+
+```bash pnpm
+pnpm add -D @e2e-dev/kernel @onkernel/sdk
+```
+
+```bash bun
+bun add -d @e2e-dev/kernel @onkernel/sdk
+```
+</CodeGroup>
+
+## Configure a Kernel browser
+
+Use `kernel()` as the browser for your web target:
+
+```ts title="e2e.config.ts"
+import type { E2EConfig } from "e2e";
+import { web } from "@e2e-dev/web";
+import { kernel } from "@e2e-dev/kernel";
+
+export default {
+  targets: [
+    {
+      name: "kernel",
+      engine: web({
+        browser: kernel({ viewport: { width: 1920, height: 1080 } }),
+        viewport: null,
+      }),
+      app: { url: "https://staging.example.com" },
+    },
+  ],
+} satisfies E2EConfig;
+```
+
+Set `KERNEL_API_KEY` in the environment where `e2e run` starts, such as a CI secret. By default, e2e leases one hosted browser per worker and releases the browsers when the run ends. Use `scope: "attempt"` in `kernel()` when each test attempt needs its own browser.
+
+For browser options, scopes, recordings, downloads, and cleanup behavior, see the [full e2e Kernel integration guide](https://e2e.tester.army/docs/integrations/kernel).
+
+<Tip>
+See the [e2e + Kernel cookbook](https://github.com/kernel/cookbooks/tree/main/integrations/e2e-kernel) for a complete runnable example.
+</Tip>
