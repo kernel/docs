@@ -12,51 +12,17 @@ A browser agent is built from a few pieces. Knowing which piece does what tells 
 
 ## Agent framework
 
-The agent framework, or harness, runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. You either build with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [Vercel AI SDK](/integrations/vercel/ai-sdk), or [Browser Use](/integrations/browser-use), or you use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop) or [Replit](/integrations/replit).
+The agent framework, or harness, runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. You either build with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [Vercel AI SDK](/integrations/vercel/ai-sdk), or [Browser Use](/integrations/browser-use), or use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop) or [Replit](/integrations/replit).
 
-**On KERNEL:** the loop can run next to the browser. The [code execution platform](/apps/develop) deploys your agent alongside its browser, so actions don't cross the network. See [how you drive the browser](/introduction/control) for where the loop should run.
+A harness is made of five pieces:
 
-The harness is made of these pieces:
+- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It never touches the browser; it returns a tool call and the harness carries it out. [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes.
+- **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
+- **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code". The [MCP server](/reference/mcp-server) exposes KERNEL as tools, and [WebMCP](/browsers/webmcp) lets your agent call the tools a site exposes.
+- **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn. [Agent Skills](/skills/overview) teach coding agents how to use KERNEL.
+- **Browser automation framework:** turns tool calls into actions on the page, through the DOM with selectors (Playwright, Puppeteer) or through the screen with clicks at coordinates (computer use). Most agents combine the two. KERNEL runs [Playwright execution](/browsers/playwright-execution), [computer controls](/browsers/computer-controls), and the [Browser REPL](/browsers/repl) on the same browser, and [Browser Loop](/browsers/browser-loop) handles the handoff. [Agent Browser](/integrations/vercel/agent-browser) and [Stagehand](/integrations/stagehand) are ready-made starting points.
 
-### Model
-
-The model decides the next action from what it's given: the system prompt, the conversation so far, tool results, and screenshots. Claude, GPT, and Gemini are general-purpose models. [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes, so they can drive a page without selectors.
-
-The model never touches the browser. It returns text or a tool call, and the harness carries it out.
-
-### System prompt
-
-The system prompt is the instruction set the harness sends with every request to the model: its role, its rules, and the format its answers should take. Because it's sent on every turn, it's the place for guidance that applies to every task, such as "log out before you finish" or "never submit a payment without confirming the total".
-
-### Tools
-
-A tool is a function the model can ask the harness to call. Each tool has a name, a description, and an input schema. The model only chooses the tool and its arguments; the harness runs it and returns the result. For a browser agent, tools look like "navigate to this URL", "click at these coordinates", "take a screenshot", or "run this code in the page".
-
-**On KERNEL:** the [MCP server](/reference/mcp-server) exposes KERNEL as tools to any MCP client. [WebMCP](/browsers/webmcp) goes a step further and lets your agent call the structured tools a site exposes, instead of guessing which controls to click.
-
-### Skills
-
-A skill is a packaged set of instructions and reference files that an agent loads only when a task needs it. That's the difference from a system prompt, which is sent on every turn. Tools let an agent do something; skills teach it how and when to do it well.
-
-**On KERNEL:** [Agent Skills](/skills/overview) teach coding agents the KERNEL CLI, the SDKs, bot detection, and authentication, so they don't re-read the docs every session.
-
-### Browser automation framework
-
-A browser automation framework turns the model's tool calls into actions on the page. There are two ways to act on a page, and most production agents use both:
-
-- **Through the DOM.** [Playwright](/browsers/playwright-execution) and Puppeteer find elements with selectors and act on them. This is fast, cheap, and predictable, but it breaks when the page doesn't cooperate, such as canvas apps, drag-and-drop, or selectors that change.
-- **Through the screen.** [Computer use](/browsers/computer-controls) takes a screenshot and clicks, types, or drags at coordinates, the way a person would. It works on any page, but each step is slower and costs a model call.
-
-The common pattern is DOM actions for most of the task, with computer use for the steps the DOM can't handle.
-
-**On KERNEL:** you get both on the same browser, so an agent can switch between them without losing its tabs or page state:
-
-- [Playwright execution](/browsers/playwright-execution) runs Playwright code inside the browser's vm and returns the result in one call.
-- [Computer controls](/browsers/computer-controls) give you OS-level mouse, keyboard, and screenshots that match what computer use models emit.
-- The [Browser REPL](/browsers/repl) keeps a JavaScript runtime next to the browser, so an agent can define helpers once and reuse them across turns.
-- [Browser Loop](/browsers/browser-loop) packages these as tools for each model provider, including the handoff from Playwright to computer use. The [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) cookbook walks through it.
-
-If you'd rather not build this layer, start from a framework that already mixes the two, such as [Agent Browser](/integrations/vercel/agent-browser) or [Stagehand](/integrations/stagehand), and point it at a KERNEL browser.
+**On KERNEL:** the loop can run next to the browser. The [code execution platform](/apps/develop) deploys your agent alongside its browser, so actions don't cross the network. See [how you drive the browser](/introduction/control) for where the loop should run, and the [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) cookbook for combining DOM and screen actions.
 
 ## Browser infrastructure
 
