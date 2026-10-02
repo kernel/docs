@@ -4,7 +4,7 @@ description: "How models, agent frameworks, system prompts, tools, skills, brows
 mode: "wide"
 ---
 
-A browser agent is built from several pieces, usually from different vendors. Knowing which piece does what tells you where a feature belongs and which piece to change when something goes wrong.
+A browser agent is built from a few pieces. Knowing which piece does what tells you where a feature belongs and which piece to change when something goes wrong.
 
 <Frame>
   <img src="/images/overview/agent-stack.svg" alt="an agent framework, holding the model, system prompt, tools, skills, and browser automation framework, drives KERNEL browser infrastructure, which carries the chromium vm, stealth, proxies, profiles, auth, and payments, and connects to the internet over https." />
@@ -30,11 +30,7 @@ The system prompt is the instruction set the harness sends with every request to
 
 A tool is a function the model can ask the harness to call. Each tool has a name, a description, and an input schema. The model only chooses the tool and its arguments; the harness runs it and returns the result.
 
-For a browser agent, tools look like "navigate to this URL", "click at these coordinates", "take a screenshot", or "run this Playwright code". KERNEL provides several ready-made ones:
-
-- [Playwright execution](/browsers/playwright-execution) runs a snippet of Playwright code inside the browser's vm and returns the result.
-- [Computer controls](/browsers/computer-controls) click, type, scroll, and take screenshots at the operating-system level.
-- The [MCP server](/reference/mcp-server) exposes KERNEL's API as tools to any client that speaks the Model Context Protocol (MCP), such as Claude, Cursor, or Codex.
+For a browser agent, tools look like "navigate to this URL", "click at these coordinates", "take a screenshot", or "run this Playwright code". KERNEL provides ready-made ones; see [what KERNEL provides to run automations](#what-kernel-provides-to-run-automations).
 
 ## Skills
 
@@ -56,6 +52,42 @@ An automation framework drives a browser but doesn't run one. It needs a browser
 Browser infrastructure is where the browser runs and what it carries. KERNEL creates each chromium browser in its own vm, and around it handles what agents need on real websites: [stealth](/browsers/bot-detection/overview) and [proxies](/proxies/overview), [profiles](/browsers/profiles), [logins](/auth/overview), [payments](/browsers/payments), and [live view, replays, and telemetry](/introduction/observe) for debugging.
 
 Everything above this layer is interchangeable. You can switch models, frameworks, or automation libraries and keep the same browsers, profiles, and credentials.
+
+## What KERNEL provides to run automations
+
+Beyond hosting the browser, KERNEL gives your agent faster and more reliable ways to act on it. Most of these run inside the browser's vm, so actions skip the network round trip between your code and the browser.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Playwright execution" icon="play" href="/browsers/playwright-execution">
+    Run a Playwright script inside the browser's vm and get the result back in one call.
+  </Card>
+  <Card title="Browser REPL" icon="square-terminal" href="/browsers/repl">
+    A persistent JavaScript runtime next to the browser. Define helpers once and reuse them across turns.
+  </Card>
+  <Card title="WebMCP" icon="plug" href="/browsers/webmcp">
+    Call the structured tools a site exposes instead of guessing which controls to click.
+  </Card>
+  <Card title="Browser Loop" icon="arrows-rotate" href="/browsers/browser-loop">
+    Open-source browser tools that give each model provider the declarations it expects and run every action on a KERNEL browser.
+  </Card>
+  <Card title="Computer controls" icon="computer-mouse" href="/browsers/computer-controls">
+    OS-level mouse, keyboard, and screenshots that match what computer use models emit.
+  </Card>
+  <Card title="Code execution platform" icon="server" href="/apps/develop">
+    Deploy the whole agent next to its browser, and invoke it on demand or on a schedule.
+  </Card>
+  <Card title="MCP server" icon="network-wired" href="/reference/mcp-server">
+    KERNEL's API as tools for any MCP client, including the REPL, WebMCP, and computer controls.
+  </Card>
+  <Card title="Agent Skills" icon="wand-magic-sparkles" href="/skills/overview">
+    Teach coding agents the KERNEL CLI, SDKs, bot detection, and auth.
+  </Card>
+  <Card title="Config Registry" icon="sliders" href="/config-registry">
+    Browser and proxy settings that have already worked on the site you're automating.
+  </Card>
+</Columns>
+
+To see several of these together, the [code mode with WebMCP](/browsers/code-mode-webmcp) cookbook uses WebMCP for the actions a site supports and Browser REPL helpers for everything else.
 
 ## Which piece to change
 
