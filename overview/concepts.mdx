@@ -16,7 +16,7 @@ The agent framework, or harness, runs the loop: it sends context to the model, r
 
 A harness is made of five pieces:
 
-- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It never touches the browser; it returns a tool call and the harness carries it out. [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes.
+- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It doesn't drive the browser itself: it returns a tool call, such as "click at (420, 280)", and the harness carries it out.
 - **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
 - **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code".
 - **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn.
@@ -46,7 +46,7 @@ Real websites weren't built for agents. They check for bots, and the useful page
 | Piece | What KERNEL provides |
 | --- | --- |
 | Agent framework | [Integrations](/integrations/overview) for the frameworks and agents you already use. The [code execution platform](/apps/develop) colocates your agent with its browser, so every action skips the network round trip. |
-| Model | [Browser Loop](/browsers/browser-loop) gives each model provider the browser tool declarations it expects. [Computer controls](/browsers/computer-controls) match what computer use models emit, with a guide for each [computer use model](/integrations/computer-use/overview). |
+| Model | [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes, and KERNEL has a guide for each. [Computer controls](/browsers/computer-controls) execute exactly the actions those models emit. [Browser Loop](/browsers/browser-loop) gives each model provider the browser tool declarations it expects. |
 | System prompt | [Cookbooks](/cookbooks) with working prompts for common browser tasks. |
 | Tools | The [MCP server](/reference/mcp-server) exposes KERNEL as tools. [WebMCP](/browsers/webmcp) lets your agent call the structured tools a site exposes instead of guessing which controls to click. |
 | Skills | [Agent Skills](/skills/overview) teach coding agents the KERNEL CLI, SDKs, bot detection, and auth. [Create site skills](/skills/create-site-skills) turns a working flow on one site into a reusable skill. |
