@@ -14,13 +14,22 @@ Management settings apply across your organization rather than to a single brows
   <Card title="API keys" icon="key" href="/info/api-keys">
     Create, scope, rotate, and delete the keys your code and agents use.
   </Card>
-  <Card title="Audit logs" icon="list-check" href="/info/audit-logs">
-    A year of API request history across your organization, searchable and exportable on Start-Up and Enterprise.
-  </Card>
-  <Card title="Network access" icon="network-wired" href="/info/network-access">
-    The domains and ports to allow if your network restricts outbound traffic.
-  </Card>
   <Card title="Spending caps" icon="gauge" href="/info/spending-caps">
     Set a monthly spending guardrail for your organization, a project, or both.
   </Card>
+  <Card title="Audit logs" icon="list-check" href="/info/audit-logs">
+    A year of API request history across your organization, searchable and exportable on Start-Up and Enterprise.
+  </Card>
+  <Card title="Firewall allowlist" icon="network-wired" href="/info/network-access">
+    The KERNEL domains and ports to allow if your firewall restricts outbound traffic.
+  </Card>
 </Columns>
+
+## Multi-tenant setups
+
+If you run KERNEL on behalf of your own customers, combine these pieces so each customer is isolated and capped:
+
+- **One [project](/info/projects) per customer.** Each project has its own browsers, profiles, credentials, proxies, and deployments.
+- **A [project-scoped API key](/info/api-keys) per customer workload.** A project-scoped key can only reach resources in its project.
+- **A [spending cap](/info/spending-caps) and a [concurrency limit](/info/projects#concurrency-limits) per project.** One customer's usage can't exhaust your budget or your organization's browser limit.
+- **One [profile](/browsers/profiles) per end user.** Each user's logins and browser state stay separate, inside their customer's project.
