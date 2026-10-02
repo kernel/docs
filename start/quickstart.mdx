@@ -37,12 +37,13 @@ Pick the way in that matches how you work. The first two are walked through on t
 
 ## Path 1: hand it to your coding agent
 
-<Steps>
-<Step title="Copy the setup prompt">
-<div style={{ margin: '0.5rem 0 1rem' }}>
+Copy this prompt into Cursor, Claude Code, Codex, or any agent that can run terminal commands. It installs the KERNEL CLI, signs you in, and opens a live view of a KERNEL browser that you or your agent can drive. From there, ask your agent to do a task on a site you care about.
+
+<div style={{ margin: '1rem 0' }}>
   <CopyPromptButton />
 </div>
 
+<AccordionGroup>
 <Accordion title="See what this prompt does">
 1. Checks for the KERNEL CLI and installs or upgrades it with Homebrew.
 2. Checks whether you're signed in, and if not, runs `kernel login` and waits for you to finish signing in.
@@ -50,19 +51,6 @@ Pick the way in that matches how you work. The first two are walked through on t
 
 It stops and asks you for help if any step fails.
 </Accordion>
-</Step>
-
-<Step title="Paste it into your coding agent">
-Use Cursor, Claude Code, Codex, or any agent that can run terminal commands. Sign in when it opens the KERNEL login page.
-</Step>
-
-<Step title="Watch the live view">
-You're done when your agent opens a live view of a KERNEL browser. From there, ask it to do a task on a site you care about.
-</Step>
-</Steps>
-
-If your agent reads documentation on its own, point it at these:
-
 <Accordion title="Agent-readable surfaces">
 | Surface | What it's for |
 | --- | --- |
@@ -73,6 +61,7 @@ If your agent reads documentation on its own, point it at these:
 | [MCP server](/reference/mcp-server) | KERNEL's API as tools, for agents that call tools instead of writing code. |
 | [OpenAPI 3.1](https://www.kernel.sh/openapi.json) | For generating a client or calling the REST API directly. |
 </Accordion>
+</AccordionGroup>
 
 ## Path 2: write it yourself with an SDK
 
