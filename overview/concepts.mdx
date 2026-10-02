@@ -14,7 +14,7 @@ A browser agent is built from a few pieces. Knowing which piece does what tells 
 
 The agent framework, or harness, runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. You either build your own with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/), or the [Vercel AI SDK](/integrations/vercel/ai-sdk), or use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop), [Codex](https://developers.openai.com/codex), or [Replit](/integrations/replit).
 
-A harness is made of five pieces:
+A harness's key pieces include:
 
 - **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It doesn't drive the browser itself: it returns a tool call, such as "click at (420, 280)", and the harness carries it out.
 - **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
@@ -24,7 +24,7 @@ A harness is made of five pieces:
 
 ## Browser infrastructure
 
-Browser infrastructure is where the agent's decisions actually get carried out. The agent framework decides to open a page, fill a form, or click a button; browser infrastructure runs the browser that does it, and determines whether the action lands. It's made of five pieces:
+Browser infrastructure is where the agent's decisions actually get carried out. The agent framework decides to open a page, fill a form, or click a button; browser infrastructure runs the browser that does it, and determines whether the action lands. Its key pieces include:
 
 - **Browser:** the Chromium instance the agent drives, isolated from every other session.
 - **Stealth and proxies:** anti-detection, CAPTCHA handling, and an IP address that fits the site, so the browser isn't blocked.
