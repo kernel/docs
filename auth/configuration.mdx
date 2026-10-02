@@ -6,7 +6,7 @@ description: "Shared options for managed auth connections, regardless of integra
 
 Managed Auth connections use the same configuration whether you collect credentials through the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). These options apply to the initial login, every background health check, and each automatic reauthentication attempt.
 
-## Credentials and Auto-Reauth
+## Credentials and auto-reauth
 
 by default, KERNEL saves durable credential fields after a successful login. these can support eligible automatic reauthentication attempts, including totp codes generated from an available secret. submitted one-time codes aren't saved and don't provide access to future codes. if a later login requires user input, your application must start a new interactive login.
 
@@ -60,7 +60,7 @@ Automatic reauthentication requires a previously successful login and saved cred
 
 If Kernel can't complete an automatic attempt, the connection transitions to `NEEDS_AUTH` so you can start a new login.
 
-## Custom Login URL
+## Custom login URL
 
 If the site's login page isn't at the default location, specify it when creating the connection:
 
@@ -96,7 +96,7 @@ _ = auth
 ```
 </CodeGroup>
 
-## Browser Region
+## Browser region
 
 Set `browser.region` to choose where Managed Auth runs the connection's initial login, health checks, and automatic reauthentication. Choose from `us-east`, `eu-west`, and `ap-southeast`. Region selection is available on [Start-Up and Enterprise plans](/info/pricing); omitted values default to `us-east`.
 
@@ -167,7 +167,7 @@ _ = login
 
 Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
 
-## SSO/OAuth Support
+## SSO/OAuth support
 
 Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
 
@@ -207,7 +207,7 @@ _ = auth
 ```
 </CodeGroup>
 
-## Custom Proxy
+## Custom proxy
 
 Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through that proxy. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
 
@@ -327,7 +327,7 @@ _ = login
 ```
 </CodeGroup>
 
-## Record Sessions for Debugging
+## Record sessions for debugging
 
 Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. The entire browser session is recorded.
 
@@ -432,7 +432,7 @@ if managedAuth.PostLoginURL != "" {
 ```
 </CodeGroup>
 
-## Updating a Connection
+## Updating a connection
 
 After creating a connection, you can update its configuration with `auth.connections.update`:
 
