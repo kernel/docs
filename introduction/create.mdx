@@ -89,51 +89,13 @@ Most of what you'll tune at creation time falls into four buckets:
 
 ## On demand or from a pool
 
-`browsers.create()` boots a browser for you on the spot. That's the right call while you're building, and for workloads that run occasionally.
+`browsers.create()` boots a browser for you on the spot. It's the default while you're building, and it stays the right fit when your configuration changes per user as you scale.
 
-Once you're running the same task repeatedly — or more than a handful at a time — create a [browser pool](/browsers/pools) instead. A browser pool holds browsers that are already booted with your configuration applied, so `acquire` hands you one that's ready to drive rather than starting one from scratch. Two things get faster: configurations that restart Chromium on creation (custom viewports, extensions, kiosk mode) are already applied, and acquiring from a browser pool sidesteps the [rate limit](/info/pricing#rate-limiting) on browser creation that you'll otherwise hit at volume.
+A [browser pool](/browsers/pools) keeps browsers already booted on one fixed configuration, so `acquire` hands you one that's ready to drive. Consider one once you've built and scaled your workload and every run uses the same attributes, or when you need to acquire browsers faster than the [rate limit](/info/pricing#rate-limiting) on `browsers.create()` allows. See [Scale](/introduction/scale) to decide which fits your workload.
 
-<CodeGroup>
-```typescript Typescript/Javascript
-// Create the pool once, at deploy time or on startup
-await kernel.browserPools.create({ name: 'checkout-pool', size: 20, stealth: true });
-
-// Then, wherever your automation runs
-const kernelBrowser = await kernel.browserPools.acquire('checkout-pool', {});
-```
-
-```python Python
-# Create the pool once, at deploy time or on startup
-kernel.browser_pools.create(name="checkout-pool", size=20, stealth=True)
-
-# Then, wherever your automation runs
-kernel_browser = kernel.browser_pools.acquire("checkout-pool")
-```
-
-```go Go
-// Create the pool once, at deploy time or on startup
-if _, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
-	Name:    kernel.String("checkout-pool"),
-	Size:    20,
-	Stealth: kernel.Bool(true),
-}); err != nil {
-	panic(err)
-}
-
-// Then, wherever your automation runs
-kernelBrowser, err := client.BrowserPools.Acquire(ctx, "checkout-pool", kernel.BrowserPoolAcquireParams{})
-if err != nil {
-	panic(err)
-}
-```
-
-```bash CLI
-kernel browser-pools create checkout-pool --size 20 --stealth
-kernel browser-pools acquire checkout-pool
-```
-</CodeGroup>
-
-An acquired browser returns the same fields as one you created directly, so the rest of your code is identical. Idle browsers in a browser pool aren't billed — you pay only while a browser is acquired and running — though browser pool capacity does count against your [concurrency limit](/info/pricing#concurrency-limits).
+<Info>
+  If you're on an Enterprise plan, speak with your account manager about applicable rate limits for `browsers.create()` and what's best for your workloads.
+</Info>
 
 ## Lifecycle
 
@@ -264,4 +226,4 @@ Once you have a browser, you need to drive it. Head to [Control](/introduction/c
 
 To carry cookies, site data, tabs, and preferences into later runs, use [Browser Profiles](/browsers/profiles). Profiles can resume an agent workflow, maintain one identity per user or account, or give parallel workers the same read-only starting state.
 
-When you're ready to run this in production, the [Browser Pools overview](/browsers/pools) shows how to serve your workload from a pool of pre-provisioned browsers instead of creating one per task.
+When you're ready to run this in production, [Scale](/introduction/scale) covers whether to keep creating browsers on demand or serve your workload from a [browser pool](/browsers/pools), and the architecture patterns for each.
