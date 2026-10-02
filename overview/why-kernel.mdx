@@ -24,9 +24,9 @@ You can. Running one Chrome locally is easy, and it's the right call while you'r
 | --- | --- | --- |
 | Start-up latency | Cold container pull plus Chromium launch — seconds per task | P50 30ms browser creation ([performance](/browsers/performance)), or zero-wait acquisition from a [browser pool](/browsers/pools) |
 | Isolation | One compromised page shares a kernel with everything else on the box | Each browser is a [microVM](/info/unikernels) with its own kernel and filesystem |
-| Idle cost | You pay for the container while the agent thinks | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last activity |
 | Bot detection | You maintain the patches, the fingerprints, and a proxy contract | [Anti-detection](/browsers/bot-detection/overview) on every browser, plus a managed solver and [proxies](/proxies/overview), including bring-your-own |
-| Logins | Credentials end up in your agent's context or in a secret store you now own | [Managed auth](/auth/overview) logs in, keeps sessions warm, and hands your agent a [profile](/browsers/profiles) — no credentials in the loop |
+| Sensitive credentials | Credentials end up in your agent's context or in a secret store you now own | [Vaults](/vaults/overview) store sensitive information and fill it into the page without your agent reading it, [managed auth](/auth/overview) handles logins end to end, and [profiles](/browsers/profiles) persist state across sessions |
+| Idle cost | You pay for the container while the agent thinks or while you wait for end-user input | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last activity |
 | Debugging a failure | Reproduce it locally and hope | [Live view](/browsers/live-view), [replays](/browsers/replays), and [telemetry](/browsers/telemetry/overview) for the session that actually failed |
 | Scaling | Autoscaling group, image pipeline, cleanup jobs, orphan reaper | `browsers.create()`, or a pool with a fill rate |
 
