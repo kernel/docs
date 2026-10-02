@@ -52,7 +52,7 @@ These examples continue in order, using GitHub as the login destination. Set `KE
     Wait for the saved credential, not for the connection's status. A connection that's `NEEDS_AUTH` still qualifies as long as it holds a saved credential.
   </Step>
   <Step title="Create the credential item from the connection">
-    Create a [vault](/vaults/overview) for the user, then create a credential item whose `spec` names the connection. The item is created `ready`, and `state.fields` lists the field names you can fill.
+    Create a [vault](/vaults/overview) for the user, then create a credential item whose `spec` names the connection, with an optional `description` such as the site name. The item is created `ready`, and `state.fields` lists the field names you can fill.
 
     <CreateManagedAuthCredentialItem />
 
@@ -69,7 +69,7 @@ These examples continue in order, using GitHub as the login destination. Set `KE
     <NavigateGitHubLogin />
   </Step>
   <Step title="Invoke the fill operation">
-    Retrieve the item, require `ready` and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names from `state.fields` and your selectors. Your application must authorize the destination before filling: `fill` doesn't compare the page with the connection's domain. The example sets `timeout_ms` to its 30-second maximum to leave room for several fields; the default is 10 seconds.
+    Retrieve the item, require `ready` and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names from `state.fields` and your selectors. Listing a vault's items leaves `state.fields` out, so read it from the item itself. Your application must authorize the destination before filling: `fill` doesn't compare the page with the connection's domain. The example sets `timeout_ms` to its 30-second maximum to leave room for several fields; the default is 10 seconds.
 
     <FillManagedAuthCredential />
 
@@ -100,7 +100,7 @@ Kernel computes the item's status each time you read it, from the connection it 
 
 | `state.status` | `state.status_reason` | Meaning |
 | --- | --- | --- |
-| `ready` | | The connection's saved credential can be read and `fill` is advertised. It doesn't mean a login succeeded. |
+| `ready` | | The connection has a saved credential with values or a TOTP seed, and `fill` is advertised. It doesn't mean a login succeeded. |
 | `unavailable` | `no_credential` | The credential was deleted or emptied after the item was created. |
 | `unavailable` | `connection_not_found` | The connection was deleted. |
 | `unavailable` | `external_credential` | The connection now uses an external credential provider. |
