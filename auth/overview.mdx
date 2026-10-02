@@ -3,9 +3,23 @@ title: "Overview"
 description: "Choose how your browser agents authenticate and reuse signed-in sessions"
 ---
 
-most useful browser workflows begin behind a login. KERNEL gives you two ways to authenticate browser agents without returning stored sensitive values through the api or putting them in your agent prompt: control the workflow yourself and Fill from Vault, or delegate the login and session lifecycle to Managed Auth.
+most useful browser workflows begin behind a login. KERNEL provides the building blocks for authenticating browser agents, not a single fixed login flow. you decide how much of the experience your application owns, from where end users enter credentials to who drives the login and when it runs again. stored sensitive values are never returned through the api or put in your agent prompt, whichever blocks you use.
 
-Fill from Vault is the recommended approach if you require greater visibility and control over the authentication experience, while Managed Auth is preferred if you would like KERNEL to handle the login lifecycle on your behalf.
+the blocks fall into two approaches: control the workflow yourself with Fill from Vault, or delegate the login and session lifecycle to Managed Auth. Fill from Vault is the recommended approach if you require greater visibility and control over the authentication experience, while Managed Auth is preferred if you would like KERNEL to handle the login lifecycle on your behalf.
+
+## Building blocks
+
+pick the blocks that match the experience you want your end users to have. they can be used on their own or combined.
+
+| building block | what it gives you |
+| --- | --- |
+| [Vaults](/vaults/overview) | stored credentials that only attached browsers can use |
+| [`fill`](/vaults/fill) | your agent fills vault values into fields it chooses, in the browser session it's already using |
+| [Hosted UI](/auth/hosted-ui) | a KERNEL-hosted page that collects credentials and guides end users through 2fa and multi-step logins |
+| [React component](/auth/react) | the hosted ui flow rendered in your own app, with your styling and domain |
+| [Programmatic flow](/auth/programmatic) | login events and inputs over the api, so you build the credential collection ui yourself |
+| [Profiles](/browsers/profiles) | saved cookies and local storage that later browser sessions start from |
+| [Connection lifecycle](/auth/connection-lifecycle) | health checks and eligible automatic reauthentication for Managed Auth connections |
 
 ## Choose an auth approach
 
