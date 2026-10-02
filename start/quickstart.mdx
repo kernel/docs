@@ -35,30 +35,44 @@ Pick the way in that matches how you work. The first two are walked through on t
 
 ## Path 1: hand it to your coding agent
 
-Copy this prompt into Cursor, Claude Code, Codex, or whatever you use. It installs the Kernel CLI and skills, authenticates you, and opens a live browser session that you or your agent can drive.
+Copy this prompt into Cursor, Claude Code, Codex, or whatever you use. It installs the KERNEL CLI, signs you in, and opens a live view of a KERNEL browser that you or your agent can drive.
 
 import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
 <CopyPromptButton />
 
-### Agent-readable surfaces
+<Accordion title="See what this prompt does">
+1. Checks for the KERNEL CLI and installs or upgrades it with Homebrew.
+2. Checks whether you're signed in, and if not, runs `kernel login` and waits for you to finish signing in.
+3. Creates a browser and opens its live view so you can watch it.
 
+It stops and asks you for help if any step fails.
+</Accordion>
+
+You're done when your agent opens a live view of a KERNEL browser. From there, ask it to do a task on a site you care about.
+
+<Accordion title="Agent-readable surfaces">
 | Surface | What it's for |
 | --- | --- |
-| [`kernel.sh/llms.txt`](https://www.kernel.sh/llms.txt) | Hand-written. What Kernel is, when to use it, every machine endpoint. Start here. |
+| [`kernel.sh/llms.txt`](https://www.kernel.sh/llms.txt) | Hand-written. What KERNEL is, when to use it, every machine endpoint. Start here. |
 | [`kernel.sh/docs/llms.txt`](https://www.kernel.sh/docs/llms.txt) | Index of every docs page, for fetching the ones a task needs. |
 | [`kernel.sh/docs/llms-full.txt`](https://www.kernel.sh/docs/llms-full.txt) | The whole docs corpus in one file, for agents with room for it. |
-| [Agent Skills](/skills/overview) | Kernel know-how installed into the agent, so it doesn't re-read docs every session. |
-| [MCP server](/reference/mcp-server) | Kernel's API as tools, for agents that call tools instead of writing code. |
+| [Agent Skills](/skills/overview) | KERNEL know-how installed into the agent, so it doesn't re-read docs every session. |
+| [MCP server](/reference/mcp-server) | KERNEL's API as tools, for agents that call tools instead of writing code. |
 | [OpenAPI 3.1](https://www.kernel.sh/openapi.json) | For generating a client or calling the REST API directly. |
+</Accordion>
 
 ## Path 2: write it yourself
 
-<Note>
-You'll need an API key from the [dashboard](https://dashboard.onkernel.com). Set it as `KERNEL_API_KEY` — every SDK, the CLI, and the MCP server read it from the environment.
-</Note>
-
 <Steps>
+<Step title="Set your API key">
+Create an API key in the [dashboard](https://dashboard.onkernel.com) and set it as `KERNEL_API_KEY`. Every SDK, the CLI, and the MCP server read it from the environment.
+
+```bash
+export KERNEL_API_KEY=<your-api-key>
+```
+</Step>
+
 <Step title="Install an SDK">
 <CodeGroup>
 ```bash TypeScript
@@ -79,7 +93,7 @@ go get github.com/kernel/kernel-go-sdk
 This creates a browser, runs Playwright code inside the browser's VM, returns the result, and cleans up. No local Chromium, no CDP connection to manage.
 
 <CodeGroup>
-```typescript Typescript/Javascript
+```typescript TypeScript
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
@@ -120,6 +134,42 @@ try:
 finally:
     kernel.browsers.delete_by_id(browser.session_id)
 ```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		TimeoutSeconds: kernel.Int(300),
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer client.Browsers.DeleteByID(ctx, browser.SessionID)
+	fmt.Println("live view:", browser.BrowserLiveViewURL)
+
+	res, err := client.Browsers.Playwright.Execute(ctx, browser.SessionID, kernel.BrowserPlaywrightExecuteParams{
+		Code: `
+			await page.goto('https://news.ycombinator.com');
+			return await page.$$eval('.titleline > a', (as) => as.slice(0, 5).map((a) => a.textContent));
+		`,
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(res.Result)
+}
+```
 </CodeGroup>
 
 Open `browser_live_view_url` while it runs and you'll watch the page load.
@@ -128,11 +178,19 @@ Open `browser_live_view_url` while it runs and you'll watch the page load.
 <Step title="Pick your next decision">
 Two things determine the shape of everything after this: which control surface you use, and where your loop runs. [How you drive the browser](/introduction/control) covers both.
 
-From there:
-
-- Getting blocked? [Stealth](/browsers/bot-detection/overview) and [proxies](/proxies/overview).
-- Behind a login? [Authentication](/auth/overview).
-- Need to pay? [Payments](/browsers/payments).
-- Worked examples: [cookbooks](/cookbooks).
+<Columns className="responsive-columns" cols={4}>
+  <Card title="Getting blocked?" icon="user-secret" href="/browsers/bot-detection/overview">
+    Stealth and proxies to get past bot detection.
+  </Card>
+  <Card title="Behind a login?" icon="key" href="/auth/overview">
+    Fill credentials from a vault, or let managed auth log in.
+  </Card>
+  <Card title="Need to pay?" icon="credit-card" href="/browsers/payments">
+    Complete checkouts without exposing card data to your agent.
+  </Card>
+  <Card title="Want a worked example?" icon="book-open" href="/cookbooks">
+    End-to-end recipes you can clone and run.
+  </Card>
+</Columns>
 </Step>
 </Steps>
