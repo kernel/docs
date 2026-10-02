@@ -17,6 +17,7 @@ if your task only needs to control the page itself, use one of Kernel's [browser
 - **process downloads before retrieving them.** unpack archives, extract text from documents, resize images, or compress a directory while the files are still alongside the browser, then retrieve only the final artifacts with file i/o.
 - **run existing command-line tools.** upload a pinned binary or script and call it from the same workflow instead of rewriting it as browser automation code.
 - **start a session-local helper.** run a local server, callback handler, or file watcher for as long as the browser task needs it.
+- **measure memory headroom.** read the session's memory allocation and per-process usage with `free` and `ps` to size a workload or catch growth before chromium runs out. see [measure memory and cpu usage](#measure-memory-and-cpu-usage).
 - **inspect failed browser tasks.** run tools such as `curl`, `ps`, and `ls` to inspect network responses, running processes, logs, and downloaded files before the browser is deleted.
 
 ## Run a command synchronously
@@ -233,6 +234,156 @@ kernel.browsers.process.kill(
 
 `signal` accepts `TERM`, `KILL`, `INT`, or `HUP`.
 
+## Measure memory and CPU usage
+
+Kernel doesn't expose a per-session memory metric in the API, CLI, or dashboard today, so read it from inside the session instead. Standard Linux tools see the browser's full memory allocation and every Chromium process.
+
+### Read whole-session memory
+
+`free` reports the memory allocated to your browser. A headless browser gets 1 GiB; a headful, non-GPU browser gets 8 GiB by default and 16 GiB when you set `memory` on [create](/api-reference/browsers/create-a-browser-session).
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const usage = await kernel.browsers.process.exec(browser.session_id, {
+  command: 'sh',
+  args: ['-c', "free -m | awk '/^Mem:/ {print $2, $3, $7}'"],
+});
+
+const [total, used, available] = Buffer.from(usage.stdout_b64 ?? '', 'base64')
+  .toString()
+  .trim()
+  .split(/\s+/)
+  .map(Number);
+
+console.log(`${used} MiB used of ${total} MiB, ${available} MiB available`);
+```
+
+```python Python
+import base64
+
+usage = kernel.browsers.process.exec(
+    browser.session_id,
+    command="sh",
+    args=["-c", "free -m | awk '/^Mem:/ {print $2, $3, $7}'"],
+)
+
+total, used, available = (
+    int(value)
+    for value in base64.b64decode(usage.stdout_b64 or "").decode().split()
+)
+
+print(f"{used} MiB used of {total} MiB, {available} MiB available")
+```
+</CodeGroup>
+
+`available` is the number to watch. `used` excludes page cache, which the kernel reclaims under pressure, so a session with almost no `free` memory can still be healthy.
+
+### Break usage down by process
+
+`ps` gives you resident set size per process, in KiB, highest first:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const processes = await kernel.browsers.process.exec(browser.session_id, {
+  command: 'sh',
+  args: ['-c', 'ps -eo rss= -o comm= --sort=-rss | head -10'],
+});
+
+console.log(Buffer.from(processes.stdout_b64 ?? '', 'base64').toString());
+```
+
+```python Python
+processes = kernel.browsers.process.exec(
+    browser.session_id,
+    command="sh",
+    args=["-c", "ps -eo rss= -o comm= --sort=-rss | head -10"],
+)
+
+print(base64.b64decode(processes.stdout_b64 or "").decode())
+```
+</CodeGroup>
+
+```
+287044 chromium
+189836 chromium
+163964 chromium
+140968 mutter
+131616 Xorg
+129084 chromium
+112336 chromium
+103600 chromium
+96816 chromium
+78604 chromium
+```
+
+Chromium splits its work across processes — a browser process, one renderer per tab group, a GPU process, and network and storage utilities — so a tab-heavy workload shows up as many mid-sized `chromium` rows rather than one large one. Sum them for the browser's real footprint:
+
+```bash
+ps -C chromium -o rss= | awk '{s+=$1} END {print s}'
+```
+
+Renderer processes aren't labeled with the tab they serve, so use this to size a workload and spot growth, not to attribute memory to a specific page.
+
+### Sample over time
+
+A single reading tells you little about a run that fails after twenty minutes. Spawn a sampler and stream it to compute percentiles or alert on a threshold:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const sampler = await kernel.browsers.process.spawn(browser.session_id, {
+  command: 'sh',
+  args: [
+    '-c',
+    "while true; do ps -C chromium -o rss= | awk -v t=$(date +%s) '{s+=$1} END {print t, s}'; sleep 10; done",
+  ],
+});
+
+const stream = await kernel.browsers.process.stdoutStream(sampler.process_id, {
+  id_or_name: browser.session_id,
+});
+
+for await (const chunk of stream) {
+  if (chunk.event === 'exit') break;
+  const [timestamp, rssKib] = Buffer.from(chunk.data_b64 ?? '', 'base64')
+    .toString()
+    .trim()
+    .split(/\s+/);
+  console.log(new Date(Number(timestamp) * 1000), Number(rssKib) / 1024, 'MiB');
+}
+```
+
+```python Python
+import base64
+import datetime
+
+sampler = kernel.browsers.process.spawn(
+    browser.session_id,
+    command="sh",
+    args=[
+        "-c",
+        "while true; do ps -C chromium -o rss= | awk -v t=$(date +%s) '{s+=$1} END {print t, s}'; sleep 10; done",
+    ],
+)
+
+with kernel.browsers.process.stdout_stream(
+    sampler.process_id, id_or_name=browser.session_id
+) as stream:
+    for chunk in stream:
+        if chunk.event == "exit":
+            break
+        timestamp, rss_kib = base64.b64decode(chunk.data_b64 or "").decode().split()
+        print(datetime.datetime.fromtimestamp(int(timestamp)), int(rss_kib) / 1024, "MiB")
+```
+</CodeGroup>
+
+Redirect the loop to a file instead if you'd rather collect samples without holding a stream open, then pull the file down with [file i/o](/browsers/file-io) before you delete the browser. Either way, persist the samples on your side — nothing inside the VM survives deletion.
+
+<Note>
+`process.status` reports `mem_bytes` only for processes you started through `process.spawn`, so it won't tell you anything about Chromium, and it doesn't populate CPU usage. Use `ps` or `top -b -n1` for both.
+</Note>
+
+For memory at the moment of a failure, enable the `system` [telemetry category](/browsers/telemetry/categories). Its `system_oom_kill` event carries the killed process's RSS along with total and free memory, which tells you what the session looked like when it ran out — but only after the fact, so pair it with sampling if you need to catch pressure before a crash.
+
 ## Root and per-user execution
 
 Pass `as_root: true` or `as_user: "<name>"` on `exec` or `spawn` to control which user the command runs as. This is safe because a Kernel browser is a [unikernel VM](/security#2-4-security-features) with no shared host kernel — root inside your session has no path to other customers or platform infrastructure.
@@ -249,7 +400,15 @@ kernel browsers process exec <session-id> --command ls --args -la
 kernel browsers process spawn <session-id> --command python3 --args -m --args http.server
 kernel browsers process status <session-id> <process-id>
 kernel browsers process kill <session-id> <process-id>
+
+# Memory
+kernel browsers process exec <session-id> --command free --args -m
+kernel browsers process exec <session-id> --command top --args -b --args -n1
 ```
+
+<Warning>
+The CLI splits every `--args` value on commas, including inside a quoted `sh -c` pipeline, so `ps -eo rss,comm` arrives as two arguments and runs as `ps -eo rss`. Use comma-free equivalents such as `ps -eo rss= -o comm=`, or call the SDKs, which pass arguments through unchanged.
+</Warning>
 
 ## Related
 
