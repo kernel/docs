@@ -12,27 +12,47 @@ KERNEL is the internet runtime for agents. we provide crazy fast, open source br
 most browser infrastructure runs chromium in containers orchestrated by kubernetes, with warm pools to hide slow starts. we [pioneered](https://news.ycombinator.com/item?id=43705144) a different approach: running chromium on unikernels, single-purpose vms that carry only what the browser needs.
 
 <Frame>
-  <img src="/images/overview/unikernel-vs-containers.svg" alt="on the left, three chromium containers share one host kernel. on the right, each chromium runs on its own unikernel vm above a hypervisor." />
+  <img src="/images/overview/unikernel-vs-containers.svg" alt="on the left, each chromium runs on its own unikernel vm above a hypervisor. on the right, three chromium containers share one host kernel." />
 </Frame>
 
-a unikernel carries the browser and nothing else, so there's little to boot or keep running, and that changes what the browser lifecycle costs:
+a unikernel carries the browser and nothing else, so there's little to boot or keep running. running every browser this way has three benefits:
 
 - **lifecycle actions are fast.** a browser is created in about 30ms at p50 ([performance](/browsers/performance)), so you can create one per task instead of keeping a warm pool alive to hide start-up time.
 - **idle browsers go into standby.** after five seconds with no activity, a browser enters [standby](/browsers/standby): it keeps its state and stops accruing usage cost until your code or agent reconnects.
-- **root access is safe to hand an agent.** every browser is its own vm, isolated at the hypervisor rather than sharing a host kernel with other tenants, so [ssh](/browsers/ssh) and [process execution](/browsers/process-execution) stay contained to that session.
+- **code on the vm is safe to hand an agent.** every browser is its own vm, isolated at the hypervisor rather than sharing a host kernel with other tenants, so the [browser repl](/browsers/repl), [process execution](/browsers/process-execution), and root access over [ssh](/browsers/ssh) stay contained to that session.
 
 ## open source
 
-we value open source and transparency, so we publish the chromium image behind KERNEL browsers and the vm runtime we built to run them on github. you can read exactly what your agent's browser runs on, run it yourself, or contribute.
+we value open source and transparency, so we publish the code that runs your agent's browser, the tools you use to drive it, and the recipes we build with it on github. you can read exactly what runs, run it yourself, or contribute.
 
-<Columns cols={2}>
+<Columns className="responsive-columns" cols={4}>
   <Card title="kernel-images" icon="github" href="https://github.com/kernel/kernel-images">
     the chromium images behind KERNEL browsers.
   </Card>
   <Card title="hypeman" icon="github" href="https://github.com/kernel/hypeman">
-    the vm runtime for oci images, supporting cloud hypervisor, firecracker, qemu, and apple virtualization.framework.
+    the vm runtime we built to run browsers, supporting cloud hypervisor, firecracker, qemu, and apple virtualization.framework.
+  </Card>
+  <Card title="cloud-hypervisor" icon="github" href="https://github.com/kernel/cloud-hypervisor">
+    our fork of the cloud hypervisor virtual machine monitor.
+  </Card>
+  <Card title="cli" icon="github" href="https://github.com/kernel/cli">
+    the KERNEL cli for creating, driving, and debugging browsers from a terminal.
+  </Card>
+  <Card title="kernel-mcp-server" icon="github" href="https://github.com/kernel/kernel-mcp-server">
+    the mcp server that gives any compatible agent a cloud browser.
+  </Card>
+  <Card title="skills" icon="github" href="https://github.com/kernel/skills">
+    agent skills that teach coding agents the KERNEL cli, sdks, and auth.
+  </Card>
+  <Card title="browser-loop" icon="github" href="https://github.com/kernel/browser-loop">
+    framework-neutral browser tools for your agent, with bindings for popular frameworks.
+  </Card>
+  <Card title="cookbooks" icon="github" href="https://github.com/kernel/cookbooks">
+    end-to-end recipes for agents that use the internet.
   </Card>
 </Columns>
+
+the [typescript](https://github.com/kernel/kernel-node-sdk), [python](https://github.com/kernel/kernel-python-sdk), and [go](https://github.com/kernel/kernel-go-sdk) sdks are open source too.
 
 ## get started
 
