@@ -11,12 +11,14 @@ You make two choices before you write any automation. They're independent, but t
 
 ## 1. How you drive the browser
 
-Kernel browsers accept four control surfaces. Pick by what's driving the page, not by what you already know.
+KERNEL browsers accept several control surfaces. Pick by what's driving the page, not by what you already know.
 
 | Surface | Use it when | Trade-off |
 | --- | --- | --- |
 | [Playwright execution](/browsers/playwright-execution) | **Default.** You know what to do on the page — navigate, fill, extract, upload. | Needs a selector or DOM path that exists. |
 | [Computer controls](/browsers/computer-controls) | **Recommended fallback.** A model is looking at pixels, or the page can't be driven programmatically. | Slower per step, and the model has to see the state to act. |
+| [WebMCP](/browsers/webmcp) | The site exposes structured tools for the action you need. | Only works on sites that register tools. |
+| [Browser REPL](/browsers/repl) | An agent writes its own helpers and reuses them across turns. | JavaScript only, and state lives until the REPL resets. |
 | CDP | You have an existing Playwright, Puppeteer, or CDP codebase to point at Kernel. | Adds a protocol fingerprint and a network hop. |
 | WebDriver BiDi | You need the W3C standard protocol. | Smaller client ecosystem. |
 
@@ -266,81 +268,20 @@ A computer use agent answers the first question, not the second — it still has
 | Agent on a site with aggressive detection | Computer controls | Code execution platform |
 | Existing Playwright suite you're migrating | CDP | Your own CI, then move hot paths to playwright execution |
 
-## Why computer use for agents
-
-Kernel's computer controls are built to match how computer-use models were trained — the same primitives the model emits (screenshot, click at coords, type, key, scroll, drag) map 1:1 onto the API. There's no harness translating model output into framework calls.
-
-- **Native fit.** Screenshot, click, type, key, scroll, drag — the primitives the model already speaks.
-- **Faster screenshots.** Captures bypass CDP, which removes the largest source of latency in a vision loop.
-- **Better against bot detection.** No CDP connection means no CDP fingerprint to leak. Pairs naturally with [stealth mode](/browsers/bot-detection/stealth) and [residential proxies](/proxies/residential).
-- **Human-like input.** OS-level events with Bézier-curve mouse paths, variable typing speed, and configurable mistype rate.
-- **Not DOM-limited.** Screenshots capture the full VM, so the agent can see and interact with native dialogs, canvas elements, iframes, and PDFs — not just things you can address with a selector.
-
-## Why playwright execution over a direct CDP connection
-
-If you're reaching for Playwright, prefer the execution API over `connectOverCDP`. Same Playwright API you already know, none of the setup.
-
-- **Run from anywhere.** No `playwright` package to version-pin, no Chromium download, no CDP connection to manage. Send the code, get the result.
-- **Co-located with the browser.** Code runs in the same VM as the browser — no network hop between your script and the page, fewer flakes.
-- **Patchright by default.** Hardened against bot detection out of the box.
-- **Full Playwright API.** `page`, `context`, and `browser` are all in scope. Anything Playwright can do — DOM queries, file uploads, full-page screenshots — works here.
-- **Returns values.** `return` from your code and the result comes back in the response. Easy to use as an agent tool.
-
 ## Computer use + playwright execution
 
 Computer controls drive the browser the way a person would — they don't speak the programmatic API surface. Anything you'd reach for the DOM or Playwright client for (reading text and attributes, `page.goto`, file uploads, cookie or storage access, switching tabs) belongs on the [playwright execution](/browsers/playwright-execution) side. When computer use is driving, expose playwright execution to the agent as a tool it can call for structured data or a programmatic action. For the full pattern in the other direction — playwright execution first, computer use when a step doesn't respond to a selector — see [playwright with computer use fallback](/browsers/playwright-computer-use-fallback).
 
-<CodeGroup>
-```typescript Typescript/Javascript
-const response = await kernel.browsers.playwright.execute(
-  kernelBrowser.session_id,
-  {
-    code: `
-      const rows = await page.$$eval('table tr', (trs) =>
-        trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent))
-      );
-      return rows;
-    `,
-  },
-);
+## Lower-level access
 
-console.log(response.result);
-```
+For work that isn't driving the page, you can also reach the browser's VM directly:
 
-```python Python
-response = kernel.browsers.playwright.execute(
-    id=kernel_browser.session_id,
-    code="""
-      const rows = await page.$$eval('table tr', (trs) =>
-        trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent))
-      );
-      return rows;
-    """,
-)
+- **[Browser curl](/browsers/curl):** send HTTP requests through the browser's network stack, with its cookies and proxy.
+- **[SSH](/browsers/ssh):** open a shell in the browser's VM, or forward a local port into it.
 
-print(response.result)
-```
+## Give a model these surfaces as tools
 
-```go Go
-response, err := client.Browsers.Playwright.Execute(
-	ctx,
-	kernelBrowser.SessionID,
-	kernel.BrowserPlaywrightExecuteParams{
-		Code: `
-			const rows = await page.$$eval('table tr', (trs) =>
-				trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent))
-			);
-			return rows;
-		`,
-	},
-)
-if err != nil {
-	panic(err)
-}
-
-fmt.Println(response.Result)
-```
-</CodeGroup>
+If you're building your own agent, [Browser Loop](/browsers/browser-loop) packages these surfaces as tools for each model provider and runs every action against a KERNEL browser, so you don't write the translation layer yourself.
 
 ## Going deeper
 
