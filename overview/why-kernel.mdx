@@ -3,7 +3,7 @@ title: "Why KERNEL?"
 description: "Fast, secure browser infrastructure for agents, paired with the agent framework you already use"
 ---
 
-KERNEL is built to be the fastest browser infrastructure for agents, across the browser lifecycle and inside a running session. A browser is created in about 30ms at P50, goes into [standby](/browsers/standby) when idle, and picks up where it left off when your agent reconnects. Inside the session, your code can run in the browser's VM instead of across the network, so each action skips the round trip. On independent benchmarks, KERNEL completes more actions per second than any other provider tested, and its create and connect times are among the fastest measured. See [benchmarks](https://www.kernel.sh/benchmarks) for how KERNEL compares.
+KERNEL is built to be the fastest browser infrastructure for agents, across the browser lifecycle and inside a running session. A browser is created in about 30ms at P50 and 105ms at P99, goes into [standby](/browsers/standby) when idle, and picks up where it left off when your agent reconnects. Inside the session, your code can run in the browser's VM instead of across the network, so each action skips the round trip. On independent benchmarks, KERNEL completes more actions per second than any other provider tested, and its create and connect times are among the fastest measured. See [benchmarks](https://www.kernel.sh/benchmarks) for how KERNEL compares.
 
 Pair it with the agent framework you like best. Your framework runs the loop and KERNEL runs the browser, so you can pick the best of each instead of settling for a browser bundled with a framework, or a framework bundled with a browser. See [integrations](/integrations/overview) for the frameworks and agents KERNEL works with, and [important concepts](/overview/concepts) for how the pieces fit.
 
@@ -11,10 +11,7 @@ Pair it with the agent framework you like best. Your framework runs the loop and
 
 - **Headful by default.** Every browser has a real display and runs the full rendering pipeline. Sites that check for signs of a headless browser don't find them, computer use models see the page as it actually rendered, WebGL, canvas, and video work, and [live view](/browsers/live-view) and [replays](/browsers/replays) show the real session. Switch to [headless](/browsers/headless) per session when a job doesn't need it, or add [GPU acceleration](/browsers/gpu-acceleration) for graphics-heavy sites.
 - **Each browser is its own VM.** Every browser runs isolated at the hypervisor, with its own kernel and filesystem, instead of sharing a host with other tenants. That's what makes a 30ms start and strong isolation possible at the same time, and it's why [file I/O](/browsers/file-io), [shell access](/browsers/ssh), and GPU access are safe to use inside a session.
-- **Platform primitives, with managed services built on them.** [Profiles](/browsers/profiles) keep browser state between sessions, [vaults](/vaults/overview) hold credentials and payment items, and [browser pools](/browsers/pools) keep configured browsers ready. Managed services such as [managed auth](/auth/overview), [payments](/browsers/payments), [stealth](/browsers/bot-detection/overview), and the [code execution platform](/apps/develop) build on them, so you can tune how your agent runs:
-  - **Control:** drive the same browser with [Playwright execution](/browsers/playwright-execution), [computer controls](/browsers/computer-controls), the [Browser REPL](/browsers/repl), or [WebMCP](/browsers/webmcp), and switch between them mid-task.
-  - **Performance:** run your code or your whole agent inside the browser's VM, and acquire pre-configured browsers from a pool instead of creating them.
-  - **Security:** logins and card details are filled from a vault or handled by managed auth, so they never enter your agent's context or your logs.
+- **Platform primitives, with managed services built on them.** [Profiles](/browsers/profiles) keep browser state between sessions, [vaults](/vaults/overview) hold credentials and payment items, and [browser pools](/browsers/pools) keep configured browsers ready. Managed services such as [managed auth](/auth/overview), [payments](/browsers/payments), [stealth](/browsers/bot-detection/overview), and the [code execution platform](/apps/develop) build on them. The how it works sections, [configure](/introduction/create), [control](/introduction/control), [scale](/introduction/scale), [observe](/introduction/observe), and [manage](/info/projects), show how to use them to tune control, performance, and security.
 
 ## Why not just run Chrome yourself?
 
@@ -22,13 +19,13 @@ You can. Running one Chrome locally is easy, and it's the right call while you'r
 
 | What you hit | Running it yourself | On Kernel |
 | --- | --- | --- |
-| Start-up latency | Cold container pull plus Chromium launch — seconds per task | P50 30ms browser creation ([performance](/browsers/performance)), or zero-wait acquisition from a [browser pool](/browsers/pools) |
+| Start-up latency | Cold container pull plus Chromium launch — seconds per task | Browser creation in 30ms at P50 and 105ms at P99 ([performance](/browsers/performance)), or pre-configured browsers in a [browser pool](/browsers/pools) for instant acquisition |
 | Isolation | One compromised page shares a kernel with everything else on the box | Each browser is a [microVM](/info/unikernels) with its own kernel and filesystem |
 | Bot detection | You maintain the patches, the fingerprints, and a proxy contract | [Anti-detection](/browsers/bot-detection/overview) on every browser, plus a managed solver and [proxies](/proxies/overview), including bring-your-own |
 | Sensitive credentials | Credentials end up in your agent's context or in a secret store you now own | [Vaults](/vaults/overview) store sensitive information and fill it into the page without your agent reading it, [managed auth](/auth/overview) handles logins end to end, and [profiles](/browsers/profiles) persist state across sessions |
 | Idle cost | You pay for the container while the agent thinks or while you wait for end-user input | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last activity |
 | Debugging a failure | Add your own logging and screen recording, then try to reproduce the failure | [Live view](/browsers/live-view), [replays](/browsers/replays), and [telemetry](/browsers/telemetry/overview) for the session that actually failed |
-| Scaling | Provision more hosts, then build the autoscaling, image pipeline, and cleanup jobs around them | [Upgrade your plan](/info/pricing) to raise your [concurrency limit and browser create rate](/browsers/concurrency-and-limits), with custom limits on Enterprise. [Browser pools](/browsers/pools) absorb bursts. |
+| Scaling | Provision more hosts, then build the autoscaling, image pipeline, and cleanup jobs around them | [Upgrade your plan](/info/pricing) to raise your [concurrency limit and browser create rate](/browsers/concurrency-and-limits), with custom limits on Enterprise. |
 
 ## When KERNEL isn't the answer
 
