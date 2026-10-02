@@ -3,7 +3,7 @@ title: "WebMCP"
 description: "Discover and invoke structured tools exposed by websites across your browser's tabs and frames"
 ---
 
-Use WebMCP to call a website's structured tools instead of scraping its DOM or inferring which controls to click. You can discover and invoke tools through the Kernel API, SDKs, [Playwright execution](/browsers/playwright-execution#webmcp-helpers), or the [MCP server](/reference/mcp-server/tools/webmcp).
+Use WebMCP to call a website's structured tools instead of scraping its DOM or inferring which controls to click. You can discover and invoke tools through the Kernel API, SDKs, [Playwright execution](/browsers/playwright-execution#webmcp-helpers), the [REPL](/browsers/repl#webmcp-helpers), or the [MCP server](/reference/mcp-server/tools/webmcp). For sites that don't register tools, you can add your own with [custom WebMCP tools](/browsers/webmcp-custom-tools).
 
 ## What is WebMCP?
 
@@ -17,7 +17,7 @@ For the page-author side, see the [Chrome for Developers WebMCP documentation](h
 
 Call `GET /browsers/{id_or_name}/webmcp/tools` for a browser-wide snapshot across every open tab and embedded frame. The API and SDKs return an object containing a `tools` array.
 
-These examples use an existing browser named `catalog`. Open your target website in that browser first, and set `KERNEL_API_KEY` in your environment. Use the latest Kernel SDK for TypeScript, Python, or Go, with support for all four invocation statuses below.
+These examples use an existing browser named `catalog`. Open your target website in that browser first, and set `KERNEL_API_KEY` in your environment. Use Kernel SDK 0.112.0 or later for TypeScript, Python, or Go. Earlier SDKs expect a response shape the API no longer returns.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -56,7 +56,7 @@ func main() {
 	client := kernel.NewClient(option.WithMaxRetries(0))
 	sessionID := "catalog"
 
-	snapshot, err := client.Browsers.Webmcp.ListTools(ctx, sessionID)
+	snapshot, err := client.Browsers.Webmcp.ListTools(ctx, sessionID, kernel.BrowserWebmcpListToolsParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -77,15 +77,50 @@ curl --fail-with-body --silent --show-error \
 The SDK examples disable automatic retries because the same clients are used to invoke tools below. An invocation can have side effects even when you don't receive its result. Don't add automatic retries around invocation calls.
 </Warning>
 
-Each tool includes:
+Each entry in `tools` includes:
 
 | Field | Meaning |
 |-------|---------|
 | `tool_ref` | Opaque reference to one exact live registration. Pass it unchanged when invoking. |
-| `name`, `description` | Page-provided tool metadata. Names aren't unique across tabs and frames. |
-| `input_schema` | JSON Schema describing the input object the tool expects. |
-| `annotations` | Optional page-provided hints: `read_only`, `untrusted_content`, `consequential`, and `autosubmit`. These aren't enforced by Kernel. |
-| `source` | Window, tab, top-level page, and optional embedded-frame provenance. |
+| `tool` | Tool metadata, following the [MCP tool definition](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool). See the next table. |
+| `source` | Window, tab, top-level page, and optional embedded-frame provenance. See [identify the tab or frame](#identify-the-tab-or-frame). |
+
+The `tool` object contains:
+
+| Field | Meaning |
+|-------|---------|
+| `name`, `description` | Tool metadata. Names aren't unique across tabs and frames. |
+| `title` | Optional human-readable name. |
+| `inputSchema` | JSON Schema describing the input object the tool expects. |
+| `outputSchema` | Optional JSON Schema describing the tool's output. |
+| `annotations` | Optional hints: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`, `consequentialHint`, `untrustedContentHint`, and `autosubmit`. Kernel doesn't enforce them. |
+
+For example:
+
+```json
+{
+  "tool_ref": "wmcp_uemxk17l28fev87pnnklcdsi",
+  "tool": {
+    "name": "search_products",
+    "description": "Search the catalog by keyword.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "query": { "type": "string" } },
+      "required": ["query"]
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  "source": {
+    "window_id": 1,
+    "tab_id": 1,
+    "page_title": "Search | Example Shop",
+    "page_url": "https://shop.example.com/search",
+    "frame": null
+  }
+}
+```
+
+The snapshot includes [custom tools](/browsers/webmcp-custom-tools) registered with the browser. Pass `exclude_custom=true` (`exclude_custom: true` in the SDKs) to list only tools the pages registered.
 
 An empty `tools` array means there are no tools in the current snapshot. The site may not support WebMCP, may not have registered tools yet, or may use an outdated WebMCP API. Use [Playwright](/browsers/playwright-execution) or [computer controls](/browsers/computer-controls) instead of invoking a guessed tool.
 
@@ -99,12 +134,14 @@ If multiple tabs or frames expose the same tool name, use `source` to select the
 | `page_url` | Top-level page URL, without its fragment. |
 | `page_title` | Top-level page title. |
 | `frame` | `null` for a top-level registration, otherwise `{ "frame_id": 7, "url": "https://shop.example.com/search" }`. The frame URL also omits its fragment. |
+| `custom` | Present only for [custom tools](/browsers/webmcp-custom-tools): the generated definition `id` and its `namespace`. |
+| `target_id` | Present only for custom tools: the CDP target ID of the tab the tool is registered on. |
 
 A frame's origin can differ from the top-level page's origin. Check both the top-level URL and the frame URL before sending data to a tool. If multiple tabs expose the same tool on the same URL, use the window and tab identifiers from discovery to disambiguate them.
 
 ## Invoke a tool
 
-Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and an `input` object matching its `input_schema`. Send `{}` when the tool takes no inputs. The optional `timeout_sec` is an integer from **1 to 120**, with a default of **60 seconds**.
+Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and an `input` object matching its `tool.inputSchema`. Send `{}` when the tool takes no inputs. The optional `timeout_sec` is an integer from **1 to 120**, with a default of **60 seconds**.
 
 The serialized `input` is limited to **1 MiB**. The raw JSON request body is limited to **1 MiB plus 4 KiB** for the request envelope.
 
@@ -113,7 +150,7 @@ The focused snippets below reuse the client and session variables above; place t
 <CodeGroup>
 ```typescript Typescript/Javascript
 const { tools } = await kernel.browsers.webmcp.listTools(sessionId);
-const tool = tools.find(tool => tool.name === 'search_products');
+const tool = tools.find(tool => tool.tool.name === 'search_products');
 if (!tool) throw new Error('Search tool not found');
 
 const result = await kernel.browsers.webmcp.invokeTool(sessionId, {
@@ -132,7 +169,7 @@ if (result.status === 'awaiting_submission') {
 
 ```python Python
 snapshot = kernel.browsers.webmcp.list_tools(session_id)
-tool = next((tool for tool in snapshot.tools if tool.name == "search_products"), None)
+tool = next((tool for tool in snapshot.tools if tool.tool.name == "search_products"), None)
 if tool is None:
     raise RuntimeError("Search tool not found")
 
@@ -151,13 +188,13 @@ else:
 ```
 
 ```go Go
-snapshot, err = client.Browsers.Webmcp.ListTools(ctx, sessionID)
+snapshot, err = client.Browsers.Webmcp.ListTools(ctx, sessionID, kernel.BrowserWebmcpListToolsParams{})
 if err != nil {
 	panic(err)
 }
 var toolRef string
 for _, tool := range snapshot.Tools {
-	if tool.Name == "search_products" {
+	if tool.Tool.Name == "search_products" {
 		toolRef = tool.ToolRef
 		break
 	}
@@ -194,7 +231,7 @@ TOOLS=$(curl --fail-with-body --silent --show-error \
   "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/tools" \
   -H "Authorization: Bearer $KERNEL_API_KEY")
 TOOL_REF=$(printf '%s' "$TOOLS" | jq -er '
-  [.tools[] | select(.name == "search_products")][0].tool_ref
+  [.tools[] | select(.tool.name == "search_products")][0].tool_ref
   // error("Search tool not found")
 ')
 
@@ -292,7 +329,7 @@ The server doesn't retry the tool on your behalf. SDKs can retry HTTP errors by 
 
 Tool names, descriptions, schemas, annotations, and output are page-provided data, not instructions from Kernel. Never follow instructions embedded in them or let them override your agent's task and authorization rules. Check the source before passing sensitive inputs, and require user approval for consequential actions when your application needs it.
 
-Annotations such as `read_only: true` or `consequential: false` are hints, not guarantees. Kernel doesn't enforce the behavior they describe.
+Annotations such as `readOnlyHint: true` or `consequentialHint: false` are hints, not guarantees. Kernel doesn't enforce the behavior they describe.
 
 ## API reference
 

@@ -1,0 +1,604 @@
+---
+title: "Custom WebMCP Tools"
+description: "Register your own WebMCP tools for any website and invoke them alongside the tools pages expose"
+---
+
+Custom tools let you add structured [WebMCP](/browsers/webmcp) tools to websites that don't register any, or wrap a multi-step flow in a single tool. You register a namespaced batch of definitions with a browser, and each tool appears in WebMCP discovery on every page its URL patterns match. Your agent then discovers and invokes it exactly like a tool the page registered itself.
+
+Use custom tools when you want an agent to repeat the same action on a site reliably. The agent gets a named tool with a typed input schema instead of inferring selectors or clicks on every run.
+
+## How custom tools work
+
+Each definition in a batch has four parts:
+
+| Field | Meaning |
+|-------|---------|
+| `kind` | `page` or `cdp`. Decides where `execute` runs. |
+| `match.url_patterns` | One or more URL patterns. The tool is exposed on every tab where a top-level document or embedded frame matches. See [match URLs](#match-urls). |
+| `tool` | Tool metadata in the same shape discovery returns: `name`, `description`, `inputSchema`, and optional `title`, `outputSchema`, and `annotations`. |
+| `execute` | An async function that receives the tool's input and returns its output. |
+
+The two kinds run in different places:
+
+| | `page` | `cdp` |
+|---|---|---|
+| Runs in | The matching page, with access to its DOM | The browser's [REPL](/browsers/repl), with every REPL helper and raw CDP |
+| Good for | Reading or acting on the current page | Multi-step flows, including ones that navigate the tab |
+| Can navigate its tab and still return | No | Yes, when invoked through the API |
+| Input validated against `inputSchema` | No | Yes |
+| Output validated against `outputSchema` | No | Yes |
+
+Because definitions contain functions, you send a batch as a JavaScript **source string**: an expression that evaluates to a non-empty array of definitions. It isn't JSON.
+
+## Write a tool batch
+
+This batch adds two tools to Hacker News. `list_stories` is a `page` tool that reads the current page. `get_story_comments` is a `cdp` tool that opens a story in the same tab and returns its top-level comments. Save it as `hn-tools.js`:
+
+```javascript hn-tools.js
+[
+  {
+    kind: 'page',
+    match: { url_patterns: ['https://news.ycombinator.com/*'] },
+    tool: {
+      name: 'list_stories',
+      description: 'List the stories on the current Hacker News page.',
+      inputSchema: {
+        type: 'object',
+        properties: { limit: { type: 'integer', minimum: 1, maximum: 30 } },
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true },
+    },
+    execute: async ({ limit = 10 }) =>
+      [...document.querySelectorAll('tr.athing')].slice(0, limit).map((row) => ({
+        id: row.id,
+        title: row.querySelector('.titleline > a')?.textContent ?? '',
+        url: row.querySelector('.titleline > a')?.href ?? '',
+      })),
+  },
+  {
+    kind: 'cdp',
+    match: { url_patterns: ['https://news.ycombinator.com/*'] },
+    tool: {
+      name: 'get_story_comments',
+      description: 'Open a Hacker News story in this tab and return its top-level comments.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          story_id: { type: 'string', pattern: '^[0-9]+$' },
+          limit: { type: 'integer', minimum: 1, maximum: 50 },
+        },
+        required: ['story_id'],
+        additionalProperties: false,
+      },
+      outputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          comments: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { author: { type: 'string' }, text: { type: 'string' } },
+              required: ['author', 'text'],
+            },
+          },
+        },
+        required: ['title', 'comments'],
+      },
+    },
+    execute: async ({ story_id, limit = 10 }, { matches }) => {
+      await switchTab(matches[0].top_target_id);
+      await gotoUrl('https://news.ycombinator.com/item?id=' + story_id);
+      await waitForLoad();
+      return js((max) => ({
+        title: document.querySelector('.titleline > a')?.textContent ?? '',
+        comments: [...document.querySelectorAll('tr.comtr')]
+          .filter((row) => row.querySelector('td.ind')?.getAttribute('indent') === '0')
+          .slice(0, max)
+          .map((row) => ({
+            author: row.querySelector('.hnuser')?.textContent ?? '',
+            text: row.querySelector('.commtext')?.innerText ?? '',
+          })),
+      }), { arg: limit });
+    },
+  },
+]
+```
+
+### Page tools
+
+A `page` tool's `execute` is serialized and installed in each matching document, so it must be self-contained. It can't reference variables or imports from the code that registered it. It receives the input object and returns a JSON-serializable value.
+
+Kernel doesn't validate a `page` tool's input against its `inputSchema`, so `execute` can receive missing, extra, or wrongly typed values. Check the values you depend on in `execute`, as `list_stories` does with its `limit` default.
+
+### CDP tools
+
+A `cdp` tool's `execute` runs in the browser's REPL, so it can use every [REPL helper](/browsers/repl), such as `gotoUrl`, `waitForLoad`, `js`, `click`, and `cdp`, along with state from earlier REPL cells. Kernel validates its input against `inputSchema` before running it, and its output against `outputSchema` when you provide one. A validation failure returns `status: "error"` with the reason in `error_text`, such as `input failed JSON Schema validation: data/story_id must match pattern "^[0-9]+$"`.
+
+The second argument is a context object:
+
+| Field | Meaning |
+|-------|---------|
+| `matches` | Frames on the invoking tab that match the tool's URL patterns. |
+| `signal` | An `AbortSignal` that fires when the invocation is canceled or times out. |
+
+Each entry in `matches` includes:
+
+| Field | Meaning |
+|-------|---------|
+| `url` | URL of the matching document or frame. |
+| `top_target_id` | CDP target ID of the tab's top-level document. Pass it to `switchTab()` or `js(..., { targetId })`. |
+| `target_id` | CDP target ID of an out-of-process frame, or `null` for the top-level document and in-process frames. |
+| `session_id`, `frame_id` | CDP session and frame IDs for use with raw `cdp()` calls. |
+
+When you invoke a `cdp` tool through the API, it runs independently of the page that registered it. That's why `get_story_comments` can navigate its own tab and still return a result.
+
+<Note>
+`get_story_comments` calls `switchTab()`, which changes the REPL's attached tab for later REPL cells. Pass `{ targetId: matches[0].top_target_id }` to `js()` instead when your tool only needs to read or evaluate code in the page.
+</Note>
+
+## Register tools
+
+Call `POST /browsers/{id_or_name}/webmcp/custom-tools` with a `namespace` and the batch `source`. The batch is added atomically: if one definition is invalid, none of them are registered.
+
+These examples use an existing browser named `hn-reader` that's open to `https://news.ycombinator.com`, and read the `hn-tools.js` file above. Set `KERNEL_API_KEY` in your environment and use Kernel SDK 0.112.0 or later.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+import { readFile } from 'node:fs/promises';
+
+const kernel = new Kernel({ maxRetries: 0 });
+const sessionId = 'hn-reader';
+
+const added = await kernel.browsers.webmcp.customTools.add(sessionId, {
+  namespace: 'news.ycombinator.com',
+  source: await readFile('hn-tools.js', 'utf8'),
+});
+for (const definition of added.tools) {
+  console.log(definition.id, definition.kind, definition.tool.name);
+}
+```
+
+```python Python
+from pathlib import Path
+
+from kernel import Kernel
+
+kernel = Kernel(max_retries=0)
+session_id = "hn-reader"
+
+added = kernel.browsers.webmcp.custom_tools.add(
+    session_id,
+    namespace="news.ycombinator.com",
+    source=Path("hn-tools.js").read_text(),
+)
+for definition in added.tools:
+    print(definition.id, definition.kind, definition.tool.name)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient(option.WithMaxRetries(0))
+	sessionID := "hn-reader"
+
+	source, err := os.ReadFile("hn-tools.js")
+	if err != nil {
+		panic(err)
+	}
+	added, err := client.Browsers.Webmcp.CustomTools.Add(ctx, sessionID, kernel.BrowserWebmcpCustomToolAddParams{
+		AddRequest: kernel.AddRequestParam{
+			Namespace: "news.ycombinator.com",
+			Source:    string(source),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	for _, definition := range added.Tools {
+		fmt.Println(definition.ID, definition.Kind, definition.Tool.Name)
+	}
+}
+```
+
+```bash curl
+export BROWSER_ID=hn-reader
+
+# Requires jq, which JSON-encodes the source file as a string.
+jq -n --rawfile source hn-tools.js \
+  '{namespace: "news.ycombinator.com", source: $source}' | \
+  curl --fail-with-body --silent --show-error \
+    "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/custom-tools" \
+    -H "Authorization: Bearer $KERNEL_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @-
+```
+</CodeGroup>
+
+The API returns HTTP 201 with the definitions it added. Kernel generates an `id` for each one:
+
+```json
+{
+  "tools": [
+    {
+      "id": "ct_gz21nkb4jjanxak78v32co0d",
+      "namespace": "news.ycombinator.com",
+      "kind": "page",
+      "match": { "url_patterns": ["https://news.ycombinator.com/*"] },
+      "tool": {
+        "name": "list_stories",
+        "description": "List the stories on the current Hacker News page.",
+        "inputSchema": { "...": "..." },
+        "annotations": { "readOnlyHint": true }
+      }
+    },
+    {
+      "id": "ct_jwqyad9qodzvejvnbss01sfe",
+      "namespace": "news.ycombinator.com",
+      "kind": "cdp",
+      "match": { "url_patterns": ["https://news.ycombinator.com/*"] },
+      "tool": { "name": "get_story_comments", "...": "..." }
+    }
+  ]
+}
+```
+
+A tool name must be unique within its namespace. Adding a name that already exists returns **HTTP 409** and registers nothing. An invalid batch returns **HTTP 400** with the reason, such as `definition.match.url_patterns must be a non-empty array`.
+
+## Discover and invoke custom tools
+
+Custom tools appear in the same [browser-wide snapshot](/browsers/webmcp#discover-tools) as page-provided tools and are invoked through the same endpoint. A custom tool's `source` also includes:
+
+| Field | Meaning |
+|-------|---------|
+| `custom` | `{ "id": "ct_…", "namespace": "news.ycombinator.com" }`, identifying the definition that produced the tool. Omitted for page-provided tools. |
+| `target_id` | CDP target ID of the tab the tool is registered on. |
+
+A page can register a tool with the same name as one of yours, so select custom tools by `source.custom.namespace` as well as name. To list only page-provided tools, pass `exclude_custom=true`.
+
+The snippets below reuse the clients and session variables from [register tools](#register-tools); place the Go snippet inside `main`. They list the first 5 stories, then fetch the top-level comments on the first one.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const { tools } = await kernel.browsers.webmcp.listTools(sessionId);
+const findTool = (name: string) => {
+  const found = tools.find(
+    (tool) => tool.source.custom?.namespace === 'news.ycombinator.com' && tool.tool.name === name,
+  );
+  if (!found) throw new Error(`${name} not found`);
+  return found;
+};
+
+const stories = await kernel.browsers.webmcp.invokeTool(sessionId, {
+  tool_ref: findTool('list_stories').tool_ref,
+  input: { limit: 5 },
+  timeout_sec: 10,
+});
+if (stories.status !== 'completed') {
+  throw new Error(`${stories.invocation_id}: ${stories.status}: ${stories.error_text ?? ''}`);
+}
+const [firstStory] = stories.output as { id: string; title: string }[];
+
+const comments = await kernel.browsers.webmcp.invokeTool(sessionId, {
+  tool_ref: findTool('get_story_comments').tool_ref,
+  input: { story_id: firstStory.id, limit: 3 },
+  timeout_sec: 30,
+});
+if (comments.status !== 'completed') {
+  throw new Error(`${comments.invocation_id}: ${comments.status}: ${comments.error_text ?? ''}`);
+}
+console.log(comments.output);
+```
+
+```python Python
+snapshot = kernel.browsers.webmcp.list_tools(session_id)
+
+
+def find_tool(name: str):
+    for tool in snapshot.tools:
+        if tool.source.custom and tool.source.custom.namespace == "news.ycombinator.com" and tool.tool.name == name:
+            return tool
+    raise RuntimeError(f"{name} not found")
+
+
+stories = kernel.browsers.webmcp.invoke_tool(
+    session_id,
+    tool_ref=find_tool("list_stories").tool_ref,
+    input={"limit": 5},
+    timeout_sec=10,
+)
+if stories.status != "completed":
+    raise RuntimeError(f"{stories.invocation_id}: {stories.status}: {stories.error_text}")
+first_story = stories.output[0]
+
+comments = kernel.browsers.webmcp.invoke_tool(
+    session_id,
+    tool_ref=find_tool("get_story_comments").tool_ref,
+    input={"story_id": first_story["id"], "limit": 3},
+    timeout_sec=30,
+)
+if comments.status != "completed":
+    raise RuntimeError(f"{comments.invocation_id}: {comments.status}: {comments.error_text}")
+print(comments.output)
+```
+
+```go Go
+snapshot, err := client.Browsers.Webmcp.ListTools(ctx, sessionID, kernel.BrowserWebmcpListToolsParams{})
+if err != nil {
+	panic(err)
+}
+findTool := func(name string) string {
+	for _, tool := range snapshot.Tools {
+		if tool.Source.Custom.Namespace == "news.ycombinator.com" && tool.Tool.Name == name {
+			return tool.ToolRef
+		}
+	}
+	panic(name + " not found")
+}
+
+stories, err := client.Browsers.Webmcp.InvokeTool(ctx, sessionID, kernel.BrowserWebmcpInvokeToolParams{
+	InvokeRequest: kernel.InvokeRequestParam{
+		ToolRef:    findTool("list_stories"),
+		Input:      map[string]any{"limit": 5},
+		TimeoutSec: kernel.Int(10),
+	},
+})
+if err != nil {
+	panic(err)
+}
+if stories.Status != kernel.InvocationResultStatusCompleted {
+	panic(fmt.Sprintf("%s: %s: %s", stories.InvocationID, stories.Status, stories.ErrorText))
+}
+firstStory := stories.Output.([]any)[0].(map[string]any)
+
+comments, err := client.Browsers.Webmcp.InvokeTool(ctx, sessionID, kernel.BrowserWebmcpInvokeToolParams{
+	InvokeRequest: kernel.InvokeRequestParam{
+		ToolRef:    findTool("get_story_comments"),
+		Input:      map[string]any{"story_id": firstStory["id"], "limit": 3},
+		TimeoutSec: kernel.Int(30),
+	},
+})
+if err != nil {
+	panic(err)
+}
+if comments.Status != kernel.InvocationResultStatusCompleted {
+	panic(fmt.Sprintf("%s: %s: %s", comments.InvocationID, comments.Status, comments.ErrorText))
+}
+fmt.Println(comments.Output)
+```
+
+```bash curl
+# Requires jq. Stop if discovery fails or a tool isn't found.
+set -euo pipefail
+
+TOOLS=$(curl --fail-with-body --silent --show-error \
+  "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/tools" \
+  -H "Authorization: Bearer $KERNEL_API_KEY")
+tool_ref() {
+  printf '%s' "$TOOLS" | jq -er --arg name "$1" '
+    [.tools[] | select(.source.custom.namespace == "news.ycombinator.com" and .tool.name == $name)][0].tool_ref
+    // error("\($name) not found")
+  '
+}
+invoke() {
+  curl --fail-with-body --silent --show-error \
+    "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/invoke" \
+    -H "Authorization: Bearer $KERNEL_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @- | jq -e 'if .status == "completed" then . else error(tostring) end'
+}
+
+STORY_ID=$(jq -n --arg ref "$(tool_ref list_stories)" \
+  '{tool_ref: $ref, input: {limit: 5}, timeout_sec: 10}' | invoke | jq -r '.output[0].id')
+
+jq -n --arg ref "$(tool_ref get_story_comments)" --arg id "$STORY_ID" \
+  '{tool_ref: $ref, input: {story_id: $id, limit: 3}, timeout_sec: 30}' | invoke
+```
+</CodeGroup>
+
+`get_story_comments` returns a result such as:
+
+```json
+{
+  "invocation_id": "bjn3867psw1xfsbmhnrg0sv2",
+  "status": "completed",
+  "output": {
+    "title": "F-Droid 2.0",
+    "comments": [{ "author": "idle_zealot", "text": "It's sad to see F-Droid using…" }]
+  }
+}
+```
+
+Custom tool invocations follow the same rules as page-provided tools: check `status`, never retry automatically after `outcome_unknown` or a transport failure, and discover again before selecting your next invocation. See [invoke a tool](/browsers/webmcp#invoke-a-tool) and [handle an unknown outcome](/browsers/webmcp#handle-an-unknown-outcome).
+
+## Match URLs
+
+Each entry in `match.url_patterns` has the form `scheme://host/path`:
+
+| Part | Accepted values |
+|------|-----------------|
+| Scheme | `http`, `https`, or `*` for either. |
+| Host | An exact host such as `news.ycombinator.com`, `*.example.com` to match `example.com` and its subdomains, or `*` for any host. Include a port if the site uses one, such as `localhost:3000`. |
+| Path | Required. `*` matches any characters, and the pattern is compared against the path plus query string. `/*` matches every page. |
+
+URL fragments are ignored. For example, `https://shop.example.com/search*` matches `https://shop.example.com/search?q=shoes` but not `https://shop.example.com/cart`.
+
+Patterns are checked against every top-level document and embedded frame, including out-of-process iframes. When any frame on a tab matches, the tool is exposed once on that tab's top-level document. A `cdp` tool receives every matching frame in `matches`, so it can target the frame it needs.
+
+## Update and remove tools
+
+Custom tools have two kinds of identifiers. Keep them straight:
+
+- A definition `id` (`ct_…`) identifies your registration. Use it to list and remove definitions. It stays the same until you remove the definition.
+- A `tool_ref` (`wmcp_…`) identifies one live registration on one tab. Use it only to invoke, and get a fresh one from discovery.
+
+There's no in-place update. To change one tool, remove its definition and add the new version, which gets a new `id`. To replace a whole batch, add it again with `force_overwrite_namespace: true`. That atomically swaps every tool in the namespace for the new batch, without touching other namespaces.
+
+Removing or replacing a definition stops it from appearing in discovery. Invocations already in progress keep running.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+// Replace every tool in the namespace with the current contents of hn-tools.js.
+await kernel.browsers.webmcp.customTools.add(sessionId, {
+  namespace: 'news.ycombinator.com',
+  source: await readFile('hn-tools.js', 'utf8'),
+  force_overwrite_namespace: true,
+});
+
+// Remove one definition by its generated ID.
+const registered = await kernel.browsers.webmcp.customTools.list(sessionId);
+const commentsTool = registered.tools.find(
+  (definition) =>
+    definition.namespace === 'news.ycombinator.com' && definition.tool.name === 'get_story_comments',
+);
+if (commentsTool) {
+  await kernel.browsers.webmcp.customTools.remove(commentsTool.id, { id_or_name: sessionId });
+}
+```
+
+```python Python
+# Replace every tool in the namespace with the current contents of hn-tools.js.
+kernel.browsers.webmcp.custom_tools.add(
+    session_id,
+    namespace="news.ycombinator.com",
+    source=Path("hn-tools.js").read_text(),
+    force_overwrite_namespace=True,
+)
+
+# Remove one definition by its generated ID.
+registered = kernel.browsers.webmcp.custom_tools.list(session_id)
+for definition in registered.tools:
+    if definition.namespace == "news.ycombinator.com" and definition.tool.name == "get_story_comments":
+        kernel.browsers.webmcp.custom_tools.remove(definition.id, id_or_name=session_id)
+```
+
+```go Go
+// Replace every tool in the namespace with the current contents of hn-tools.js.
+_, err = client.Browsers.Webmcp.CustomTools.Add(ctx, sessionID, kernel.BrowserWebmcpCustomToolAddParams{
+	AddRequest: kernel.AddRequestParam{
+		Namespace:               "news.ycombinator.com",
+		Source:                  string(source),
+		ForceOverwriteNamespace: kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+// Remove one definition by its generated ID.
+registered, err := client.Browsers.Webmcp.CustomTools.List(ctx, sessionID)
+if err != nil {
+	panic(err)
+}
+for _, definition := range registered.Tools {
+	if definition.Namespace == "news.ycombinator.com" && definition.Tool.Name == "get_story_comments" {
+		err = client.Browsers.Webmcp.CustomTools.Remove(ctx, definition.ID, kernel.BrowserWebmcpCustomToolRemoveParams{
+			IDOrName: sessionID,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+```
+
+```bash curl
+# Replace every tool in the namespace with the current contents of hn-tools.js.
+jq -n --rawfile source hn-tools.js \
+  '{namespace: "news.ycombinator.com", source: $source, force_overwrite_namespace: true}' | \
+  curl --fail-with-body --silent --show-error \
+    "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/custom-tools" \
+    -H "Authorization: Bearer $KERNEL_API_KEY" \
+    -H "Content-Type: application/json" \
+    --data-binary @-
+
+# Remove one definition by its generated ID.
+TOOL_ID=$(curl --fail-with-body --silent --show-error \
+  "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/custom-tools" \
+  -H "Authorization: Bearer $KERNEL_API_KEY" | \
+  jq -er '[.tools[] | select(.namespace == "news.ycombinator.com" and .tool.name == "get_story_comments")][0].id')
+curl --fail-with-body --silent --show-error -X DELETE \
+  "https://api.onkernel.com/browsers/$BROWSER_ID/webmcp/custom-tools/$TOOL_ID" \
+  -H "Authorization: Bearer $KERNEL_API_KEY"
+```
+</CodeGroup>
+
+A successful removal returns **HTTP 204**. Removing an ID that doesn't exist returns **HTTP 404**.
+
+## Keep tools registered
+
+Custom tools belong to the browser's [REPL](/browsers/repl) process. Anything that ends that process removes every custom tool in the browser, in every namespace:
+
+- A REPL execution that exceeds its `timeout_sec`, which returns `repl_terminated: true`
+- A REPL call with `reset: true`
+- A REPL crash
+
+After any of these, list custom tools and register your batches again. If you run long REPL code in the same browser, give it a generous `timeout_sec`. Keep your batches in files like `hn-tools.js` so you can re-register them with one call.
+
+## Register tools from the REPL
+
+In the [REPL](/browsers/repl), `webmcp` has matching methods that take real functions instead of a source string:
+
+- `await webmcp.addCustomTools({ namespace, tools, forceOverwriteNamespace })` adds a batch and returns the definitions with their generated IDs.
+- `await webmcp.listCustomTools()` returns every registered definition.
+- `await webmcp.removeCustomTool(id)` removes one definition and returns whether it existed.
+
+```javascript
+const [readTitle] = await webmcp.addCustomTools({
+  namespace: 'example.com',
+  tools: [{
+    kind: 'cdp',
+    match: { url_patterns: ['https://example.com/*'] },
+    tool: {
+      name: 'read_title',
+      description: 'Read the current page title.',
+      inputSchema: { type: 'object', additionalProperties: false },
+      annotations: { readOnlyHint: true },
+    },
+    execute: async (_input, { matches }) => ({
+      title: await js(() => document.title, { targetId: matches[0].top_target_id }),
+    }),
+  }],
+});
+repl.write(readTitle.id);
+```
+
+A `cdp` tool registered this way can use bindings you created in earlier REPL cells. The `webmcp` helper in [Playwright execution](/browsers/playwright-execution#webmcp-helpers) lists and invokes custom tools, but can't register them.
+
+You can also manage custom tools with `kernel browsers webmcp custom-tools` in the [CLI](/reference/cli/browsers#webmcp) and the `list_custom`, `add_custom`, and `remove_custom` actions of the [MCP server's `webmcp` tool](/reference/mcp-server/tools/webmcp#manage-custom-tools).
+
+## Limits
+
+| Limit | Value |
+|-------|-------|
+| `namespace` | 1–128 ASCII letters, digits, dots, underscores, or hyphens |
+| `source` | 8,000,000 bytes when UTF-8 encoded |
+| `tool.name` | 93 characters |
+| Invocation input | 1 MiB after JSON serialization |
+| `cdp` tool output through the API | 240 KiB. Larger results return an error, not a truncated result. |
+
+## Security
+
+- **Source is executable code.** A `page` tool runs with the page's access to its DOM, cookies, and origin. A `cdp` tool has unrestricted control of the whole browser. Only register source you wrote or reviewed.
+- **Don't embed secrets in source.** Pass credentials as tool input when a tool needs them, or use [vaults](/vaults/overview) so they never reach your agent.
+- **Treat output as untrusted.** Tools read page content, and pages can include text written to manipulate agents. Handle custom tool output the same way you handle [page-provided tool output](/browsers/webmcp#treat-page-data-as-untrusted).
+- **Annotations are hints.** Kernel doesn't enforce `readOnlyHint` or other annotations on custom tools either. Set them accurately, because agents use them to decide when to ask for confirmation.
+
+## API reference
+
+- [Add custom WebMCP tools](https://www.kernel.sh/docs/api-reference/browser-webmcp/add-custom-webmcp-tools)
+- [List custom WebMCP tools](https://www.kernel.sh/docs/api-reference/browser-webmcp/list-custom-webmcp-tools)
+- [Remove a custom WebMCP tool](https://www.kernel.sh/docs/api-reference/browser-webmcp/remove-a-custom-webmcp-tool)

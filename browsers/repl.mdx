@@ -168,17 +168,18 @@ Selector and node clicks wait for one visible, enabled, stable, unobscured targe
 
 Code sent to the REPL can use `webmcp` alongside the browser-control helpers — it's a passthrough to the [WebMCP API](/browsers/webmcp):
 
-- `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just the active page.
+- `await webmcp.listTools()` returns the tools array directly, across every open tab and embedded frame, not just the active page. Pass `{ excludeCustom: true }` to omit custom tools.
 - `await webmcp.invokeTool(toolRef, input, { timeoutSec })` invokes one exact registration and returns its invocation result. Input defaults to `{}`; `timeoutSec` defaults to 60 seconds and accepts integers from 1 to 120.
+- `await webmcp.addCustomTools({ namespace, tools, forceOverwriteNamespace })`, `await webmcp.listCustomTools()`, and `await webmcp.removeCustomTool(id)` manage [custom WebMCP tools](/browsers/webmcp-custom-tools#register-tools-from-the-repl). Custom tools live in the REPL process, so a REPL timeout or reset removes them.
 
-First inspect `await webmcp.listTools()` to verify the tool's source and `input_schema`. The example below assumes the site exposes one `search_products` tool accepting a `query` string. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
+First inspect `await webmcp.listTools()` to verify the tool's `source` and `tool.inputSchema`. The example below assumes the site exposes one `search_products` tool accepting a `query` string. Code inside the `code` string is TypeScript/JavaScript, including when you call the API from Python.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 const response = await kernel.browsers.repl(sessionId, {
   code: `
     const tools = await webmcp.listTools();
-    const tool = tools.find(tool => tool.name === 'search_products');
+    const tool = tools.find(tool => tool.tool.name === 'search_products');
     if (!tool) {
       repl.write(JSON.stringify({ tools }));
     } else {
@@ -204,7 +205,7 @@ response = kernel.browsers.repl(
     session_id,
     code="""
         const tools = await webmcp.listTools();
-        const tool = tools.find(tool => tool.name === 'search_products');
+        const tool = tools.find(tool => tool.tool.name === 'search_products');
         if (!tool) {
           repl.write(JSON.stringify({ tools }));
         } else {
