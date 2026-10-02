@@ -4,13 +4,15 @@ description: "Hand setup to your coding agent, or create your first cloud browse
 mode: "wide"
 ---
 
+import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
+
 Pick the way in that matches how you work. The first two are walked through on this page; the rest open their own guides.
 
 <Columns className="responsive-columns" cols={4}>
   <Card title="Hand it to your coding agent" icon="robot" href="#path-1-hand-it-to-your-coding-agent">
     Copy one prompt into Cursor, Claude Code, or Codex and let it set up KERNEL.
   </Card>
-  <Card title="Write it with an SDK" icon="code" href="#path-2-write-it-yourself">
+  <Card title="Write it with an SDK" icon="code" href="#path-2-write-it-yourself-with-an-sdk">
     Create and drive your first browser in TypeScript, Python, or Go.
   </Card>
   <Card title="Use the CLI" icon="terminal" href="/reference/cli">
@@ -18,6 +20,9 @@ Pick the way in that matches how you work. The first two are walked through on t
   </Card>
   <Card title="Connect over MCP" icon="plug" href="/reference/mcp-server">
     Give any MCP client, like Claude or Cursor, a cloud browser as a set of tools.
+  </Card>
+  <Card title="Call the REST API" icon="brackets-curly" href="/api-reference/browsers/create-a-browser-session">
+    Call KERNEL over HTTP from any language, starting with creating a browser.
   </Card>
   <Card title="Add Agent Skills" icon="wand-magic-sparkles" href="/skills/overview">
     Teach your coding agent the KERNEL CLI, SDKs, and auth with one install.
@@ -28,18 +33,15 @@ Pick the way in that matches how you work. The first two are walked through on t
   <Card title="Follow a cookbook" icon="book-open" href="/cookbooks">
     Clone an end-to-end recipe and adapt it to your task.
   </Card>
-  <Card title="Call the REST API" icon="brackets-curly" href="/api-reference/browsers/create-a-browser-session">
-    Call KERNEL over HTTP from any language, starting with creating a browser.
-  </Card>
 </Columns>
 
 ## Path 1: hand it to your coding agent
 
-Copy this prompt into Cursor, Claude Code, Codex, or whatever you use. It installs the KERNEL CLI, signs you in, and opens a live view of a KERNEL browser that you or your agent can drive.
-
-import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
-
-<CopyPromptButton />
+<Steps>
+<Step title="Copy the setup prompt">
+<div style={{ margin: '0.5rem 0 1rem' }}>
+  <CopyPromptButton />
+</div>
 
 <Accordion title="See what this prompt does">
 1. Checks for the KERNEL CLI and installs or upgrades it with Homebrew.
@@ -48,8 +50,18 @@ import { CopyPromptButton } from '/snippets/copy-prompt-button.jsx';
 
 It stops and asks you for help if any step fails.
 </Accordion>
+</Step>
 
+<Step title="Paste it into your coding agent">
+Use Cursor, Claude Code, Codex, or any agent that can run terminal commands. Sign in when it opens the KERNEL login page.
+</Step>
+
+<Step title="Watch the live view">
 You're done when your agent opens a live view of a KERNEL browser. From there, ask it to do a task on a site you care about.
+</Step>
+</Steps>
+
+If your agent reads documentation on its own, point it at these:
 
 <Accordion title="Agent-readable surfaces">
 | Surface | What it's for |
@@ -62,7 +74,7 @@ You're done when your agent opens a live view of a KERNEL browser. From there, a
 | [OpenAPI 3.1](https://www.kernel.sh/openapi.json) | For generating a client or calling the REST API directly. |
 </Accordion>
 
-## Path 2: write it yourself
+## Path 2: write it yourself with an SDK
 
 <Steps>
 <Step title="Set your API key">
