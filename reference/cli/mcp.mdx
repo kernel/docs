@@ -21,6 +21,7 @@ Install Kernel MCP server configuration for a supported AI development tool. Thi
 - `goose` - Goose AI
 - `zed` - Zed editor
 - `fx` - fx coding agent
+- `codex` - OpenAI Codex
 
 ### Examples
 
@@ -36,6 +37,9 @@ kernel mcp install --target vscode
 
 # Install for fx
 kernel mcp install --target fx
+
+# Install for Codex
+kernel mcp install --target codex
 ```
 
 ### What It Does
@@ -54,6 +58,7 @@ The command automatically configures the appropriate transport and settings for 
 - **Cursor, Claude Code, VS Code, fx**: Uses HTTP transport (`https://mcp.onkernel.com/mcp`)
 - **Antigravity**: Uses HTTP transport, keyed off `serverUrl` rather than `url`
 - **Claude Desktop, Windsurf, Goose, Zed**: Uses stdio transport via `mcp-remote`
+- **Codex**: Runs `codex mcp add kernel --url https://mcp.onkernel.com/mcp`, which writes `~/.codex/config.toml` (or `$CODEX_HOME/config.toml`) and starts the OAuth flow. If Kernel is already configured, the existing entry is left unchanged
 
 ### Next Steps
 
@@ -75,6 +80,7 @@ If installation fails:
 - Check that the target tool's configuration directory exists
 - For Zed, the command handles JSON5 format (comments) automatically
 - For Goose, the command displays YAML configuration instructions (manual copy-paste required)
+- For Codex, the `codex` CLI must be on your `PATH`. If it isn't, the command displays the TOML to add to `~/.codex/config.toml`; then run `codex mcp login kernel` to authenticate
 
 ## `kernel mcp server`
 
