@@ -1,5 +1,6 @@
 ---
-title: "Pricing & Limits"
+title: "Pricing"
+sidebarTitle: "Plans and Pricing"
 ---
 
 With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), idle browsers in a browser pool incur no usage charges, and you're never charged for proxies.
@@ -55,38 +56,9 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 | HIPAA compliance (BAA) | ❌ | ❌ | ❌ | ✅ |
 
 
-## Concurrency limits
+## Limits
 
-Kernel enforces a single concurrency limit covering all browsers you run at once—whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
-
-| Feature | Developer | Hobbyist | Start-Up | Enterprise |
-| --- | --- | --- | --- | --- |
-| Concurrent browsers | 5 | 10 | 150 | Custom |
-| App invocations | 5 | 10 | 50 | Custom |
-| App invocations (per-app) | 5 | 10 | 20 | Custom |
-| Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
-
-#### Notes
-- Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired—a pool sized to 40 browsers uses 40 of your limit.
-- Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
-- Limits are org-wide by default unless stated otherwise.
-
-
-## Rate limiting
-
-Kernel enforces per-organization rate limits on API requests. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
-
-Rate-limited endpoints include these headers on every response:
-
-| Header | Description |
-| --- | --- |
-| `X-RateLimit-Limit` | Maximum requests allowed per minute |
-| `X-RateLimit-Remaining` | Requests remaining in the current window |
-| `Retry-After` | Seconds to wait before retrying (only on `429` responses) |
-
-All Kernel SDKs automatically retry `429` responses up to 2 times, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
-
-If you need higher rate limits, [contact us](https://calendly.com/d/d3tn-5kp-5yt).
+Concurrency, rate limits, and per-browser resources for each plan are on [concurrency and limits](/browsers/concurrency-and-limits).
 
 ## FAQ
 
@@ -97,7 +69,7 @@ Billing starts when your code begins executing and stops when it finishes. You a
 
 Browsers created by an invocation are billed separately for their active runtime at the browser rates above. Services your code calls, such as an LLM API, also bill you independently.
 
-The [app invocation limits](#concurrency-limits) are concurrency limits, not a number of invocations included with your plan.
+The [app invocation limits](/browsers/concurrency-and-limits#concurrency) are concurrency limits, not a number of invocations included with your plan.
 </Accordion>
 <Accordion title="how can i control my team's usage spending?">
   see this guide on [spending controls](/info/spending-caps).

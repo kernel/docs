@@ -5,6 +5,16 @@ description: "Control the computer's mouse, keyboard, and screen"
 
 Use OS-level controls to move and click the mouse, type and press keys, scroll, drag, and capture screenshots from a running browser session. Both `moveMouse` and `dragMouse` use human-like [Bézier curves](https://en.wikipedia.org/wiki/B%C3%A9zier_curve) by default.
 
+## Why computer use for agents
+
+Kernel's computer controls are built to match how computer-use models were trained — the same primitives the model emits (screenshot, click at coords, type, key, scroll, drag) map 1:1 onto the API. There's no harness translating model output into framework calls.
+
+- **Native fit.** Screenshot, click, type, key, scroll, drag — the primitives the model already speaks.
+- **Faster screenshots.** Captures bypass CDP, which removes the largest source of latency in a vision loop.
+- **Better against bot detection.** No CDP connection means no CDP fingerprint to leak. Pairs naturally with [stealth mode](/browsers/bot-detection/stealth) and [residential proxies](/proxies/residential).
+- **Human-like input.** OS-level events with Bézier-curve mouse paths, variable typing speed, and configurable mistype rate.
+- **Not DOM-limited.** Screenshots capture the full VM, so the agent can see and interact with native dialogs, canvas elements, iframes, and PDFs — not just things you can address with a selector.
+
 ## Click the mouse
 
 Simulate mouse clicks at specific coordinates. You can select the button, click type (down, up, click), number of clicks, and optional modifier keys to hold.

@@ -1,5 +1,6 @@
 ---
-title: "Overview"
+title: "Vaults Overview"
+sidebarTitle: "Overview"
 description: "Group credentials and payment items, collect values, and control their use by attached browsers"
 ---
 
@@ -26,6 +27,17 @@ navigation and submission, start with [Fill from Vault](/auth/fill-from-vault).
   credential items currently don't use a provider or wallet. for payment items,
   see [wallet integrations](/integrations/wallets/overview).
 </Note>
+
+## Choose where credentials come from
+
+a `credential` item can get its values from three places. all three end with the browser filling the login without your agent reading the values.
+
+| | [KERNEL-hosted collection](/vaults/credentials) | [an existing vault](/vaults/existing-credential-vault) | [1Password](/vaults/1password) |
+| --- | --- | --- | --- |
+| where the secret lives | encrypted in a KERNEL `credential` item | an encrypted copy in a KERNEL `credential` item | in the user's 1Password account |
+| how it gets there | the user enters it in a KERNEL-hosted form, or your backend writes it | your backend copies it from the vault you already use and keeps it in sync | the user links their 1Password account once |
+| who approves each use | your application or agent, when it calls `fill` | your application or agent, when it calls `fill` | the user, in the 1Password app |
+| pick it when | you're collecting credentials from users for the first time | your credentials already live in another secrets manager | your users keep logins in a private 1Password vault |
 
 ## How vaults work
 
@@ -72,7 +84,7 @@ availability.
 
 <a id="fill-or-use-payment-aliases" />
 
-### Inject values with KERNEL's fill api
+### Inject values with KERNEL's fill API
 
 retrieve the item and require `fill` in `available_operations`. your controller authorizes the destination and supplies field names and selectors, not the stored values. KERNEL checks the browser attachment and item lifecycle, validates the target inputs, and writes values into the attached browser.
 

@@ -6,6 +6,9 @@
     { "source": "/careers/backend-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/engineer-new-grad", "destination": "https://jobs.ashbyhq.com/usekernel" },
     { "source": "/careers/customer-engineer", "destination": "https://jobs.ashbyhq.com/usekernel" },
+    { "source": "/browsers/bot-detection/hcaptcha", "destination": "/browsers/bot-detection/stealth#hcaptcha-beta" },
+    { "source": "/apps/secrets", "destination": "/apps/deploy#secrets" },
+    { "source": "/apps/stop", "destination": "/apps/invoke#stop-an-invocation" },
     { "source": "/auth/agent/overview", "destination": "/auth/managed-auth" },
     { "source": "/auth/agent/hosted-ui", "destination": "/auth/hosted-ui" },
     { "source": "/auth/agent/programmatic", "destination": "/auth/programmatic" },
@@ -19,8 +22,9 @@
     { "source": "/profiles.md", "destination": "/browsers/profiles.md" },
     { "source": "/profiles/overview", "destination": "/browsers/profiles" },
     { "source": "/profiles/overview.md", "destination": "/browsers/profiles.md" },
-    { "source": "/profiles/credentials", "destination": "/auth/credentials" },
-    { "source": "/profiles/credentials.md", "destination": "/auth/credentials.md" },
+    { "source": "/profiles/credentials", "destination": "/auth/configuration#credentials-and-auto-reauth" },
+    { "source": "/profiles/credentials.md", "destination": "/auth/configuration.md" },
+    { "source": "/auth/credentials", "destination": "/auth/configuration#credentials-and-auto-reauth" },
     { "source": "/profiles/managed-auth", "destination": "/auth/managed-auth" },
     { "source": "/profiles/managed-auth.md", "destination": "/auth/managed-auth.md" },
     { "source": "/profiles/managed-auth/overview", "destination": "/auth/managed-auth" },
@@ -103,6 +107,9 @@
       }
     ]
   },
+  "seo": {
+    "indexing": "all"
+  },
   "navigation": {
     "tabs": [
       {
@@ -112,24 +119,47 @@
             "group": "Overview",
             "pages": [
               "index",
-              "introduction/create",
-              "introduction/control",
-              "introduction/observe",
-              "introduction/scale"
+              "overview/products",
+              "overview/concepts",
+              "overview/why-kernel"
             ]
           },
           {
-            "group": "Working with your browser",
+            "group": "Start building",
+            "pages": [
+              "start/quickstart",
+              "skills/overview",
+              "integrations/overview",
+              "cookbooks"
+            ]
+          },
+          {
+            "group": "How it works",
             "pages": [
               {
-                "group": "Basics",
-                "expanded": true,
+                "group": "Configure",
                 "pages": [
-                  "browsers/live-view",
-                  "browsers/termination",
-                  "browsers/standby",
-                  "browsers/headless",
-                  "info/projects",
+                  "introduction/configure",
+                  {
+                    "group": "Stealth",
+                    "pages": [
+                      "browsers/bot-detection/overview",
+                      "browsers/bot-detection/stealth",
+                      "browsers/bot-detection/web-bot-auth"
+                    ]
+                  },
+                  {
+                    "group": "Proxies",
+                    "pages": [
+                      "proxies/overview",
+                      "proxies/residential",
+                      "proxies/isp",
+                      "proxies/mobile",
+                      "proxies/datacenter",
+                      "proxies/custom",
+                      "proxies/errors"
+                    ]
+                  },
                   {
                     "group": "Profiles",
                     "pages": [
@@ -137,59 +167,6 @@
                       "browsers/profiles/save-and-reuse",
                       "browsers/profiles/concurrency",
                       "browsers/profiles/agent-patterns"
-                    ]
-                  }
-                ]
-              },
-              {
-                "group": "Intermediate",
-                "expanded": true,
-                "pages": [
-                  {
-                    "group": "Bot Anti-Detection",
-                    "pages": [
-                      "browsers/bot-detection/overview",
-                      "browsers/bot-detection/stealth",
-                      "browsers/bot-detection/hcaptcha",
-                      {
-                        "group": "Proxies",
-                        "pages": [
-                          "proxies/overview",
-                          "proxies/custom",
-                          "proxies/residential",
-                          "proxies/mobile",
-                          "proxies/isp",
-                          "proxies/datacenter",
-                          "proxies/errors"
-                        ]
-                      },
-                      "browsers/bot-detection/web-bot-auth",
-                      "bots"
-                    ]
-                  },
-                  {
-                    "group": "Auth",
-                    "pages": [
-                      "auth/overview",
-                      {
-                        "group": "Fill from Vault",
-                        "pages": [
-                          "auth/fill-from-vault"
-                        ]
-                      },
-                      {
-                        "group": "Managed Auth",
-                        "pages": [
-                          "auth/managed-auth",
-                          "auth/hosted-ui",
-                          "auth/react",
-                          "auth/programmatic",
-                          "auth/configuration",
-                          "auth/connection-lifecycle",
-                          "auth/credentials",
-                          "auth/faq"
-                        ]
-                      }
                     ]
                   },
                   {
@@ -202,161 +179,123 @@
                       "vaults/1password"
                     ]
                   },
-                  "browsers/payments",
-                  "browsers/replays",
-                  "browsers/viewport",
-                  "browsers/regions",
-                  "browsers/gpu-acceleration",
-                  "config-registry",
-                  "info/api-keys",
-                  "info/audit-logs",
-                  "browsers/file-io",
-                  "browsers/process-execution",
-                  "browsers/curl",
-                  "browsers/ssh",
-                  "browsers/computer-controls",
-                  "browsers/playwright-execution",
-                  "browsers/webmcp",
-                  "browsers/repl"
+                  {
+                    "group": "Authentication",
+                    "pages": [
+                      "auth/overview",
+                      "auth/fill-from-vault",
+                      {
+                        "group": "Managed Auth",
+                        "pages": [
+                          "auth/managed-auth",
+                          "auth/hosted-ui",
+                          "auth/react",
+                          "auth/programmatic",
+                          "auth/configuration",
+                          "auth/connection-lifecycle"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "group": "Payments",
+                    "pages": [
+                      "browsers/payments",
+                      "integrations/wallets/overview",
+                      "integrations/wallets/stripe-link",
+                      "integrations/wallets/agentcard"
+                    ]
+                  },
+                  "config-registry"
                 ]
               },
               {
-                "group": "Advanced",
-                "expanded": true,
+                "group": "Control",
                 "pages": [
-                  "browsers/extensions",
-                  "browsers/private-networking",
-                  "browsers/chrome-policies",
+                  "introduction/control",
+                  "browsers/playwright-execution",
+                  "browsers/computer-controls",
+                  "browsers/webmcp",
+                  "browsers/repl",
+                  "browsers/process-execution",
+                  "browsers/file-io",
                   {
-                    "group": "Telemetry",
+                    "group": "Code Execution Platform",
+                    "pages": [
+                      "apps/develop",
+                      "apps/deploy",
+                      "apps/invoke",
+                      "apps/status",
+                      "apps/logs"
+                    ]
+                  }
+                ]
+              },
+              {
+                "group": "Scale",
+                "pages": [
+                  "introduction/scale",
+                  "browsers/concurrency-and-limits",
+                  "browsers/performance",
+                  "browsers/pools"
+                ]
+              },
+              {
+                "group": "Observe",
+                "pages": [
+                  "introduction/observe",
+                  "browsers/live-view",
+                  "browsers/replays",
+                  {
+                    "group": "Browser Telemetry",
                     "pages": [
                       "browsers/telemetry/overview",
                       "browsers/telemetry/categories",
                       "browsers/telemetry/streaming",
                       "browsers/telemetry/export"
                     ]
-                  },
-                  "browsers/pools"
+                  }
                 ]
               },
               {
-                "group": "FAQ",
+                "group": "Manage",
                 "pages": [
-                  "browsers/performance"
+                  "introduction/manage",
+                  "info/projects",
+                  "info/api-keys",
+                  "info/audit-logs",
+                  "info/network-access",
+                  "info/spending-caps"
                 ]
               }
             ]
           },
           {
-            "group": "Integrations",
+            "group": "Partnering with KERNEL",
             "pages": [
-              "integrations/overview",
-              "integrations/browser-use",
-              {
-                "group": "Claude",
-                "icon": "/images/integration-icons/claude.svg",
-                "pages": [
-                  "integrations/claude/overview",
-                  "integrations/claude/claude-code-and-desktop",
-                  "integrations/claude/claude-agent-sdk",
-                  "integrations/claude/claude-managed-agents"
-                ]
-              },
-              {
-                "group": "Computer Use Models",
-                "icon": "/images/integration-icons/computer-cursor-rounded.svg",
-                "pages": [
-                  "integrations/computer-use/overview",
-                  "integrations/computer-use/anthropic",
-                  "integrations/computer-use/gemini",
-                  "integrations/computer-use/openagi",
-                  "integrations/computer-use/openai",
-                  "integrations/computer-use/tzafon",
-                  "integrations/computer-use/yutori"
-                ]
-              },
-              {
-                "group": "Wallets",
-                "icon": "/images/integration-icons/payments.svg",
-                "pages": [
-                  "integrations/wallets/overview",
-                  "integrations/wallets/stripe-link",
-                  "integrations/wallets/agentcard"
-                ]
-              },
-              "integrations/hermes-agent",
-              "integrations/laminar",
-              "integrations/replit",
-              "integrations/stagehand",
-              {
-                "group": "Stripe Projects",
-                "icon": "/images/integration-icons/stripe.svg",
-                "pages": [
-                  "integrations/stripe-projects",
-                  "integrations/stripe-projects-browser"
-                ]
-              },
-              "integrations/terraform",
-              "integrations/valtown",
-              {
-                "group": "Vercel",
-                "icon": "/images/integration-icons/vercel.svg",
-                "pages": [
-                  "integrations/vercel/overview",
-                  "integrations/vercel/agent-browser",
-                  "integrations/vercel/ai-sdk",
-                  "integrations/vercel/marketplace",
-                  "integrations/vercel/eve-extension",
-                  "integrations/vercel/foreman",
-                  "integrations/vercel/fx"
-                ]
-              },
-              "integrations/vibium",
-              "integrations/1password"
-            ]
-          },
-          {
-            "group": "deploying your agent",
-            "pages": [
-              "apps/develop",
-              "apps/deploy",
-              "apps/invoke",
-              "apps/stop",
-              "apps/secrets",
-              "apps/status",
-              "apps/logs"
-            ]
-          },
-          {
-            "group": "Agent Skills",
-            "pages": [
-              "skills/overview",
-              "skills/kernel-cli",
-              "skills/bot-detection",
-              "skills/profiles",
-              "skills/kernel-auth",
-              "skills/create-site-skills"
-            ]
-          },
-          {
-            "group": "Community",
-            "pages": [
-              "community/github",
-              "community/discord"
-            ]
-          },
-          {
-            "group": "Info",
-            "pages": [
-              "info/network-access",
-              "browsers/faq",
-              "info/concepts",
-              "info/zero-data-retention",
               "info/pricing",
-              "info/spending-caps",
+              "info/mpp",
+              {
+                "group": "Enterprise",
+                "pages": [
+                  "info/enterprise",
+                  "security",
+                  "shared-responsibility-model",
+                  "info/zero-data-retention",
+                  "security-vulnerability-reporting",
+                  "bots",
+                  "info/trust-center",
+                  "info/contact-sales"
+                ]
+              },
               "info/support",
-              "info/unikernels",
-              "info/mpp"
+              {
+                "group": "Community",
+                "pages": [
+                  "community/github",
+                  "community/discord"
+                ]
+              }
             ]
           }
         ]
@@ -364,45 +303,6 @@
       {
         "tab": "API Reference",
         "openapi": "https://api.onkernel.com/spec.json"
-      },
-      {
-        "tab": "Cookbooks",
-        "pages": [
-          "cookbooks",
-          {
-            "group": "Common Patterns",
-            "pages": [
-              "browsers/playwright-computer-use-fallback",
-              "browsers/code-mode-webmcp",
-              "browsers/telemetry/pausing-for-captcha-solves",
-              "browsers/enable-payments-in-browser-agent",
-              "browsers/use-vault-credentials-in-browser-agent"
-            ]
-          },
-          {
-            "group": "Harnesses & Models",
-            "pages": [
-              "cookbooks/ai-sdk-agent",
-              "cookbooks/browser-use-model",
-              "cookbooks/claude-managed-agents",
-              "cookbooks/claude-computer-use-loop",
-              "cookbooks/e2b",
-              "cookbooks/e2e-kernel",
-              "cookbooks/eve-foreman",
-              "cookbooks/eve-managed-auth",
-              "cookbooks/fx-colocated-agent",
-              "cookbooks/jev-browser-use",
-              "cookbooks/jev-browser-use-val-town",
-              "cookbooks/mastra-web-task-assistant",
-              "cookbooks/modal-web-scraper",
-              "cookbooks/modal-pr-qa-agent",
-              "cookbooks/personal-shopper",
-              "cookbooks/stagehand-google-cua-agent",
-              "cookbooks/tinker-rl",
-              "cookbooks/vibium"
-            ]
-          }
-        ]
       },
       {
         "tab": "CLI",

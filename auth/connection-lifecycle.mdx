@@ -161,7 +161,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-
 
 ### Recovering
 
-- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`credentials_invalid`** — Update the linked [credential](/auth/configuration#credentials-and-auto-reauth) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
 - **`totp_code_rejected`** — Retry with a code from a new TOTP window. If independently generated codes keep failing, reconnect the account and update its TOTP secret. One rejected code does not prove that the saved secret is stale.
 - **`totp_required` / `sms_code_required` / `email_code_required`** — Start an interactive login and provide the requested code. Add a TOTP secret to the linked credential to make future authenticator-code challenges automatic.
 - **`account_choice_required` / `customer_input_required` / `external_action_required`** — Start an interactive login and complete the choice, field, or external approval. Kernel does not guess an identity or trigger notification-producing steps during unattended reauth.
@@ -209,5 +209,5 @@ To record every auth session on the connection (logins, health checks, and reaut
 ## See also
 
 - [Connection Configuration](/auth/configuration) — `health_check_interval`, `proxy`, `record_session`, and other shared options
-- [Credentials](/auth/credentials) — what gets stored and how it powers auto-reauth
+- [Credentials](/auth/configuration#credentials-and-auto-reauth) — what gets stored and how it powers auto-reauth
 - [FAQ](/auth/faq) — quick answers to common questions

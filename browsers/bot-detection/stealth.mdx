@@ -108,20 +108,24 @@ _ = kernelBrowser
 
 If you're looking for proxy-level configuration with Kernel browsers, see [Proxies](/proxies/overview).
 
-## CAPTCHA Handling Behavior
+## CAPTCHA handling behavior
 
 Below are tips for working with Kernel's Stealth Mode auto-CAPTCHA solver across different challenge types and automation frameworks.
 
-### Anthropic Computer Use
+### Anthropic computer use
 
 Anthropic Computer Use stops when it encounters a CAPTCHA. Use Kernel's auto-CAPTCHA solver by adding this to your prompt:
 
 `"If you see a CAPTCHA or similar test, just wait for it to get solved automatically by the browser."`
 
-### Cloudflare Challenge
+### Cloudflare challenge
 
 When encountering a Cloudflare challenge, our auto-CAPTCHA solver will attempt to handle it. Once the "Ready" message appears on the screen, continue with your intended browser actions (e.g., entering credentials and submitting a login attempt). 
 
 <Info>
 After the "Ready" message appears, don't click the Cloudflare CAPTCHA checkbox — this can interfere with the solver.
 </Info>
+
+### hCaptcha (beta)
+
+KERNEL can also attempt to solve supported hCaptcha challenges automatically. The hCaptcha solver is in beta and isn't enabled for every organization by default. To turn it on, [contact support](/info/support) with the website or workflow you're testing, your expected volume, and whether you already use stealth mode, [profiles](/browsers/profiles), or custom [proxies](/proxies/overview).
