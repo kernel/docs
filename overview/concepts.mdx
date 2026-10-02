@@ -1,6 +1,6 @@
 ---
 title: "Important Concepts"
-description: "How models, agent frameworks, system prompts, tools, skills, browser automation frameworks, and browser infrastructure fit together"
+description: "How the agent framework, browser infrastructure, and the internet fit together"
 mode: "wide"
 ---
 
@@ -10,84 +10,63 @@ A browser agent is built from a few pieces. Knowing which piece does what tells 
   <img src="/images/overview/agent-stack.svg" alt="an agent framework, holding the model, system prompt, tools, skills, and browser automation framework, drives KERNEL browser infrastructure, which carries the chromium vm, stealth, proxies, profiles, auth, and payments, and connects to the internet over https." />
 </Frame>
 
-## Model
+## Agent framework
+
+The agent framework, or harness, runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. You either build with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [Vercel AI SDK](/integrations/vercel/ai-sdk), or [Browser Use](/integrations/browser-use), or you use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop) or [Replit](/integrations/replit).
+
+**On KERNEL:** the loop can run next to the browser. The [code execution platform](/apps/develop) deploys your agent alongside its browser, so actions don't cross the network. See [how you drive the browser](/introduction/control) for where the loop should run.
+
+The harness is made of these pieces:
+
+### Model
 
 The model decides the next action from what it's given: the system prompt, the conversation so far, tool results, and screenshots. Claude, GPT, and Gemini are general-purpose models. [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes, so they can drive a page without selectors.
 
-The model never touches the browser. It returns text or a tool call, and something else carries it out.
+The model never touches the browser. It returns text or a tool call, and the harness carries it out.
 
-## Agent framework or harness
-
-The agent framework runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. "Harness" usually means the loop plus everything configured around it: the system prompt, the tools, and the skills.
-
-You either build with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [Vercel AI SDK](/integrations/vercel/ai-sdk), or [Browser Use](/integrations/browser-use), or you use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop) or [Replit](/integrations/replit), and give it a browser.
-
-## System prompt
+### System prompt
 
 The system prompt is the instruction set the harness sends with every request to the model: its role, its rules, and the format its answers should take. Because it's sent on every turn, it's the place for guidance that applies to every task, such as "log out before you finish" or "never submit a payment without confirming the total".
 
-## Tools
+### Tools
 
-A tool is a function the model can ask the harness to call. Each tool has a name, a description, and an input schema. The model only chooses the tool and its arguments; the harness runs it and returns the result.
+A tool is a function the model can ask the harness to call. Each tool has a name, a description, and an input schema. The model only chooses the tool and its arguments; the harness runs it and returns the result. For a browser agent, tools look like "navigate to this URL", "click at these coordinates", "take a screenshot", or "run this code in the page".
 
-For a browser agent, tools look like "navigate to this URL", "click at these coordinates", "take a screenshot", or "run this Playwright code". KERNEL provides ready-made ones; see [what KERNEL provides to run automations](#what-kernel-provides-to-run-automations).
+**On KERNEL:** the [MCP server](/reference/mcp-server) exposes KERNEL as tools to any MCP client. [WebMCP](/browsers/webmcp) goes a step further and lets your agent call the structured tools a site exposes, instead of guessing which controls to click.
 
-## Skills
+### Skills
 
 A skill is a packaged set of instructions and reference files that an agent loads only when a task needs it. That's the difference from a system prompt, which is sent on every turn. Tools let an agent do something; skills teach it how and when to do it well.
 
-KERNEL publishes [Agent Skills](/skills/overview) that teach coding agents the KERNEL CLI, the SDKs, bot detection, and authentication, so they don't have to re-read the docs every session.
+**On KERNEL:** [Agent Skills](/skills/overview) teach coding agents the KERNEL CLI, the SDKs, bot detection, and authentication, so they don't re-read the docs every session.
 
-## Browser automation framework
+### Browser automation framework
 
-A browser automation framework turns an action like "click the submit button" or "fill in this form" into browser protocol commands, and sends them to the browser over the Chrome DevTools Protocol (CDP) or WebDriver BiDi.
+A browser automation framework turns the model's tool calls into actions on the page. There are two ways to act on a page, and most production agents use both:
 
-- **Deterministic:** [Playwright](/browsers/playwright-execution) and Puppeteer do exactly what your code says, using selectors you write.
-- **AI-assisted:** [Stagehand](/integrations/stagehand) and [Agent Browser](/integrations/vercel/agent-browser) add natural-language actions on top, so the model can describe what to do instead of naming a selector.
+- **Through the DOM.** [Playwright](/browsers/playwright-execution) and Puppeteer find elements with selectors and act on them. This is fast, cheap, and predictable, but it breaks when the page doesn't cooperate, such as canvas apps, drag-and-drop, or selectors that change.
+- **Through the screen.** [Computer use](/browsers/computer-controls) takes a screenshot and clicks, types, or drags at coordinates, the way a person would. It works on any page, but each step is slower and costs a model call.
 
-An automation framework drives a browser but doesn't run one. It needs a browser to connect to.
+The common pattern is DOM actions for most of the task, with computer use for the steps the DOM can't handle.
+
+**On KERNEL:** you get both on the same browser, so an agent can switch between them without losing its tabs or page state:
+
+- [Playwright execution](/browsers/playwright-execution) runs Playwright code inside the browser's vm and returns the result in one call.
+- [Computer controls](/browsers/computer-controls) give you OS-level mouse, keyboard, and screenshots that match what computer use models emit.
+- The [Browser REPL](/browsers/repl) keeps a JavaScript runtime next to the browser, so an agent can define helpers once and reuse them across turns.
+- [Browser Loop](/browsers/browser-loop) packages these as tools for each model provider, including the handoff from Playwright to computer use. The [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) cookbook walks through it.
+
+If you'd rather not build this layer, start from a framework that already mixes the two, such as [Agent Browser](/integrations/vercel/agent-browser) or [Stagehand](/integrations/stagehand), and point it at a KERNEL browser.
 
 ## Browser infrastructure
 
 Browser infrastructure is where the browser runs and what it carries. KERNEL creates each chromium browser in its own vm, and around it handles what agents need on real websites: [stealth](/browsers/bot-detection/overview) and [proxies](/proxies/overview), [profiles](/browsers/profiles), [logins](/auth/overview), [payments](/browsers/payments), and [live view, replays, and telemetry](/introduction/observe) for debugging.
 
-Everything above this layer is interchangeable. You can switch models, frameworks, or automation libraries and keep the same browsers, profiles, and credentials.
+**On KERNEL:** [Config Registry](/config-registry) gives you browser and proxy settings that have already worked on the site you're automating.
 
-## What KERNEL provides to run automations
+## The internet
 
-Beyond hosting the browser, KERNEL gives your agent faster and more reliable ways to act on it. Most of these run inside the browser's vm, so actions skip the network round trip between your code and the browser.
-
-<Columns className="responsive-columns" cols={3}>
-  <Card title="Playwright execution" icon="play" href="/browsers/playwright-execution">
-    Run a Playwright script inside the browser's vm and get the result back in one call.
-  </Card>
-  <Card title="Browser REPL" icon="square-terminal" href="/browsers/repl">
-    A persistent JavaScript runtime next to the browser. Define helpers once and reuse them across turns.
-  </Card>
-  <Card title="WebMCP" icon="plug" href="/browsers/webmcp">
-    Call the structured tools a site exposes instead of guessing which controls to click.
-  </Card>
-  <Card title="Browser Loop" icon="arrows-rotate" href="/browsers/browser-loop">
-    Open-source browser tools that give each model provider the declarations it expects and run every action on a KERNEL browser.
-  </Card>
-  <Card title="Computer controls" icon="computer-mouse" href="/browsers/computer-controls">
-    OS-level mouse, keyboard, and screenshots that match what computer use models emit.
-  </Card>
-  <Card title="Code execution platform" icon="server" href="/apps/develop">
-    Deploy the whole agent next to its browser, and invoke it on demand or on a schedule.
-  </Card>
-  <Card title="MCP server" icon="network-wired" href="/reference/mcp-server">
-    KERNEL's API as tools for any MCP client, including the REPL, WebMCP, and computer controls.
-  </Card>
-  <Card title="Agent Skills" icon="wand-magic-sparkles" href="/skills/overview">
-    Teach coding agents the KERNEL CLI, SDKs, bot detection, and auth.
-  </Card>
-  <Card title="Config Registry" icon="sliders" href="/config-registry">
-    Browser and proxy settings that have already worked on the site you're automating.
-  </Card>
-</Columns>
-
-To see several of these together, the [code mode with WebMCP](/browsers/code-mode-webmcp) cookbook uses WebMCP for the actions a site supports and Browser REPL helpers for everything else.
+Real websites weren't built for agents. They check for bots, put the useful pages behind logins, and end in checkouts. The agent framework decides what to do; browser infrastructure is what lets it get through.
 
 ## Which piece to change
 
