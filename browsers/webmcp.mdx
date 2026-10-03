@@ -104,6 +104,8 @@ A frame's origin can differ from the top-level page's origin. Check both the top
 
 ## Invoke a tool
 
+To pass credential fields without putting their values in the tool input, use a [credential item's `webmcp_invoke` operation](/vaults/credentials#use-a-credential-with-webmcp) instead of calling the browser's invoke endpoint directly.
+
 Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and an `input` object matching its `input_schema`. Send `{}` when the tool takes no inputs. The optional `timeout_sec` is an integer from **1 to 120**, with a default of **60 seconds**.
 
 The serialized `input` is limited to **1 MiB**. The raw JSON request body is limited to **1 MiB plus 4 KiB** for the request envelope.
