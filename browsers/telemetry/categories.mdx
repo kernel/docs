@@ -86,6 +86,20 @@ A visible captcha challenge can require multiple solver tasks. When the identifi
 
 Challenge results are currently emitted for visible reCAPTCHA v2, hCaptcha, and press-and-hold challenges. Other captcha types can emit task events without a challenge result. Telemetry delivery is best-effort and isn't ordered: a start can arrive after its result, and any event can be absent. When you need a challenge-level outcome, wait for a bounded interval and fall back to available task results and the current page state.
 
+What each `captcha_type` emits today:
+
+| `captcha_type` | Task events | `captcha_challenge_result` | `challenge_id` on task events |
+| --- | --- | --- | --- |
+| `hcaptcha` | Yes | Yes | Yes |
+| `press_and_hold` | Yes | Yes | Yes |
+| `recaptcha_v2` | Yes | Yes | Can be absent |
+| `turnstile` | Yes | No | Can be absent |
+| `geetest` | Yes | No | Can be absent |
+| `recaptcha_v3` | Yes | No | Can be absent |
+| `other` | Yes | No | Can be absent |
+
+Challenge results for `recaptcha_v2` and `hcaptcha` report `solved` or `abandoned`. `failure` and `timeout` are reported for `press_and_hold`, whose solver has an explicit attempt budget.
+
 Task events carry a `task_id`, but not all of them carry a `challenge_id`. Kernel sets `challenge_id` from tracking the challenge widget in the page - the same tracking that produces `captcha_challenge_result` - so a task the automatic solver runs without it reports a `task_id` only. Those task events can't be joined to a challenge result for the same page, even when one is emitted. Pair a start with its result on `task_id`, and use `challenge_id` for grouping only when it's there.
 
 Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
