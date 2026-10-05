@@ -121,7 +121,7 @@ These categories report what's happening in the page. Capturing any of them atta
 | --- | --- | --- |
 | `console` | Console output from the page | `console_log`, `console_error` |
 | `network` | Network requests, responses, and failures | `network_request`, `network_response`, `network_loading_failed`, `network_idle`, `proxy_error` |
-| `page` | Navigation and page lifecycle, including performance signals and renderer crashes | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_crashed`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
+| `page` | Navigation and page lifecycle, including performance signals, renderer crashes, and workers ending | `page_navigation`, `page_dom_content_loaded`, `page_load`, `page_tab_opened`, `page_crashed`, `worker_ended`, `page_layout_shift`, `page_lcp`, `page_layout_settled`, `page_navigation_settled` |
 | `interaction` | Browser-native input in the page (clicks, keys, scroll) | `interaction_click`, `interaction_key`, `interaction_scroll_settled` |
 | `screenshot` | Periodic screenshots of the session | `monitor_screenshot` |
 
@@ -150,6 +150,12 @@ The 1 s layout window covers late-loading web fonts and deferred image reflows. 
 </Note>
 
 Kernel computes `interaction_scroll_settled` the same way: it fires 300 ms after the last `scroll` event on a target, and only when the position moved more than 5 px on either axis, so scroll jitter doesn't emit an event.
+
+### Renderer crashes and workers ending
+
+`page_crashed` reports that a page's renderer process crashed (an "Aw, Snap!" failure) while the browser stayed up.
+
+`worker_ended` reports that a shared worker or service worker stopped running, for example when a shared worker closes itself or the last tab using it closes, or when a newer version replaces a service worker. A worker ending isn't a crash. Chrome reports a worker that ended normally the same way as one whose process exited, so both produce `worker_ended`. When a renderer crashes, each page it hosted still reports `page_crashed`.
 
 ### The monitor category
 
