@@ -72,7 +72,16 @@ Acquire a browser from the pool.
 | Flag | Description |
 |------|-------------|
 | `--timeout <seconds>` | Acquire timeout in seconds. |
+| `--profile-id <id>` | Profile to load before the acquired browser is returned. The pool must not already have a profile. |
+| `--profile-name <name>` | Profile to load before the acquired browser is returned, by name. Mutually exclusive with `--profile-id`. |
+| `--save-changes` | Persist changes back to the acquire-time profile when the session ends. Defaults to `false`; without it the browser is destroyed on release without saving. |
 | `--output json`, `-o json` | Output raw JSON object. |
+
+A browser that loads an acquire-time profile is destroyed and replaced on release rather than returned to the pool, so profile state can't leak into another lease. See [Per-user profiles with browser pools](/browsers/pools#per-user-profiles-with-browser-pools).
+
+```bash
+kernel browser-pools acquire my-pool --profile-name user-8f21c3 --save-changes
+```
 
 ## `kernel browser-pools release <id-or-name>`
 Release a browser back to the pool.
@@ -80,7 +89,7 @@ Release a browser back to the pool.
 | Flag | Description |
 |------|-------------|
 | `--session-id <id>` | Browser session ID to release. |
-| `--reuse` | Reuse the browser instance (default: `true`). |
+| `--reuse` | Reuse the browser instance (default: `true`). Ignored for a lease that loaded an acquire-time profile, which is always destroyed. |
 
 ## `kernel browser-pools delete <id-or-name>`
 Delete a browser pool.

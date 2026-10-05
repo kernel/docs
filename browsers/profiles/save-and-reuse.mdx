@@ -212,6 +212,10 @@ Set `start_url` when you create a browser if your automation requires a specific
 
 You can attach a profile to a running browser that was created without one. Loading the profile restarts Chromium, so reconnect your CDP or Playwright client afterward.
 
+<Info>
+If the browser comes from a [browser pool](/browsers/pools#per-user-profiles-with-browser-pools), bind the profile on the acquire call instead. It loads before the browser is returned, so your client connects to a browser that already has the profile rather than being restarted underneath it.
+</Info>
+
 <CodeGroup>
 ```typescript TypeScript
 const browser = await kernel.browsers.create();

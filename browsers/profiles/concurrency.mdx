@@ -116,9 +116,8 @@ A profile configured directly on a [browser pool](/browsers/pools#profiles-with-
 For per-user durable state:
 
 1. Create the pool without a profile.
-2. Acquire a browser.
-3. Attach the user's profile with `save_changes: true`.
-4. Release the browser with `reuse: false` so that user's state can't reach the next acquirer.
+2. Bind the user's profile on the acquire call, with `save_changes: true`.
+3. Drive the browser, then release it. An acquire-time profile always destroys the browser instead of returning it to the pool, so that user's state can't reach the next acquirer.
 
 See [Per-user profiles with browser pools](/browsers/pools#per-user-profiles-with-browser-pools) for complete examples.
 
