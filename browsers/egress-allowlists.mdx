@@ -76,7 +76,7 @@ Kernel answers a request for an unlisted destination with a `403` and sets the `
 
 HTTPS connections on ports other than 443 get a bare `403` without the page, which Chromium reports as `net::ERR_TUNNEL_CONNECTION_FAILED`.
 
-Blocked requests are also reported as `proxy_error` [telemetry](/browsers/telemetry/overview) events with the code `network_policy_denied`. See [proxy errors](/proxies/errors) for the other codes.
+Blocked requests are also reported as `proxy_error` [telemetry](/browsers/telemetry/overview) events with the code `network_policy_denied`. The bare `403`s on other ports are the exception: Chromium doesn't expose them, so those connections appear only as `network_loading_failed` events. See [proxy errors](/proxies/errors) for the other codes.
 
 ## CAPTCHAs
 
