@@ -10,6 +10,10 @@ ISP proxies provide a **static exit IP that persists across sessions** — every
 
 This makes ISP proxies suitable for use cases that require a stable IP, such as IP allowlists or [managed auth](/auth/managed-auth) health checks. For comparison with other proxy types, see [IP rotation behavior across proxy types](/proxies/overview).
 
+### Backup endpoint failover
+
+For some organizations, Kernel attaches a backup ISP endpoint from a different provider to each ISP proxy. If the primary endpoint refuses connections, traffic temporarily exits through the backup endpoint's IP and returns to the primary IP once it's reachable again. If you allowlist the proxy's IP, sites might see the backup IP during a primary outage.
+
 ## Configuration
 
 Create an ISP proxy with an exit IP in Singapore:
