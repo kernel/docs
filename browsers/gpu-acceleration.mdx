@@ -59,6 +59,62 @@ func main() {
 
 You can also enable GPU acceleration in the dashboard when deploying a browser under **Advanced Configuration**.
 
+## Large GPU browsers
+
+A standard GPU browser runs with 4 vCPUs, 6 GiB of memory, and a 2 GiB vGPU frame buffer. For graphics-heavy pages, request the large GPU browser by setting `memory` to `12GiB`. It doubles CPU, memory, and frame buffer: 8 vCPUs, 12 GiB of memory, and a 4 GiB frame buffer.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({
+  gpu: true,
+  memory: '12GiB',
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(
+    gpu=True,
+    memory="12GiB",
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		GPU:    kernel.Bool(true),
+		Memory: "12GiB",
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
+</CodeGroup>
+
+`12GiB` is the only `memory` value accepted together with `gpu: true`; omit `memory` to get the standard GPU browser. The `memory` field on the browser response reports the allocation you received.
+
+Large GPU browsers come from their own capacity. When none is available, creation fails with HTTP 529 and the `no_gpu_browsers_available` code rather than falling back to a standard GPU browser, so retry later or omit `memory` to get a standard GPU browser instead.
+
 ## Use cases
 
 GPU acceleration is useful for:
