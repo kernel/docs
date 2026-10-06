@@ -6,6 +6,7 @@ description: "Plan around your limits, keep browsers fast, and decide whether a 
 
 Scaling an agent on KERNEL comes down to three questions, in this order: how many browsers you can run and create, how fast each one starts, and whether your workload needs a browser pool. Most workloads scale on on-demand browsers alone. This guide assumes you're comfortable [creating](/introduction/configure) and [controlling](/introduction/control) browsers.
 
+<span id="overview" />
 ## 1. Know your limits
 
 Three limits shape a workload at scale, and each is covered in [concurrency and limits](/browsers/concurrency-and-limits):
@@ -20,6 +21,7 @@ Each plan has set limits, and they go up when you [upgrade your plan](/info/pric
 
 A browser is created in about 30ms at P50 and 105ms at P99 ([performance](/browsers/performance)). Most slow starts come from configuration rather than load: custom viewports, extensions, and kiosk mode restart Chromium on creation and add seconds. Check [troubleshooting latency](/browsers/performance#troubleshooting-latency) before reaching for anything else, and run your code next to the browser with [Playwright execution](/browsers/playwright-execution) or the [code execution platform](/apps/develop) to cut the time each action takes.
 
+<span id="when-to-use-a-pool-vs-on-demand" />
 ## 3. Decide between on-demand browsers and a browser pool
 
 We recommend defaulting to on-demand browsers, both when you're getting started and as you scale. Browser pools fit a specific type of workload, described below.
@@ -41,6 +43,7 @@ Reach for a **browser pool** when:
   If you're on an Enterprise plan, speak with your account manager about applicable rate limits for `browsers.create()` and what's best for your workloads.
 </Info>
 
+<span id="why-a-browser-pool" />
 ### What a browser pool gives you
 
 A [browser pool](/browsers/pools) keeps a set of identically-configured browsers ready for immediate use. Compared to creating browsers on demand, it gives you:
@@ -51,12 +54,14 @@ A [browser pool](/browsers/pools) keeps a set of identically-configured browsers
 
 The tradeoff: a browser pool counts against your concurrency limit whether or not its browsers are currently acquired — a pool sized to 40 holds 40 of your limit. Idle pooled browsers aren't billed, but they hold the slot.
 
+<span id="sizing" />
 ### Sizing a pool
 
 Watch `available_count` and target 10–20% available under normal load, resizing before traffic peaks rather than during them. See [Sizing a browser pool](/browsers/pools#sizing-a-browser-pool) for the full guidance.
 
 ## Architecture patterns
 
+<span id="direct-browser-creation-poc" />
 ### On-demand creation
 
 Creating a browser per task is the simplest approach. It's the right fit while you're building and when each task needs its own configuration.
@@ -102,6 +107,7 @@ async function processTask(taskData: any) {
 ```
 </Accordion>
 
+<span id="single-browser-pool-scaling" />
 ### Single browser pool
 
 For production workloads that run on the same configuration every time, a browser pool hands you ready-to-drive browsers, and acquiring from it isn't subject to the `browsers.create()` rate limit.
@@ -169,6 +175,7 @@ async function processTask(taskData: any) {
 - Always release browsers in a `finally` block to prevent browser pool exhaustion
 - Set `acquire_timeout_seconds` based on your SLA requirements
 
+<span id="queue-based-processing-high-scale" />
 ### Queue-based processing
 
 When request volume exceeds your concurrency or traffic arrives in unpredictable bursts, put a task queue in front of your browsers. The example below acquires from a browser pool; the same pattern works on demand, with `browsers.create()` in place of `acquire` and `deleteByID` in place of `release`.
