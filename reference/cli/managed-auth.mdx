@@ -142,7 +142,10 @@ Create a new credential.
 | `--name <name>` | Unique name for the credential (required). |
 | `--domain <domain>` | Target domain this credential is for (required). |
 | `--value <name=value>` | Field name/value pair (repeatable, e.g. `--value username=myuser --value password=mypass`). |
-| `--totp-secret <secret>` | Base32-encoded TOTP secret for 2FA. |
+| `--totp-secret <secret>` | Base32 TOTP secret (16–128 characters) or `otpauth://` provisioning URI. |
+| `--totp-algorithm <name>` | `SHA1` (default), `SHA256`, or `SHA512`. URI parameters override explicit settings. |
+| `--totp-digits <n>` | Code length, 6–9 digits (default 6). |
+| `--totp-period <seconds>` | Rotation period, 15–300 seconds (default 30). |
 | `--sso-provider <provider>` | SSO provider (e.g. `google`, `github`, `microsoft`). |
 | `--output json`, `-o json` | Output raw JSON object. |
 
@@ -170,7 +173,10 @@ Update a credential.
 |------|-------------|
 | `--name <name>` | New name for the credential. |
 | `--value <name=value>` | Field name/value pair to update (repeatable). |
-| `--totp-secret <secret>` | Base32-encoded TOTP secret (set to an empty string to remove). |
+| `--totp-secret <secret>` | Replacement base32 secret (16–128 characters) or `otpauth://` URI. Raw secret rotation retains stored settings when flags are omitted; a URI uses its own settings or defaults. |
+| `--totp-algorithm <name>` | `SHA1`, `SHA256`, or `SHA512`; requires `--totp-secret`. |
+| `--totp-digits <n>` | Code length, 6–9 digits; requires `--totp-secret`. |
+| `--totp-period <seconds>` | Rotation period, 15–300 seconds; requires `--totp-secret`. |
 | `--sso-provider <provider>` | SSO provider (set to an empty string to remove). |
 | `--output json`, `-o json` | Output raw JSON object. |
 
