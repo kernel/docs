@@ -36,7 +36,7 @@ Yes. Managed Auth and browser profiles are available during your trial period wi
 
 ## How do I verify a connection before starting a task?
 
-call `.login()` immediately before work that requires an authenticated session, then follow the connection until the flow reaches `SUCCESS`. don't gate the task only on the connection's current `status`, which reflects its latest completed health check. see [verify authentication before starting work](/auth/connection-lifecycle#verify-authentication-before-starting-work) for the full pattern.
+call `.login()` as a pre-task authentication check, then follow the connection until the flow reaches `SUCCESS`. when the connection has a saved auth check url, KERNEL verifies the existing session before attempting a login. if the flow pauses for user action, continue the same flow through the returned `hosted_url`; don't call `.login()` again, because that cancels the flow in progress. don't gate the task only on the connection's current `status`, which reflects its latest completed health check. see [verify authentication before starting work](/auth/connection-lifecycle#verify-authentication-before-starting-work) for the full pattern.
 
 ## What types of flows does Managed Auth support?
 
