@@ -12,9 +12,9 @@ Your agent runs in the sandbox, and its browser runs on Kernel. The agent doesn'
 
 - [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/install/), installed and signed in with `sbx login`
 - A [Kernel API key](https://dashboard.onkernel.com/api-keys)
-- Claude Code set up in Docker Sandboxes. See Docker's [agent guides](https://docs.docker.com/ai/sandboxes/agents/).
+- An agent set up in Docker Sandboxes, such as Claude Code. See Docker's [agent guides](https://docs.docker.com/ai/sandboxes/agents/).
 
-This guide covers local sandboxes.
+This guide uses Claude Code. The kit works with any agent whose sandbox includes npm, which the kit uses to install the Kernel CLI.
 
 ## Run an agent with the Kernel kit
 
@@ -26,7 +26,7 @@ This guide covers local sandboxes.
     sbx secret set kernel
     ```
 
-    `sbx` keeps the key in your OS keychain and makes it available to every sandbox.
+    `sbx` keeps the key on your host, usually in your OS keychain, and makes it available to every sandbox.
   </Step>
   <Step title="Start Claude Code with the kit">
     From your project directory, create a sandbox that runs Claude Code with the Kernel kit:
@@ -61,10 +61,10 @@ While the agent runs, open a second terminal on your host and run these checks a
 
 ```bash
 # The Kernel CLI is installed
-sbx exec kernel-demo sh -lc 'kernel --version'
+sbx exec kernel-demo kernel --version
 
 # The sandbox has a placeholder, not your API key
-sbx exec kernel-demo sh -lc 'echo "$KERNEL_API_KEY"'
+sbx exec kernel-demo printenv KERNEL_API_KEY
 
 # The host proxy authenticates Kernel API requests
 sbx exec kernel-demo kernel browsers list
@@ -102,9 +102,9 @@ Omit `--skill` to install every Kernel skill.
 
 ## How your API key stays on your host
 
-The kit declares `KERNEL_API_KEY` as a proxy-managed credential. Inside the sandbox, the variable holds the placeholder `proxy-managed`. When the Kernel CLI or SDK sends a request to `api.onkernel.com`, a proxy on your host overwrites the `Authorization` header with your real key before forwarding the request. Your agent can create and control browsers, but it never has your key, so it can't leak it.
+The kit declares `KERNEL_API_KEY` as a proxy-managed credential. Inside the sandbox, the variable holds the placeholder `proxy-managed`. When the Kernel CLI or SDK sends a request to `api.onkernel.com`, a proxy on your host overwrites the `Authorization` header with your real key before forwarding the request. Your agent can create and control browsers, but it can't read or exfiltrate your key. Anything in the sandbox can still make authenticated Kernel API calls while the sandbox runs.
 
-The proxy adds your key only to requests to `api.onkernel.com`. The kit also allows browser connections such as `wss://proxy.<region>.onkernel.com:8443/...`, but the proxy doesn't intercept them. Those connections carry their own token, and intercepting them would break the browser connection.
+The proxy adds your key only to requests to `api.onkernel.com`. The kit also allows browser connections, which go to other hosts under `onkernel.com` and `kernel.sh`, but the proxy doesn't intercept them. Those connections carry their own token, and intercepting them would break the browser connection.
 
 ### Rotate or scope your key
 
@@ -193,7 +193,8 @@ The kit adds these rules to the sandbox's network policy, on top of the policy y
 
 | Destination | Why the kit allows it |
 | --- | --- |
-| `*.onkernel.com` | Kernel API requests and browser connections |
+| `**.onkernel.com` | Kernel API requests and browser connections. `**.` matches subdomains at any depth. |
+| `*.kernel.sh` | Browser connections |
 | `registry.npmjs.org`, `*.npmjs.org` | Installing the Kernel CLI and TypeScript SDK |
 | `pypi.org`, `files.pythonhosted.org` | Installing the Python SDK |
 | `github.com`, `objects.githubusercontent.com`, `release-assets.githubusercontent.com` | Downloading the Kernel CLI binary during install |
@@ -208,13 +209,13 @@ sbx policy log kernel-demo
 
 - The kit uses Docker's v2 kit format. It works with built-in agents like `claude`, which also use v2 kits, but you can't combine it with v3 kits.
 - Add the kit when you create a sandbox. `sbx kit add` only accepts kits that set environment variables, install commands, and network rules, so it can't add this kit to an existing sandbox. To use Kernel in an existing project, create a new sandbox with `--kit`.
-- `latest` points to the newest published kit. To pin a version, use a dated tag from [Docker Hub](https://hub.docker.com/r/sbx/kernel-kit/tags), such as `docker.io/sbx/kernel-kit:20260924-d058fedc156325f87612d9bcd9bd313ab74ba100`. Dated tags never change.
+- `latest` points to the newest published kit. To pin a version, use a dated tag from [Docker Hub](https://hub.docker.com/r/sbx/kernel-kit/tags), such as `docker.io/sbx/kernel-kit:20260928-7da9425e640d172e36abe6de3499a1c75d416c0f`. Dated tags never change.
 
 ## Troubleshooting
 
 - If your agent reports `kernel: command not found`, the CLI install failed when `sbx` created the sandbox. Run `sbx policy log kernel-demo` to look for blocked npm or GitHub release downloads, then recreate the sandbox.
 - If Kernel requests fail authentication, the proxy isn't adding your key. Run `sbx secret ls` to confirm the `kernel` secret exists, then start the sandbox interactively to approve the credential request.
-- If browser creation succeeds but your agent can't connect to the browser, check `sbx policy log kernel-demo` for blocked `*.onkernel.com` requests. Your organization's sandbox policy might block them.
+- If browser creation succeeds but your agent can't connect to the browser, check `sbx policy log kernel-demo` for blocked requests to `onkernel.com` or `kernel.sh` hosts. Your organization's sandbox policy might block them.
 - If your agent doesn't use Kernel, ask for it by name, for example "Use the Kernel CLI to…", or point it to `/home/agent/.kernel/quickstart.md`.
 
 ## Clean up
