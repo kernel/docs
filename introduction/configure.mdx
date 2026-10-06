@@ -84,12 +84,11 @@ browser = kernel.browsers.create(
 </CodeGroup>
 
 - **[Viewport](/browsers/viewport):** defaults to 1920x1080 at 25Hz. A custom viewport restarts Chromium on creation, so use a [browser pool](/browsers/pools) if you need it to be instant.
-- **[Standby](/browsers/standby):** after 5 seconds with no CDP, WebDriver, live view, or computer controls activity, a browser goes into standby. It keeps its state and stops accruing usage cost until something reconnects.
 - **[Termination and timeouts](/browsers/termination):** `timeout_seconds` sets how long a browser can sit in standby before KERNEL deletes it. It defaults to 60 seconds and can be up to 72 hours. Delete browsers explicitly when you're done; Playwright's `browser.close()` doesn't delete them.
 
 ## More browser settings
 
-Most agents never need these, but they're there when you do:
+Often agents don't require these, but they're there when you do:
 
 - **[Regions](/browsers/regions):** run browsers in `us-east`, `eu-west`, or `ap-southeast`, closer to your code and your users.
 - **[Extensions](/browsers/extensions):** load unpacked Chrome extensions into a browser.
@@ -112,7 +111,7 @@ Most agents never need these, but they're there when you do:
     Store credentials and payment items that a browser fills into a page without your agent reading them.
   </Card>
   <Card title="Authentication" icon="key" href="/auth/overview">
-    Fill logins from a vault, or let managed auth handle the login and keep the session alive.
+    Fill logins from a vault, or let managed auth handle the login and attempt to reauthenticate eligible connections.
   </Card>
   <Card title="Payments" icon="credit-card" href="/browsers/payments">
     Let agents complete checkouts through a wallet without handling raw card details.

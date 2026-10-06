@@ -1,10 +1,13 @@
 ---
-title: "Important Concepts"
-description: "How the agent framework, browser infrastructure, and the internet fit together"
+title: "How KERNEL Fits Between Your Agent and the Internet"
+sidebarTitle: "Important Concepts"
+description: "The agent framework decides what to do; KERNEL provides the browser infrastructure that carries it out on real websites"
 mode: "wide"
 ---
 
-A browser agent is built from a few pieces. Knowing which piece does what tells you where a feature belongs and which piece to change when something goes wrong.
+A browser agent has three layers. The **agent framework** decides what to do: it runs the loop that asks a model for the next action and carries out the tool calls the model returns. **Browser infrastructure** runs the browser that performs those actions. **The internet** is the set of websites the agent works on. KERNEL provides the browser infrastructure, underneath whichever agent framework you use.
+
+Knowing which layer does what tells you where a feature belongs and which piece to change when something goes wrong.
 
 <Frame>
   <img src="/images/overview/agent-stack.svg" alt="an agent framework, holding the model, system prompt, tools, skills, and browser automation framework, drives KERNEL browser infrastructure, which carries the chromium vm, stealth, proxies, profiles, auth, and payments, and connects to the internet over https." />
@@ -24,7 +27,7 @@ A harness's key pieces include:
 
 ## Browser infrastructure
 
-Browser infrastructure is where the agent's decisions actually get carried out. The agent framework decides to open a page, fill a form, or click a button; browser infrastructure runs the browser that does it, and determines whether the action lands. Its key pieces include:
+Browser infrastructure is where the agent's decisions actually get carried out. The agent framework decides to open a page, fill a form, or click a button; browser infrastructure runs the browser that does it, and gives the agent what it needs to reach and interact with real websites. Its key pieces include:
 
 - **Browser:** the Chromium instance the agent drives, isolated from every other session.
 - **Stealth and proxies:** anti-detection, CAPTCHA handling, and an IP address that fits the site, so the browser isn't blocked.
@@ -43,20 +46,16 @@ Real websites weren't built for agents. They check for bots, and the useful page
 | The agent picks the wrong action or ignores a rule | The model or the system prompt |
 | The agent doesn't know how to use an API or a site | Skills |
 | The agent can't do something at all | Tools |
-| A selector breaks or a page action fails | The browser automation framework, or switch to [computer controls](/browsers/computer-controls) |
+| A selector breaks or a page action fails | The browser automation framework, the site's behavior, or the browser's state. Try [computer controls](/browsers/computer-controls) where the DOM doesn't cooperate. |
 | The site blocks the browser, shows a CAPTCHA, or the login is lost | Browser infrastructure: [stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), [authentication](/auth/overview) |
 | The agent is slow between actions | Where the loop runs: see [how you drive the browser](/introduction/control) |
 
-## How KERNEL optimizes each piece
+## Where KERNEL fits in the agent stack
 
-| Piece | What KERNEL provides |
+| Area | What KERNEL provides |
 | --- | --- |
-| Agent framework | [Integrations](/integrations/overview) for the frameworks and agents you already use. The [code execution platform](/apps/develop) colocates your agent with its browser, so every action skips the network round trip. |
-| Model | [Computer use models](/integrations/computer-use/overview) are trained to act on screenshots with clicks and keystrokes, and KERNEL has a guide for each. [Computer controls](/browsers/computer-controls) execute exactly the actions those models emit. [Browser Loop](/browsers/browser-loop) gives each model provider the browser tool declarations it expects. |
-| System prompt | [Cookbooks](/cookbooks) with working prompts for common browser tasks. |
-| Tools | The [MCP server](/reference/mcp-server) exposes KERNEL as tools. [WebMCP](/browsers/webmcp) lets your agent call the structured tools a site exposes instead of guessing which controls to click. |
-| Skills | [Agent Skills](/skills/overview) teach coding agents the KERNEL CLI, SDKs, bot detection, and auth. [Create site skills](/skills/create-site-skills) turns a working flow on one site into a reusable skill. |
-| Browser automation framework | [Playwright with computer use fallback](/browsers/playwright-computer-use-fallback) shows how to use DOM actions for most steps and computer use where the DOM doesn't cooperate, on the same browser. The [Browser REPL](/browsers/repl) keeps a JavaScript runtime next to the browser, so an agent can define helpers once and reuse them across turns. |
-| Browser infrastructure | [Stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), [profiles](/browsers/profiles), [vaults](/vaults/overview), [authentication](/auth/overview), and [payments](/browsers/payments) handle what the site asks for, and [live view, replays, and telemetry](/introduction/observe) show what happened. |
-| Scaling | Each plan has a set [concurrency limit and browser create rate](/browsers/concurrency-and-limits), and both go up when you [upgrade your plan](/info/pricing). [Browser pools](/browsers/pools) keep pre-configured browsers running, so acquiring one is instant and doesn't count against the create rate. |
-| The internet | [Web Bot Auth](/browsers/bot-detection/web-bot-auth) gives your agent a verifiable identity that sites can check, instead of looking like a bot. [Config Registry](/config-registry) recommends browser and proxy configurations that have worked on the site you're automating. |
+| Working with your agent framework | [Integrations](/integrations/overview) for the frameworks and agents you already use, and guides for each [computer use model](/integrations/computer-use/overview). The [MCP server](/reference/mcp-server) exposes KERNEL as tools, [Agent Skills](/skills/overview) teach coding agents how to use it, and [cookbooks](/cookbooks) include working prompts for common browser tasks. |
+| Browser execution | [Playwright execution](/browsers/playwright-execution), the [Browser REPL](/browsers/repl), and [computer controls](/browsers/computer-controls) all run against the same browser, so an agent can mix DOM and screen actions. [WebMCP](/browsers/webmcp) lets an agent call the structured tools a site exposes. The [code execution platform](/apps/develop) runs your agent co-located with its browser. |
+| Access and authentication | [Stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), and [Web Bot Auth](/browsers/bot-detection/web-bot-auth) help the browser get through, and [Config Registry](/config-registry) recommends configurations that have worked on a site. [Profiles](/browsers/profiles), [vaults](/vaults/overview), [authentication](/auth/overview), and [payments](/browsers/payments) carry state and credentials into a session. |
+| Observability | [Live view, replays, and telemetry](/introduction/observe) show what happened in a session. |
+| Scale | Each plan has a set [concurrency limit and browser create rate](/browsers/concurrency-and-limits), and both go up when you [upgrade your plan](/info/pricing). [Browser pools](/browsers/pools) keep pre-configured browsers running, so acquiring one is instant and doesn't count against the create rate. |

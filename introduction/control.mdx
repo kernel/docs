@@ -15,10 +15,10 @@ KERNEL browsers accept several control surfaces. Pick by what's driving the page
 
 | Surface | Use it when | Trade-off |
 | --- | --- | --- |
-| [Playwright execution](/browsers/playwright-execution) | **Default.** You know what to do on the page — navigate, fill, extract, upload. | Needs a selector or DOM path that exists. |
+| [Playwright execution](/browsers/playwright-execution) | **Default.** You know what to do on the page — navigate, fill, extract, upload. | Needs a selector or DOM path that exists, and each call is stateless. |
 | [Computer controls](/browsers/computer-controls) | **Recommended fallback.** A model is looking at pixels, or the page can't be driven programmatically. | Slower per step, and the model has to see the state to act. |
 | [WebMCP](/browsers/webmcp) | The site exposes structured tools for the action you need. | Only works on sites that register tools. |
-| [Browser REPL](/browsers/repl) | An agent writes its own helpers and reuses them across turns. | JavaScript only, and state lives until the REPL resets. |
+| [Browser REPL](/browsers/repl) | An agent writes its own helpers and reuses them across turns. State persists across calls until the REPL resets. | JavaScript only. |
 | CDP | You have an existing Playwright, Puppeteer, or CDP codebase to point at Kernel. | Adds a protocol fingerprint and a network hop. |
 | WebDriver BiDi | You need the W3C standard protocol. | Smaller client ecosystem. |
 
@@ -26,7 +26,7 @@ For agents, start with [playwright execution with a computer use fallback](/brow
 
 ### Why the choice matters on hardened sites
 
-CDP is what Playwright and Puppeteer speak, and anti-bot vendors scan for its signatures. Computer controls carry no CDP connection, so there's no protocol fingerprint to leak. That makes them the stronger option on sites with aggressive detection, and it's why [managed auth](/auth/managed-auth) drives logins with coordinate-based input rather than CDP. How much this matters is site-specific, so test before you commit — see [bot anti-detection](/browsers/bot-detection/overview).
+CDP is what Playwright and Puppeteer speak, and anti-bot vendors scan for its signatures. Computer controls carry no CDP connection, so there's no protocol fingerprint to leak. That makes them the stronger option on sites with aggressive detection. How much this matters is site-specific, so test before you commit — see [bot anti-detection](/browsers/bot-detection/overview).
 
 ### Control surface examples
 
@@ -244,9 +244,14 @@ Your loop is whatever decides the next action: a script, an agent, or a model. I
     **Costs:** a network round trip per action, disconnects to handle, screenshot and DOM bandwidth, and the CDP fingerprint above. It's fine for low-frequency or deterministic work, and it hurts most in a vision loop.
   </Tab>
   <Tab title="Playwright execution API">
-    Send code, not commands. Each call runs in the browser's VM against the live session, so state carries across calls and an agent can drive the page turn by turn — one tool call per step, structured data back.
+    Send code, not commands. Each call runs in the browser's VM against the live session, so an agent can drive the page turn by turn — one tool call per step, structured data back.
 
-    **Costs:** the code you send has to be self-contained per call. There's nothing to install and no connection to manage.
+    **Costs:** each call is stateless, so the code you send has to be self-contained. There's nothing to install and no connection to manage.
+  </Tab>
+  <Tab title="Browser REPL">
+    Run JavaScript in a persistent runtime inside the browser's VM. Variables, helpers, and state carry across calls, so an agent can define what it needs once and build on it turn by turn. See [Browser REPL](/browsers/repl).
+
+    **Costs:** JavaScript only, and state is lost when the REPL resets.
   </Tab>
   <Tab title="Code execution platform">
     Deploy the whole agent next to the browser with the [code execution platform](/apps/develop), invoked on demand or on a schedule, with no infrastructure of your own.
@@ -279,13 +284,10 @@ For work that isn't driving the page, you can also reach the browser's VM direct
 - **[Browser curl](/browsers/curl):** send HTTP requests through the browser's network stack, with its cookies and proxy.
 - **[SSH](/browsers/ssh):** open a shell in the browser's VM, or forward a local port into it.
 
-## Give a model these surfaces as tools
-
-If you're building your own agent, [Browser Loop](/browsers/browser-loop) packages these surfaces as tools for each model provider and runs every action against a KERNEL browser, so you don't write the translation layer yourself.
-
 ## Going deeper
 
 - [Computer Controls reference](/browsers/computer-controls) — every mouse, keyboard, and screen primitive.
 - [Playwright Execution reference](/browsers/playwright-execution) — the full execution surface, return values, and timeouts.
+- [Browser REPL reference](/browsers/repl) — persistence across calls, browser control helpers, and WebMCP helpers.
 - [Computer use integrations](/integrations/computer-use/anthropic) — drop-in examples for Anthropic, Gemini, OpenAI, and more.
 - [Firewall allowlist](/info/network-access) lists the domains and ports to allow for API, CDP, and WebDriver BiDi connections.

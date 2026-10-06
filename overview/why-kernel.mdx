@@ -3,9 +3,9 @@ title: "Why KERNEL?"
 description: "Fast, secure browser infrastructure for agents, paired with the agent framework you already use"
 ---
 
-KERNEL is built to be the fastest browser infrastructure for agents, across the browser lifecycle and inside a running session. A browser is created in about 30ms at P50 and 105ms at P99, goes into [standby](/browsers/standby) when idle, and picks up where it left off when your agent reconnects. Inside the session, your code can run in the browser's VM instead of across the network, so each action skips the round trip. On independent benchmarks, KERNEL completes more actions per second than any other provider tested, and its create and connect times are among the fastest measured. See [benchmarks](https://www.kernel.sh/benchmarks) for how KERNEL compares.
+KERNEL provides isolated cloud browsers for AI agents. It works underneath the agent framework you already use, with anti-detection, managed authentication, and tools for running browsers at scale. Your framework runs the loop and KERNEL runs the browser, so you can pick the best of each instead of settling for a browser bundled with a framework, or a framework bundled with a browser. See [integrations](/integrations/overview) for the frameworks and agents KERNEL works with, and [important concepts](/overview/concepts) for how the pieces fit.
 
-Pair it with the agent framework you like best. Your framework runs the loop and KERNEL runs the browser, so you can pick the best of each instead of settling for a browser bundled with a framework, or a framework bundled with a browser. See [integrations](/integrations/overview) for the frameworks and agents KERNEL works with, and [important concepts](/overview/concepts) for how the pieces fit.
+KERNEL is also built for speed, across the browser lifecycle and inside a running session. A browser is created in about 30ms at P50 and 105ms at P99, and your code can run in the browser's VM instead of across the network, so each action skips the round trip. On ComputeSDK's independent throughput benchmark, KERNEL led the providers tested on actions per second inside a running session. See [benchmarks](https://www.kernel.sh/benchmarks) for how KERNEL compares.
 
 ## What sets KERNEL apart
 
@@ -17,22 +17,22 @@ To put these to work, the how it works guides walk through each stage of a brows
 
 ## Why not just run Chrome yourself?
 
-You can. Running one Chrome locally is easy, and it's the right call while you're prototyping. The work starts when the automation has to run unattended, more than once, at more than one at a time.
+You can. Running one Chrome locally is easy, and it's the right call while you're prototyping. The work starts when the automation has to run unattended, more than once, at more than one at a time. These are the problems you'd need to solve yourself:
 
 | What you hit | Running it yourself | On Kernel |
 | --- | --- | --- |
-| Start-up latency | Cold container pull plus Chromium launch — seconds per task | Browser creation in 30ms at P50 and 105ms at P99 ([performance](/browsers/performance)), or pre-configured browsers in a [browser pool](/browsers/pools) for instant acquisition |
-| Isolation | One compromised page shares a kernel with everything else on the box | Each browser is a [microVM](/info/unikernels) with its own kernel and filesystem |
+| Start-up latency | Keep starts fast as you scale: image pulls, Chromium launch, and warm capacity to hide them | Browser creation in 30ms at P50 and 105ms at P99 ([performance](/browsers/performance)), or pre-configured browsers in a [browser pool](/browsers/pools) for instant acquisition |
+| Isolation | Keep one session's page, files, and processes away from every other session on the same host | Each browser is a [microVM](/info/unikernels) with its own kernel and filesystem |
 | Bot detection | You maintain the patches, the fingerprints, and a proxy contract | [Anti-detection](/browsers/bot-detection/overview) on every browser, plus a managed solver and [proxies](/proxies/overview), including bring-your-own |
-| Sensitive credentials | Credentials end up in your agent's context or in a secret store you now own | [Vaults](/vaults/overview) store sensitive information and fill it into the page without your agent reading it, [managed auth](/auth/overview) handles logins end to end, and [profiles](/browsers/profiles) persist state across sessions |
-| Idle cost | You pay for the container while the agent thinks or while you wait for end-user input | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last activity |
+| Sensitive credentials | Keep passwords and card details out of your agent's context and logs, and run the secret store that holds them | [Vaults](/vaults/overview) store sensitive information and fill it into the page without the values passing through your agent, [managed auth](/auth/overview) handles logins end to end, and [profiles](/browsers/profiles) persist state across sessions |
+| Idle cost | Avoid paying for a running browser while you wait for end-user input | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last client disconnects |
 | Debugging a failure | Add your own logging and screen recording, then try to reproduce the failure | [Live view](/browsers/live-view), [replays](/browsers/replays), and [telemetry](/browsers/telemetry/overview) for the session that actually failed |
 | Scaling | Provision more hosts, then build the autoscaling, image pipeline, and cleanup jobs around them | [Upgrade your plan](/info/pricing) to raise your [concurrency limit and browser create rate](/browsers/concurrency-and-limits), with custom limits on Enterprise. |
 
 ## When KERNEL isn't the answer
 
-If the site you need has a real API or an MCP server, use that instead. They're faster and more reliable than driving a page. Browsers are the right tool when the work only exists behind a UI: a portal with no API, a flow that needs a login, or a task where a computer use model has to see the page to take actions.
+If the task can be done through an API or an MCP server, use that instead. It's faster and more reliable than driving a page. An API existing isn't enough on its own: it has to support the work you need, and many don't expose everything the site does. Use a browser when the task can only be done through the site itself, whether or not it needs a login: a portal with no API, data the API doesn't return, or a task where a computer use model has to see the page to take actions.
 
-<Card title="See all products" href="/overview/products" horizontal>
-  Every product, each linking to its documentation.
+<Card title="See all features" href="/overview/products" horizontal>
+  Every feature, each linking to its documentation.
 </Card>
