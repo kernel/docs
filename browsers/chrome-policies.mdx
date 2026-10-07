@@ -272,6 +272,40 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
+### Inspect enterprise policy extensions with DevTools
+
+[Extensions that require enterprise policies](/browsers/extensions#extensions-requiring-enterprise-policies), such as ones using `webRequestBlocking`, are force-installed by Chrome. Chrome blocks DevTools and CDP on force-installed extensions by default, so you can't open DevTools on the extension or attach to its service worker. Set `DeveloperToolsAvailability` to `1` to allow it:
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    extensions=[{"name": "request-signer"}],
+    chrome_policy={
+        "DeveloperToolsAvailability": 1,
+    },
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  extensions: [{ name: 'request-signer' }],
+  chrome_policy: {
+    DeveloperToolsAvailability: 1,
+  },
+});
+```
+</CodeGroup>
+
+This applies to every force-installed extension in the browser. Anyone with access to the browser, including live view users, can then inspect the extension's code and storage. Kernel only accepts `0` (Chrome's default) and `1`, because `2` turns off DevTools everywhere, which also disconnects CDP.
+
 ### Restrict navigation to specific URLs
 
 To lock a browser to an approved set of URLs, block everything with `URLBlocklist` and then allow back only the URLs you want with `URLAllowlist`. Entries match a whole domain (`chatgpt.com`) or a specific path (`en.wikipedia.org/wiki/Cat`), and more specific entries take precedence. This gates top-level navigation, so any other URL returns `ERR_BLOCKED_BY_ADMINISTRATOR`; it does not block resources or API calls a permitted page loads from other origins.
