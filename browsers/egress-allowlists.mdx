@@ -67,7 +67,7 @@ Kernel rejects:
 - Wildcards over any [public suffix](https://publicsuffix.org/), including provider domains such as `*.github.io`, `*.cloudfront.net`, `*.vercel.app`, and `*.herokuapp.com`. List the specific host instead, such as `d111111abcdef8.cloudfront.net`.
 - Private, loopback, link-local, and other reserved IP ranges. To reach private services, use [private networking](/browsers/private-networking).
 - Entries that overlap `network.private_hosts`. Private hosts bypass Kernel's egress proxy, so an allowlist can't filter them.
-- [Chrome policies](/browsers/chrome-policies) in `chrome_policy` that can send traffic around the egress proxy: `WebRtcIPHandling` and `WebRtcIPHandlingUrl` for WebRTC, and `DnsOverHttpsMode` (unless it's `off`), `DnsOverHttpsTemplates`, `DnsOverHttpsTemplatesWithIdentifiers`, and `DnsOverHttpsSalt` for secure DNS. Adding an allowlist with `update()` to a browser created with one of them is rejected too.
+- [Chrome policies](/browsers/chrome-policies) in `chrome_policy` that can send traffic around the egress proxy: `WebRtcIPHandling` and `WebRtcIPHandlingUrl` for WebRTC, and `DnsOverHttpsMode` (unless it's `off`), `DnsOverHttpsTemplates`, `DnsOverHttpsTemplatesWithIdentifiers`, and `DnsOverHttpsSalt` for secure DNS.
 - Non-canonical forms, such as CIDRs with host bits set or IPv4-mapped IPv6 addresses.
 
 ## When a destination is blocked
@@ -121,9 +121,9 @@ The new list takes effect without restarting the browser:
 - Omitting `allowed_hosts` leaves the list unchanged, and `[]` is rejected.
 - If the update fails with a `500`, retry it. The new list might already apply to some requests.
 
-Only `allowed_hosts` can change after creation. Adding an allowlist to a browser created without one isn't supported on every browser and returns `400 not_supported` when it isn't, so create the browser with an allowlist when you know you'll need one.
+Only `allowed_hosts` can change after creation, and only on a browser created with an allowlist. `update()` can replace or remove the list, but adding one to a browser created without it returns `400 not_supported`, so create the browser with an allowlist when you'll need one.
 
-To remove the allowlist and return to unfiltered egress, set `allowed_hosts` to `null`:
+To remove the allowlist and return to unfiltered egress, set `allowed_hosts` to `null`. You can't add an allowlist back to the browser afterwards:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -159,4 +159,4 @@ An agent that drives the browser over CDP can also create a browser context with
   - DNS lookups that don't go through the proxy, such as Chromium's lookups for hosts in `network.private_hosts`. Requests through the egress proxy are resolved by the proxy, and Kernel rejects the Chrome policies that turn on secure DNS for allowlisted browsers.
 - Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` so all traffic goes through the egress proxy.
 - Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
-- [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, or add one with `update()` to a browser acquired from a pool.
+- [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, so a browser acquired from a pool can't have one.
