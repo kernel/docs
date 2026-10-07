@@ -378,6 +378,56 @@ Execute Playwright/TypeScript code against a running browser session.
 |------|-------------|
 | `--timeout <seconds>` | Maximum execution time for the snippet. |
 
+## WebMCP
+
+These commands require CLI v0.41.0 or later. See the [WebMCP guide](/browsers/webmcp) and [custom WebMCP tools](/browsers/webmcp-custom-tools).
+
+### `kernel browsers webmcp list <session-id>`
+List native and custom WebMCP tools across every tab and frame in the browser.
+
+| Flag | Description |
+|------|-------------|
+| `--exclude-custom` | List only tools the pages registered. |
+| `--output json`, `-o json` | Output the raw API response. |
+
+### `kernel browsers webmcp invoke <session-id>`
+Invoke one tool by its `tool_ref`. The CLI doesn't retry invocations automatically.
+
+| Flag | Description |
+|------|-------------|
+| `--tool-ref <ref>` | Opaque `tool_ref` from the latest `webmcp list` output. Required. |
+| `--input <json>` | Tool input as a JSON object. |
+| `--input-file <path>` | Read the input object from a file (use `-` for stdin). |
+| `--timeout-sec <seconds>` | Maximum invocation time, from 1 to 120. Defaults to 60. |
+
+### `kernel browsers webmcp custom-tools list <session-id>`
+List registered custom tool definitions, including ones that don't currently match an open page.
+
+| Flag | Description |
+|------|-------------|
+| `--output json`, `-o json` | Output the raw API response. |
+
+### `kernel browsers webmcp custom-tools add <session-id>`
+Register a namespaced batch of custom tools from a JavaScript source file. The CLI doesn't retry registration automatically.
+
+| Flag | Description |
+|------|-------------|
+| `--namespace <namespace>` | Namespace for the batch: 1–128 letters, digits, dots, underscores, or hyphens. Required. |
+| `--source-file <path>` | JavaScript source that evaluates to an array of tool definitions (use `-` for stdin). Required. |
+| `--force-overwrite-namespace` | Atomically replace every existing tool in the namespace. |
+| `--output json`, `-o json` | Output the raw API response. |
+
+For example, to register the tools from [`hn-tools.js`](/browsers/webmcp-custom-tools#write-a-tool-batch):
+
+```bash
+kernel browsers webmcp custom-tools add hn-reader \
+  --namespace news.ycombinator.com \
+  --source-file hn-tools.js
+```
+
+### `kernel browsers webmcp custom-tools remove <session-id> <tool-id>`
+Remove one custom tool definition by its generated `ct_…` ID. Invocations already in progress keep running.
+
 ## Extension management
 
 ### `kernel extensions list`
