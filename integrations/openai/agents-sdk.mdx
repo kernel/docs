@@ -1,0 +1,50 @@
+---
+title: "OpenAI Agents SDK"
+description: "Give agents built with the OpenAI Agents SDK a KERNEL browser"
+---
+
+<Note>
+This is a starter guide. A full walkthrough is coming.
+</Note>
+
+The [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/) is OpenAI's framework for building agents. The quickest way to give an agent a KERNEL browser is to connect it to the [KERNEL MCP server](/reference/mcp-server), which exposes browser creation, Playwright execution, screenshots, and computer controls as tools.
+
+## Install
+
+```bash
+pip install openai-agents
+```
+
+Set `OPENAI_API_KEY` and `KERNEL_API_KEY` in your environment.
+
+## Connect an agent to KERNEL
+
+```python Python
+import asyncio
+import os
+
+from agents import Agent, Runner
+from agents.mcp import MCPServerStreamableHttp
+
+
+async def main():
+    async with MCPServerStreamableHttp(
+        name="kernel",
+        params={
+            "url": "https://mcp.onkernel.com/mcp",
+            "headers": {"Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}"},
+        },
+    ) as kernel:
+        agent = Agent(
+            name="Browser agent",
+            instructions="Use the KERNEL tools to create a browser, do the task, then delete the browser.",
+            mcp_servers=[kernel],
+        )
+        result = await Runner.run(agent, "Go to news.ycombinator.com and list the top 5 story titles.")
+        print(result.final_output)
+
+
+asyncio.run(main())
+```
+
+The MCP server accepts your KERNEL API key as a bearer token. See [MCP authentication](/reference/mcp-server/authentication).
