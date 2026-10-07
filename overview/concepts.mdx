@@ -1,0 +1,61 @@
+---
+title: "How KERNEL Fits Between Your Agent and the Internet"
+sidebarTitle: "Important Concepts"
+description: "The agent framework decides what to do; KERNEL provides the browser infrastructure that carries it out on real websites"
+mode: "wide"
+---
+
+A browser agent has three layers. The **agent framework** decides what to do: it runs the loop that asks a model for the next action and carries out the tool calls the model returns. **Browser infrastructure** runs the browser that performs those actions. **The internet** is the set of websites the agent works on. KERNEL provides the browser infrastructure, underneath whichever agent framework you use.
+
+Knowing which layer does what tells you where a feature belongs and which piece to change when something goes wrong.
+
+<Frame>
+  <img src="/images/overview/agent-stack.svg" alt="an agent framework, holding the model, system prompt, tools, skills, and browser automation framework, drives KERNEL browser infrastructure, which carries the chromium vm, stealth, proxies, profiles, auth, and payments, and connects to the internet over https." />
+</Frame>
+
+## Agent framework
+
+The agent framework, or harness, runs the loop: it sends context to the model, runs the tool call the model returns, feeds the result back, and repeats until the task is done. You either build your own with a framework, such as the [Claude Agent SDK](/integrations/claude/claude-agent-sdk), the [OpenAI Agents SDK](https://openai.github.io/openai-agents-python/), or the [Vercel AI SDK](/integrations/vercel/ai-sdk), or use a finished agent that already has one, such as [Claude Code](/integrations/claude/claude-code-and-desktop), [Codex](https://developers.openai.com/codex), or [Replit](/integrations/replit).
+
+A harness's key pieces include:
+
+- **Model:** decides the next action from the system prompt, the conversation, tool results, and screenshots. It doesn't drive the browser itself: it returns a tool call and the harness carries it out.
+- **System prompt:** the instructions sent with every request to the model: its role, its rules, and the format of its answers.
+- **Tools:** functions the model can ask the harness to call, like "navigate to this URL", "click here", or "run this code".
+- **Skills:** instructions and reference files the agent loads only when a task needs them, unlike the system prompt, which is sent every turn.
+- **Browser automation framework:** turns tool calls into actions on the page, through the DOM with selectors (Playwright, Puppeteer) or through the screen with clicks at coordinates (computer use). Most agents combine the two: DOM actions for most steps, and computer use where the DOM doesn't cooperate.
+
+## Browser infrastructure
+
+Browser infrastructure is where the agent's decisions actually get carried out. The agent framework decides to open a page, fill a form, or click a button; browser infrastructure runs the browser that does it, and gives the agent what it needs to reach and interact with real websites. Its key pieces include:
+
+- **Browser:** the Chromium instance the agent drives, isolated from every other session.
+- **Stealth and proxies:** anti-detection, CAPTCHA handling, and an IP address that fits the site, so the browser isn't blocked.
+- **Credentials and state:** saved logins, credentials, and payment methods the browser can use without exposing them to the model.
+- **Observability:** live view, replays, and telemetry, so you can see what happened when something goes wrong.
+- **Scale:** running many browsers concurrently, and absorbing bursts when an agent creates a large number of browsers at once.
+
+## The internet
+
+Real websites weren't built for agents. They check for bots, and the useful pages often sit behind logins that need passwords, MFA codes, or payment details. Those credentials have to be used without exposing them to the model or leaking them into logs. The agent framework decides what to do; browser infrastructure is what gets it through, securely.
+
+## Which piece to change
+
+| What you see | Where to look |
+| --- | --- |
+| The agent picks the wrong action or ignores a rule | The model or the system prompt |
+| The agent doesn't know how to use an API or a site | Skills |
+| The agent can't do something at all | Tools |
+| A selector breaks or a page action fails | The browser automation framework, the site's behavior, or the browser's state. Try [computer controls](/browsers/computer-controls) where the DOM doesn't cooperate. |
+| The site blocks the browser, shows a CAPTCHA, or the login is lost | Browser infrastructure: [stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), [authentication](/auth/overview) |
+| The agent is slow between actions | Where the loop runs: see [how you drive the browser](/introduction/control) |
+
+## Where KERNEL fits in the agent stack
+
+| Area | What KERNEL provides |
+| --- | --- |
+| Working with your agent framework | [Integrations](/integrations/overview) for the frameworks and agents you already use, and guides for each [computer use model](/integrations/computer-use/overview). The [MCP server](/reference/mcp-server) exposes KERNEL as tools, [Agent Skills](/skills/overview) teach coding agents how to use it, and [cookbooks](/cookbooks) include working prompts for common browser tasks. |
+| Browser execution | [Playwright execution](/browsers/playwright-execution), the [Browser REPL](/browsers/repl), and [computer controls](/browsers/computer-controls) all run against the same browser, so an agent can mix DOM and screen actions. [WebMCP](/browsers/webmcp) lets an agent call the structured tools a site exposes. The [code execution platform](/apps/develop) runs your agent co-located with its browser. |
+| Access and authentication | [Stealth](/browsers/bot-detection/overview), [proxies](/proxies/overview), and [Web Bot Auth](/browsers/bot-detection/web-bot-auth) help the browser get through, and [Config Registry](/config-registry) recommends configurations that have worked on a site. [Profiles](/browsers/profiles), [vaults](/vaults/overview), [authentication](/auth/overview), and [payments](/browsers/payments) carry state and credentials into a session. |
+| Observability | [Live view, replays, and telemetry](/introduction/observe) show what happened in a session. |
+| Scale | Each plan has a set [concurrency limit and browser create rate](/browsers/concurrency-and-limits), and both go up when you [upgrade your plan](/info/pricing). [Browser pools](/browsers/pools) keep pre-configured browsers running, so acquiring one is instant and doesn't count against the create rate. |
