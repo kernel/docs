@@ -7,14 +7,14 @@ Kernel proxies enable you to route browser traffic through different types of pr
 
 ## Proxy types
 
-KERNEL offers four proxy types:
+Kernel supports four types of proxies:
 
-1. [**isp**](/proxies/isp) - traffic routed through data centers, using residential ip addresses leased from internet service providers
-2. [**residential**](/proxies/residential) - traffic routed through real residential ip addresses
-3. [**mobile**](/proxies/mobile) - traffic routed through mobile carrier networks
-4. [**custom**](/proxies/custom) - your own proxy servers
+1. [**ISP**](/proxies/isp) - Traffic routed through data centers, using residential IP addresses leased from internet service providers
+2. [**Residential**](/proxies/residential) - Traffic routed through real residential IP addresses
+3. [**Mobile**](/proxies/mobile) - Traffic routed through mobile carrier networks
+4. [**Custom**](/proxies/custom) - Your own proxy servers
 
-isp balances speed, stability, and bot detection avoidance, with country targeting in the united states (`US`), singapore (`SG`), the united kingdom (`GB`), france (`FR`), and germany (`DE`). start with isp; use residential or mobile when your target site or geo-targeting requirements call for them.
+ISP balances speed, stability, and bot detection avoidance, with country targeting in the United States (`US`), Singapore (`SG`), the United Kingdom (`GB`), France (`FR`), and Germany (`DE`). Kernel recommends using the first option in the list that works for your use case.
 
 <Note>
 Kernel-provided proxies are unmetered and not billed, subject to the fair use rules and restricted destinations in our [Acceptable Use Policy](/acceptable-use#proxy-fair-use). Upstream providers restrict some destinations. Residential proxies can [route through a compatible alternative](/proxies/residential#routing-and-ip-behavior), but access isn't guaranteed and our acceptable-use restrictions still apply.
@@ -242,7 +242,7 @@ client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
 </CodeGroup>
 
 <Info>
-for isp proxies the exit ip is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same ip. for residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. when `url` is provided, the result does not update the proxy's stored health status.
+For ISP proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
 </Info>
 
 ## Bypass hosts
