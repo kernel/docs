@@ -416,14 +416,16 @@ fs.writeFileSync('screenshot.png', buffer);
 For OS-level screenshots using coordinates and regions, see [Computer Controls](/browsers/computer-controls#take-screenshots).
 </Note>
 
-## Performance benefits
+<span id="performance-benefits" />
+## Why playwright execution over a direct CDP connection
 
-Compared to connecting over CDP:
-- **Lower latency** - Code runs in the same VM as the browser
-- **Higher throughput** - No websocket overhead for commands
-- **Simpler code** - No need to manage CDP connections
+If you're reaching for Playwright, prefer the execution API over `connectOverCDP`. Same Playwright API you already know, none of the setup.
 
-This makes it ideal for one-off operations where you need maximum speed.
+- **Run from anywhere.** No `playwright` package to version-pin, no Chromium download, no CDP connection to manage. Send the code, get the result.
+- **Co-located with the browser.** Code runs in the same VM as the browser — no network hop between your script and the page, fewer flakes.
+- **Patchright by default.** Hardened against bot detection out of the box.
+- **Full Playwright API.** `page`, `context`, and `browser` are all in scope. Anything Playwright can do — DOM queries, file uploads, full-page screenshots — works here.
+- **Returns values.** `return` from your code and the result comes back in the response. Easy to use as an agent tool.
 
 ## MCP server integration
 

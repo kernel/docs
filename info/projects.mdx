@@ -5,13 +5,13 @@ description: "Organize resources and isolate access within your Kernel organizat
 
 A **Project** is a named container for Kernel resources inside an organization. Use projects to separate environments (like `production` and `staging`), split resources between teams, or isolate customer workloads — each project has its own browsers, profiles, credentials, proxies, extensions, deployments, and browser pools.
 
-## Why Projects?
+## Why projects?
 
 - **Isolate environments** — keep `production` resources apart from `staging` or experiments.
 - **Scope access** — issue API keys that can only see resources in one project.
 - **Concurrency limits** — set an org-wide default cap for every project, or override it per project, so one team or environment can't exhaust your org quota.
 
-## The Default Project
+## The default project
 
 Every organization has at least one project. Resources that existed before projects were introduced have been moved into a project named **Default**, so your existing browsers, apps, profiles, and other resources continue to work without any changes on your end.
 
@@ -23,7 +23,7 @@ Your organization must always have **at least one active project**. The API retu
 
 A project must also be empty before it can be deleted. If active resources remain, the API returns `409 Conflict` with code `project_not_empty`; delete or otherwise remove those resources and retry. Organizations without Projects enabled receive `404 Not Found` with code `projects_disabled` from project-management endpoints.
 
-## Scoping Requests to a Project
+## Scoping requests to a project
 
 Pass the `X-Kernel-Project-Id` header with a project ID on any API request to scope it to a specific project. Project names are not accepted in this header. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
 
@@ -98,7 +98,7 @@ func main() {
 ```
 </CodeGroup>
 
-## Authentication and Project Scope
+## Authentication and project scope
 
 ### API keys
 
@@ -112,7 +112,7 @@ API keys can be **org-wide** or **project-scoped**.
 
 OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
 
-## Using Projects from the CLI
+## Using projects from the CLI
 
 The Kernel [CLI](/reference/cli/projects) has first-class project support:
 
@@ -136,7 +136,7 @@ kernel projects limits set staging --max-concurrent-sessions 5
 
 Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. It's the recommended way to target a specific project when you're logged in with OAuth (`kernel login`), since OAuth itself is always org-wide.
 
-## Managing Projects
+## Managing projects
 
 Use the `/org/projects` REST endpoints (or the SDKs' `projects` resource) to manage projects.
 
@@ -297,11 +297,11 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
   Project deletion is a soft delete. A project that still owns active resources returns `project_not_empty`; the final active project returns `last_active_project`.
 </Info>
 
-## Concurrency Limits
+## Concurrency limits
 
 Kernel caps how many browsers can run at once, at two levels. A single limit covers both on-demand browsers (`browsers.create()`) and [browser pools](/browsers/pools) — standalone sessions and pool capacity count against the same cap.
 
-- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. Every browser session and every browser in a browser pool counts against it.
+- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. See [concurrency and limits](/browsers/concurrency-and-limits#concurrency) for each plan's limit. Every browser session and every browser in a browser pool counts against it.
 - **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
 
 Per-project caps come from two places:
