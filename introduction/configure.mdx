@@ -1,0 +1,122 @@
+---
+title: "Configure"
+sidebarTitle: "Overview"
+description: "Create a browser, pick its shape, and choose what it carries onto a site"
+mode: "wide"
+---
+
+A KERNEL browser works with no configuration: create one and drive it. This page covers the settings most agents touch at creation time. The rest of Configure covers the features that decide whether an agent gets through a real site: stealth, proxies, profiles, vaults, authentication, and payments.
+
+## Create a browser
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id, browser.browser_live_view_url);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create()
+print(browser.session_id, browser.browser_live_view_url)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID, browser.BrowserLiveViewURL)
+}
+```
+
+```bash CLI
+kernel browsers create
+```
+</CodeGroup>
+
+The response includes everything you need to drive the browser: `session_id`, `cdp_ws_url`, `webdriver_ws_url`, and `browser_live_view_url`. See [create a browser](/introduction/create) for the full walkthrough, including creating from a [browser pool](/browsers/pools).
+
+## Pick a browser type
+
+| Type | When to use it | How to set it |
+| --- | --- | --- |
+| **Headful** (default) | Agents on real sites. It has a real display, so [live view](/browsers/live-view) and [replays](/browsers/replays) work and bot detectors see a normal browser. 8 GB of memory by default. | Nothing to set |
+| **[Headless](/browsers/headless)** | Short-lived or highly concurrent jobs that don't need to be watched. Lighter, at 1 GB by default, but some bot detectors notice it. | `headless: true` |
+| **[GPU-accelerated](/browsers/gpu-acceleration)** | WebGL, video, and canvas-heavy sites. Headful only, doesn't support standby, and has its own usage rate. | `gpu: true` |
+
+## Set common options
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  viewport: { width: 1280, height: 800 },
+  timeout_seconds: 300,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    viewport={"width": 1280, "height": 800},
+    timeout_seconds=300,
+)
+```
+</CodeGroup>
+
+- **[Viewport](/browsers/viewport):** defaults to 1920x1080 at 25Hz. A custom viewport restarts Chromium on creation, so use a [browser pool](/browsers/pools) if you need it to be instant.
+- **[Termination and timeouts](/browsers/termination):** `timeout_seconds` sets how long a browser can sit in standby before KERNEL deletes it. It defaults to 60 seconds and can be up to 72 hours. Delete browsers explicitly when you're done; Playwright's `browser.close()` doesn't delete them.
+
+## More browser settings
+
+Often agents don't require these, but they're there when you do:
+
+- **[Regions](/browsers/regions):** run browsers in `us-east`, `eu-west`, or `ap-southeast`, closer to your code and your users.
+- **[Extensions](/browsers/extensions):** load unpacked Chrome extensions into a browser.
+- **[Chrome policies](/browsers/chrome-policies):** apply Chrome enterprise policies, such as startup pages and bookmarks.
+- **[Private networking](/browsers/private-networking):** reach services behind a VPN or tunnel from inside the browser session.
+
+## What to configure next
+
+<Columns className="responsive-columns" cols={4}>
+  <Card title="Stealth" icon="user-secret" href="/browsers/bot-detection/overview">
+    Anti-detection defaults, stealth mode, CAPTCHA handling, and Web Bot Auth.
+  </Card>
+  <Card title="Proxies" icon="globe" href="/proxies/overview">
+    Route traffic through datacenter, ISP, residential, or mobile IPs, or bring your own.
+  </Card>
+  <Card title="Profiles" icon="id-card" href="/browsers/profiles">
+    Save cookies, storage, and logins from one session and load them into the next.
+  </Card>
+  <Card title="Vaults" icon="vault" href="/vaults/overview">
+    Store credentials and payment items that a browser fills into a page without your agent reading them.
+  </Card>
+  <Card title="Authentication" icon="key" href="/auth/overview">
+    Fill logins from a vault, or let managed auth handle the login and attempt to reauthenticate eligible connections.
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/browsers/payments">
+    Let agents complete checkouts through a wallet without handling raw card details.
+  </Card>
+  <Card title="Config Registry" icon="sliders" href="/config-registry">
+    Get browser and proxy settings that have already worked on the site you're automating.
+  </Card>
+</Columns>

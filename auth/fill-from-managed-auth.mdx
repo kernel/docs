@@ -31,7 +31,7 @@ Choose [Fill from Vault](/auth/fill-from-vault) with a Kernel credential item wh
 
 ## Requirements
 
-- The connection holds a Kernel credential. Managed Auth saves one by default after a successful login. A connection created with `save_credentials: false` qualifies once you link a [pre-stored credential](/auth/credentials#pre-store-credentials) to it, when creating the connection or by updating it.
+- The connection holds a Kernel credential. Managed Auth saves one by default after a successful login. A connection created with `save_credentials: false` qualifies once you link a [pre-stored credential](/auth/configuration#pre-store-credentials) to it, when creating the connection or by updating it.
 - The connection's credential is stored in Kernel. Connections backed by [1Password](/integrations/1password) keep their values in 1Password and can't back an item.
 - The connection, the vault, and the browser belong to the same project.
 
@@ -49,7 +49,7 @@ These examples continue in order, using GitHub as the login destination. Set `KE
 
     <CheckManagedAuthCredentialSaved />
 
-    Wait for the saved credential, not for the connection's status. A connection that's `NEEDS_AUTH` still qualifies as long as it holds a saved credential. If you named the credential yourself, the connection's `credential` field shows it as soon as it's linked, even before it holds any values, so retrieve the [credential](/auth/credentials) and check `has_values` or `has_totp_secret` instead.
+    Wait for the saved credential, not for the connection's status. A connection that's `NEEDS_AUTH` still qualifies as long as it holds a saved credential. If you named the credential yourself, the connection's `credential` field shows it as soon as it's linked, even before it holds any values, so retrieve the [credential](/auth/configuration#credentials-and-auto-reauth) and check `has_values` or `has_totp_secret` instead.
   </Step>
   <Step title="Create the credential item from the connection">
     Create a [vault](/vaults/overview) for the user, then create a credential item whose `spec` names the connection, with an optional `description` such as the site name. The item is created `ready`, and `state.fields` lists the field names you can fill.
@@ -92,7 +92,7 @@ Reading the item describes the credential without returning any values:
 
 <ManagedAuthCredentialItemResponse />
 
-Field names come from the login itself, so read them from `state.fields` instead of assuming them. Each entry carries a `type` of `text`, `email`, `password`, or `totp`. A `totp` entry appears only when the credential has a TOTP secret, such as one stored with `totp_secret` through the [credentials API](/auth/credentials); a Managed Auth login doesn't save one. `fill` writes a code generated with the credential's TOTP settings, never the secret. Entries change when the connection's credential changes, and the item's `version` stays at `1`, so compare `state.fields` rather than `version` to observe changes.
+Field names come from the login itself, so read them from `state.fields` instead of assuming them. Each entry carries a `type` of `text`, `email`, `password`, or `totp`. A `totp` entry appears only when the credential has a TOTP secret, such as one stored with `totp_secret` through the [credentials API](/auth/configuration#credentials-and-auto-reauth); a Managed Auth login doesn't save one. `fill` writes a code generated with the credential's TOTP settings, never the secret. Entries change when the connection's credential changes, and the item's `version` stays at `1`, so compare `state.fields` rather than `version` to observe changes.
 
 ## Item status
 
@@ -110,7 +110,7 @@ An unavailable item advertises no operations. Managed Auth owns the connection a
 ## How it differs from a Kernel credential item
 
 - There's no collection form and no `collect` operation. Managed Auth collects the login.
-- The item can't be edited. Change the credential through Managed Auth, by logging in again or updating the linked [credential](/auth/credentials), and the item picks the change up.
+- The item can't be edited. Change the credential through Managed Auth, by logging in again or updating the linked [credential](/auth/configuration#credentials-and-auto-reauth), and the item picks the change up.
 - Field names and types mirror the saved credential instead of a field list you declare. `wait` doesn't apply, because the item is created ready.
 - Deleting the item leaves the connection and its credential in place. Deleting the connection or its credential makes the item unavailable.
 
@@ -124,7 +124,7 @@ An unavailable item advertises no operations. Managed Auth owns the connection a
   <Card title="Fill Browser Fields" icon="input-text" href="/vaults/fill">
     Map credential fields to browser inputs and handle completed, failed, or unknown outcomes.
   </Card>
-  <Card title="Managed Auth Credentials" icon="key" href="/auth/credentials">
+  <Card title="Managed Auth Credentials" icon="key" href="/auth/configuration#credentials-and-auto-reauth">
     How Managed Auth saves credentials during login and how to update them.
   </Card>
   <Card title="Connection Lifecycle" icon="arrows-rotate" href="/auth/connection-lifecycle">

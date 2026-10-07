@@ -168,7 +168,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a [Foreman integration guide](/integrations/vercel/foreman) to the Vercel section.
+- Added a [Foreman integration guide](/cookbooks/eve-foreman) to the Vercel section.
 - Documented [replay iframe embedding](/browsers/replays) for embedding session replays inside your own dashboards.
 - Documented the 30-day retention window for browser telemetry events.
 - Documented automatic [proxy](/proxies/overview) cleanup behavior.
@@ -396,7 +396,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a new [hCaptcha](/browsers/bot-detection/hcaptcha) page documenting beta support for hCaptcha solving.
+- Added a new [hCaptcha](/browsers/bot-detection/stealth#hcaptcha-beta) page documenting beta support for hCaptcha solving.
 - Refreshed [managed auth](/auth/managed-auth) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
 - Clarified that managed residential proxy IPs are stable within a session but are not guaranteed to persist across sessions.
 - Updated the [Yutori integration guide](/integrations/computer-use/yutori) to Navigator n1.5.
@@ -446,7 +446,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed ISP proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
 - Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
 - Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
-- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.
+- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/configuration#credentials-and-auto-reauth), since those credentials are already managed externally.
 - Kernel now supports WebSocket connections through its API, enabling `process attach` and other long-lived streaming workflows.
 - Exceeding invocation concurrency limits now returns a 429 response immediately, for faster and more actionable feedback.
 
@@ -501,7 +501,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added [API rate limiting](/info/pricing#rate-limiting) documentation.
+- Added [API rate limiting](/browsers/concurrency-and-limits#rate-limits) documentation.
 - Documented the [`disable_default_proxy`](/browsers/bot-detection/stealth) option for stealth browsers.
 - Updated [live view embedding](/browsers/live-view) docs with iframe focus tips, clipboard sharing guidance, and CSP configuration.
 - Documented [managed auth re-authentication triggers](/auth/managed-auth).
@@ -610,7 +610,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
 ## Documentation updates
-- Enhanced [secrets](/apps/secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
+- Enhanced [secrets](/apps/deploy#secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
 </Update>
 
 <Update label="February 13" tags={["Product", "Docs"]}>
