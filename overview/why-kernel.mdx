@@ -1,0 +1,38 @@
+---
+title: "Why KERNEL?"
+description: "Fast, secure browser infrastructure for agents, paired with the agent framework you already use"
+---
+
+KERNEL provides isolated cloud browsers for AI agents. It works underneath the agent framework you already use, with anti-detection, managed authentication, and tools for running browsers at scale. Your framework runs the loop and KERNEL runs the browser, so you can pick the best of each instead of settling for a browser bundled with a framework, or a framework bundled with a browser. See [integrations](/integrations/overview) for the frameworks and agents KERNEL works with, and [important concepts](/overview/concepts) for how the pieces fit.
+
+KERNEL is also built for speed, across the browser lifecycle and inside a running session. A browser is created in about 30ms at P50 and 105ms at P99, and your code can run in the browser's VM instead of across the network, so each action skips the round trip. On ComputeSDK's independent throughput benchmark, KERNEL led the providers tested on actions per second inside a running session. See [benchmarks](https://www.kernel.sh/benchmarks) for how KERNEL compares.
+
+## What sets KERNEL apart
+
+- **Headful by default.** Every browser has a real display and runs the full rendering pipeline. Sites that check for signs of a headless browser don't find them, computer use models see the page as it actually rendered, WebGL, canvas, and video work, and [live view](/browsers/live-view) and [replays](/browsers/replays) show the real session. Switch to [headless](/browsers/headless) per session when a job doesn't need it, or add [GPU acceleration](/browsers/gpu-acceleration) for graphics-heavy sites.
+- **Each browser is its own VM.** Every browser runs isolated at the hypervisor, with its own kernel and filesystem, instead of sharing a host with other tenants. That's what makes a 30ms start and strong isolation possible at the same time, and it's why [file I/O](/browsers/file-io), [shell access](/browsers/ssh), and GPU access are safe to use inside a session.
+- **Platform primitives, with managed services built on them.** [Profiles](/browsers/profiles) keep browser state between sessions, [vaults](/vaults/overview) hold credentials and payment items, and [browser pools](/browsers/pools) keep configured browsers ready. Managed services such as [managed auth](/auth/overview), [payments](/browsers/payments), [stealth](/browsers/bot-detection/overview), and the [code execution platform](/apps/develop) build on them.
+
+To put these to work, the how it works guides walk through each stage of a browser's life: [configure](/introduction/configure) it, [control](/introduction/control) it, [scale](/introduction/scale) it, [observe](/introduction/observe) it, and [manage](/introduction/manage) it across your team.
+
+## Why not just run Chrome yourself?
+
+You can. Running one Chrome locally is easy, and it's the right call while you're prototyping. The work starts when the automation has to run unattended, more than once, at more than one at a time. These are the problems you'd need to solve yourself:
+
+| What you hit | Running it yourself | On Kernel |
+| --- | --- | --- |
+| Start-up latency | Keep starts fast as you scale: image pulls, Chromium launch, and warm capacity to hide them | Browser creation in 30ms at P50 and 105ms at P99 ([performance](/browsers/performance)), or pre-configured browsers in a [browser pool](/browsers/pools) for instant acquisition |
+| Isolation | Keep one session's page, files, and processes away from every other session on the same host | Each browser is a [microVM](/info/unikernels) with its own kernel and filesystem |
+| Bot detection | You maintain the patches, the fingerprints, and a proxy contract | [Anti-detection](/browsers/bot-detection/overview) on every browser, plus a managed solver and [proxies](/proxies/overview), including bring-your-own |
+| Sensitive credentials | Keep passwords and card details out of your agent's context and logs, and run the secret store that holds them | [Vaults](/vaults/overview) store sensitive information and fill it into the page without the values passing through your agent, [managed auth](/auth/overview) handles logins end to end, and [profiles](/browsers/profiles) persist state across sessions |
+| Idle cost | Avoid paying for a running browser while you wait for end-user input | [Standby mode](/browsers/standby) suspends the browser and stops usage charges 5 seconds after the last client disconnects |
+| Debugging a failure | Add your own logging and screen recording, then try to reproduce the failure | [Live view](/browsers/live-view), [replays](/browsers/replays), and [telemetry](/browsers/telemetry/overview) for the session that actually failed |
+| Scaling | Provision more hosts, then build the autoscaling, image pipeline, and cleanup jobs around them | [Upgrade your plan](/info/pricing) to raise your [concurrency limit and browser create rate](/browsers/concurrency-and-limits), with custom limits on Enterprise. |
+
+## When KERNEL isn't the answer
+
+If the task can be done through an API or an MCP server, use that instead. It's faster and more reliable than driving a page. An API existing isn't enough on its own: it has to support the work you need, and many don't expose everything the site does. Use a browser when the task can only be done through the site itself, whether or not it needs a login: a portal with no API, data the API doesn't return, or a task where a computer use model has to see the page to take actions.
+
+<Card title="See all features" href="/overview/features" horizontal>
+  Every feature, each linking to its documentation.
+</Card>
