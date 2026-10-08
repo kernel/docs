@@ -1,5 +1,6 @@
 ---
-title: "Overview"
+title: "Managed Auth"
+sidebarTitle: "Overview"
 description: "Handle website login, reuse session state, and recover eligible connections automatically"
 ---
 
@@ -51,7 +52,7 @@ _ = auth
   <Step title="Start a Login Session">
     A **Managed Auth Session** is the corresponding login flow for the specified connection. Users provide credentials via a KERNEL-hosted page or your own UI.
 
-    link a [credential](/auth/credentials) so KERNEL can attempt reauthentication when the connection is eligible. stored credentials alone don't make every flow eligible.
+    link a [credential](/auth/configuration#credentials-and-auto-reauth) so KERNEL can attempt reauthentication when the connection is eligible. stored credentials alone don't make every flow eligible.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -194,6 +195,21 @@ these steps establish the initial connection. your integration must also handle 
   </Card>
 </CardGroup>
 
+
+## Connection options
+
+Every connection uses the same options, whichever integration you choose. See [configuration](/auth/configuration) for examples of each.
+
+| Option | What it does |
+| --- | --- |
+| [Credentials](/auth/configuration#credentials-and-auto-reauth) | Save login values during the first login, or store them ahead of time, so KERNEL can attempt eligible reauthentication. |
+| [Automatic reauthentication](/auth/configuration#automatic-reauthentication) | Run health checks and attempt to reauthenticate eligible connections when a session expires, controlled by `health_checks` and `auto_reauth`. |
+| [Custom login URL](/auth/configuration#custom-login-url) | Start the login from a specific page instead of the domain's default. |
+| [Browser region](/auth/configuration#browser-region) | Run the login and health checks in the region your browsers use. |
+| [SSO and OAuth](/auth/configuration#ssooauth-support) | Support "Sign in with Google, GitHub, or Microsoft" flows. Common identity providers are allowed by default. |
+| [Custom proxy](/auth/configuration#custom-proxy) | Send login traffic through a proxy you choose. |
+| [Session recording](/auth/configuration#record-sessions-for-debugging) | Record login attempts as replays for debugging. |
+| [Post-login URL](/auth/configuration#post-login-url) | Read the page the login landed on, so your automation starts from the right place. |
 
 ## Why Managed Auth?
 

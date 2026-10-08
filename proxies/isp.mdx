@@ -4,11 +4,15 @@ title: "ISP Proxies"
 
 ISP (Internet Service Provider) proxies are hosted on datacenter infrastructure but use IP addresses assigned by real residential ISPs. Because the ASN belongs to a residential ISP, target sites see them as residential IPs — while the underlying datacenter hosting gives you the speed and stability you'd expect from a datacenter proxy.
 
-## IP Rotation Behavior
+## IP rotation behavior
 
 ISP proxies provide a **static exit IP that persists across sessions** — every tab, request, reconnection, and future browser session attached to this proxy exits through the same IP. The IP only changes in rare ISP-initiated replacement events.
 
 This makes ISP proxies suitable for use cases that require a stable IP, such as IP allowlists or [managed auth](/auth/managed-auth) health checks. For comparison with other proxy types, see [IP rotation behavior across proxy types](/proxies/overview).
+
+### Backup endpoint failover
+
+For some organizations, Kernel attaches a backup ISP endpoint from a different provider to each ISP proxy. If the primary endpoint refuses connections, traffic temporarily exits through the backup endpoint's IP and returns to the primary IP once it's reachable again. If you allowlist the proxy's IP, sites might see the backup IP during a primary outage.
 
 ## Configuration
 

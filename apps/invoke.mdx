@@ -1,5 +1,7 @@
 ---
-title: "Invoking"
+title: "Invoke an App"
+sidebarTitle: "Invoke"
+description: "Run an app action from the API or CLI, pass a payload, and stop a running invocation"
 ---
 
 ## Via API
@@ -153,5 +155,68 @@ See [here](/apps/develop#parameters) to learn how to access the payload in your 
 ### Return values
 
 If your action specifies a [return value](/apps/develop#return-values), the invocation returns its value once it completes. (The Kernel CLI uses asynchronous invocations under the hood)
+
+
+## Stop an invocation
+
+You can terminate an invocation that's running. This is useful for stopping automations or agents stuck in an infinite loop.
+
+<Info>
+Terminating an invocation also destroys any browsers associated with it.
+</Info>
+
+### Via API
+You can stop an invocation by setting its status to `failed`. This will cancel the invocation and mark it as terminated.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const invocation = await kernel.invocations.update('invocation_id', {
+  status: 'failed',
+  output: JSON.stringify({ error: 'Invocation cancelled by user' }),
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+invocation = kernel.invocations.update(
+    id="invocation_id",
+    status="failed",
+    output='{"error":"Invocation cancelled by user"}',
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	invocation, err := client.Invocations.Update(ctx, "invocation_id", kernel.InvocationUpdateParams{
+		Status: kernel.InvocationUpdateParamsStatusFailed,
+		Output: kernel.String(`{"error":"Invocation cancelled by user"}`),
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = invocation
+}
+```
+</CodeGroup>
+
+### Via CLI
+Use `ctrl-c` in the terminal tab where you launched the invocation.
 
 App invocations accrue compute usage separately from any browsers they create. See the [pricing FAQ](/info/pricing#faq) for how app invocations are charged.

@@ -1,56 +1,165 @@
 ---
-title: "Overview"
+title: "Integrations"
+sidebarTitle: "Integrations"
+description: "Run Kernel browsers from the agent frameworks, models, and platforms you already use"
+mode: "wide"
 ---
 
-Kernel's browsers are compatible with all browser and Computer Use frameworks.
+Kernel browsers work with any tool that speaks the Chrome DevTools Protocol or WebDriver BiDi. The guides below cover the integrations with first-class support. For anything else, see [how you drive the browser](/introduction/control). For every integration from one vendor on one page, see [Claude](/integrations/claude/overview) and [Vercel](/integrations/vercel/overview).
 
-## Universal CDP compatibility
+Sections follow the pieces of a browser agent described in [important concepts](/overview/concepts).
 
-Kernel browsers work with any framework or tool that supports the Chrome DevTools Protocol (CDP). This means you can:
+<span id="popular-framework-integrations" />
+<span id="custom-integrations" />
+<span id="universal-cdp-compatibility" />
+## Add a browser to an agent you already use
 
-- **Use any agent framework**: Integrate with popular frameworks like Browser Use, Stagehand, Playwright, Puppeteer, Selenium, and more
-- **Connect via CDP**: All browsers expose a CDP WebSocket URL for direct connection
-- **No vendor lock-in**: Switch between frameworks or use multiple frameworks simultaneously
-- **Standard protocols**: Built on open standards that work with the entire browser automation ecosystem
+Give a finished agent or coding tool a Kernel browser, usually through MCP, a plugin, or a config setting. You don't write the loop.
 
-## Computer Use
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Claude Code and Desktop" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-code-and-desktop">
+    Give Claude Code and Claude Desktop a Kernel browser.
+  </Card>
+  <Card title="Claude Managed Agents" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-managed-agents">
+    Run Anthropic's hosted agent harness against Kernel browsers.
+  </Card>
+  <Card title="Codex" icon="/images/integration-icons/openai.svg" href="/integrations/openai/codex">
+    Give OpenAI's Codex a Kernel browser with the Kernel plugin and MCP server.
+  </Card>
+  <Card title="Replit" icon="/images/integration-icons/replit.svg" href="/integrations/replit">
+    Give Replit Agent a Kernel browser.
+  </Card>
+  <Card title="Eve" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/eve-extension">
+    Give your Vercel Eve agent a Kernel browser.
+  </Card>
+  <Card title="fx" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/fx">
+    Give Vercel's fx coding agent a Kernel browser over MCP.
+  </Card>
+  <Card title="Hermes Agent" icon="/images/integration-icons/nousresearch.svg" href="/integrations/hermes-agent">
+    Run Hermes Agent browser tools on Kernel browsers.
+  </Card>
+</Columns>
 
-For vision-language models (VLMs) that predict browser actions from screenshots, Kernel provides [Computer Controls APIs](/browsers/computer-controls) that enable direct mouse, keyboard, and screen interactions. These low-level controls let you:
+## Build your own agent
 
-- Capture screenshots to send to your VLM
-- Execute predicted actions (clicks, typing, scrolling, dragging)
-- Build custom agentic loops with any VLM provider
+Agent frameworks for writing the loop yourself, with a Kernel browser as one of its tools.
 
-This approach works with any computer use model, including Anthropic Claude, OpenAI CUA, Google Gemini, and others.
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Claude Agent SDK" icon="/images/integration-icons/claude.svg" href="/integrations/claude/claude-agent-sdk">
+    Build Claude agents that drive Kernel browsers with playwright execution.
+  </Card>
+  <Card title="OpenAI Agents SDK" icon="/images/integration-icons/openai.svg" href="/integrations/openai/agents-sdk">
+    Connect agents built with the OpenAI Agents SDK to Kernel browsers over MCP.
+  </Card>
+  <Card title="Vercel AI SDK" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/ai-sdk">
+    Give AI SDK agents Kernel browser tools.
+  </Card>
+</Columns>
 
-## Popular Framework Integrations
+<span id="computer-use" />
+## Computer use models
 
-Kernel provides detailed guides for popular agent frameworks:
+Run a vision model's screenshot-and-act loop against a Kernel browser. See the [computer use overview](/integrations/computer-use/overview) for how the loop works.
 
-- **[Agent Browser](/integrations/vercel/agent-browser)** - Browser automation CLI for AI agents
-- **[fx](/integrations/vercel/fx)** - Give Vercel's fx coding agent a Kernel cloud browser via MCP
-- **[Browser Use](/integrations/browser-use)** - AI browser agent framework
-- **[e2e](/integrations/e2e)** - Run agentic end-to-end tests in Kernel cloud browsers
-- **[Hermes Agent](/integrations/hermes-agent)** - Run Hermes browser tools on Kernel cloud browsers
-- **[Claude Code and Desktop](/integrations/claude/claude-code-and-desktop)** - Give the Claude apps a Kernel browser via the marketplace plugin or MCP
-- **[Claude Agent SDK](/integrations/claude/claude-agent-sdk)** - Run Claude Agent SDK automations in cloud browsers
-- **[Claude Managed Agents](/integrations/claude/claude-managed-agents)** - Run Anthropic's hosted agent harness against cloud browsers
-- **[Replit](/integrations/replit)** - Give Replit Agent a Kernel cloud browser
-- **[Stagehand](/integrations/stagehand)** - AI browser automation with natural language
-- **[Terraform](/integrations/terraform)** - Manage durable Kernel infrastructure as code
-- **[Computer Use (Anthropic)](/integrations/computer-use/anthropic)** - Claude's computer use capability
-- **[Computer Use (OpenAI)](/integrations/computer-use/openai)** - OpenAI's computer use capability
-- **[Computer Use (Gemini)](/integrations/computer-use/gemini)** - Gemini's computer use capability
-- **[Computer Use (OpenAGI)](/integrations/computer-use/openagi)** - OpenAGI's computer use capability
-- **[Computer Use (Yutori)](/integrations/computer-use/yutori)** - Yutori Navigator n1.5 pixels-to-actions model
-- **[Laminar](/integrations/laminar)** - Observability and tracing for AI browser automations
-- **[wallets](/integrations/wallets/overview)** - connect payment methods through native wallet integrations
-- **[Val Town](/integrations/valtown)** - Serverless function runtime
-- **[Stripe Projects](/integrations/stripe-projects)** - Provision Kernel plans and API keys via the Stripe Projects CLI
-- **[Vercel](https://github.com/onkernel/vercel-template)** - Deploy browser automations to Vercel
-- **[Web Bot Authentication](/browsers/bot-detection/web-bot-auth)** - Create signed Chrome extensions for web bot authentication
-- **[1Password](/integrations/1password)** - Use credentials from your 1Password vaults for Managed Auth
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Anthropic" icon="/images/integration-icons/claude.svg" href="/integrations/computer-use/anthropic">
+    Claude computer use.
+  </Card>
+  <Card title="OpenAI" icon="/images/integration-icons/openai.svg" href="/integrations/computer-use/openai">
+    OpenAI computer-using agent.
+  </Card>
+  <Card title="Gemini" icon="google" href="/integrations/computer-use/gemini">
+    Gemini 2.5 Computer Use.
+  </Card>
+  <Card title="Yutori" icon="/images/integration-icons/yutori.png" href="/integrations/computer-use/yutori">
+    Yutori Navigator n1.5 pixels-to-actions model.
+  </Card>
+  <Card title="OpenAGI" icon="/images/integration-icons/openagi.svg" href="/integrations/computer-use/openagi">
+    OpenAGI Lux computer use model.
+  </Card>
+  <Card title="Tzafon" icon="/images/integration-icons/tzafon.svg" href="/integrations/computer-use/tzafon">
+    Tzafon Northstar CUA Fast.
+  </Card>
+</Columns>
 
-## Custom Integrations
+## Browser automation frameworks
 
-Kernel works with any tool that supports CDP. Check out our [browser control guide](/introduction/control) to learn how to connect any other agent framework.
+Drive the page itself — navigate, click, fill, extract — against a Kernel browser.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Playwright" icon="code" href="/browsers/playwright-execution">
+    Run Playwright code inside the browser's VM, or connect over CDP.
+  </Card>
+  <Card title="Agent Browser" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/agent-browser">
+    Vercel's browser automation CLI for AI agents.
+  </Card>
+  <Card title="Stagehand" icon="/images/integration-icons/stagehand-logo-transparent.svg" href="/integrations/stagehand">
+    Mix code and natural language browser automation on Kernel.
+  </Card>
+  <Card title="Vibium" icon="/images/integration-icons/vibium.svg" href="/integrations/vibium">
+    Drive Kernel browsers with a WebDriver BiDi automation framework.
+  </Card>
+  <Card title="e2e" icon="/images/integration-icons/tester-army.png" href="/integrations/e2e">
+    Run agentic and deterministic end-to-end tests in Kernel browsers.
+  </Card>
+  <Card title="Browser Use" icon="/images/integration-icons/browser-use-logo-transparent.svg" href="/integrations/browser-use">
+    Run Browser Use agents on Kernel browsers.
+  </Card>
+</Columns>
+
+## Credentials, identity, and payments
+
+Give the browser what it needs to log in, prove who it is, and check out, without handing secrets to your agent. See [authentication](/auth/overview) and [payments](/browsers/payments) for how these work end to end.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="1Password" icon="/images/integration-icons/1password-logo-transparent.svg" href="/integrations/1password">
+    Use credentials from your 1Password vaults.
+  </Card>
+  <Card title="Link by Stripe" icon="/images/integration-icons/stripe.svg" href="/integrations/wallets/stripe-link">
+    Approve a one-use payment credential for a browser checkout.
+  </Card>
+  <Card title="AgentCard" icon="credit-card" href="/integrations/wallets/agentcard">
+    Approve browser checkouts against an enrolled payment method.
+  </Card>
+  <Card title="Cloudflare Web Bot Auth" icon="cloudflare" href="/browsers/bot-detection/web-bot-auth">
+    Sign your agent's requests with Cloudflare's Web Bot Auth, so participating sites can verify its identity.
+  </Card>
+</Columns>
+
+## Deploy and provision
+
+Provision and run Kernel from the platforms you deploy on.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Vercel Marketplace" icon="/images/integration-icons/vercel.svg" href="/integrations/vercel/marketplace">
+    Add Kernel to a Vercel project through the Marketplace.
+  </Card>
+  <Card title="Vercel Template" icon="/images/integration-icons/vercel.svg" href="https://github.com/kernel/vercel-example">
+    Deploy browser automations to Vercel from a starter template.
+  </Card>
+  <Card title="Stripe Projects" icon="/images/integration-icons/stripe.svg" href="/integrations/stripe-projects">
+    Provision Kernel browsers and plans with the Stripe Projects CLI.
+  </Card>
+  <Card title="Terraform" icon="/images/integration-icons/terraform.svg" href="/integrations/terraform">
+    Manage durable Kernel infrastructure with Terraform.
+  </Card>
+  <Card title="Val Town" icon="/images/integration-icons/val-town.svg" href="/integrations/valtown">
+    Run browser automations from Val Town's serverless runtime.
+  </Card>
+  <Card title="Docker Sandboxes" icon="/images/integration-icons/docker.svg" href="/integrations/docker-sandboxes">
+    Give agents running in Docker Sandboxes a Kernel browser.
+  </Card>
+</Columns>
+
+## Observability
+
+Send traces, evaluations, and browser telemetry to the tools you already monitor with.
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Laminar" icon="/images/integration-icons/laminar-outline.svg" href="/integrations/laminar">
+    Trace and evaluate browser agents with Laminar.
+  </Card>
+  <Card title="OpenTelemetry" icon="chart-line" href="/browsers/telemetry/export">
+    Export a session's telemetry events to any OTLP/HTTP backend.
+  </Card>
+</Columns>
