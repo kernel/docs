@@ -343,6 +343,7 @@ asyncio.run(main())
 ```
 
 ```go Go
+// Add "sync" to the imports from the example above
 task := func(executor, url string) (*kernel.BrowserPlaywrightExecuteResponse, error) {
 	return client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
 		Executor: kernel.String(executor),
@@ -413,7 +414,7 @@ A call with `executor` to a browser whose image predates executors fails with `4
 
 ### List and delete executors
 
-`GET /browsers/{id_or_name}/playwright/executors` returns the browser's executors, default first. Each entry has `name`, `busy`, `created_at`, and `last_used_at`; named executors with an open tab also report `target_id` and `url`.
+`GET /browsers/{id_or_name}/playwright/executors` returns the browser's executors, default first. Each entry has `name`, `busy` (whether a call is currently running on the executor), `created_at`, and `last_used_at`; named executors with an open tab also report `target_id` and `url`.
 
 `DELETE /browsers/{id_or_name}/playwright/executors/{name}` stops the executor's process and returns `204`. It closes the executor's tab unless you pass `close_tab=false`. A call running on the executor fails with an error saying the executor was deleted, and the name can be reused afterwards. Unknown names return `404`.
 
