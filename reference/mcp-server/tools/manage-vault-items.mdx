@@ -71,7 +71,9 @@ Fill writes values into the browser without submitting the form. Pass the attach
 }
 ```
 
-The result has a `status` of `completed`, `failed`, or `unknown`, and an ordered per-field outcome. `failed` and `unknown` are returned as tool errors and fields may already be written. Inspect the page instead of retrying. See [Fill Browser Fields](/vaults/fill) for selector and timeout rules.
+The result has a `status` of `completed`, `failed`, or `unknown`, and an ordered per-field outcome. `completed` means the fields were written, not that the form was submitted or accepted. `failed` and `unknown` are returned as tool errors and fields may already be written.
+
+Because `fill` never submits the form, it's safe to retry after a `failed` or `unknown` outcome, a lost response, or an API error. When a field `failed`, fix its cause, such as a selector that matched nothing, before retrying. A retry right after `unknown` can wait up to 15 seconds for the earlier attempt's browser lock to expire. See [Fill Browser Fields](/vaults/fill) for selector and timeout rules.
 
 ## Call a WebMCP tool with vault values
 
