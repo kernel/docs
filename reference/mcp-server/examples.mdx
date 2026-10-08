@@ -32,6 +32,25 @@ Assistant: I'll start a replay recording, run the automation, then stop it.
 [Uses manage_replays tool with action: "stop" to end the recording]
 ```
 
+## Fill a login from a vault
+
+```
+Human: Log in to github.com for user-123 with a password they enter themselves, not in chat.
+Assistant: I'll check user-123's vault for a GitHub credential first.
+[Uses manage_vaults tool with action: "create" and name: "user-123", which returns the vault if it already exists]
+[Uses manage_vault_items tool with action: "list" on vault "user-123"; no GitHub credential exists]
+Assistant: Is your GitHub login saved in your own 1Password, or would you rather enter it in a secure Kernel form?
+Human: The Kernel form.
+[Uses manage_vault_credentials tool with action: "create", provider: "kernel", and username/password field definitions]
+Returns: a collection URL to share privately with the user
+[Uses manage_vault_items tool with action: "get" and wait: 60 until the credential is ready]
+[Uses manage_browsers tool with action: "create" and vaults: [{ "name": "user-123" }], then navigates to the login page]
+[Uses manage_vault_items tool with action: "invoke", operation: "fill", and inputs with browser_id, page_url, and field/selector bindings]
+Returns: per-field outcomes without the values. The agent submits the form and checks the page.
+```
+
+See [`manage_vaults`](/reference/mcp-server/tools/manage-vaults) for the full set of vault tools.
+
 ## Set up browser profiles for authentication
 
 ```
