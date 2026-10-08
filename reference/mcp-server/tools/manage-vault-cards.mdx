@@ -5,7 +5,7 @@ description: "Create and update payment card requests in a vault"
 
 **status:** <Badge color="yellow">preview</Badge>
 
-Configure card requests against a connected [wallet](/reference/mcp-server/tools/manage-vault-wallets). A card request sets the merchant and spending limit for a purchase; it doesn't submit a merchant payment.
+Configure card requests against a connected [Link by Stripe or AgentCard wallet](/reference/mcp-server/tools/manage-vault-wallets). A card request sets the merchant and spending limit for a purchase; it doesn't submit a merchant payment.
 
 Mode comes from the wallet's provider credentials; there's no per-item test flag. Assume real payment effects.
 
@@ -75,7 +75,7 @@ Amounts are integers in minor currency units, such as cents.
 }
 ```
 
-After authorization, fill the card into the merchant checkout with `manage_vault_items` `fill`. See [Stripe Link](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) for the full checkout flows.
+After authorization, fill the card into the merchant checkout with `manage_vault_items` `fill`. See [Link by Stripe](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) for the full checkout flows.
 
 <Warning>
 Never reconfigure a card to retry a failed, timed-out, rejected, or indeterminate payment. Inspect state and events instead. An uncertain update moves the card to `recovery_required`; stop and reconcile with the provider or support.
