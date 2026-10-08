@@ -6,11 +6,483 @@ description: "Shared options for managed auth connections, regardless of integra
 
 Managed Auth connections use the same configuration whether you collect credentials through the [Hosted UI](/auth/hosted-ui), the [React component](/auth/react), or the [programmatic flow](/auth/programmatic). These options apply to the initial login, every background health check, and each automatic reauthentication attempt.
 
-## Credentials and Auto-Reauth
+## Credentials and auto-reauth
 
 by default, KERNEL saves durable credential fields after a successful login. these can support eligible automatic reauthentication attempts, including totp codes generated from an available secret. submitted one-time codes aren't saved and don't provide access to future codes. if a later login requires user input, your application must start a new interactive login.
 
-To opt out of credential saving, set `save_credentials: false` when creating the connection. See [Credentials](/auth/credentials) for configuration examples.
+To opt out of credential saving, set `save_credentials: false` when creating the connection.
+
+credentials let you store login information securely. KERNEL can attempt automatic reauthentication for eligible flows using stored credentials, including totp codes generated from an available secret. saving credentials or completing an interactive login doesn't guarantee unattended reauthentication. supplying a one-time code doesn't give KERNEL the ability to obtain future codes. if a site requires user input, start a new [interactive login](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
+
+There are three ways to provide credentials:
+- **Automatically save during login** — Capture credentials directly from the user when they log in via [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic)
+- **Pre-store in Kernel** — Create credentials before login for supported headless authentication flows
+- **Connect 1Password** — Use credentials from your existing 1Password vaults
+
+<Card title="1Password Integration" icon="key" href="/integrations/1password">
+  Connect your 1Password vaults to automatically use existing credentials with Managed Auth. Credentials are automatically matched by domain.
+</Card>
+
+### Save credentials during login
+
+By default, Kernel saves durable credential fields entered during login so they can be used for eligible reauthentication attempts. No extra parameters are needed:
+
+<CodeGroup>
+```typescript TypeScript
+const login = await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+login = await kernel.auth.connections.login(auth.id)
+```
+
+```go Go
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+Once saved, the browser profile reuses its authenticated session until the site expires it. For supported credential-based flows, Kernel can then reauthenticate with the stored values. Credentials are updated after every successful login. Submitted one-time codes aren't saved; Kernel generates TOTP codes from a stored `totp_secret`.
+
+To opt out of credential saving, set `save_credentials: false` when creating the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  save_credentials: false,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    save_credentials=False,
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:          "example.com",
+		ProfileName:     "my-profile",
+		SaveCredentials: kernel.Bool(false),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+### Pre-store credentials
+
+For credential-based flows that you want to run without user input, create credentials upfront:
+
+<CodeGroup>
+```typescript TypeScript
+const credential = await kernel.credentials.create({
+  name: 'my-netflix-login',
+  domain: 'netflix.com',
+  values: {
+    email: 'user@netflix.com',
+    password: 'secretpassword123',
+  },
+});
+```
+
+```python Python
+credential = await kernel.credentials.create(
+    name="my-netflix-login",
+    domain="netflix.com",
+    values={
+        "email": "user@netflix.com",
+        "password": "secretpassword123",
+    },
+)
+```
+
+```go Go
+credential, err := client.Credentials.New(ctx, kernel.CredentialNewParams{
+	CreateCredentialRequest: kernel.CreateCredentialRequestParam{
+		Name:   "my-netflix-login",
+		Domain: "netflix.com",
+		Values: map[string]string{
+			"email":    "user@netflix.com",
+			"password": "secretpassword123",
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = credential
+```
+</CodeGroup>
+
+Then link the credential when creating a connection:
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'netflix.com',
+  profile_name: 'my-profile',
+  credential: { name: credential.name },
+});
+
+// Start login with stored credentials
+const login = await kernel.auth.connections.login(auth.id);
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="netflix.com",
+    profile_name="my-profile",
+    credential={"name": credential.name},
+)
+
+# Start login with stored credentials
+login = await kernel.auth.connections.login(auth.id)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "netflix.com",
+		ProfileName: "my-profile",
+		Credential: kernel.ManagedAuthCreateRequestCredentialParam{
+			Name: kernel.String(credential.Name),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+// Start login with stored credentials
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
+```
+</CodeGroup>
+
+#### 2FA with TOTP
+
+For sites with authenticator app 2FA, include `totp_secret` so KERNEL can generate a fresh code during automatic login and reauthentication. Supply a base32 secret of 16–128 characters or an `otpauth://totp/` provisioning URI. The default is SHA1, 6 digits, and a 30-second period. If the authenticator uses different settings, provide `totp_algorithm` (`SHA1`, `SHA256`, or `SHA512`), `totp_digits` (6–9), and `totp_period` (15–300 seconds):
+
+<CodeGroup>
+```typescript TypeScript
+const credential = await kernel.credentials.create({
+  name: 'my-login',
+  domain: 'github.com',
+  values: {
+    username: 'my-username',
+    password: 'my-password',
+  },
+  totp_secret: 'JBSWY3DPEHPK3PXP',
+  totp_algorithm: 'SHA512',
+  totp_digits: 8,
+  totp_period: 60,
+});
+```
+
+```python Python
+credential = await kernel.credentials.create(
+    name="my-login",
+    domain="github.com",
+    values={
+        "username": "my-username",
+        "password": "my-password",
+    },
+    totp_secret="JBSWY3DPEHPK3PXP",
+    totp_algorithm="SHA512",
+    totp_digits=8,
+    totp_period=60,
+)
+```
+
+```go Go
+credential, err := client.Credentials.New(ctx, kernel.CredentialNewParams{
+	CreateCredentialRequest: kernel.CreateCredentialRequestParam{
+		Name:   "my-login",
+		Domain: "github.com",
+		Values: map[string]string{
+			"username": "my-username",
+			"password": "my-password",
+		},
+		TotpSecret: kernel.String("JBSWY3DPEHPK3PXP"),
+		TotpAlgorithm: kernel.CreateCredentialRequestTotpAlgorithmSha512,
+		TotpDigits: kernel.Int(8),
+		TotpPeriod: kernel.Int(60),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = credential
+```
+</CodeGroup>
+
+The examples use typed fields available in TypeScript, Python, and Go SDK v0.116.0 or later. You can also pass an `otpauth://totp/` provisioning URI as `totp_secret`.
+
+- URI parameters override explicit settings. If a parameter is missing, the API uses its explicit field, then the default.
+- Replacing a URI resets omitted settings to defaults. Rotating a raw secret preserves stored settings unless you send new values.
+- The API stores only the normalized seed, never the URI label or issuer.
+- A code's length follows `totp_digits`; don't assume six digits when reading `totp_code` or calling `totpCode()`.
+
+#### SSO / OAuth
+
+For sites with "Sign in with Google/GitHub/Microsoft", set `sso_provider` so Kernel can select the matching SSO route. Automatic completion depends on the provider's login requirements.
+
+Common SSO provider domains (Google, Microsoft, Okta, Auth0, GitHub, etc.) are allowed by default, so you don't need to add them to `allowed_domains`:
+
+<CodeGroup>
+```typescript TypeScript
+const credential = await kernel.credentials.create({
+  name: 'my-google-login',
+  domain: 'accounts.google.com',
+  sso_provider: 'google',
+  values: {
+    email: 'user@gmail.com',
+    password: 'password',
+  },
+});
+
+const auth = await kernel.auth.connections.create({
+  domain: 'target-site.com',
+  profile_name: 'my-profile',
+  credential: { name: credential.name },
+});
+```
+
+```python Python
+credential = await kernel.credentials.create(
+    name="my-google-login",
+    domain="accounts.google.com",
+    sso_provider="google",
+    values={
+        "email": "user@gmail.com",
+        "password": "password",
+    },
+)
+
+auth = await kernel.auth.connections.create(
+    domain="target-site.com",
+    profile_name="my-profile",
+    credential={"name": credential.name},
+)
+```
+
+```go Go
+credential, err := client.Credentials.New(ctx, kernel.CredentialNewParams{
+	CreateCredentialRequest: kernel.CreateCredentialRequestParam{
+		Name:        "my-google-login",
+		Domain:      "accounts.google.com",
+		SSOProvider: kernel.String("google"),
+		Values: map[string]string{
+			"email":    "user@gmail.com",
+			"password": "password",
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "target-site.com",
+		ProfileName: "my-profile",
+		Credential: kernel.ManagedAuthCreateRequestCredentialParam{
+			Name: kernel.String(credential.Name),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+### Partial credentials
+
+Credentials don't need to contain every field required by the login form. You can store what you have and collect the necessary fields from the user. `auth.connections.login()` pauses for missing values.
+
+As an example, the below credential has email + TOTP secret stored (and automatically handled), but no password. The password is dynamically collected from the user using Kernel's Hosted UI or your Programmatic flow:
+
+<CodeGroup>
+```typescript TypeScript
+const credential = await kernel.credentials.create({
+  name: 'my-login',
+  domain: 'example.com',
+  values: { email: 'user@example.com' },  // No password
+  totp_secret: 'JBSWY3DPEHPK3PXP',
+});
+
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  credential: { name: credential.name },
+});
+
+const login = await kernel.auth.connections.login(auth.id);
+
+// Stream state changes and submit the missing password
+const authEvents = await kernel.auth.connections.follow(auth.id);
+for await (const event of authEvents) {
+  const passwordField = event.fields?.find(field => field.ref === 'password');
+  if (
+    event.event === 'managed_auth_state' &&
+    event.flow_step === 'AWAITING_INPUT' &&
+    event.interaction_id &&
+    passwordField
+  ) {
+    // Only password is pending; email is filled from the stored credential.
+    await kernel.auth.connections.submit(auth.id, {
+      interaction_id: event.interaction_id,
+      field_values: { [passwordField.id]: 'user-provided-password' },
+    });
+  }
+}
+// TOTP auto-submitted from credential → SUCCESS
+```
+
+```python Python
+credential = await kernel.credentials.create(
+    name="my-login",
+    domain="example.com",
+    values={"email": "user@example.com"},  # No password
+    totp_secret="JBSWY3DPEHPK3PXP",
+)
+
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    credential={"name": credential.name},
+)
+
+login = await kernel.auth.connections.login(auth.id)
+
+# Stream state changes and submit the missing password
+auth_events = await kernel.auth.connections.follow(auth.id)
+async for event in auth_events:
+    password_field = next(
+        (field for field in (event.fields or []) if field.ref == "password"),
+        None,
+    )
+    if (
+        event.event == "managed_auth_state"
+        and event.flow_step == "AWAITING_INPUT"
+        and event.interaction_id
+        and password_field
+    ):
+        # Only password is pending; email is filled from the stored credential.
+        await kernel.auth.connections.submit(
+            auth.id,
+            interaction_id=event.interaction_id,
+            field_values={password_field.id: "user-provided-password"},
+        )
+# TOTP auto-submitted from credential → SUCCESS
+```
+
+```go Go
+credential, err := client.Credentials.New(ctx, kernel.CredentialNewParams{
+	CreateCredentialRequest: kernel.CreateCredentialRequestParam{
+		Name:   "my-login",
+		Domain: "example.com",
+		Values: map[string]string{
+			"email": "user@example.com", // No password
+		},
+		TotpSecret: kernel.String("JBSWY3DPEHPK3PXP"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Credential: kernel.ManagedAuthCreateRequestCredentialParam{
+			Name: kernel.String(credential.Name),
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
+if err != nil {
+	panic(err)
+}
+_ = login
+
+// Stream state changes and submit the missing password
+authEvents := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+for authEvents.Next() {
+	event := authEvents.Current()
+	if event.Event != "managed_auth_state" || event.FlowStep != "AWAITING_INPUT" || event.InteractionID == "" {
+		continue
+	}
+	for _, field := range event.Fields {
+		if field.Ref != "password" {
+			continue
+		}
+		// Only password is pending; email is filled from the stored credential.
+		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+				InteractionID: kernel.String(event.InteractionID),
+				FieldValues: map[string]string{
+					field.ID: "user-provided-password",
+				},
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+}
+if err := authEvents.Err(); err != nil {
+	panic(err)
+}
+// TOTP auto-submitted from credential → SUCCESS
+```
+</CodeGroup>
+
+This is useful when you want to:
+- Store TOTP secrets but have users enter their password each time
+- Pre-fill username/email but collect password at runtime
+- Merge user-provided values into an existing credential automatically on successful login
+
+### Credential security
+
+| Feature | Description |
+|---------|-------------|
+| **Encrypted at rest** | Values encrypted using per-organization keys |
+| **Write-only** | Values cannot be retrieved via API after creation |
+| **Never logged** | Values are never written to logs |
+| **Never shared** | Values are never passed to LLMs |
+| **Isolated execution** | Authentication runs in isolated browser environments |
+
+### Credential notes
+
+- The `values` object is flexible and can be used to store whatever fields the login form needs (`email`, `username`, `company_id`, etc.)
+- Deleting a credential unlinks it from associated connections so they can no longer auto-authenticate
+- Use one credential per account. We recommend creating separate credentials for different user accounts
+
+### Automatic reauthentication
 
 Automatic re-authentication is gated by two boolean flags that both default to `true`:
 
@@ -60,7 +532,7 @@ Automatic reauthentication requires a previously successful login and saved cred
 
 If Kernel can't complete an automatic attempt, the connection transitions to `NEEDS_AUTH` so you can start a new login.
 
-## Custom Login URL
+## Custom login URL
 
 If the site's login page isn't at the default location, specify it when creating the connection:
 
@@ -96,7 +568,7 @@ _ = auth
 ```
 </CodeGroup>
 
-## Browser Region
+## Browser region
 
 Set `browser.region` to choose where Managed Auth runs the connection's initial login, health checks, and automatic reauthentication. Choose from `us-east`, `eu-west`, and `ap-southeast`. Region selection is available on [Start-Up and Enterprise plans](/info/pricing); omitted values default to `us-east`.
 
@@ -167,7 +639,7 @@ _ = login
 
 Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
 
-## SSO/OAuth Support
+## SSO/OAuth support
 
 Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
 
@@ -207,7 +679,7 @@ _ = auth
 ```
 </CodeGroup>
 
-## Custom Proxy
+## Custom proxy
 
 Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health checks, and automatic re-authentications all egress through that proxy. This is useful for sites that allowlist IPs, geo-pin sessions, or treat IP changes as a fraud signal.
 
@@ -328,7 +800,7 @@ _ = login
 ```
 </CodeGroup>
 
-## Record Sessions for Debugging
+## Record sessions for debugging
 
 Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. The entire browser session is recorded.
 
@@ -393,7 +865,7 @@ _ = login
 
 Managed auth recordings are subject to the same retention rules as other session replay recordings. Each managed auth session row stores its own `replay_id` for the recording captured during that session.
 
-## Post-Login URL
+## Post-login URL
 
 After successful authentication, `post_login_url` will be set to the page where the login landed. Use this to start your automation from the right place:
 
@@ -433,7 +905,7 @@ if managedAuth.PostLoginURL != "" {
 ```
 </CodeGroup>
 
-## Updating a Connection
+## Updating a connection
 
 After creating a connection, you can update its configuration with `auth.connections.update`:
 
