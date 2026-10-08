@@ -3,7 +3,7 @@ title: "Browser Pools"
 description: "Configure a pool of ready-to-use browsers for instant acquisition"
 ---
 
-A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, [private networking](/browsers/private-networking), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
+A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, [private networking](/browsers/private-networking), [egress allowlists](/browsers/egress-allowlists#use-allowlists-with-browser-pools), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
 
 Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/browsers/concurrency-and-limits#rate-limits) on browser creation.
 
@@ -164,7 +164,7 @@ When you're done with a browser, release it back to the browser pool. By default
 
 Reuse controls whether browser state carries across acquisitions:
 
-- **`reuse: true`** (default) returns the same browser instance to the pool without resetting it. Cookies, local storage, logged-in sessions, and open tabs persist, and the next caller to acquire it inherits that state. Fast, but not isolated between acquirers.
+- **`reuse: true`** (default) returns the same browser instance to the pool without clearing its browser state. Cookies, local storage, logged-in sessions, and open tabs persist, and the next caller to acquire it inherits that state. Fast, but not isolated between acquirers. Kernel restores the pool's current [egress allowlist](/browsers/egress-allowlists#use-allowlists-with-browser-pools) before reuse, or replaces the browser if that baseline can't be safely restored and enforced.
 - **`reuse: false`** destroys the browser and refills the pool with a fresh one. Isolated and clean, at the cost of a rebuild.
 
 <Warning>
@@ -302,6 +302,10 @@ Browser pools shine at higher concurrency, but even a small one is worth it when
 
 Update the browser pool's configuration. By default, existing idle browsers keep their current configuration and only newly created browsers use the new one. Pass `discard_all_idle: true` to discard all idle browsers and rebuild them immediately with the new configuration.
 
+Egress allowlists are the exception: changing `network.allowed_hosts` automatically replaces idle browsers. Already acquired browsers keep their list until release, when Kernel restores the current pool baseline or replaces the browser. See [allowlists with browser pools](/browsers/egress-allowlists#use-allowlists-with-browser-pools) for examples.
+
+Providing `network` replaces the whole object, not individual fields. Include every network setting you want to preserve; omit `network` to leave it unchanged, or send `network: {}` to clear it.
+
 <CodeGroup>
 ```typescript Typescript/Javascript
 const updatedPool = await kernel.browserPools.update("my-pool", {
@@ -331,9 +335,9 @@ _ = updatedPool
 </CodeGroup>
 
 <Warning>
-Browsers that are acquired during an update are never touched, even with `discard_all_idle: true`. An in-use browser keeps its original configuration, and if you release it with `reuse: true` (the default) it re-enters the pool still carrying that configuration and keeps getting handed out that way.
+Browsers that are acquired during an update are never touched, even with `discard_all_idle: true`. Their allowlist is restored to the current pool baseline on release, or the browser is replaced if that can't be done safely. For other configuration fields, an in-use browser keeps its original configuration, and if you release it with `reuse: true` (the default) it re-enters the pool still carrying those settings and keeps getting handed out that way.
 
-You have two ways to get an in-use browser onto the new configuration:
+You have two ways to get an in-use browser onto the new configuration for those other fields:
 
 - **Prevent it on release:** release with `reuse: false`. The browser is destroyed and rebuilt with the browser pool's current configuration instead of the old one returning to the pool.
 - **Clean it up after the fact:** `flush()` the pool, or run a later `update()` with `discard_all_idle: true`, once the in-use browsers have been released. Both destroy every idle browser and let the pool refill on the current configuration; neither touches a browser that's currently acquired, so both are safe to call under load.

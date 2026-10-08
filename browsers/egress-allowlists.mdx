@@ -150,6 +150,67 @@ kernel.browsers.update(
   Chromium can show a page from its HTTP cache without sending a request. After you remove a host, a page Chromium cached earlier might still render, even though new requests to that host are refused.
 </Note>
 
+## Use allowlists with browser pools
+
+Set `network.allowed_hosts` on a [browser pool](/browsers/pools) to give every browser it creates the same allowlist. The same entry rules, `start_url` validation, Chrome policy restrictions, and proxy-only enforcement apply. Allowlisted pools require proxy v3 and won't fall back to a proxy that can't enforce the list.
+
+<CodeGroup>
+
+```typescript TypeScript
+const pool = await kernel.browserPools.create({
+  name: 'orders-pool',
+  size: 5,
+  start_url: 'https://shop.example.com/orders',
+  network: {
+    allowed_hosts: ['shop.example.com', '*.shop.example.com', 'payments.example.net'],
+  },
+});
+```
+
+```python Python
+pool = kernel.browser_pools.create(
+    name="orders-pool",
+    size=5,
+    start_url="https://shop.example.com/orders",
+    network={
+        "allowed_hosts": ["shop.example.com", "*.shop.example.com", "payments.example.net"],
+    },
+)
+```
+
+</CodeGroup>
+
+Acquire a browser normally. Its `network.allowed_hosts` returns the allowlist for that lease. An acquisition's `start_url` override must also be allowed. While you hold the browser, you can replace or remove its existing allowlist with `browsers.update()` as shown above. You still can't add a list to a browser created without one or add it back after removal.
+
+To change the pool's baseline for future acquisitions, update the pool:
+
+<CodeGroup>
+
+```typescript TypeScript
+await kernel.browserPools.update(pool.id, {
+  network: {
+    allowed_hosts: ['shop.example.com', '*.shop.example.com'],
+  },
+});
+```
+
+```python Python
+kernel.browser_pools.update(
+    pool.id,
+    network={
+        "allowed_hosts": ["shop.example.com", "*.shop.example.com"],
+    },
+)
+```
+
+</CodeGroup>
+
+A pool update replaces the entire `network` object, unlike a browser update. Omit `network` to leave it unchanged. If you provide it, include every network setting you want to keep, including `private_hosts` and `proxy_routes`. Omitting `allowed_hosts` from that replacement removes the pool's allowlist; `network: {}` clears the entire network configuration. An empty allowlist (`[]`) is invalid. You can add an allowlist to a pool that doesn't have one because its unfiltered browsers are replaced rather than given a list in place.
+
+Changing the pool's allowlist automatically replaces idle browsers, without requiring `discard_all_idle: true`. Browsers with a stale allowlist aren't handed out while the pool refills. Already acquired browsers keep their current list until release; a pool update doesn't change their egress immediately.
+
+On release with `reuse: true`, Kernel restores the current pool allowlist before returning the browser to the pool. If it can't safely restore and enforce that baseline, it destroys the browser and the pool creates a replacement. This includes a browser whose allowlist you removed when the pool still requires one: the list isn't added back to that browser. Per-lease allowlist changes don't carry over to the next acquisition. Reuse still preserves cookies, storage, and other browser state; it isn't isolation between users.
+
 ## Keep the allowlist out of the agent's reach
 
 An allowlist only constrains a browser if the agent driving it can't change it. Anyone holding your Kernel API key can update or remove the allowlist, or create a new browser without one. Set and change allowlists from your own code, and don't give the agent your API key or connect it to the Kernel [MCP server](/reference/mcp-server).
@@ -167,4 +228,3 @@ Don't give the constrained agent code execution inside the browser VM. Code runn
 - CDP context creation with `proxyServer` or `proxyBypassList` is refused on allowlisted browsers, including empty/direct settings and Playwright's `browser.newContext({ proxy })`. Ordinary context creation is permitted. Browsers without an allowlist retain normal custom-proxy context behavior; code executing inside the VM can disable this restriction.
 - Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` to remove those browser proxy bypasses. This doesn't restrict direct traffic from code executing inside the VM.
 - Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
-- [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, so a browser acquired from a pool can't have one.
