@@ -3,7 +3,7 @@ title: "Egress Allowlists"
 description: "Limit the destinations a browser session can reach"
 ---
 
-Use `network.allowed_hosts` to limit which destinations a browser session can reach. Kernel's egress proxy refuses any destination that isn't on the list, so pages can't load from unlisted hosts or send data to them. That covers navigations, subresources, `fetch()` and XHR, and WebSockets.
+Use `network.allowed_hosts` to limit which destinations a browser session can reach through Kernel's egress proxy. The proxy refuses unlisted destinations for navigations, subresources, `fetch()` and XHR, and WebSockets. This isn't full VM-level network isolation; traffic that doesn't use the proxy isn't filtered. See [limitations](#limitations).
 
 An allowlist limits the damage a prompt injection can do: an agent tricked into sending data to an attacker's server gets a refusal instead of a connection.
 
@@ -12,19 +12,20 @@ An allowlist limits the damage a prompt injection can do: an agent tricked into 
 Set the allowlist when you create the browser:
 
 <CodeGroup>
+
 ```typescript TypeScript
 import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
 
-const browser = await kernel.browsers.create({
+const kernelBrowser = await kernel.browsers.create({
   start_url: 'https://shop.example.com/orders',
   network: {
     allowed_hosts: ['shop.example.com', '*.shop.example.com', 'payments.example.net'],
   },
 });
 
-console.log(browser.network?.allowed_hosts);
+console.log(kernelBrowser.network?.allowed_hosts);
 ```
 
 ```python Python
@@ -32,15 +33,16 @@ from kernel import Kernel
 
 kernel = Kernel()
 
-browser = kernel.browsers.create(
+kernel_browser = kernel.browsers.create(
     start_url="https://shop.example.com/orders",
     network={
         "allowed_hosts": ["shop.example.com", "*.shop.example.com", "payments.example.net"],
     },
 )
 
-print(browser.network.allowed_hosts)
+print(kernel_browser.network.allowed_hosts)
 ```
+
 </CodeGroup>
 
 The allowlist applies from the browser's first request, including the load of `start_url`. The API rejects a `start_url` that the list doesn't allow. The browser's `network.allowed_hosts` returns the list as Kernel stored it: trimmed, lowercased, and deduplicated.
@@ -53,13 +55,13 @@ You can provide up to 100 entries, each no longer than 253 characters:
 
 - Exact hostnames: `shop.example.com`
 - A single leading wildcard: `*.example.com` matches subdomains at any depth, such as `api.example.com` and `cdn.eu.example.com`, but not `example.com` itself. Add both entries to allow a domain and its subdomains.
-- Public IPv4 addresses: `203.0.113.10`
+- Public IPv4 addresses: `8.8.8.8`
 - Bracketed public IPv6 addresses: `[2001:4860:4860::8888]`
 - Canonical public CIDRs: `8.8.4.0/24` or `2001:4860::/32`
 
 Each entry matches every port on its host, so entries can't include ports. They also can't include schemes or paths. Write internationalized domain names in their ASCII (`xn--`) form.
 
-IP and CIDR entries only match destinations written as an IP address, such as `https://203.0.113.10/`. They never match a hostname that resolves into the range, so add the hostname itself.
+IP and CIDR entries only match destinations written as an IP address, such as `https://8.8.8.8/`. They never match a hostname that resolves into the range, so add the hostname itself.
 
 Kernel rejects:
 
@@ -92,11 +94,12 @@ Providers can change the hosts they use, so check the provider's documentation f
 
 ## Change the allowlist during a session
 
-Replace the allowlist on a running browser with `update()`. Chromium keeps running and open pages stay loaded:
+Replace the allowlist on a running browser with `update()` (`PATCH /browsers/{id_or_name}`). Chromium keeps running and open pages stay loaded:
 
 <CodeGroup>
+
 ```typescript TypeScript
-await kernel.browsers.update(browser.session_id, {
+await kernel.browsers.update(kernelBrowser.session_id, {
   network: {
     allowed_hosts: ['shop.example.com', '*.shop.example.com'],
   },
@@ -105,12 +108,13 @@ await kernel.browsers.update(browser.session_id, {
 
 ```python Python
 kernel.browsers.update(
-    browser.session_id,
+    kernel_browser.session_id,
     network={
         "allowed_hosts": ["shop.example.com", "*.shop.example.com"],
     },
 )
 ```
+
 </CodeGroup>
 
 The new list takes effect without restarting the browser:
@@ -121,42 +125,46 @@ The new list takes effect without restarting the browser:
 - Omitting `allowed_hosts` leaves the list unchanged, and `[]` is rejected.
 - If the update fails with a `500`, retry it. The new list might already apply to some requests.
 
-Only `allowed_hosts` can change after creation, and only on a browser created with an allowlist. `update()` can replace or remove the list, but adding one to a browser created without it returns `400 not_supported`, so create the browser with an allowlist when you'll need one.
+Within `network`, only `allowed_hosts` can change after creation, and only on a browser created with an allowlist. `update()` can replace or remove the list, but adding one to a browser created without it returns `400 not_supported`, so create the browser with an allowlist when you'll need one.
 
-To remove the allowlist and return to unfiltered egress, set `allowed_hosts` to `null`. You can't add an allowlist back to the browser afterwards:
+To remove the allowlist and return to unfiltered egress, set `allowed_hosts` to `null`. Adding it back also returns `400 not_supported`; create a new browser with an allowlist instead:
 
 <CodeGroup>
+
 ```typescript TypeScript
-await kernel.browsers.update(browser.session_id, {
+await kernel.browsers.update(kernelBrowser.session_id, {
   network: { allowed_hosts: null },
 });
 ```
 
 ```python Python
 kernel.browsers.update(
-    browser.session_id,
+    kernel_browser.session_id,
     network={"allowed_hosts": None},
 )
 ```
+
 </CodeGroup>
 
 <Note>
-Chromium can show a page from its HTTP cache without sending a request. After you remove a host, a page Chromium cached earlier might still render, even though new requests to that host are refused.
+  Chromium can show a page from its HTTP cache without sending a request. After you remove a host, a page Chromium cached earlier might still render, even though new requests to that host are refused.
 </Note>
 
 ## Keep the allowlist out of the agent's reach
 
 An allowlist only constrains a browser if the agent driving it can't change it. Anyone holding your Kernel API key can update or remove the allowlist, or create a new browser without one. Set and change allowlists from your own code, and don't give the agent your API key or connect it to the Kernel [MCP server](/reference/mcp-server).
 
-An agent that drives the browser over CDP can also create a browser context with its own proxy settings, and the allowlist doesn't cover that context. See [limitations](#limitations).
+On allowlisted browsers, CDP context creation specifying `proxyServer` or `proxyBypassList` is refused, including empty strings or direct proxy settings. This includes Playwright's `browser.newContext({ proxy })`. Ordinary context creation without those proxy parameters remains permitted. Browsers without an allowlist retain normal custom-proxy context behavior.
+
+Don't give the constrained agent code execution inside the browser VM. Code running there can send traffic directly and disable the VM-side CDP restriction. The allowlist isn't full VM-level network isolation. See [limitations](#limitations).
 
 ## Limitations
 
-- Only Chromium's HTTP(S) and WebSocket traffic through Kernel's egress proxy is filtered. The browser VM has a direct route to the internet, so anything else can leave it unfiltered, including:
-  - Programs you run in the browser VM, for example with [process execution](/browsers/process-execution).
-  - Browser contexts created over CDP with their own proxy settings, such as Playwright's `browser.newContext({ proxy })`.
-  - Extensions with the `proxy` permission, which can switch Chromium to direct connections.
-  - DNS lookups that don't go through the proxy, such as Chromium's lookups for hosts in `network.private_hosts`. Requests through the egress proxy are resolved by the proxy, and Kernel rejects the Chrome policies that turn on secure DNS for allowlisted browsers.
-- Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` so all traffic goes through the egress proxy.
+- Enforcement covers Chromium's HTTP(S) and WebSocket traffic through Kernel's egress proxy, not all traffic leaving the browser VM. This isn't full VM-level network isolation:
+  - Code executing inside the browser VM, including through [process execution](/browsers/process-execution), can send traffic directly and disable the VM-side CDP restriction.
+  - Extensions with the `proxy` permission can override Chromium's proxy settings and switch to direct connections.
+  - DNS lookups that don't go through the proxy aren't filtered, such as Chromium's lookups for hosts in `network.private_hosts`. Requests through the egress proxy are resolved by the proxy, and Kernel rejects the Chrome policies that turn on secure DNS for allowlisted browsers.
+- CDP context creation with `proxyServer` or `proxyBypassList` is refused on allowlisted browsers, including empty/direct settings and Playwright's `browser.newContext({ proxy })`. Ordinary context creation is permitted. Browsers without an allowlist retain normal custom-proxy context behavior; code executing inside the VM can disable this restriction.
+- Destinations in `network.private_hosts`, including the [default private ranges](/browsers/private-networking#default-private-routes), are reached directly and aren't filtered. If the session doesn't need private routes, set `private_hosts` to `[]` to remove those browser proxy bypasses. This doesn't restrict direct traffic from code executing inside the VM.
 - Requests to Kernel's own browser infrastructure, which features such as CAPTCHA solving and telemetry depend on, are always allowed.
 - [Browser pools](/browsers/pools) don't support allowlists. You can't set one on a pool, so a browser acquired from a pool can't have one.
