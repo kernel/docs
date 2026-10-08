@@ -272,39 +272,9 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
-### Inspect enterprise policy extensions with DevTools
+### Debug extensions that use `webRequestBlocking`
 
-[Extensions that require enterprise policies](/browsers/extensions#extensions-requiring-enterprise-policies), such as ones using `webRequestBlocking`, are force-installed by Chrome. Chrome blocks DevTools and CDP on force-installed extensions by default, so you can't open DevTools on the extension or attach to its service worker. Set `DeveloperToolsAvailability` to `1` to allow it:
-
-<CodeGroup>
-```python Python
-from kernel import Kernel
-
-kernel = Kernel()
-
-browser = kernel.browsers.create(
-    extensions=[{"name": "request-signer"}],
-    chrome_policy={
-        "DeveloperToolsAvailability": 1,
-    },
-)
-```
-
-```typescript Typescript/Javascript
-import Kernel from '@onkernel/sdk';
-
-const kernel = new Kernel();
-
-const browser = await kernel.browsers.create({
-  extensions: [{ name: 'request-signer' }],
-  chrome_policy: {
-    DeveloperToolsAvailability: 1,
-  },
-});
-```
-</CodeGroup>
-
-This applies to every force-installed extension in the browser. Anyone with access to the browser, including live view users, can then inspect the extension's code and storage. Kernel only accepts `0` (Chrome's default) and `1`, because `2` turns off DevTools everywhere, which also disconnects CDP.
+Chrome blocks DevTools on extensions that use `webRequestBlocking`. Set `DeveloperToolsAvailability` to `1` to allow it. See [Debugging your extensions](/browsers/extensions#debugging-your-extensions).
 
 ### Restrict navigation to specific URLs
 
