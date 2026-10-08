@@ -1,0 +1,78 @@
+---
+title: "manage_vault_wallets"
+description: "Connect Link and AgentCard wallets and list their payment methods"
+---
+
+**status:** <Badge color="yellow">preview</Badge>
+
+Connect a payment [wallet](/integrations/wallets/overview) to a per-end-user [vault](/reference/mcp-server/tools/manage-vaults), then list its payment methods. Card requests created with [`manage_vault_cards`](/reference/mcp-server/tools/manage-vault-cards) reference the wallet by key.
+
+Hosted connection and enrollment steps are for the user to complete. Never ask for card data or OAuth codes in chat.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Connect a wallet, or return the identical existing wallet with the same key. |
+| `payment_methods` | Read the wallet with its live `payment_methods` expansion. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create` or `payment_methods`. Required. |
+| `vault` | Vault ID or name. Required. |
+| `key` | Immutable wallet key within the vault. Required. |
+| `provider` | (create) `link` or `agentcard`. |
+| `spec` | (create) Provider-specific specification object, not a `{ type, spec }` envelope. |
+| `project` | Optional project name or ID. |
+
+### Link spec
+
+For KERNEL-managed OAuth, the user completes the Link connection at the returned `item.action.url`:
+
+```json
+{
+  "authorization": {
+    "method": "oauth",
+    "client": { "type": "kernel_managed" }
+  }
+}
+```
+
+For your own Link client, set `client.type` to `customer_managed`, reference a [provider configuration](/reference/mcp-server/tools/manage-vault-provider-configs) by exactly one `id` or `name`, and pass a `tokens` object with `access_token` and `refresh_token` from the same grant. Supply tokens from a trusted backend, never through chat. After import, KERNEL owns refresh-token rotation.
+
+### AgentCard spec
+
+Pass `{}` to enroll with KERNEL-managed credentials. Optionally set `provider_config` to use your own configuration, or `user_id` (`usr_...`) to reuse an AgentCard user already enrolled under the same configuration.
+
+## Example
+
+```json
+{
+  "action": "create",
+  "vault": "user-123",
+  "key": "link-wallet",
+  "provider": "link",
+  "spec": {
+    "authorization": {
+      "method": "oauth",
+      "client": { "type": "kernel_managed" }
+    }
+  }
+}
+```
+
+Observe the wallet with [`manage_vault_items`](/reference/mcp-server/tools/manage-vault-items) (`action: "get"`, `wait: 30`). Once it's connected, list payment methods:
+
+```json
+{
+  "action": "payment_methods",
+  "vault": "user-123",
+  "key": "link-wallet"
+}
+```
+
+Select a Link `payment_method_id` explicitly with the user; never choose the default automatically. Capabilities are advisory: an absent capability means unknown, not ineligible.
+
+A duplicate create never replaces a wallet's grant, and bindings can't change. To reauthorize, obtain a fresh grant under a new wallet key for new payments, and keep the old wallet for reconciling unresolved payments.

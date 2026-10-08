@@ -1,0 +1,82 @@
+---
+title: "manage_vault_cards"
+description: "Create and update payment card requests in a vault"
+---
+
+**status:** <Badge color="yellow">preview</Badge>
+
+Configure card requests against a connected [wallet](/reference/mcp-server/tools/manage-vault-wallets). A card request sets the merchant and spending limit for a purchase; it doesn't submit a merchant payment.
+
+Mode comes from the wallet's provider credentials; there's no per-item test flag. Assume real payment effects.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create a card request, or return the identical existing request with the same key. |
+| `update` | Replace a requested card's spec, when the API allows the edit. |
+
+Neither action authorizes a Link card. Read `available_operations` with [`manage_vault_items`](/reference/mcp-server/tools/manage-vault-items) and get explicit user approval before invoking `authorize`.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create` or `update`. Required. |
+| `vault` | Vault ID or name. Required. |
+| `key` | Immutable card key within the vault. Required. |
+| `provider` | `link` or `agentcard`. Required. |
+| `spec` | Full provider-specific specification object. Required. No defaults or normalization are applied. |
+| `project` | Optional project name or ID. |
+
+Amounts are integers in minor currency units, such as cents.
+
+### Link spec
+
+| Field | Description |
+|-------|-------------|
+| `wallet` | Key of the Link wallet in the same vault. |
+| `payment_method_id` | Payment method the user selected from the wallet's `payment_methods`. |
+| `amount` | Spending limit, from 1 to 500000. |
+| `currency` | Three-letter currency code, such as `usd`. |
+| `merchant_name` | Merchant display name. |
+| `merchant_url` | Merchant URL. Fill only works on a page at this origin. |
+| `context` | Description of the purchase, at least 100 characters. |
+| `line_items`, `totals`, `metadata`, `expires_at` | Optional purchase details. |
+
+### AgentCard spec
+
+| Field | Description |
+|-------|-------------|
+| `wallet` | Key of the AgentCard wallet in the same vault. |
+| `merchant` | Merchant name, up to 120 characters. |
+| `amount` | Spending limit. |
+| `currency` | Three-letter currency code. |
+| `checkout_origin` | Optional canonical HTTPS origin, such as `https://shop.example`, forwarded for autopilot rule matching. KERNEL doesn't compare it with the browser page, and it doesn't enable autopilot. |
+| `card_id` | Optional funding card (`vc_...`). Omit to let the cardholder choose at approval. |
+
+## Example
+
+```json
+{
+  "action": "create",
+  "vault": "user-123",
+  "key": "order-1042",
+  "provider": "link",
+  "spec": {
+    "wallet": "link-wallet",
+    "payment_method_id": "pm_123",
+    "amount": 4599,
+    "currency": "usd",
+    "merchant_name": "Example Shop",
+    "merchant_url": "https://shop.example",
+    "context": "Buy one pair of trail running shoes in size 10 from Example Shop for the order the user approved, with a total limit of 45.99 USD."
+  }
+}
+```
+
+After authorization, fill the card into the merchant checkout with `manage_vault_items` `fill`. See [Stripe Link](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) for the full checkout flows.
+
+<Warning>
+Never reconfigure a card to retry a failed, timed-out, rejected, or indeterminate payment. Inspect state and events instead. An uncertain update moves the card to `recovery_required`; stop and reconcile with the provider or support.
+</Warning>

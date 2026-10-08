@@ -1,0 +1,51 @@
+---
+title: "manage_vault_provider_configs"
+description: "Manage your organization's Link and AgentCard client configurations"
+---
+
+**status:** <Badge color="yellow">preview</Badge>
+
+Manage organization-owned [provider configurations](/integrations/wallets/overview#provider-configurations): the OAuth client credentials for your own Link or AgentCard application. These identify your application; they aren't user grants. Wallets created with [`manage_vault_wallets`](/reference/mcp-server/tools/manage-vault-wallets) can reference a configuration by ID or name.
+
+You only need this tool to bring your own provider client. KERNEL-managed wallets don't use a configuration.
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create a configuration. A duplicate name returns a conflict and never replaces secrets. |
+| `list` | List configurations in the organization. |
+| `get` | Retrieve a configuration's public metadata by ID or name. |
+| `update` | Rename the configuration, rotate `client_secret`, or set the Link `publishable_key`. |
+| `delete` | Delete a configuration. Fails while any item still references it. |
+
+`create`, `update`, and `delete` require an organization-scoped connection. Reads also work on project-scoped connections.
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create`, `list`, `get`, `update`, or `delete`. Required. |
+| `config` | (get, update, delete) Configuration ID or name. |
+| `name` | (create, update) Unique name within the organization. |
+| `provider` | (create) `link` or `agentcard`. Immutable. |
+| `credentials` | (create) `client_id` and `client_secret`, plus `publishable_key` for Link. (update) `client_secret` and/or `publishable_key`. |
+| `limit` | (list) Maximum results per page, from 1 to 100. |
+| `offset` | (list) Pagination offset. |
+
+`provider`, `client_id`, mode, and wallet bindings are immutable. Rotating `client_secret` affects every wallet bound to the configuration. For Link, `publishable_key` is required for KERNEL to refresh and revoke imported wallet grants; without it, imported wallets stop working when their access token expires.
+
+<Warning>
+`client_secret` is write-only. Supply it from a trusted client, never by pasting it into chat, and don't use an MCP client that logs tool arguments. Responses never include it.
+</Warning>
+
+## Example
+
+```json
+{
+  "action": "get",
+  "config": "my-link-client"
+}
+```
+
+Returns the configuration's ID, name, provider, `client_id`, timestamps, and, for AgentCard, its test mode.
