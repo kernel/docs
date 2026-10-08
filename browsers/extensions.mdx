@@ -138,9 +138,9 @@ Loading an extension triggers a Chromium restart, which takes several seconds an
 
 You can open DevTools on your extension or attach to its service worker over CDP to read its console, set breakpoints, and inspect its storage. This works by default for most extensions.
 
-### Extensions that use `webRequestBlocking`
+### Debugging extensions added through enterprise policy
 
-Chrome only grants `webRequestBlocking` to extensions installed through enterprise policy, so Kernel [installs these extensions that way](#extensions-requiring-enterprise-policies). Chrome blocks DevTools on those extensions by default. To allow it, set `DeveloperToolsAvailability` to `1` in [`chrome_policy`](/browsers/chrome-policies) when you create the browser or pool:
+Kernel adds your extension through enterprise policy when its manifest requests `webRequest` or `webRequestBlocking` and the upload includes `update.xml` and a `.crx` (see [Extensions requiring enterprise policies](#extensions-requiring-enterprise-policies)). Chrome blocks DevTools on extensions added this way by default. To allow it, set `DeveloperToolsAvailability` to `1` in [`chrome_policy`](/browsers/chrome-policies) when you create the browser or pool:
 
 <CodeGroup>
 ```python Python
@@ -170,7 +170,7 @@ const browser = await kernel.browsers.create({
 ```
 </CodeGroup>
 
-This applies to every extension Kernel installed this way in that browser. Anyone with access to the browser, including live view users, can then inspect those extensions' code and storage. Kernel rejects `2` because it turns off DevTools everywhere, including the CDP connection Kernel uses to control the browser.
+This applies to every extension added through enterprise policy in that browser. Anyone with access to the browser, including live view users, can then inspect those extensions' code and storage. Kernel rejects `2` because it turns off DevTools everywhere, including the CDP connection Kernel uses to control the browser.
 
 ## Extensions requiring enterprise policies
 
