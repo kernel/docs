@@ -119,9 +119,9 @@ The result carries `status` (`completed`, `awaiting_submission`, `canceled`, `er
 
 | Operation | Description |
 |-----------|-------------|
-| `1pw_create_access_request` | Request access to the credential's logins. Pass `inputs: { "browser_id": "..." }` for a browser created with this vault attached. Returns a native `onepassword://` approval link. |
-| `1pw_access_request_status` | Read the owner's decision. Read-only; doesn't need user approval. |
-| `1pw_fill` | Fill and submit the login through the 1Password extension. Pass `browser_id` and the exact current `page_url`, plus `entry_id` when several approved logins share the page's origin. |
+| `1pw_create_access_request` | Request access to the credential's logins. Needs no browser; optionally pass a `goal`, plus `reason` and `keywords` for a single-login credential. Returns a native `onepassword://` approval link. |
+| `1pw_access_request_status` | Read the owner's decision. Needs no browser. Read-only; doesn't need user approval. |
+| `1pw_fill` | Fill and submit the login through the 1Password extension, which KERNEL loads into the browser on demand. Pass the `browser_id` of a browser created with this vault attached and the exact current `page_url`, plus `entry_id` when several approved logins share the page's origin. |
 | `1pw_recover` | Recover a failed account link on a `credential_account` item. |
 
 Give the approval link, unmodified, only to the account owner outside the agent-controlled browser. Never open or approve it yourself.
