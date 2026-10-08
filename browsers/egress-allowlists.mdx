@@ -74,11 +74,13 @@ Kernel rejects:
 
 ## When a destination is blocked
 
-Kernel answers a request for an unlisted destination with a `403` and sets the `X-Kernel-Proxy-Error` header to `network_policy_denied`. A navigation shows a Kernel error page that names the blocked host and says that retrying won't help, so an agent reading the page can tell a policy refusal from a website's own `403`. `fetch()`, XHR, and subresource requests fail with the same status and header, and WebSocket handshakes fail.
+Kernel's egress proxy answers a request for an unlisted destination with a `403` and sets the `X-Kernel-Proxy-Error` header to `network_policy_denied`. A navigation shows a Kernel error page that names the blocked host and says that retrying won't help, so an agent reading the page can tell a policy refusal from a website's own `403`. The proxy also refuses blocked `fetch()`, XHR, and subresource requests, and WebSocket handshakes fail.
 
-HTTPS connections on ports other than 443 get a bare `403` without the page, which Chromium reports as `net::ERR_TUNNEL_CONNECTION_FAILED`.
+The proxy's `403` and header aren't guaranteed to be visible to page JavaScript. For cross-origin `fetch()` and XHR, CORS can hide the denial response and produce `net::ERR_FAILED`. Cross-origin subresources can be rejected by Chromium's opaque response blocking (ORB): an image receiving the HTML denial page can fail with `net::ERR_BLOCKED_BY_ORB`.
 
-Blocked requests are also reported as `proxy_error` [telemetry](/browsers/telemetry/overview) events with the code `network_policy_denied`. The bare `403`s on other ports are the exception: Chromium doesn't expose them, so those connections appear only as `network_loading_failed` events. See [proxy errors](/proxies/errors) for the other codes.
+With network [telemetry](/browsers/telemetry/overview) enabled, `proxy_error` classification depends on Chromium exposing the branded response in `Network.responseReceived`. When it does, the event's code is `network_policy_denied`. Cross-origin requests blocked by CORS or ORB can instead appear only as `network_loading_failed` events, without the denial status or header. Those generic error strings can also occur for unrelated failures, so they don't prove an allowlist denial on their own.
+
+HTTPS connections on ports other than 443 get a bare `403` without the page, which Chromium reports as `net::ERR_TUNNEL_CONNECTION_FAILED`. Those refusals also appear only as `network_loading_failed`, and WebSocket handshake failures aren't classified as `proxy_error`. See [proxy errors](/proxies/errors) for the other codes.
 
 ## CAPTCHAs
 
@@ -90,7 +92,7 @@ The CAPTCHA itself loads from the CAPTCHA provider, not from the site that shows
 - hCaptcha: `hcaptcha.com` and `*.hcaptcha.com`
 - Cloudflare Turnstile: `challenges.cloudflare.com`
 
-Providers can change the hosts they use, so check the provider's documentation for the current list. A blocked CAPTCHA host shows up as a `network_policy_denied` `proxy_error` event that names the host.
+Providers can change the hosts they use, so check the provider's documentation for the current list. A blocked CAPTCHA resource can produce a `network_policy_denied` `proxy_error` event when Chromium exposes the branded response, or only a `network_loading_failed` event when it doesn't. Don't rely on `proxy_error` alone to find every blocked provider resource.
 
 ## Change the allowlist during a session
 
