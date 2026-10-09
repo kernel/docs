@@ -37,7 +37,7 @@ Amounts are integers in minor currency units, such as cents.
 |-------|-------------|
 | `wallet` | Key of the Link wallet in the same vault. |
 | `payment_method_id` | Payment method the user selected from the wallet's `payment_methods`. |
-| `amount` | Spending limit, from 1 to 500000. |
+| `amount` | Spending limit, from 1 to 50000. |
 | `currency` | Three-letter currency code, such as `usd`. |
 | `merchant_name` | Merchant display name. |
 | `merchant_url` | Merchant URL. Fill only works on a page at this origin. |
@@ -75,7 +75,7 @@ Amounts are integers in minor currency units, such as cents.
 }
 ```
 
-After authorization, fill the card into the merchant checkout with `manage_vault_items` `fill`. See [Link by Stripe](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) for the full checkout flows.
+After authorization, fill a Link card into the merchant checkout with `manage_vault_items` `fill`. AgentCard cards don't use `fill`. The browser enters the card's `state.aliases` and KERNEL holds the checkout for the user's approval, or, for supported processors, you invoke the card's advertised checkout-preparation operation first. See [Link by Stripe](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) for the full checkout flows.
 
 <Warning>
 Never reconfigure a card to retry a failed, timed-out, rejected, or indeterminate payment. Inspect state and events instead. An uncertain update moves the card to `recovery_required`; stop and reconcile with the provider or support.
