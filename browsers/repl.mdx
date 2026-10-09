@@ -359,7 +359,7 @@ The API process directly owns one lazily started Node child and is its sole supe
 | Execution timeout | Child process group destroyed | Replaced on next request |
 | Crash, OOM, uncaught asynchronous exception, or protocol corruption | Child process group destroyed | Replaced on next request |
 
-Timeouts are destructive because abandoned JavaScript cannot safely coexist with a later cell. Check `response.repl_terminated` to see whether your own request destroyed the REPL it ran in — the next call starts a fresh one and earlier top-level bindings are gone. Calls are serialized, so executions on the same browser cannot interleave.
+Timeouts are destructive because abandoned JavaScript cannot safely coexist with a later cell. Check `response.repl_terminated` to see whether your own request destroyed the REPL it ran in — the next call starts a fresh one and earlier top-level bindings are gone. Calls are serialized, so executions on the same browser cannot interleave. To run Playwright tasks in parallel across tabs of one browser, use named [executors](/browsers/playwright-execution#executors) with Playwright execution.
 
 ## Error handling
 

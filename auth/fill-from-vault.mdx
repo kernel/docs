@@ -57,7 +57,7 @@ these examples continue in order, using hacker news as the login destination. se
 
     <FillBrowserCredentials />
 
-    `completed` means the selected fields were filled, not that login succeeded. if `fill` fails, returns an uncertain outcome, or loses its response, stop and [inspect the outcome](/vaults/fill#handle-the-outcome) rather than automatically retrying.
+    `completed` means the selected fields were filled, not that login succeeded. if `fill` fails, returns an uncertain outcome, or loses its response, [check the outcome](/vaults/fill#handle-the-outcome) and retry it; `fill` never submits the form.
   </Step>
   <Step title="Submit and Handle the Response">
     after `fill` completes, your application or agent submits the login form once and verifies the site's response. `fill` doesn't perform either step. handle any additional authentication prompts before continuing the task.
