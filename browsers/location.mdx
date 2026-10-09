@@ -47,7 +47,7 @@ print(browser.location)
 ```
 </CodeGroup>
 
-`timezone` accepts supported IANA identifiers such as `America/Los_Angeles`. `locale` accepts canonical BCP 47 tags such as `en-US` or `de-DE`. KERNEL validates the complete request before changing the session.
+`timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. KERNEL validates the complete request before changing the session and returns a `400` with code `invalid_browser_location` for an unsupported value such as `en-QQ`.
 
 ## Update a running browser
 
