@@ -90,53 +90,34 @@ func main() {
 
 ## Scope a key to specific resources
 
-By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit it to specific actions on specific resources. A key with a policy is denied everything the policy doesn't grant.
+By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit it to specific actions on specific resources. The key is denied everything the policy doesn't grant. Keys created without `policy` work exactly as before.
 
-Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent, a customer-facing worker, or a short-lived job. Keys created without `policy` work exactly as before.
+Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent or a short-lived job.
 
 ### Write a policy
 
-A policy is a list of allow statements. Each statement pairs one `action` with one `resource`:
+A policy is a list of statements, each pairing an `action` with a `resource`.
 
-| Resource | Matches |
+A resource is one of:
+
+- `projects/{project_id}/*` or `organizations/{org_id}/*` for everything in a project or organization.
+- `projects/{project_id}/{kind}/{id}` for one object, where `kind` is `browsers`, `profiles`, `vaults`, or `proxies`.
+
+An action is `{kind}:{verb}`, for example `browsers:use`:
+
+| Verb | Allows |
 | --- | --- |
-| `organizations/{org_id}/*` | Everything in the organization. |
-| `projects/{project_id}/*` | Everything in the project. |
-| `projects/{project_id}/{kind}/{id}` | One browser, profile, vault, or proxy, for example `projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1`. |
-| `{kind}/{id}` | One object in the key's project, or anywhere in the organization for an org-scoped key. |
+| `create` | Create objects of that kind. Grant it on a project or organization, not an ID. Creating a browser also needs `browsers:use`, because the response includes connection URLs. |
+| `read` | View metadata. Lists only include objects the key can read, or for browsers, use. |
+| `use` | Control a browser, attach a profile, fill from a vault, or select a saved proxy. Using a browser also needs `use` on its attached profile and vaults. |
+| `write` | Update an object. For profiles, this includes saving browser state into them. For vaults, it covers creating, updating, and deleting items. |
+| `delete` | Delete an object. |
 
-`kind` is `browsers`, `profiles`, `vaults`, or `proxies`. Kernel checks every exact ID when you create the key. IDs that don't exist return `404`, and resources outside the key's organization or project return `400`.
-
-| Action | Allows |
-| --- | --- |
-| `browsers:create` | Create browsers. Grant it on a project or organization, not an ID. |
-| `browsers:use` | Inspect, connect to, and control browsers. |
-| `browsers:write` | Update browser configuration. |
-| `browsers:delete` | Delete browsers. |
-| `profiles:create` / `profiles:read` | Create profiles / view profile metadata. |
-| `profiles:use` | Attach profiles to browsers and export them. |
-| `profiles:write` / `profiles:delete` | Rename profiles and save browser state into them / delete profiles. |
-| `vaults:create` / `vaults:read` | Create vaults / view vault and item metadata. |
-| `vaults:use` | Fill credentials and run vault operations. |
-| `vaults:write` / `vaults:delete` | Create, update, and delete vault items / delete vaults. |
-| `proxies:create` / `proxies:read` | Create proxies / view proxy configuration. |
-| `proxies:use` | Select saved proxies for browsers and run health checks. |
-| `proxies:write` / `proxies:delete` | Rename proxies / delete proxies. |
-| `projects:read` / `organizations:read` | View project or organization metadata and limits. |
-
-Resources a browser references need their own grants:
-
-- **Creating a browser** needs `browsers:create` and `browsers:use` on its project or organization, because the response includes connection URLs.
-- **Profiles:** attaching a profile needs `profiles:use` on it. Saving changes back to it also needs `profiles:write`.
-- **Vaults:** linking a vault needs `vaults:use` on every vault.
-- **Proxies:** selecting a saved proxy needs `proxies:use` on it.
-- **Existing browsers:** a key can only use a browser if it can also use that browser's attached profile and vaults.
-
-List endpoints return only the resources the key can access, so a key without a matching grant gets an empty list rather than an error. A profile appears in `GET /profiles` only with `profiles:read`, so grant it alongside `profiles:use` if your code looks profiles up by listing them.
+Browsers support every verb except `read`. `projects:read` and `organizations:read` view project and organization metadata.
 
 ### Create a scoped key
 
-This key can create and control browsers in one project, only with profile `prof_7h2kq9x4m1` or no profile, and it expires in one hour:
+This key can create and control browsers in one project, only with profile `prof_7h2kq9x4m1` or no profile, and expires in one hour:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -146,23 +127,20 @@ const kernel = new Kernel({
   apiKey: process.env.KERNEL_API_KEY,
 });
 
-const project = 'projects/proj_staging_9f3k';
-
 const apiKey = await kernel.apiKeys.create({
   name: 'checkout-agent-run-4812',
   project_id: 'proj_staging_9f3k',
   expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   policy: {
     statements: [
-      { action: 'browsers:create', resource: `${project}/*` },
-      { action: 'browsers:use', resource: `${project}/*` },
-      { action: 'profiles:use', resource: `${project}/profiles/prof_7h2kq9x4m1` },
+      { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'profiles:use', resource: 'projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1' },
     ],
   },
 });
 
 console.log(apiKey.key); // Save this value now. Kernel won't show it again.
-console.log(apiKey.policy);
 ```
 
 ```python Python
@@ -173,37 +151,30 @@ from kernel import Kernel
 
 client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
 
-project = "projects/proj_staging_9f3k"
-
 api_key = client.api_keys.create(
     name="checkout-agent-run-4812",
     project_id="proj_staging_9f3k",
     expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
     policy={
         "statements": [
-            {"action": "browsers:create", "resource": f"{project}/*"},
-            {"action": "browsers:use", "resource": f"{project}/*"},
-            {"action": "profiles:use", "resource": f"{project}/profiles/prof_7h2kq9x4m1"},
+            {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "profiles:use", "resource": "projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1"},
         ],
     },
 )
 
 print(api_key.key)  # Save this value now. Kernel won't show it again.
-print(api_key.policy)
 ```
 </CodeGroup>
 
-To limit a key to vault `vlt_3m8q2r7k1x` instead, grant `vaults:use` on `projects/proj_staging_9f3k/vaults/vlt_3m8q2r7k1x`. Add `vaults:read` if the key also needs to read the vault's metadata.
-
 ### Expiry and revocation
 
-- `expires_at` sets an exact expiry time, so a key can live for minutes rather than whole days. It can't be combined with `days_to_expire`.
-- A scoped key can't outlive the credential that creates it. If your key expires, set `expires_at` or `days_to_expire` no later than that.
-- An expired key is rejected immediately. A deleted key is rejected within about 10 seconds.
-- Neither closes browser connections that are already open. Delete those browsers to cut off access immediately.
-- Rotating a scoped key gives the replacement the same policy.
+- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A scoped key can't outlive the key that creates it.
+- An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither closes browser connections that are already open, so delete those browsers to cut off access.
+- Rotating a scoped key keeps its policy.
 
-Scoped keys can't create, list, or delete API keys, and they get `403` with `insufficient_scope` on any endpoint that doesn't support scoped access yet. Manage keys with an unscoped key.
+Scoped keys can't manage API keys, and they get `403` on endpoints that don't support scoped access yet.
 
 ## Deployment API keys
 
@@ -425,8 +396,7 @@ To cut over immediately instead of using a grace window, pass `expire_in_days: 0
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (policy) | A statement uses an unknown action, a malformed resource, or a resource outside the key's organization or project. | Check the action and resource against [Write a policy](#write-a-policy). A project-scoped key can't be granted `organizations/{org_id}/*`. |
-| `400 Bad Request` (expiry) | `expires_at` is in the past or combined with `days_to_expire`, or a scoped key would outlive the credential creating it. | Send one expiry field, no later than your own key's expiry. |
+| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry is invalid or later than your own key's. | Check the policy against [Write a policy](#write-a-policy) and send one expiry field. |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
-| `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission or called an endpoint scoped keys can't use yet. | The message names the missing action and resource. Add it to the policy, or use an unscoped key. |
+| `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
