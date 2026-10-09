@@ -1,0 +1,85 @@
+---
+title: "API Key Permissions"
+description: "Actions and resources you can grant in a scoped API key policy"
+---
+
+This page lists everything you can grant in a scoped API key's `policy`. To create a scoped key, see [Scope a key to specific resources](/info/api-keys#scope-a-key-to-specific-resources).
+
+## Resources
+
+| Resource | Matches |
+| --- | --- |
+| `organizations/{org_id}/*` | Everything in the organization. |
+| `projects/{project_id}/*` | Everything in the project. |
+| `projects/{project_id}/{kind}/{id}` | One object. `kind` is `browsers`, `profiles`, `vaults`, or `proxies`. |
+
+Resources must be inside the new key's organization, or its project for a project-scoped key. Kernel checks that every object ID exists when you create the key.
+
+## Actions
+
+### Browsers
+
+| Action | Allows |
+| --- | --- |
+| `browsers:create` | Create browsers. Grant it on a project or organization. |
+| `browsers:use` | List, inspect, connect to, and control browsers. |
+| `browsers:write` | Update browser configuration. |
+| `browsers:delete` | Delete browsers. |
+
+### Profiles
+
+| Action | Allows |
+| --- | --- |
+| `profiles:create` | Create profiles. Grant it on a project or organization. |
+| `profiles:read` | List profiles and view their metadata. |
+| `profiles:use` | Attach profiles to browsers and download them. |
+| `profiles:write` | Rename profiles and save browser state into them. |
+| `profiles:delete` | Delete profiles. |
+
+### Vaults
+
+| Action | Allows |
+| --- | --- |
+| `vaults:create` | Create vaults. Grant it on a project or organization. |
+| `vaults:read` | List vaults and view vault and item metadata. |
+| `vaults:use` | Link vaults to browsers, fill credentials, and run vault item operations. |
+| `vaults:write` | Create, update, and delete vault items. |
+| `vaults:delete` | Delete vaults and their items. |
+
+### Proxies
+
+| Action | Allows |
+| --- | --- |
+| `proxies:create` | Create proxies. Grant it on a project or organization. |
+| `proxies:read` | List proxies and view their configuration, without credentials. |
+| `proxies:use` | Select saved proxies for browsers and run health checks. |
+| `proxies:write` | Rename proxies. |
+| `proxies:delete` | Delete proxies. |
+
+### Projects and organizations
+
+| Action | Allows |
+| --- | --- |
+| `projects:read` | View project metadata and limits. |
+| `organizations:read` | View organization entitlements and limits. |
+
+## Operations that need more than one action
+
+| Operation | Requires |
+| --- | --- |
+| Create a browser | `browsers:create` and `browsers:use` on the project or organization, because the response includes connection URLs. Add `profiles:use` on its profile, `profiles:write` if it saves profile changes, `vaults:use` on each linked vault, and `proxies:use` on a saved proxy. |
+| Any operation on an existing browser | The browser action, plus `profiles:use` on its attached profile and `vaults:use` on every linked vault. If the browser saves profile changes, `profiles:write` on that profile too. |
+| Update a browser | `browsers:write` and `browsers:use`, plus `use` on any profile, vault, or proxy the update adds. |
+| Fill from a vault | `vaults:use` on the vault and `browsers:use` on the browser. |
+| Run a proxy health check | `proxies:use` and `proxies:read`. |
+
+List endpoints return only the objects the key can access, so a key without a matching grant gets an empty list.
+
+## Not available to scoped keys
+
+Scoped keys get `403` with `insufficient_scope` on:
+
+- API key management, including creating, listing, rotating, and deleting keys.
+- Browser pools.
+- Creating browsers that use saved extensions, telemetry export, or app invocations.
+- Any other endpoint not covered by the actions above.

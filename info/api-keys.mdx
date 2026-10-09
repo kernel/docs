@@ -88,6 +88,82 @@ func main() {
 ```
 </CodeGroup>
 
+## Scope a key to specific resources
+
+By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
+
+Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent or a short-lived job.
+
+### How policies work
+
+A policy is a list of **statements**. Each statement allows one **action** on one **resource**, and the key is denied everything no statement allows.
+
+- A **resource** is either one object, `projects/{project_id}/{kind}/{id}`, or everything in a container, `projects/{project_id}/*` or `organizations/{org_id}/*`.
+- An **action** is `{kind}:{verb}`, such as `browsers:use` or `vaults:read`.
+
+Some operations need more than one action. For example, creating a browser with a profile needs `browsers:create` and `browsers:use` on the project, plus `profiles:use` on that profile. See [API key permissions](/info/api-key-permissions) for every action and what each operation requires.
+
+### Create a scoped key
+
+This key can create and control browsers in one project, only with profile `prof_7h2kq9x4m1` or no profile, and expires in one hour:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel({
+  apiKey: process.env.KERNEL_API_KEY,
+});
+
+const apiKey = await kernel.apiKeys.create({
+  name: 'checkout-agent-run-4812',
+  project_id: 'proj_staging_9f3k',
+  expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+  policy: {
+    statements: [
+      { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'profiles:use', resource: 'projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1' },
+    ],
+  },
+});
+
+console.log(apiKey.key); // Save this value now. Kernel won't show it again.
+```
+
+```python Python
+import os
+from datetime import datetime, timedelta, timezone
+
+from kernel import Kernel
+
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+api_key = client.api_keys.create(
+    name="checkout-agent-run-4812",
+    project_id="proj_staging_9f3k",
+    expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    policy={
+        "statements": [
+            {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "profiles:use", "resource": "projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1"},
+        ],
+    },
+)
+
+print(api_key.key)  # Save this value now. Kernel won't show it again.
+```
+</CodeGroup>
+
+### Expiry and revocation
+
+- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A scoped key can't outlive the key that creates it.
+- An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither closes browser connections that are already open, so delete those browsers to cut off access.
+- Rotating a scoped key keeps its policy.
+
+Scoped keys can't manage API keys, and they get `403` on endpoints that don't support scoped access yet.
+
 ## Deployment API keys
 
 When you deploy an app, Kernel mints a **deployment-scoped API key** for that deployment and injects it into the deployment (and every invocation it runs) as the `KERNEL_API_KEY` environment variable. Because the SDKs read `KERNEL_API_KEY` from the environment by default, your app can call the Kernel API as itself without you managing a key.
@@ -102,7 +178,7 @@ If you need a credential whose lifetime you control (for CI, a persistent backen
 
 ## List and inspect API keys
 
-List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, and expiry metadata, but they don't include the plaintext key.
+List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -228,7 +304,7 @@ func main() {
 
 ## Rotate a key
 
-`rotate` issues a replacement key in a single call and keeps the old key working for a short grace period, so your workload can switch over without downtime. The new key copies the rotated key's name and project scope, and—like create—Kernel returns the plaintext `key` only once.
+`rotate` issues a replacement key in a single call and keeps the old key working for a short grace period, so your workload can switch over without downtime. The new key copies the rotated key's name, project scope, and policy, and—like create—Kernel returns the plaintext `key` only once.
 
 Two optional parameters control the timing:
 
@@ -308,5 +384,7 @@ To cut over immediately instead of using a grace window, pass `expire_in_days: 0
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
+| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry is invalid or later than your own key's. | Check the policy against [API key permissions](/info/api-key-permissions) and send one expiry field. |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
-| `404 Not Found` | The project or API key doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
+| `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
+| `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
