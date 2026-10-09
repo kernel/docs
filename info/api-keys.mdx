@@ -90,30 +90,18 @@ func main() {
 
 ## Scope a key to specific resources
 
-By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit it to specific actions on specific resources. The key is denied everything the policy doesn't grant. Keys created without `policy` work exactly as before.
+By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
 
 Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent or a short-lived job.
 
-### Write a policy
+### How policies work
 
-A policy is a list of statements, each pairing an `action` with a `resource`.
+A policy is a list of **statements**. Each statement allows one **action** on one **resource**, and the key is denied everything no statement allows.
 
-A resource is one of:
+- A **resource** is either one object, `projects/{project_id}/{kind}/{id}`, or everything in a container, `projects/{project_id}/*` or `organizations/{org_id}/*`.
+- An **action** is `{kind}:{verb}`, such as `browsers:use` or `vaults:read`.
 
-- `projects/{project_id}/*` or `organizations/{org_id}/*` for everything in a project or organization.
-- `projects/{project_id}/{kind}/{id}` for one object, where `kind` is `browsers`, `profiles`, `vaults`, or `proxies`.
-
-An action is `{kind}:{verb}`, for example `browsers:use`:
-
-| Verb | Allows |
-| --- | --- |
-| `create` | Create objects of that kind. Grant it on a project or organization, not an ID. Creating a browser also needs `browsers:use`, because the response includes connection URLs. |
-| `read` | View metadata. Lists only include objects the key can read, or for browsers, use. |
-| `use` | Control a browser, attach a profile, fill from a vault, or select a saved proxy. Using a browser also needs `use` on its attached profile and vaults. |
-| `write` | Update an object. For profiles, this includes saving browser state into them. For vaults, it covers creating, updating, and deleting items. |
-| `delete` | Delete an object. |
-
-Browsers support every verb except `read`. `projects:read` and `organizations:read` view project and organization metadata.
+Some operations need more than one action. For example, creating a browser with a profile needs `browsers:create` and `browsers:use` on the project, plus `profiles:use` on that profile. See [API key permissions](/info/api-key-permissions) for every action and what each operation requires.
 
 ### Create a scoped key
 
@@ -396,7 +384,7 @@ To cut over immediately instead of using a grace window, pass `expire_in_days: 0
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry is invalid or later than your own key's. | Check the policy against [Write a policy](#write-a-policy) and send one expiry field. |
+| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry is invalid or later than your own key's. | Check the policy against [API key permissions](/info/api-key-permissions) and send one expiry field. |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
