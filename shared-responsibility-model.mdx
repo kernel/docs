@@ -3,7 +3,7 @@ title: "Shared Responsibility Model"
 description: "Understanding the division of security responsibilities between Kernel and its customers"
 ---
 
-Last Modified: March 16, 2026
+Last Modified: October 9, 2026
 
 ## Overview
 
@@ -40,6 +40,17 @@ Some security controls apply to both Kernel and the customer, each operating in 
 | **Patch Management** | Patching platform infrastructure, unikernel images, and runtime dependencies | Keeping automation dependencies and libraries up to date within their workflows |
 | **Configuration Management** | Securing default platform configurations and enforcing isolation boundaries | Configuring browser session options, network policies, and integration settings appropriately |
 | **Awareness and Training** | Training Kernel employees on security best practices and secure coding | Training their own teams on secure use of the Kernel platform and responsible data handling |
+| **Agent Egress Restriction** | Enforcing each browser's [egress allowlist](/browsers/egress-allowlists) at Kernel's egress proxy and refusing CDP browser contexts that set their own proxy on allowlisted browsers | Defining the allowlist and keeping Kernel API credentials and code execution inside the browser VM out of the constrained agent's reach |
+
+## Restricting Agent Egress
+
+[Egress allowlists](/browsers/egress-allowlists) limit which destinations a browser session can reach, so an agent tricked by a prompt injection into sending data to an attacker's server gets a refusal instead of a connection. Responsibility for this control is split:
+
+- **Kernel enforces the allowlist** — Kernel's egress proxy refuses Chromium's HTTP(S) and WebSocket requests to unlisted destinations, starting with the browser's first request. On allowlisted browsers, Kernel also refuses CDP browser contexts that set their own proxy and rejects Chrome policies that can send traffic around the proxy. If Kernel can't start a browser that enforces the allowlist, browser creation fails instead of starting the browser without it.
+- **You control who can change it** — Anyone holding your Kernel API credentials can replace or remove an allowlist, or create a browser without one. Set allowlists from your own code, and keep your API keys and the Kernel [MCP server](/reference/mcp-server) out of the constrained agent's reach.
+- **You control what runs inside the VM** — Enforcement covers browser traffic through Kernel's egress proxy, not all traffic leaving the browser VM. Code executing inside the VM can send traffic directly and disable the VM-side CDP restriction, so don't give the constrained agent code execution inside the VM. Extensions with the `proxy` permission and destinations in `network.private_hosts` also aren't filtered.
+
+An allowlist isn't full VM-level network isolation. Review its [limitations](/browsers/egress-allowlists#limitations) before relying on it.
 
 ## Session Lifecycle and Data Responsibility
 
