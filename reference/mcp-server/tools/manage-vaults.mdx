@@ -1,0 +1,69 @@
+---
+title: "manage_vaults"
+description: "Create, list, get, and delete project-owned vaults"
+---
+
+**status:** <Badge color="yellow">preview</Badge>
+
+Manage [vaults](/vaults/overview) that hold an end user's credential and payment items. Use one vault per end user, with an immutable name such as `user-123`, and don't mix items for unrelated users.
+
+Vaults store credentials, not authenticated browser sessions, and don't submit forms or merchant payments. Attach a vault when you create a browser with [`manage_browsers`](/reference/mcp-server/tools/manage-browsers) (`vaults: [{ "name": "user-123" }]`); you can't add or change bindings on an existing browser.
+
+<Note>
+The six vault tools are exposed only when your organization has vaults enabled. If you don't see them in your client's tool list, vaults aren't enabled for the credential you connected with.
+</Note>
+
+## Vault tools
+
+| Tool | Use it to |
+|------|-----------|
+| `manage_vaults` | Create, list, get, and delete vaults. |
+| [`manage_vault_credentials`](/reference/mcp-server/tools/manage-vault-credentials) | Create or update login credentials, and connect a 1Password account. |
+| [`manage_vault_items`](/reference/mcp-server/tools/manage-vault-items) | Inspect items, invoke operations such as `fill`, observe events, and delete items. |
+| [`manage_vault_wallets`](/reference/mcp-server/tools/manage-vault-wallets) | Connect a Link or AgentCard wallet and list its payment methods. |
+| [`manage_vault_cards`](/reference/mcp-server/tools/manage-vault-cards) | Create or update card requests against a connected wallet. |
+| [`manage_vault_provider_configs`](/reference/mcp-server/tools/manage-vault-provider-configs) | Manage your organization's own Link and AgentCard OAuth client configurations. |
+
+## Actions
+
+| Action | Description |
+|--------|-------------|
+| `create` | Create a vault, or return the existing vault with the same name. |
+| `list` | List vaults in the effective project. |
+| `get` | Retrieve a vault by ID or name. |
+| `delete` | Delete a vault and invalidate every item in it. |
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `action` | Operation to perform: `create`, `list`, `get`, or `delete`. Required. |
+| `name` | (create) Immutable vault name, such as `user-123`. 1–255 characters using letters, numbers, dots, underscores, or hyphens. |
+| `vault` | (get, delete) Vault ID or name. |
+| `project` | Optional project name or ID. Vaults are project-owned: omitting it uses the API's default project, not all projects. A project-scoped connection can't select a different project. |
+| `limit` | (list) Maximum results per page, from 1 to 100. |
+| `offset` | (list) Pagination offset. |
+
+`list` returns `items`, `has_more`, and `next_offset`. `delete` returns `deleted_or_not_found` for both a deleted vault and one that doesn't exist.
+
+<Warning>
+Deleting a vault invalidates every credential and payment item in it. Confirm with the user first. Unresolved payment operations block deletion and require reconciliation with the provider or support.
+</Warning>
+
+## Example
+
+```json
+{
+  "action": "create",
+  "name": "user-123"
+}
+```
+
+Then call `manage_browsers` to create a browser with the vault attached:
+
+```json
+{
+  "action": "create",
+  "vaults": [{ "name": "user-123" }]
+}
+```
