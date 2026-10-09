@@ -1,19 +1,19 @@
 ---
 title: "Browser Location"
-description: "Align a browser session's timezone and locale with its proxy geography or set explicit overrides"
+description: "Set a browser session's timezone and locale, or use the defaults for its region"
 ---
 
-KERNEL selects one timezone and formatting locale for each browser session. By default, it resolves each field from the browser's effective proxy geography and falls back to the browser's region while resolution is pending or unavailable.
+Each browser session has one timezone and one formatting locale. By default, both come from the region the browser runs in, for example `America/New_York` and `en-US` for a browser in `us-east`. Set either field to override it for the session.
 
 The setting applies across browser contexts, pages, frames, workers, `Intl`, `navigator.language`, `navigator.languages`, and future `Accept-Language` headers. Updating it doesn't restart Chromium or reload pages.
 
 <Note>
-Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome.
+Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome. KERNEL doesn't derive location from a browser's proxy; to match a proxy's country, set the location explicitly.
 </Note>
 
 ## Set location when creating a browser
 
-Set either field independently. Omit a field to let KERNEL select it automatically.
+Set either field independently. An omitted field uses the default for the browser's region.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -21,7 +21,6 @@ import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
 const browser = await kernel.browsers.create({
-  proxy: { name: 'berlin-checkout' },
   location: {
     timezone: 'Europe/Berlin',
     locale: 'de-DE',
@@ -36,7 +35,6 @@ from kernel import Kernel
 
 kernel = Kernel()
 browser = kernel.browsers.create(
-    proxy={"name": "berlin-checkout"},
     location={
         "timezone": "Europe/Berlin",
         "locale": "de-DE",
@@ -78,7 +76,7 @@ PATCH semantics are field-specific:
 
 - omit `location` or one of its fields to leave that field unchanged
 - set a string to create or replace a session override
-- set a field to `null` in TypeScript or `None` in Python to clear that override and resume automatic selection
+- set a field to `null` in TypeScript or `None` in Python to clear that override and return to the default for the browser's region
 
 <CodeGroup>
 ```typescript TypeScript
@@ -97,35 +95,33 @@ browser = kernel.browsers.update(
 ```
 </CodeGroup>
 
-Clearing one field doesn't clear the other. Explicit overrides also survive proxy changes for the rest of that session.
+Clearing one field doesn't clear the other. Overrides stay in place when you change the browser's proxy.
 
 ## Read effective location
 
-Browser responses include the effective values, per-field provenance, and convergence state:
+Browser responses include the effective values, where each came from, and convergence state:
 
 ```json
 {
   "location": {
-    "timezone": "Europe/Berlin",
-    "locale": "de-DE",
-    "timezone_source": "proxy_metadata",
-    "locale_source": "proxy_metadata",
+    "timezone": "America/Los_Angeles",
+    "locale": "en-US",
+    "timezone_source": "override",
+    "locale_source": "metro",
     "pending": false
   }
 }
 ```
 
-`timezone_source` and `locale_source` can be `override`, `proxy_metadata`, `geoip`, `exit_ip`, or `metro`. KERNEL resolves the fields independently, so their sources can differ.
+`timezone_source` and `locale_source` are `override` for a value set on the session and `metro` for the default of the browser's region. The fields are independent, so their sources can differ.
 
-When `pending` is `true`, the API has accepted the desired policy but the running browser hasn't finished converging. Browser creation and proxy updates don't wait for external geography discovery. KERNEL keeps the current values during a delayed or failed lookup and applies a valid late result in the background.
+When `pending` is `true`, the API has accepted the change but the running browser hasn't finished applying it. Browser creation doesn't wait for it.
 
 ## Runtime behavior
 
-- New pages, frames, workers, and network contexts start with the latest applied defaults.
+- New pages, frames, workers, and network contexts start with the latest applied values.
 - Existing pages and workers receive the update without a reload.
 - Existing `Intl` formatter objects and application-level caches can retain values captured before the update. Create a new formatter when you need the latest default.
 - Future requests use the updated language preference. Requests already in flight aren't rewritten.
 - Customer CDP emulation remains separate from the session default and can temporarily override what a particular target reports.
-- Location overrides last only for the browser session. Profiles don't save them.
-
-For rotating residential and mobile proxies, KERNEL resolves location when the proxy is attached or explicitly changed. It doesn't chase silent exit-IP rotation, and one discovery request doesn't represent destination-specific routes for every website.
+- Location overrides last only for the browser session. Profiles don't save them, and a browser returned to a pool loses them before its next lease.
