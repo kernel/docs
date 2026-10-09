@@ -6,6 +6,8 @@ description: "Execute multiple tasks in parallel on a single profiled browser se
 
 Use one profiled browser when several tasks need the same browser identity at the same time. Give each task a named [Playwright executor](/browsers/playwright-execution#executors), so each task gets its own tab while tasks on different executors run concurrently.
 
+This guide is a concise overview of the full, runnable [parallel profile Playwright executors cookbook](https://github.com/kernel/cookbooks/pull/10), which this pattern is based on.
+
 This pattern is useful when the browser must save changes to a profile. All task tabs share the browser's cookies and persistent origin storage, and the browser writes the complete profile once when the run ends. If tasks only read profile state, use a separate read-only browser for each task instead; see [Sharing and concurrency](/browsers/profiles/concurrency).
 
 ## How it works
@@ -112,4 +114,4 @@ asyncio.run(main())
 
 One task failing doesn't need to stop the other tasks, but the run must still clean up every executor and the browser. Publish task results as they finish when callers need progress before the full run completes.
 
-For a complete worker pool with bounded concurrency, lane reuse, result publishing, and fault-tolerant cleanup, see the [parallel profile Playwright executors cookbook](https://github.com/kernel/cookbooks/pull/10).
+For the full cookbook—including bounded concurrency, lane reuse, result publishing, and fault-tolerant cleanup—see the [parallel profile Playwright executors cookbook](https://github.com/kernel/cookbooks/pull/10).
