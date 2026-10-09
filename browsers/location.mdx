@@ -1,0 +1,127 @@
+---
+title: "Browser Location"
+description: "Set a browser session's timezone and locale, or use the defaults for its region"
+---
+
+Each browser session has one timezone and one formatting locale. By default, both come from the [region](/browsers/regions) the browser runs in, for example `America/New_York` and `en-US` for a browser in `us-east`. Set either field to override it for the session.
+
+The setting applies across browser contexts, pages, frames, workers, `Intl`, `navigator.language`, `navigator.languages`, and future `Accept-Language` headers. Updating it doesn't restart Chromium or reload pages.
+
+<Note>
+Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome. KERNEL doesn't derive location from a browser's proxy; to match a proxy's country, set the location explicitly.
+</Note>
+
+## Set location when creating a browser
+
+Set either field independently. An omitted field uses the default for the browser's region.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const browser = await kernel.browsers.create({
+  location: {
+    timezone: 'Europe/Berlin',
+    locale: 'de-DE',
+  },
+});
+
+console.log(browser.location);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+browser = kernel.browsers.create(
+    location={
+        "timezone": "Europe/Berlin",
+        "locale": "de-DE",
+    },
+)
+
+print(browser.location)
+```
+</CodeGroup>
+
+`timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. KERNEL validates the complete request before changing the session and returns a `400` with code `invalid_browser_location` for an unsupported value such as `en-QQ`.
+
+## Update a running browser
+
+Use `browsers.update()` to set an override without restarting Chromium:
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.update('01j8m3w6q2d7av9n5k4f1p8c', {
+  location: {
+    timezone: 'America/Los_Angeles',
+    locale: 'en-US',
+  },
+});
+```
+
+```python Python
+browser = kernel.browsers.update(
+    "01j8m3w6q2d7av9n5k4f1p8c",
+    location={
+        "timezone": "America/Los_Angeles",
+        "locale": "en-US",
+    },
+)
+```
+</CodeGroup>
+
+PATCH semantics are field-specific:
+
+- omit `location` or one of its fields to leave that field unchanged
+- set a string to create or replace a session override
+- set a field to `null` in TypeScript or `None` in Python to clear that override and return to the default for the browser's region
+
+<CodeGroup>
+```typescript TypeScript
+const browser = await kernel.browsers.update('01j8m3w6q2d7av9n5k4f1p8c', {
+  location: {
+    timezone: null,
+  },
+});
+```
+
+```python Python
+browser = kernel.browsers.update(
+    "01j8m3w6q2d7av9n5k4f1p8c",
+    location={"timezone": None},
+)
+```
+</CodeGroup>
+
+Clearing one field doesn't clear the other. Overrides stay in place when you change the browser's proxy.
+
+## Read effective location
+
+Browser responses include the effective values, where each came from, and convergence state:
+
+```json
+{
+  "location": {
+    "timezone": "America/Los_Angeles",
+    "locale": "en-US",
+    "timezone_source": "override",
+    "locale_source": "metro",
+    "pending": false
+  }
+}
+```
+
+`timezone_source` and `locale_source` are `override` for a value set on the session and `metro` for the default of the browser's region. The fields are independent, so their sources can differ.
+
+When `pending` is `true`, the API has accepted the change but the running browser hasn't finished applying it. Browser creation doesn't wait for it.
+
+## Runtime behavior
+
+- New pages, frames, workers, and network contexts start with the latest applied values.
+- Existing pages and workers receive the update without a reload.
+- Existing `Intl` formatter objects and application-level caches can retain values captured before the update. Create a new formatter when you need the latest default.
+- Future requests use the updated language preference. Requests already in flight aren't rewritten.
+- Customer CDP emulation remains separate from the session default and can temporarily override what a particular target reports.
+- Location overrides last only for the browser session. Profiles don't save them, and a browser returned to a pool loses them before its next lease.
