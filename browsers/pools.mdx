@@ -5,9 +5,9 @@ description: "Configure a pool of ready-to-use browsers for instant acquisition"
 
 A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, [private networking](/browsers/private-networking), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
 
-Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/info/pricing#rate-limiting) on browser creation.
+Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/browsers/concurrency-and-limits#rate-limits) on browser creation.
 
-Idle browsers in a pool aren't billed, but the pool's capacity counts against your [concurrency limit](/info/pricing#concurrency-limits). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
+Idle browsers in a pool aren't billed, but the pool's capacity counts against your [concurrency limit](/browsers/concurrency-and-limits#concurrency). See [Scale](/introduction/scale) for how browser pools fit into production architecture.
 
 ## How browser pools work
 
@@ -30,7 +30,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 - **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
 - **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
 - **A profile set on the browser pool loads read-only**, and a browser pool holds one at a time — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools) for how to persist state per user.
-- **Browser pool capacity counts against your [concurrency limit](/info/pricing#concurrency-limits)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
+- **Browser pool capacity counts against your [concurrency limit](/browsers/concurrency-and-limits#concurrency)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
 - **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
 
 ## Create a browser pool

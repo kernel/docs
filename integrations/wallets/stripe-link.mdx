@@ -1,5 +1,5 @@
 ---
-title: "link by stripe"
+title: "Link by Stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
@@ -526,7 +526,7 @@ const result = await kernel.vaults.items.performOperation(card.key, {
 if (result.type !== "fill") throw new Error("unexpected operation response");
 console.log(result.status, result.fields);
 if (result.status !== "completed") {
-  throw new Error("stop and reconcile per-field outcomes; do not retry");
+  throw new Error("fill did not complete; inspect per-field outcomes and retry");
 }
 ```
 
@@ -555,7 +555,7 @@ if result.type != "fill":
     raise RuntimeError("unexpected operation response")
 print(result.status, result.fields)
 if result.status != "completed":
-    raise RuntimeError("stop and reconcile per-field outcomes; do not retry")
+    raise RuntimeError("fill did not complete; inspect per-field outcomes and retry")
 ```
 
 ```bash CLI
@@ -578,11 +578,11 @@ jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
 
 ### Handle the outcome
 
-the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
+the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. use the per-field statuses to decide what to fix before retrying. a transport error can leave the outcome uncertain even without a result body.
 
 see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses and reconciliation.
 
-`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place; `unknown` or a lost response requires reconciliation. don't automatically retry fill or fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place, and `unknown` or a lost response means the outcome is uncertain. `fill` never submits checkout, so retry it in either case; don't fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
 
 single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
 

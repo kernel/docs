@@ -21,7 +21,7 @@ the item must be ready and contain a stored value for each requested field. addi
 
 attach the vault when creating the browser. the browser and vault must belong to the same project, and the attachment can't change later. attaching a vault grants access to all its items, including items added later; use separate vaults for tasks that must not share items. use the browser's session id in `browser_id`, not its name. KERNEL rechecks the attachment and item lifecycle before writing.
 
-configure your sdk client with `maxRetries: 0` (typescript) or `max_retries=0` (python) for fill, and don't wrap it in a retry loop. the cli does not automatically retry fill requests.
+`fill` is safe to retry. it only writes field values and never submits the form, so default sdk retries and your own retry loops are fine.
 
 <a id="map-credential-fields-to-inputs" />
 
@@ -61,7 +61,7 @@ const result = await kernel.vaults.items.performOperation(item.key, {
 if (result.type !== "fill") throw new Error("unexpected operation response");
 console.log(result.status, result.fields);
 if (result.status !== "completed") {
-  throw new Error("stop and reconcile the fill outcome before continuing");
+  throw new Error("fill did not complete; inspect per-field outcomes and retry");
 }
 ```
 
@@ -84,7 +84,7 @@ if result.type != "fill":
     raise RuntimeError("unexpected operation response")
 print(result.status, result.fields)
 if result.status != "completed":
-    raise RuntimeError("stop and reconcile the fill outcome before continuing")
+    raise RuntimeError("fill did not complete; inspect per-field outcomes and retry")
 ```
 
 </CodeGroup>
@@ -103,20 +103,20 @@ KERNEL validates bindings before writing, then fills in request order. if naviga
 
 ## Handle the outcome
 
-the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. preserve that output and its per-field statuses; don't discard it or retry just because the exit code is nonzero. a transport error can leave the outcome uncertain even without a result body.
+the cli exits nonzero for `failed` or `unknown`, but retains the value-free result on stdout with `-o json`. use the per-field statuses to decide what to fix before retrying. a transport error can leave the outcome uncertain even without a result body.
 
 | result | next action |
 | --- | --- |
 | `completed` | all fields were filled; inspect the page and decide whether to submit |
-| `failed` | inspect the per-field outcomes; earlier writes aren't rolled back |
-| `unknown` | stop and reconcile; at least one field's outcome can't be determined |
-| transport error | treat the outcome as uncertain because writes may already have happened |
+| `failed` | inspect the per-field outcomes, fix the cause, and retry; earlier writes aren't rolled back |
+| `unknown` | retry; at least one field's outcome can't be determined |
+| transport error | retry; writes may already have happened |
 
 known execution failures can return http `200` with a `failed` or `unknown` status. inspect the response body, not only the http status. each entry in `fields` identifies its request binding by zero-based `index` and reports `filled`, `failed`, `unknown`, or `not_attempted`. bindings after the first failed or unknown field are `not_attempted`.
 
 `fill` doesn't click buttons or submit forms, but input/change handlers can trigger site behavior. `completed` doesn't mean login succeeded, a form was submitted, or payment succeeded.
 
-**don't automatically retry `fill` after a failure or uncertain outcome.** a lost response can follow successful writes; another request can repeat events, overwrite edits, or generate a different totp code. deliberate recovery starts with inspecting the existing attempt, not replaying it. preserve per-field `index`, `status`, and any `error_code` for reconciliation.
+**`fill` is safe to retry after a failure, an `unknown` outcome, or a lost response.** it never submits the form, so a retry only rewrites the same fields, and a `totp` field gets a fresh code. a retry right after an `unknown` result can wait up to 15 seconds for the earlier attempt's browser lock to expire. when a field `failed`, fix its cause, such as a selector that matched nothing, before retrying.
 
 ## Related guides
 

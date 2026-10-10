@@ -9,14 +9,49 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
-<Update label="September 30" tags={["Product", "Docs"]}>
+<Update label="October 6" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Added optional `checkout_origin` to AgentCard card specifications so Kernel can pass a declared origin to AgentCard for cardholder autopilot rule matching on non-prepared checkout authorizations. Prepared checkout continues to use its preparation `merchant_origin`.
+- Added **named [Playwright executors](/browsers/playwright-execution#executors)**. Pass `executor` to `playwright.execute` to run the call in a dedicated process that owns its own tab. Calls on different executors run concurrently and fail independently; calls on the same executor run one at a time. Calls without `executor` keep running in the `default` executor on the active tab. The response now includes the `tab` the call was bound to, a browser can have up to 8 named executors, and new endpoints list and delete them. Available in the Node, Python, and Go SDKs from 0.120.0.
 
 ## Documentation updates
 
-- Updated the [AgentCard guide](/integrations/wallets/agentcard) with TypeScript, Python, and CLI examples, origin requirements, and the caller-supplied origin security caveat.
+- Documented [executors](/browsers/playwright-execution#executors) in the Playwright execution guide, with a multi-language example that runs two tasks in parallel in one browser. Updated the [profile concurrency](/browsers/profiles/concurrency) and [Browser REPL](/browsers/repl) pages to point at named executors for parallel work across tabs.
+</Update>
+
+<Update label="October 2" tags={["Product", "Docs"]}>
+## Product updates
+
+### Auth
+
+- Added **[1Password Agentic Autofill](/vaults/1password)** (preview). Your end users can approve access to logins that stay in their own 1Password account. Once your organization has preview access, connect accounts through the CLI, MCP server, or dashboard.
+- The MCP server’s vault tools now return the API’s error codes and messages.
+- Added managed auth [reauthentication](/auth/configuration) controls to the dashboard: a **Health checks** switch and a separate toggle for automatic reauthentication. Both were already available through the API and CLI.
+- The dashboard now shows **Unverified** for managed auth connections whose health check was skipped because no check URL is set.
+
+### Payments
+
+- Added **[MPP browser purchases](/info/mpp)**. Agents can buy a stealth, headful browser session through the Machine Payments Protocol without a Kernel account or API key.
+- Added optional `checkout_origin` to the [AgentCard](/integrations/wallets/agentcard) card spec for autopilot rule matching. Supported in the MCP server.
+- Vault provider configs now include the Link publishable key.
+
+### Browsers
+
+- Extended `memory` to [browser pools](/browsers/pools). Create or update a pool with `16GiB` instead of the default `8GiB`. Updates apply to newly created browsers; existing browsers keep their original allocation.
+- [WebMCP](/browsers/webmcp) listings now include tools registered through a `navigator.modelContext` polyfill, so you can discover and invoke them like native page tools.
+- Added common Ubuntu desktop fonts to the headful browser image, making the fonts a page can detect more typical of a Linux desktop.
+- Launched browser-first onboarding in the dashboard.
+
+## Documentation updates
+
+- Added a [1Password Agentic Autofill](/vaults/1password) guide covering setup, credential collection as a fallback, and private vault and passkey limitations.
+- Added [Export Telemetry](/browsers/telemetry/export) for sending session events to your OpenTelemetry backend over OTLP.
+- Added [Buy a Browser with MPP](/info/mpp), covering the `402` payment flow.
+- Added [Code Mode with Browser REPL and WebMCP](/browsers/code-mode-webmcp) and a Browser REPL page in the MCP reference.
+- Added cookbooks for [e2e Web Testing](/cookbooks/e2e-kernel) and [Personal Shopper with Link and Eve](/cookbooks/personal-shopper).
+- Rewrote [Web Bot Auth](/browsers/bot-detection/web-bot-auth) around opt-in access to Kernel’s WBA token for Startup and Enterprise plans. Added links from the bot anti-detection overview and stealth guide, and moved Bot Anti-Detection to the start of the Intermediate section.
+- Documented [browser pool](/browsers/pools) memory options.
+- Split cookbooks into common patterns and harnesses & models, and updated the skills docs to recommend the `kernel` CLI.
 </Update>
 
 <Update label="September 25" tags={["Product", "Docs"]}>
@@ -143,7 +178,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a [Foreman integration guide](/integrations/vercel/foreman) to the Vercel section.
+- Added a [Foreman integration guide](/cookbooks/eve-foreman) to the Vercel section.
 - Documented [replay iframe embedding](/browsers/replays) for embedding session replays inside your own dashboards.
 - Documented the 30-day retention window for browser telemetry events.
 - Documented automatic [proxy](/proxies/overview) cleanup behavior.
@@ -371,7 +406,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a new [hCaptcha](/browsers/bot-detection/hcaptcha) page documenting beta support for hCaptcha solving.
+- Added a new [hCaptcha](/browsers/bot-detection/stealth#hcaptcha-beta) page documenting beta support for hCaptcha solving.
 - Refreshed [managed auth](/auth/managed-auth) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
 - Clarified that managed residential proxy IPs are stable within a session but are not guaranteed to persist across sessions.
 - Updated the [Yutori integration guide](/integrations/computer-use/yutori) to Navigator n1.5.
@@ -421,7 +456,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed ISP proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
 - Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
 - Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
-- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.
+- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/configuration#credentials-and-auto-reauth), since those credentials are already managed externally.
 - Kernel now supports WebSocket connections through its API, enabling `process attach` and other long-lived streaming workflows.
 - Exceeding invocation concurrency limits now returns a 429 response immediately, for faster and more actionable feedback.
 
@@ -476,7 +511,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added [API rate limiting](/info/pricing#rate-limiting) documentation.
+- Added [API rate limiting](/browsers/concurrency-and-limits#rate-limits) documentation.
 - Documented the [`disable_default_proxy`](/browsers/bot-detection/stealth) option for stealth browsers.
 - Updated [live view embedding](/browsers/live-view) docs with iframe focus tips, clipboard sharing guidance, and CSP configuration.
 - Documented [managed auth re-authentication triggers](/auth/managed-auth).
@@ -585,7 +620,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
 ## Documentation updates
-- Enhanced [secrets](/apps/secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
+- Enhanced [secrets](/apps/deploy#secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
 </Update>
 
 <Update label="February 13" tags={["Product", "Docs"]}>

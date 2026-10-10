@@ -14,6 +14,7 @@ When you execute Playwright code through this API:
 - You have access to `page`, `context`, `browser`, and browser-wide `webmcp` helpers
 - You can `return` a value, which is returned in the response
 - Execution is isolated in a fresh context each time
+- Every call runs in an [executor](#executors). Calls without `executor` share the default executor and the active tab; named executors each own a tab and run concurrently with each other
 
 ## Quick example
 
@@ -104,7 +105,7 @@ kernel browsers playwright execute <session_id> 'await page.goto("https://www.on
 
 Your code has access to these objects:
 
-- `page` - The current page instance
+- `page` - The page the executor is bound to: the active tab in the default executor, or the named executor's own tab (see [Executors](#executors))
 - `context` - The browser context
 - `browser` - The browser instance
 - `webmcp` - Helper for discovering and invoking [WebMCP tools](/browsers/webmcp)
@@ -222,6 +223,206 @@ if err != nil {
 fmt.Println(response.Result) // map[title:Example Domain url:https://example.com]
 ```
 </CodeGroup>
+
+## Executors
+
+Every call runs in an executor: a dedicated Node.js process in the browser's VM with its own connection to Chromium. Calls on the same executor run one at a time, in the order they arrive. Calls on different executors run concurrently, and a timeout, crash, or blocked event loop in one executor doesn't affect the others.
+
+Use named executors to drive several tabs of one browser in parallel. Give each independent task its own executor name, and reuse a name for the sequential steps of one task.
+
+### The default executor
+
+Calls without `executor` run in the executor named `default`, which always exists. Passing `executor: "default"` is the same as omitting it. In the default executor, `page` is bound to an active tab reported by Chrome (the foreground tab in single-window sessions). Use `browser.contexts()` to select a context or page explicitly.
+
+### Named executors
+
+Pass any other name (`^[A-Za-z0-9_-]{1,64}$`) to run the call in a named executor. The first call with a new name creates it. Each named executor owns a tab: its first call opens a new background tab in the default browser context, and `page` is bound to that tab on every later call while it stays open. Opening it doesn't change the active tab of an existing window. If the tab is closed, the next call opens a new one.
+
+Ownership only decides what `page` is bound to. Executor code can still reach other tabs through `context` and `browser`.
+
+The response includes a `tab` object with the tab `page` was bound to:
+
+```json
+{
+  "success": true,
+  "result": "Example Domain",
+  "tab": { "target_id": "8F2C1D4E9A7B3C6D5E1F2A3B4C5D6E7F", "created": true }
+}
+```
+
+`created` is `true` when this call opened the tab. `tab` is absent if the call failed before binding a tab.
+
+### Run tasks in parallel
+
+This example runs two tasks at the same time in two named executors, reuses one of them, then lists and deletes an executor. It uses an existing session and client, as in the examples above.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const task = (executor: string, url: string) =>
+  kernel.browsers.playwright.execute(sessionId, {
+    executor,
+    code: `
+      await page.goto(${JSON.stringify(url)});
+      return { title: await page.title(), url: page.url() };
+    `,
+    timeout_sec: 10,
+  });
+
+// Each task opens its own background tab; both run concurrently
+const [docs, home] = await Promise.all([
+  task('docs', 'https://www.kernel.sh/docs/'),
+  task('home', 'https://www.kernel.sh/'),
+]);
+console.log(docs.result, docs.tab); // { title: ..., url: ... } { target_id: '...', created: true }
+
+// A later call on the same executor reuses its tab
+const again = await kernel.browsers.playwright.execute(sessionId, {
+  executor: 'docs',
+  code: 'return page.url();',
+});
+console.log(again.tab?.created); // false
+
+// Inspect and clean up; the default executor is always listed first
+const { executors } = await kernel.browsers.playwright.executors.list(sessionId);
+console.log(executors.map(({ name, busy, url }) => ({ name, busy, url })));
+
+await kernel.browsers.playwright.executors.delete('home', {
+  id_or_name: sessionId,
+  close_tab: true,
+});
+```
+
+```python Python
+import asyncio
+
+from kernel import AsyncKernel
+
+kernel = AsyncKernel()
+
+
+async def task(executor: str, url: str):
+    return await kernel.browsers.playwright.execute(
+        session_id,
+        executor=executor,
+        code=f"""
+            await page.goto({url!r});
+            return {{ title: await page.title(), url: page.url() }};
+        """,
+        timeout_sec=10,
+    )
+
+
+async def main():
+    # Each task opens its own background tab; both run concurrently
+    docs, home = await asyncio.gather(
+        task("docs", "https://www.kernel.sh/docs/"),
+        task("home", "https://www.kernel.sh/"),
+    )
+    print(docs.result, docs.tab.created)  # {'title': ..., 'url': ...} True
+
+    # A later call on the same executor reuses its tab
+    again = await kernel.browsers.playwright.execute(
+        session_id,
+        executor="docs",
+        code="return page.url();",
+    )
+    print(again.tab.created)  # False
+
+    # Inspect and clean up; the default executor is always listed first
+    listing = await kernel.browsers.playwright.executors.list(session_id)
+    print([(e.name, e.busy, e.url) for e in listing.executors])
+
+    await kernel.browsers.playwright.executors.delete(
+        "home",
+        id_or_name=session_id,
+        close_tab=True,
+    )
+
+
+asyncio.run(main())
+```
+
+```go Go
+// Add "sync" to the imports from the example above
+task := func(executor, url string) (*kernel.BrowserPlaywrightExecuteResponse, error) {
+	return client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+		Executor: kernel.String(executor),
+		Code: fmt.Sprintf(`
+			await page.goto(%q);
+			return { title: await page.title(), url: page.url() };
+		`, url),
+		TimeoutSec: kernel.Int(10),
+	})
+}
+
+// Each task opens its own background tab; both run concurrently
+var wg sync.WaitGroup
+results := make([]*kernel.BrowserPlaywrightExecuteResponse, 2)
+for i, t := range []struct{ executor, url string }{
+	{"docs", "https://www.kernel.sh/docs/"},
+	{"home", "https://www.kernel.sh/"},
+} {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		response, err := task(t.executor, t.url)
+		if err != nil {
+			panic(err)
+		}
+		results[i] = response
+	}()
+}
+wg.Wait()
+fmt.Println(results[0].Result, results[0].Tab.TargetID, results[0].Tab.Created)
+
+// A later call on the same executor reuses its tab
+again, err := client.Browsers.Playwright.Execute(ctx, sessionID, kernel.BrowserPlaywrightExecuteParams{
+	Executor: kernel.String("docs"),
+	Code:     `return page.url();`,
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println(again.Tab.Created) // false
+
+// Inspect and clean up; the default executor is always listed first
+listing, err := client.Browsers.Playwright.Executors.List(ctx, sessionID)
+if err != nil {
+	panic(err)
+}
+for _, e := range listing.Executors {
+	fmt.Println(e.Name, e.Busy, e.URL)
+}
+
+err = client.Browsers.Playwright.Executors.Delete(ctx, "home", kernel.BrowserPlaywrightExecutorDeleteParams{
+	IDOrName: sessionID,
+	CloseTab: kernel.Bool(true),
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+### Limits
+
+A browser can have at most **8 named executors**; the default executor doesn't count. A call that would create a ninth returns `409` with a `message` and an `executors` array listing the current executors, so you can delete one and retry.
+
+Named executors aren't removed automatically while the browser runs. They're removed and their tabs closed when the browser shuts down. Delete executors you're done with so long-lived browsers don't hit the limit.
+
+A call with `executor` to a browser whose image predates executors fails with `400`. Calls without `executor` work on every image.
+
+### List and delete executors
+
+`GET /browsers/{id_or_name}/playwright/executors` returns the browser's executors, default first. Each entry has `name`, `busy` (whether a call is currently running on the executor), `created_at`, and `last_used_at`; named executors with an open tab also report `target_id` and `url`.
+
+`DELETE /browsers/{id_or_name}/playwright/executors/{name}` stops the executor's process and returns `204`. It closes the executor's tab unless you pass `close_tab=false`. A call running on the executor fails with an error saying the executor was deleted, and the name can be reused afterwards. Unknown names return `404`.
+
+Deleting `default` restarts it instead of removing it: its process is stopped, and queued and later calls run on a new process. It owns no tab, so `close_tab` has no effect. Use this to recover the default executor from a stuck state.
+
+### Timeouts and crashes
+
+After a timeout, the executor keeps its process but drops its browser connection, so code abandoned by the timeout can't keep driving the browser. After a crash or a blocked event loop, the next call on that executor starts a fresh process. Either way, other executors keep running.
 
 ## Timeout configuration
 
@@ -416,14 +617,16 @@ fs.writeFileSync('screenshot.png', buffer);
 For OS-level screenshots using coordinates and regions, see [Computer Controls](/browsers/computer-controls#take-screenshots).
 </Note>
 
-## Performance benefits
+<span id="performance-benefits" />
+## Why playwright execution over a direct CDP connection
 
-Compared to connecting over CDP:
-- **Lower latency** - Code runs in the same VM as the browser
-- **Higher throughput** - No websocket overhead for commands
-- **Simpler code** - No need to manage CDP connections
+If you're reaching for Playwright, prefer the execution API over `connectOverCDP`. Same Playwright API you already know, none of the setup.
 
-This makes it ideal for one-off operations where you need maximum speed.
+- **Run from anywhere.** No `playwright` package to version-pin, no Chromium download, no CDP connection to manage. Send the code, get the result.
+- **Co-located with the browser.** Code runs in the same VM as the browser — no network hop between your script and the page, fewer flakes.
+- **Patchright by default.** Hardened against bot detection out of the box.
+- **Full Playwright API.** `page`, `context`, and `browser` are all in scope. Anything Playwright can do — DOM queries, file uploads, full-page screenshots — works here.
+- **Returns values.** `return` from your code and the result comes back in the response. Easy to use as an agent tool.
 
 ## MCP server integration
 

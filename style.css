@@ -334,6 +334,16 @@ html.dark #navigation-items img[src*="/images/integration-icons/"] {
   display: none;
 }
 
+/* eyebrow.js sets data-parent-group on section overview pages, where the
+   eyebrow would repeat the title; show the parent group's name instead. */
+#header .eyebrow[data-parent-group] {
+  font-size: 0;
+}
+#header .eyebrow[data-parent-group]::after {
+  content: attr(data-parent-group);
+  font-size: 0.875rem;
+}
+
 /* cookbooks card category label — matches the site eyebrow/type setup in the reference */
 .cookbook-tag {
   display: block;
@@ -346,4 +356,9 @@ html.dark #navigation-items img[src*="/images/integration-icons/"] {
 
 html.dark .cookbook-tag {
   color: rgba(237, 238, 240, 0.7);
+}
+
+.copy-prompt-full button {
+  width: 100% !important;
+  max-width: 100% !important;
 }
