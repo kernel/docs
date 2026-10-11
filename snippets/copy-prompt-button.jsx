@@ -4,32 +4,18 @@ export const CopyPromptButton = (props) => {
   const { label = 'copy prompt' } = props || {};
   const [copied, setCopied] = useState(false);
 
-  const prompt = (props && props.prompt) || `# Setup Kernel
+  const prompt = (props && props.prompt) || `Use Kernel for this task: [describe what you want to build or automate]. If I leave this blank, run the recommended example below.
 
-## Prerequisites
-- Read the kernel-cli skill at https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-cli/SKILL.md for reference on commands and capabilities.
+Recommended example: launch a Kernel browser and start a replay recording. Search for the same product on amazon.com and walmart.com (ask me for a product, or pick a common one such as a 65-inch 4K TV), compare price, shipping cost, and delivery estimate, and tell me which is the better deal. Stop the recording when finished, download the replay, and share it with me so I can watch the run.
 
-## Steps
+First, use the official Kernel instructions and skills:
+- Read https://kernel.sh/auth.md.
+- If Kernel credentials already exist, validate and reuse them. If not, ask for my consent and follow the verified-email flow in auth.md so I can provide the one-time code; do not send me through the normal dashboard signup flow.
+- Run [npx skills add https://github.com/kernel/skills], select only the skills relevant to this task, and follow their instructions.
 
-1. **Check if Kernel CLI is installed:**
-   - Run \`kernel --version\`.
-   - If not found, install via \`brew install kernel/tap/kernel\`.
-   - If found, run \`brew upgrade kernel/tap/kernel\` to ensure latest version.
-   - Verify with \`kernel --version\` and confirm >= v0.16.0.
+Choose the least-powerful Kernel interface that fits the existing project: CLI, TypeScript SDK, Python SDK, MCP, agent-browser, or browser-harness. Keep API keys, claim tokens, credentials, CDP URLs, and profile data out of chat, logs, source, commits, and generated files. Share hosted login, organization-selection, or live-view URLs only with me when needed. Scope work to the intended Kernel project, verify current syntax with `kernel <command> --help`, set bounded browser timeouts, preserve authenticated profiles only when useful, and always delete temporary browsers and pools in guaranteed cleanup.
 
-2. **Check authentication:**
-   - Run \`kernel auth\`.
-   - If authenticated, done.
-   - If not, run \`kernel login\` and tell the user to complete the browser flow.
-     Poll \`kernel auth\` every 5 seconds, up to 5 minutes.
-     If it times out, stop and ask the user for help.
-
-3. **Create a browser and open Live View:**
-   - Run a Kernel CLI command that creates a browser session and goes to \`https://www.kernel.sh/docs/browsers/live-view\`
-   - Capture the returned \`browser_live_view_url\`.
-   - Open that URL in the user's browser.
-   - Tell the user they can use the live view immediately.
-   - If browser creation fails, stop and ask the user for help.`;
+Complete the task and report what ran, what was verified, and any remaining human action.`;
 
   const handleCopy = useCallback(async () => {
     try {
