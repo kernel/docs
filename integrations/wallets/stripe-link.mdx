@@ -582,7 +582,7 @@ the cli exits nonzero for `failed` or `unknown`, but retains the value-free resu
 
 see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses and reconciliation.
 
-`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place, and `unknown` or a lost response means the outcome is uncertain. `fill` never submits checkout, so retry it in either case; don't fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
+`fill` returns value-free per-field outcomes. `completed` means the fields were filled, not that payment succeeded. a `failed` result can leave earlier writes in place, and `unknown` or a lost response means the outcome is uncertain. `fill` never submits, so a retry is safe. retry only after checking the page, and never in an automatic loop. don't fall back to aliases. decide whether to submit separately, and never retry checkout automatically.
 
 single-use describes the provider-issued card, not one-use alias consumption. `fill` does not consume the item or clear its encrypted material on the first field write. expiry, deletion, and item lifecycle restrictions still apply; a ready item is not evidence that a purchase can safely be repeated.
 
