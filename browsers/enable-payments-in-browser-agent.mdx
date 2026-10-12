@@ -12,7 +12,7 @@ verify and approve each purchase before completing checkout.
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
 - choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
-- use a low-value checkout you control. link is live-only and requires an https merchant origin and verified field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
+- use a low-value checkout you control. link is live-only and requires an https merchant origin and verified field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be Stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
 - identify how you'll read the merchant's trusted order record. you need it to confirm a matching paid order. deterministic checkout data can verify purchase details before submission, but without the order record afterward, the result remains indeterminate.
 
@@ -173,7 +173,7 @@ you delete or time out the browser. don't log the url or put it in model context
 see [live view](/browsers/live-view#embedding-in-an-iframe) for iframe and csp
 requirements.
 
-connect your existing agent to `browser.cdp_ws_url`. see [Controlling a Browser](/introduction/control) for supported connection options.
+connect your existing agent to `browser.cdp_ws_url`. see [controlling a browser](/introduction/control) for supported connection options.
 
 navigate to checkout in this session before verifying the purchase. use the same
 session to inspect and submit it; the vault attachment includes items created later.
@@ -187,7 +187,7 @@ session to inspect and submit it; the vault attachment includes items created la
 5. show the independently verified values to the user and wait for explicit confirmation.
 6. freeze that verified, confirmed purchase object. derive the card specification and any authorization request from that same object. do not accept replacement values from the agent after confirmation.
 
-for stripe payment links, see [checkout-specific notes](#checkout-specific-notes)
+for Stripe payment links, see [checkout-specific notes](#checkout-specific-notes)
 for structured response fields and adaptive pricing.
 
 ### 3. Collect other checkout fields
@@ -199,7 +199,7 @@ payment input; don't ask the agent to invent missing values.
 answer any agent disclosure truthfully in the merchant's form and verify the
 control is selected before submission. if a required field or disclosure can't
 be completed and verified, stop. see [checkout-specific notes](#checkout-specific-notes)
-for stripe's disclosure controls.
+for Stripe's disclosure controls.
 
 <a id="4-fill-link-cards-or-pass-agentcard-aliases" />
 <a id="4-fill-payment-fields" />
@@ -210,7 +210,7 @@ follow the tab for your provider. each path uses the frozen purchase object from
 step 2, a connected wallet in the same vault, and this browser session.
 
 <Tabs>
-<Tab title="Link by Stripe">
+<Tab title="link by stripe">
 
 #### Prepare and authorize the card
 
@@ -257,7 +257,7 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 your controller must authorize the destination and selectors before disclosure.
 `checkoutURL` / `checkout_url` is the browser's exact current top-level https url,
 including query and fragment. it must share the origin of `spec.merchant_url`.
-no playwright page object is required. see [field requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+no Playwright page object is required. see [field requirements](/integrations/wallets/stripe-link#fill-the-checkout).
 
 `fill` supports stored [billing fields](/integrations/wallets/stripe-link#map-card-fields-to-inputs)
 as well as card fields. requesting an absent value returns `field_unavailable`
@@ -340,7 +340,7 @@ and doesn't consume the item or clear its encrypted material; the provider's
 single-use card semantics are separate from item state.
 
 </Tab>
-<Tab title="Agentcard">
+<Tab title="agentcard">
 
 #### Prepare the card and aliases
 
@@ -635,18 +635,18 @@ prohibits deletion.
 <AccordionGroup>
 <Accordion title="Stripe payment links and adaptive pricing">
 
-for a stripe payment link without an order or cart backend, use the payment-link
+for a Stripe payment link without an order or cart backend, use the payment-link
 response as the deterministic source. the current response exposes
 `account_settings.display_name`, `line_item_group.total`,
 `line_item_group.currency`, and `line_item_group.line_items`. use dom text and
-`data-testid` attributes only as supplemental checks. stripe can render multiple
+`data-testid` attributes only as supplemental checks. Stripe can render multiple
 responsive copies of a summary or omit product-level test ids in another layout,
 so don't require a specific test id or number of matching elements. these are
-stripe page details rather than a KERNEL contract. if the structured response is
+Stripe page details rather than a KERNEL contract. if the structured response is
 missing or its values disagree with the rendered checkout, fail verification
 instead of falling back to model inference.
 
-stripe adaptive pricing can change the checkout's displayed amount and currency
+Stripe adaptive pricing can change the checkout's displayed amount and currency
 for the browser's location. create the card item from the active presentment
 amount and currency shown to the user and submitted by that checkout, not the
 payment link's base integration amount and currency. include those active values
@@ -655,7 +655,7 @@ in the verified purchase object and the confirmation screen.
 </Accordion>
 <Accordion title="Stripe agent disclosure controls">
 
-stripe can render hidden or duplicate copies of its disclosure control for
+Stripe can render hidden or duplicate copies of its disclosure control for
 responsive layouts. target the visible label. if the label doesn't toggle the
 control, locate the associated real `input[type="checkbox"]` and invoke its
 native dom `click()`. read that same input's `checked` property and require it to
@@ -663,7 +663,7 @@ be `true` before submission. if you can't verify the checked state, stop without
 submitting.
 
 </Accordion>
-<Accordion title="Missing or unconnected wallets">
+<Accordion title="missing or unconnected wallets">
 
 without a wallet item, card creation fails because `spec.wallet` must
 reference a wallet from the same vault and provider. with an unconnected link

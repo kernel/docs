@@ -7,7 +7,7 @@ description: "use link by stripe to approve a one-use payment credential for a b
 
 use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
 
-link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
+link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be Stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
 
 
 ## Before you start
@@ -50,7 +50,7 @@ kernel vaults create --name user-12345
 use KERNEL's oauth client by default. if you bring your own client, complete the
 setup below before following the shared payment lifecycle.
 
-### bring your own link oauth client
+### Bring your own link oauth client
 
 register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for
 your organization. configurations are shared across projects, so authenticate
@@ -58,8 +58,8 @@ this step with an [organization-scoped api key](/info/api-keys). project-scoped
 credentials can reference an existing configuration when creating a wallet, but
 can't create, update, or delete configurations.
 
-keep the client credentials outside the agent's accessible files. the SDK
-examples read them from backend environment variables. for the CLI, create a
+keep the client credentials outside the agent's accessible files. the sdk
+examples read them from backend environment variables. for the cli, create a
 protected file readable only by its owner (for example, mode `0600`):
 
 ```json link-client.json
@@ -110,8 +110,8 @@ obtain its access and refresh tokens. keep the client secret, pkce verifier, and
 tokens out of agent context, browser code, urls, and logs.
 
 create the wallet with the project-scoped `kernel` client and `vault` from
-[Before you start](#before-you-start). supply the access and refresh tokens from
-the same grant, with a currently valid access token. CLI users should restore
+[before you start](#before-you-start). supply the access and refresh tokens from
+the same grant, with a currently valid access token. cli users should restore
 their project-scoped `KERNEL_API_KEY` before running the wallet command and put
 the grant in this protected file:
 
@@ -177,7 +177,7 @@ kernel vaults wallets create user-12345 link-wallet --provider link \
 
 a successful import returns a `connected` wallet without a `link_oauth` action.
 KERNEL takes over refresh-token rotation, so your backend must stop refreshing
-that grant. continue with [Select a payment method](#select-a-payment-method).
+that grant. continue with [select a payment method](#select-a-payment-method).
 
 ## Lifecycle
 
@@ -193,7 +193,7 @@ that grant. continue with [Select a payment method](#select-a-payment-method).
 
 this section shows the KERNEL-managed oauth path. if you imported a connected
 wallet with your own client above, continue with
-[Select a payment method](#select-a-payment-method).
+[select a payment method](#select-a-payment-method).
 
 before showing a link connection option, list the vault's items. if a
 link wallet already exists in any state, reuse it and do not let the user add
@@ -485,7 +485,7 @@ supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bi
 
 ### Map card fields to inputs
 
-the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
+the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no Playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
 
 | card field | value and format |
 | --- | --- |

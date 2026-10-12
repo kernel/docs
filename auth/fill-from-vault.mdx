@@ -1,6 +1,6 @@
 ---
 title: "Fill from Vault"
-description: "Collect end-user credentials and inject them into browser forms while controlling the login workflow"
+description: "collect end-user credentials and inject them into browser forms while controlling the login workflow"
 ---
 
 import CreateCredentialVault from "/snippets/create-credential-vault.mdx";
@@ -8,7 +8,7 @@ import AttachCredentialVault from "/snippets/attach-credential-vault.mdx";
 import CollectBrowserCredentials from "/snippets/collect-browser-credentials.mdx";
 import FillBrowserCredentials from "/snippets/fill-browser-credentials.mdx";
 
-Fill from Vault is an integration path where your application or agent controls the login workflow. vaults store encrypted credential items. our `fill` api call writes selected values from an item into browser fields, without exposing secrets to your application or agent. your application or agent owns navigation, field selection, submission, and recovery.
+fill from vault is an integration path where your application or agent controls the login workflow. vaults store encrypted credential items. our `fill` api call writes selected values from an item into browser fields, without exposing secrets to your application or agent. your application or agent owns navigation, field selection, submission, and recovery.
 
 start with the [end-user auth workflow cookbook](/browsers/use-vault-credentials-in-browser-agent) for an end-to-end example of secure collection, browser attachment, the `fill` operation, form submission, and cleanup.
 
@@ -21,7 +21,7 @@ KERNEL collects credential values from the user or accepts them from a trusted b
 
 ## When to use it
 
-Fill from Vault works best when:
+fill from vault works best when:
 
 - a login or authentication prompt can appear in the middle of a workflow, in the same browser session.
 - your product needs to control the credential collection experience.
@@ -32,34 +32,34 @@ choose [managed auth](/auth/managed-auth) instead when you want KERNEL to run th
 
 ## How it works
 
-these examples continue in order, using hacker news as the login destination. set `KERNEL_API_KEY` in your trusted backend environment. all examples use the default project; keep the vault and browser in the same project if you select a different one.
+these examples continue in order, using Hacker News as the login destination. set `KERNEL_API_KEY` in your trusted backend environment. all examples use the default project; keep the vault and browser in the same project if you select a different one.
 
 <Steps>
-  <Step title="Create a Vault">
-    create a [vault](/vaults/overview) for each end user or credential-sharing boundary. A vault groups the items that an attached browser session can use.
+  <Step title="create a vault">
+    create a [vault](/vaults/overview) for each end user or credential-sharing boundary. a vault groups the items that an attached browser session can use.
 
     <CreateCredentialVault />
   </Step>
-  <Step title="Attach the Vault to a Browser">
-    attach the vault when you create the browser. The attachment can't change during the session and grants access to every item in that vault.
+  <Step title="attach the vault to a browser">
+    attach the vault when you create the browser. the attachment can't change during the session and grants access to every item in that vault.
 
     <AttachCredentialVault />
   </Step>
-  <Step title="Navigate and Collect Credentials">
-    your application or agent navigates to the login page and identifies its fields before defining a [credential item](/vaults/credentials). hacker news has both login and create-account forms; the selectors in the next step target the login form. inspect the page and recheck them if it changes.
+  <Step title="navigate and collect credentials">
+    your application or agent navigates to the login page and identifies its fields before defining a [credential item](/vaults/credentials). Hacker News has both login and create-account forms; the selectors in the next step target the login form. inspect the page and recheck them if it changes.
 
     <CollectBrowserCredentials />
 
     present the collection url only in the intended user's authenticated interface or private conversation. don't log it or open it in the agent-controlled browser. wait for the user to finish before continuing. an existing ready item may omit the collection action; reuse it or follow [credential collection](/vaults/credentials#collect-values-from-the-user) to reopen the form.
   </Step>
-  <Step title="Invoke the Fill Operation">
+  <Step title="invoke the fill operation">
     retrieve the same item, require readiness and an advertised `fill` operation, then invoke [`fill`](/vaults/fill) with field names and selectors. readiness means values exist, not that the website has accepted them. your application must authorize the destination before filling.
 
     <FillBrowserCredentials />
 
     `completed` means the selected fields were filled, not that login succeeded. if `fill` fails, returns an uncertain outcome, or loses its response, [check the outcome](/vaults/fill#handle-the-outcome). `fill` never submits, so a retry is safe. retry only after checking the page, and never in an automatic loop.
   </Step>
-  <Step title="Submit and Handle the Response">
+  <Step title="submit and handle the response">
     after `fill` completes, your application or agent submits the login form once and verifies the site's response. `fill` doesn't perform either step. handle any additional authentication prompts before continuing the task.
 
     delete the demo browser when finished, and delete the vault only if you created it for this demo and no longer need its credentials. see the [cookbook](/browsers/use-vault-credentials-in-browser-agent) for the complete agent handoff and cleanup guidance.
@@ -68,7 +68,7 @@ these examples continue in order, using hacker news as the login destination. se
 
 ## Credential sources
 
-you can collect values from an end user with KERNEL-hosted collection or [copy them from an existing credential vault](/vaults/existing-credential-vault) that your trusted backend can read. if your users already log in through Managed Auth, [reuse that saved credential](/auth/fill-from-managed-auth) instead of collecting it again. each path produces a ready credential item and uses the same `fill` operation.
+you can collect values from an end user with KERNEL-hosted collection or [copy them from an existing credential vault](/vaults/existing-credential-vault) that your trusted backend can read. if your users already log in through managed auth, [reuse that saved credential](/auth/fill-from-managed-auth) instead of collecting it again. each path produces a ready credential item and uses the same `fill` operation.
 
 if the user keeps the login in their own non-shared 1Password vault, [1Password brokered approval](/vaults/1password) is the other credential path: the user connects their 1Password account once and approves each login request in the 1Password app, and the 1Password extension fills and submits with `1pw_fill` instead of `fill`. KERNEL stores no login values.
 
@@ -81,13 +81,13 @@ today, copying values stores an encrypted KERNEL copy. `fill` doesn't accept raw
 ## Next steps
 
 <CardGroup cols={3}>
-  <Card title="Credential Items" icon="lock" href="/vaults/credentials">
+  <Card title="credential items" icon="lock" href="/vaults/credentials">
     define fields, collect values, and update credentials without returning sensitive values.
   </Card>
-  <Card title="Fill Browser Fields" icon="input-text" href="/vaults/fill">
+  <Card title="fill browser fields" icon="input-text" href="/vaults/fill">
     map credential fields to browser inputs and handle completed, failed, or unknown outcomes.
   </Card>
-  <Card title="Build an End-User Auth Workflow" icon="user-lock" href="/browsers/use-vault-credentials-in-browser-agent">
+  <Card title="build an end-user auth workflow" icon="user-lock" href="/browsers/use-vault-credentials-in-browser-agent">
     follow the complete collection and browser fill workflow with the sdk or cli.
   </Card>
 </CardGroup>
