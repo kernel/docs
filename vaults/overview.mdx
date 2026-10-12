@@ -24,20 +24,25 @@ navigation and submission, start with [Fill from Vault](/auth/fill-from-vault).
 <Note>
   vaults are in preview. supported item types are `credential`, `wallet`, and
   `card`. available operations depend on the item type and current state.
-  credential items currently don't use a provider or wallet. for payment items,
+  credential items don't use a wallet. for payment items,
   see [wallet integrations](/integrations/wallets/overview).
 </Note>
 
-## Choose where credentials come from
+## Choose a credential path
 
-a `credential` item can get its values from three places. all three end with the browser filling the login without your agent reading the values.
+a `credential` item follows one of two paths. both end with the browser filling the login without your agent reading the values.
 
-| | [KERNEL-hosted collection](/vaults/credentials) | [an existing vault](/vaults/existing-credential-vault) | [1Password](/vaults/1password) |
-| --- | --- | --- | --- |
-| where the secret lives | encrypted in a KERNEL `credential` item | an encrypted copy in a KERNEL `credential` item | in the user's 1Password account |
-| how it gets there | the user enters it in a KERNEL-hosted form, or your backend writes it | your backend copies it from the vault you already use and keeps it in sync | the user links their 1Password account once |
-| who approves each use | your application or agent, when it calls `fill` | your application or agent, when it calls `fill` | the user, in the 1Password app |
-| pick it when | you're collecting credentials from users for the first time | your credentials already live in another secrets manager | your users keep logins in a private 1Password vault |
+1. **[KERNEL-hosted collection](/vaults/credentials)** (`provider: "kernel"`): the user enters values in a KERNEL-hosted form, and your agent uses them through value-free bindings without seeing them.
+2. **[1Password brokered approval](/vaults/1password)** (`provider: "1password"`): the user connects their 1Password account once and approves each login request in the 1Password app. the 1Password extension fills and submits, and KERNEL stores no login values. it supports only logins in the owner's own non-shared vault, not shared-vault items or passkeys.
+
+| | KERNEL-hosted collection | 1Password brokered approval |
+| --- | --- | --- |
+| where the secret lives | encrypted in a KERNEL `credential` item | in the user's 1Password account |
+| how it gets there | the user enters it in a KERNEL-hosted form, or your backend writes it, for example [from an existing vault](/vaults/existing-credential-vault) | the user connects their 1Password account once |
+| who approves each use | your application or agent, when it calls `fill` or `webmcp_invoke` | the user, in the 1Password app |
+| pick it when | the user doesn't keep the login in 1Password, or your credentials already live in another secrets manager | your users keep logins in their own non-shared 1Password vault |
+
+ask the end user which path they prefer. if they decline 1Password or that path fails, fall back to KERNEL-hosted collection.
 
 ## How vaults work
 
@@ -63,24 +68,23 @@ changes there, update the KERNEL item before its next use. delete the item when
 your retention policy no longer permits KERNEL to hold the copy.
 
 in the future, a credential item might instead be backed by a third-party vault
-connection. that would follow the same resource pattern as a card item backed by
+connection that supplies values to `fill`. that would follow the same resource pattern as a card item backed by
 a third-party wallet connection: the item remains the interface used by browser
 operations while the connection supplies the underlying material. third-party
-credential backing isn't currently available.
+backing for `fill` isn't currently available.
 
 | item backing | material path | availability |
 | --- | --- | --- |
 | KERNEL-backed credential | your trusted backend copies values from your source vault into the item | available today |
-| third-party-backed credential | a provider connection supplies values to the item | possible future model; not available today |
+| 1Password brokered approval | the user approves each request in the 1Password app, and the 1Password extension fills with `1pw_fill`; KERNEL stores no login values | preview |
+| third-party-backed credential | a provider connection supplies values to the item for `fill` | possible future model; not available today |
 | provider-backed card | a supported wallet provider supplies payment material to the item | available today |
 
-a 1Password-backed credential item is in development. it uses a separate
-brokered-approval flow rather than copying values. ask the end user whether
+1Password brokered approval doesn't copy values. ask the end user whether
 they want to use 1Password for a login; if they don't, or if the 1Password path
-fails, fall back to a KERNEL-backed credential. 1Password's api only grants
-logins in a private, non-shared vault and doesn't support passkeys. see [1Password Agentic
-Autofill](/vaults/1password) for how it compares and its current
-availability.
+fails, fall back to KERNEL-hosted collection. 1Password's api only grants
+logins in the owner's own non-shared vault and doesn't support passkeys. see [1Password Agentic
+Autofill](/vaults/1password) for how the two paths compare.
 
 <a id="fill-or-use-payment-aliases" />
 
@@ -106,7 +110,7 @@ is required for browser operations, including `fill`.
 | item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, or `card` |
 | alias              | non-sensitive, format-valid stand-in returned in state for eligible items; aliases belong to that item |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                  |
-| operation          | api action advertised in `available_operations`: `collect`, `authorize`, `prepare_checkout`, or `fill`, when eligible |
+| operation          | api action advertised in `available_operations`, such as `collect`, `fill`, `webmcp_invoke`, `authorize`, `prepare_checkout`, or a 1Password `1pw_*` operation, when eligible |
 | expansion          | live provider data advertised in `available_expansions`; the initial expansion is `payment_methods` |
 | event              | immutable item observation with `id`, `name`, optional `browser_id`, `data`, and `created_at`       |
 | browser attachment | vault reference fixed when the browser is created                                                   |
@@ -218,9 +222,9 @@ for actions and unresolved provider outcomes, see [payment recovery](/integratio
 
 ## Next steps
 
-- [credential items](/vaults/credentials): define fields, collect values, and update them safely.
+- [credential items](/vaults/credentials): use KERNEL-hosted collection to define fields, collect values, and update them safely.
 - [use an existing credential vault](/vaults/existing-credential-vault): copy credentials from another vault and synchronize their lifecycle.
 - [fill browser fields](/vaults/fill): safely inject stored values into browser fields without passing them through your application or model.
-- [1Password Agentic Autofill](/vaults/1password): use 1Password Agentic Autofill in a KERNEL browser, with KERNEL-hosted collection as the fallback.
+- [1Password Agentic Autofill](/vaults/1password): use 1Password brokered approval in a KERNEL browser, with KERNEL-hosted collection as the fallback.
 - [human-in-the-loop credential collection and form filling](/browsers/use-vault-credentials-in-browser-agent): try a cli prompt, then follow the sdk and cli walkthrough.
 - [payments](/browsers/payments): connect wallets and let browser agents complete purchases.

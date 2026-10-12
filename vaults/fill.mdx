@@ -34,7 +34,9 @@ your request names the item and vault, the attached browser's `browser_id`, the 
   is your source of truth, [copy its values into a KERNEL credential
   item](/vaults/existing-credential-vault) first. today,
   this stores an encrypted copy in KERNEL; `fill` doesn't accept credential
-  values or a third-party vault reference in its request.
+  values or a third-party vault reference in its request. for logins that stay
+  in the user's 1Password account, use [1Password brokered
+  approval](/vaults/1password) and its `1pw_fill` operation instead.
 </Note>
 
 the following examples continue with a `kernel` client, a per-user vault such as `user-12345`, and a browser attached to that vault. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs.
