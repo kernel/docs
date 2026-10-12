@@ -39,7 +39,7 @@ your request names the item and vault, the attached browser's `browser_id`, the 
   approval](/vaults/1password) and its `1pw_fill` operation instead.
 </Note>
 
-the following examples continue with a `kernel` client, a per-user vault such as `user-12345`, and a browser attached to that vault. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs.
+the following examples continue with a `kernel` client, a per-user vault such as `user-12345`, and a browser attached to that vault. `loginURL` / `login_url` is the exact current url of a login page you control; the selectors match that page's inputs. `fill` writes into a live form, so the examples turn off sdk retries.
 
 <CodeGroup>
 
@@ -59,7 +59,7 @@ const result = await kernel.vaults.items.performOperation(item.key, {
     { field: "username", selector: "#username" },
     { field: "password", selector: "#password" },
   ],
-});
+}, { maxRetries: 0 });
 if (result.type !== "fill") throw new Error("unexpected operation response");
 console.log(result.status, result.fields);
 if (result.status !== "completed") {
@@ -71,7 +71,7 @@ if (result.status !== "completed") {
 item = kernel.vaults.items.retrieve("portal-login", id_or_name=vault.id)
 if not any(operation.type == "fill" for operation in item.available_operations):
     raise RuntimeError("fill is unavailable")
-result = kernel.vaults.items.perform_operation(
+result = kernel.with_options(max_retries=0).vaults.items.perform_operation(
     item.key,
     id_or_name=vault.id,
     type="fill",
