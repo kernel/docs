@@ -35,7 +35,7 @@ and authorization state. neither item is the user's underlying wallet or card.
 <Warning>
   - keep wallet enrollment and provider approval outside the agent and its browser. never put action urls, oauth codes, provider responses, api keys, or browser connection urls in model context.
   - independently verify purchase details in your controller before creating, updating, or authorizing a card item. user confirmation alone doesn't validate an agent's proposal.
-  - submit checkout once through the merchant's normal form. don't retry submission or fall back from `fill` to aliases after failure or uncertainty. `fill` never submits checkout, so it's safe to retry.
+  - submit checkout once through the merchant's normal form. don't retry submission or fall back from `fill` to aliases after failure or uncertainty. `fill` never submits, so a retry is safe. retry only after checking the page, and never in an automatic loop.
   - report success only after the merchant's trusted order record confirms the matching paid order. a timeout, missing event, or browser deletion doesn't cancel a payment.
 </Warning>
 
@@ -327,8 +327,9 @@ if result.status != "completed":
 
 retain each result's zero-based `index`, `status`, and optional `error_code`.
 `failed` may leave earlier writes in place; `unknown` or a transport error means
-the outcome is uncertain. `fill` never submits checkout, so retry it rather than
-switching to aliases. see the
+the outcome is uncertain. `fill` never submits, so a retry is safe. retry only
+after checking the page, and never in an automatic loop. don't switch to
+aliases. see the
 [`fill` outcome contract](/vaults/fill#handle-the-outcome) for details and [link checkout](/integrations/wallets/stripe-link#fill-the-checkout)
 for the cli equivalent.
 
@@ -618,7 +619,7 @@ is unavailable or the sources disagree, keep the result indeterminate and don't 
 | `payment_requires_action`                                                 | continue the existing merchant flow without resubmitting payment                                |
 | `payment_processing`                                                      | wait for the existing payment and inspect the merchant's status                                 |
 | `fill` `completed` or `credential_fill_attempted` | inspect per-field outcomes and merchant state; filling alone does not prove submission or payment success |
-| `fill` `failed`, `unknown`, or a lost response | retry `fill`; it never submits checkout. don't fall back to aliases |
+| `fill` `failed`, `unknown`, or a lost response | `fill` never submits, so a retry is safe. retry only after checking the page, and never in an automatic loop. don't fall back to aliases |
 | agentcard `ready` or authorization `approved`                             | inspect charge, replay, and merchant state; reusable item state does not prove purchase success |
 | decline, expiry, rejection, failure, abandonment, or `payment_unknown`    | stop and reconcile the existing attempt before deciding whether a new purchase is appropriate   |
 | `recovery_required` | stop; reconcile the unresolved provider outcome. do not retry or delete the item or its parent wallet/vault |
@@ -736,8 +737,9 @@ card.
    card and billing fields. fill writes actual values into the browser; do not
    read them back, expose them in model context, or assume recordings omit them.
 10. preserve the value-free fill result and every per-field outcome. continue
-   only on `completed`. fill never submits checkout, so retry it after failed or
-   unknown outcomes or transport errors; missing required fields mean stop. never
+   only on `completed`. after failed or unknown outcomes or transport errors:
+   fill never submits, so a retry is safe. retry only after checking the page,
+   and never in an automatic loop. missing required fields mean stop. never
    fall back to aliases. supply other customer fields only from approved user
    data, complete any agent disclosure truthfully, then submit checkout once.
 11. inspect the checkout result, fill outcomes, and item events. report success
