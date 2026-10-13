@@ -424,6 +424,16 @@ Deleting `default` restarts it instead of removing it: its process is stopped, a
 
 After a timeout, the executor keeps its process but drops its browser connection, so code abandoned by the timeout can't keep driving the browser. After a crash or a blocked event loop, the next call on that executor starts a fresh process. Either way, other executors keep running.
 
+### A crashed page
+
+`Page crashed` and `Target crashed` mean the tab is gone. The browser ran past its [memory tier](/browsers/concurrency-and-limits#per-browser-resources) and the kernel killed a Chromium process. The error names the page rather than the cause.
+
+The browser survives, and so do its cookies, local storage, and logged-in sessions, because those belong to the browser rather than the tab. What's lost is everything the page held in memory: JavaScript state, `sessionStorage`, and any request in flight.
+
+Recover by navigating again. A named executor whose tab has been closed gets a replacement tab and the call is sent again on it, so code that assumes a page position, a populated form, or an open dialog must navigate and wait for the page before continuing.
+
+If the crashes recur, step up a memory tier or spread the work across more browsers. To confirm the cause, enable [telemetry](/browsers/telemetry/overview); the default set includes the `system` category, whose [`system_oom_kill`](/browsers/telemetry/categories) event reports the killed process's memory.
+
 ## Timeout configuration
 
 Set `timeout_sec` for the work each request performs. The API defaults to 60 seconds and allows up to 300 seconds, but most short scripts don't need that budget. Start with:
