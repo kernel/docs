@@ -47,7 +47,7 @@ print(browser.location)
 
 `timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. KERNEL validates the complete request before changing the session and returns a `400` with code `invalid_browser_location` for an unsupported value such as `en-QQ`.
 
-The create call returns after the browser applies the location, so the first page you open already uses it. If the browser can't apply it, KERNEL discards the browser and returns a `500`. Retry the request to get a new browser.
+The create call returns after the browser applies the location, so the first page you open already uses it. If the browser can't apply it, KERNEL discards the browser and returns a `500`. Retry the request to get a new browser. If the assigned browser's image can't change location, KERNEL discards it and returns a `400` with code `browser_location_unsupported` instead. Try again later, or create the browser without `location`.
 
 ## Update a running browser
 
