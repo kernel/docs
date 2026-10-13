@@ -47,9 +47,11 @@ print(browser.location)
 
 `timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. KERNEL validates the complete request before changing the session and returns a `400` with code `invalid_browser_location` for an unsupported value such as `en-QQ`.
 
+The create call returns after the browser applies the location, so the first page you open already uses it. If the browser can't apply it, KERNEL discards the browser and returns a `500`. Retry the request to get a new browser.
+
 ## Update a running browser
 
-Use `browsers.update()` to set an override without restarting Chromium:
+Use `browsers.update()` to set an override without restarting Chromium. The update returns after the running browser applies the new location:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -97,9 +99,15 @@ browser = kernel.browsers.update(
 
 Clearing one field doesn't clear the other. Overrides stay in place when you change the browser's proxy.
 
+When an update doesn't take effect, the error tells you what to do next:
+
+- `409` with code `conflict`: another update changed the browser's location at the same time. Retry the request.
+- `400` with code `browser_location_unsupported`: the browser runs an image that can't change location. Create a new browser.
+- `500`: the browser didn't confirm the new location. Retry the request.
+
 ## Read effective location
 
-Browser responses include the effective values, where each came from, and convergence state:
+Browser responses include the effective values and where each came from:
 
 ```json
 {
@@ -107,15 +115,12 @@ Browser responses include the effective values, where each came from, and conver
     "timezone": "America/Los_Angeles",
     "locale": "en-US",
     "timezone_source": "override",
-    "locale_source": "metro",
-    "pending": false
+    "locale_source": "metro"
   }
 }
 ```
 
 `timezone_source` and `locale_source` are `override` for a value set on the session and `metro` for the default of the browser's region. The fields are independent, so their sources can differ.
-
-When `pending` is `true`, the API has accepted the change but the running browser hasn't finished applying it. Browser creation doesn't wait for it.
 
 ## Runtime behavior
 
