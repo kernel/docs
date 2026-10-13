@@ -129,4 +129,5 @@ Browser responses include the effective values and where each came from:
 - Existing `Intl` formatter objects and application-level caches can retain values captured before the update. Create a new formatter when you need the latest default.
 - Future requests use the updated language preference. Requests already in flight aren't rewritten.
 - Customer CDP emulation remains separate from the session default and can temporarily override what a particular target reports.
-- Location overrides last only for the browser session. Profiles don't save them, and a browser returned to a pool loses them before its next lease.
+- Location overrides last only for the browser session, and profiles don't save them.
+- A pooled browser released with `reuse: true` keeps its location for the next acquirer, as it keeps cookies and open tabs. Release with `reuse: false` to get a fresh browser.
