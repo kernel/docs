@@ -432,7 +432,9 @@ The browser survives, and so do its cookies, local storage, and logged-in sessio
 
 Recover by navigating again. A named executor whose tab has been closed gets a replacement tab and the call is sent again on it, so code that assumes a page position, a populated form, or an open dialog must navigate and wait for the page before continuing.
 
-If the crashes recur, step up a memory tier or spread the work across more browsers. To confirm the cause, enable [telemetry](/browsers/telemetry/overview); the default set includes the `system` category, whose [`system_oom_kill`](/browsers/telemetry/categories) event reports the killed process's memory.
+A crash also doesn't tell you whether the step you were running took effect. Before you resend an action that writes something, check the page or the downstream system for the expected result rather than retrying on the assumption that nothing happened. Follow the [unknown-outcome guidance](/browsers/webmcp#handle-an-unknown-outcome).
+
+If the crashes recur, recreate the browser headful with more memory or spread the work across more browsers. To confirm the cause, enable [telemetry](/browsers/telemetry/overview); the default set includes the `system` category, whose [`system_oom_kill`](/browsers/telemetry/categories) event reports the killed process's memory.
 
 ## Timeout configuration
 
