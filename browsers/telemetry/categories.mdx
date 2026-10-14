@@ -102,9 +102,11 @@ What each `captcha_provider` emits today:
 | `arkose` | `token` or `image_challenge` | Inferred on successful token tasks | Can be absent |
 | `other` | `token`, `image_challenge`, or absent | Inferred on successful token tasks | Can be absent |
 
-An observed result has a `challenge_id` and covers the visible challenge across its solver tasks. An inferred result has `inferred: true` and a `task_id` instead of `challenge_id`; join it to the task events on `task_id`. Each successful eligible `token` task can produce an inferred result, so multiple inferred results can belong to one challenge. Failed tasks and image rounds don't produce inferred results. A returned Turnstile token isn't treated as a challenge outcome. Telemetry delivery is best-effort and isn't ordered: a start can arrive after its result, and any event can be absent. When you need a challenge-level outcome, wait for a bounded interval and fall back to available task results and the current page state.
+An observed result has a `challenge_id` and covers the visible challenge across its solver tasks. An inferred result has `inferred: true` and a `task_id` instead; join it to task events on `task_id`. Each eligible successful `token` task can produce an inferred result, so one challenge may have several. Failed tasks and image rounds don't produce inferred results. Turnstile tokens don't produce challenge results.
 
-Challenge results for observed `recaptcha_v2` and `hcaptcha` report `solved` or `abandoned`. `failure` and `timeout` are reported for `human`, whose solver has an explicit attempt budget. Inferred results report `solved` from the task without observing the page.
+Telemetry delivery is best-effort and unordered: a start can arrive after its result, and any event can be absent. When you need a challenge outcome, wait for a bounded interval, then check available task results and the current page state.
+
+Observed `recaptcha_v2` and `hcaptcha` results report `solved` or `abandoned`. `human` can also report `failure` and `timeout`. Inferred results report `solved` without observing the page.
 
 Every captcha event has `ts` (Unix microseconds), `type`, `category: captcha`, and `source`. The `data` payload holds the event details, and optional `truncated: true` means that payload was cut to the size limit. The fields inside `data` are:
 
