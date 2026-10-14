@@ -19,9 +19,9 @@ The design follows one split: telemetry decides **what to say**, while the live 
 | `captcha_solve_result` | Solver task | A task ended `success`, `failure`, `timeout`, or `abandoned`. Success means the solver returned a usable answer, not that the challenge cleared. |
 | `captcha_challenge_result` | Visible challenge or inferred token result | An observed challenge reached its overall outcome, or a successful token task produced an inferred result without page observation. |
 
-Three rules from [Correlate captcha tasks and challenges](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) shape everything below:
+Four rules from [Correlate captcha tasks and challenges](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) shape everything below:
 
-- **Use the identifier the result carries.** Pair a start with its task result on `task_id`. An observed challenge result joins on `challenge_id`; an inferred result has `inferred: true` and joins on `task_id` instead.
+- **Use the identifier the result carries.** Pair a start with its task result on `task_id`. An observed challenge result joins on `challenge_id` when the task carries it; an inferred result has `inferred: true` and joins on `task_id` instead.
 - **A task result isn't always the end of a challenge.** `task_kind: token` returns an answer for the whole widget, while `image_challenge` completes only one image round. On older events without `task_kind`, the gate falls back to `captcha_type` where it can and leaves ambiguous tasks unclassified.
 - **Delivery is best-effort and unordered.** A start can arrive after its result, and any event can be absent. Nothing may depend on arrival order, and every wait needs a deadline.
 - **Fall back to the page.** When you need a challenge-level outcome and don't have one, use the available task results and the current page state.
@@ -178,9 +178,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
 	const expectsChallengeResult = () => [...tasks.values()].some((task) =>
-		task.challengeId ||
-		(task.status === "success" && task.taskKind === "token" &&
-			!["turnstile", "hcaptcha", "recaptcha_v2"].includes(task.captchaProvider ?? ""))
+		task.taskKind !== "image_challenge" &&
+		(task.challengeId || (task.status === "success" && task.captchaProvider !== "turnstile"))
 	);
 
 	async function until(done: () => boolean, timeoutMs: number) {
@@ -191,7 +190,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
   </Step>
 
   <Step title="Resolve an outcome">
-    `resolve` waits briefly for a challenge result when one can follow the task, then reads the page. It prefers a joined challenge result, then an unjoined result, a task result, or the page alone. Image rounds and Turnstile tokens don't trigger the extra wait.
+    `resolve` waits briefly for a challenge result when one can follow the task, then reads the page. It prefers a joined challenge result, then an unjoined result, a task result, or the page alone. Known image rounds and Turnstile tokens don't trigger the extra wait. An observed reCAPTCHA result can be used without joining it to a task.
 
     `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone. It has to catch *every* settled task, not just failures: a successful task-only result (Turnstile's usual path) and a task whose deadline lapsed with no result at all are both settled outcomes the agent needs to hear about.
 
@@ -200,7 +199,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 ```ts captcha-gate.ts
 	async function resolve(): Promise<Verdict> {
 		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
-		if (expectsChallengeResult() && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+		if (expectsChallengeResult() && challenges.size === 0) await until(() => challenges.size > 0, CHALLENGE_GRACE_MS);
 
 		const page = await probePage();
 		const challenge = joinedResult() ?? [...challenges][0];
@@ -474,9 +473,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
 	const expectsChallengeResult = () => [...tasks.values()].some((task) =>
-		task.challengeId ||
-		(task.status === "success" && task.taskKind === "token" &&
-			!["turnstile", "hcaptcha", "recaptcha_v2"].includes(task.captchaProvider ?? ""))
+		task.taskKind !== "image_challenge" &&
+		(task.challengeId || (task.status === "success" && task.captchaProvider !== "turnstile"))
 	);
 
 	async function until(done: () => boolean, timeoutMs: number) {
@@ -486,7 +484,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 
 	async function resolve(): Promise<Verdict> {
 		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
-		if (expectsChallengeResult() && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+		if (expectsChallengeResult() && challenges.size === 0) await until(() => challenges.size > 0, CHALLENGE_GRACE_MS);
 
 		const page = await probePage();
 		const challenge = joinedResult() ?? [...challenges][0];
