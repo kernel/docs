@@ -426,13 +426,15 @@ After a timeout, the executor keeps its process but drops its browser connection
 
 ### A crashed page
 
-`Page crashed` and `Target crashed` mean the tab is gone. The browser ran past its [memory tier](/browsers/concurrency-and-limits#per-browser-resources) and the kernel killed a Chromium process. The error names the page rather than the cause.
+`Page crashed` and `Target crashed` mean the tab is gone. The browser [ran out of memory](/browsers/concurrency-and-limits#per-browser-resources) and the kernel killed a Chromium process. The error names the page rather than the cause.
 
 The browser survives, and so do its cookies, local storage, and logged-in sessions, because those belong to the browser rather than the tab. What's lost is everything the page held in memory: JavaScript state, `sessionStorage`, and any request in flight.
 
-Recover by navigating again. A named executor whose tab has been closed gets a replacement tab and the call is sent again on it, so code that assumes a page position, a populated form, or an open dialog must navigate and wait for the page before continuing.
+Recover by navigating again. Nothing about the page's position survives, so code that assumes a populated form, an open dialog, or a specific page must navigate and wait before continuing.
 
-A crash also doesn't tell you whether the step you were running took effect. Before you resend an action that writes something, check the page or the downstream system for the expected result rather than retrying on the assumption that nothing happened. Follow the [unknown-outcome guidance](/browsers/webmcp#handle-an-unknown-outcome).
+A named executor replaces a missing tab: if its tab is gone, the call is sent again on a new one.
+
+A crash doesn't tell you whether the step you were running took effect. Before you resend an action that writes something, check the page or the downstream system for the expected result. Follow the [unknown-outcome guidance](/browsers/webmcp#handle-an-unknown-outcome).
 
 If the crashes recur, recreate the browser headful with more memory or spread the work across more browsers. To confirm the cause, enable [telemetry](/browsers/telemetry/overview); the default set includes the `system` category, whose [`system_oom_kill`](/browsers/telemetry/categories) event reports the killed process's memory.
 
