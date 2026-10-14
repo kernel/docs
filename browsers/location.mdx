@@ -45,13 +45,11 @@ print(browser.location)
 ```
 </CodeGroup>
 
-`timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. KERNEL validates the complete request before changing the session and returns a `400` with code `invalid_browser_location` for an unsupported value such as `en-QQ`.
-
-The create call returns after the browser applies the location, so the first page you open already uses it. If the browser can't apply it, KERNEL discards the browser and returns a `500`. Retry the request to get a new browser. If the assigned browser's image can't change location, KERNEL discards it and returns a `400` with code `browser_location_unsupported` instead. Try again later, or create the browser without `location`.
+`timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. An unsupported value such as `en-QQ` returns a `400` with code `invalid_browser_location`.
 
 ## Update a running browser
 
-Use `browsers.update()` to set an override without restarting Chromium. The update returns after the running browser applies the new location:
+Use `browsers.update()` to set an override on a running browser:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -99,12 +97,6 @@ browser = kernel.browsers.update(
 
 Clearing one field doesn't clear the other. Overrides stay in place when you change the browser's proxy.
 
-KERNEL checks that the browser can change location before it applies anything else in the request, and applies the location last. When an update doesn't take effect, the error tells you what to do next:
-
-- `409` with code `conflict`: another update changed the browser's location at the same time. Retry the request.
-- `400` with code `browser_location_unsupported`: the browser runs an image that can't change location. Nothing in the request is applied. Create a new browser.
-- `500`: the browser didn't confirm the new location. The request's other changes and the new override are already saved, so retry the same request to apply the location.
-
 ## Read effective location
 
 Browser responses include the effective values and where each came from:
@@ -124,7 +116,7 @@ Browser responses include the effective values and where each came from:
 
 ## Runtime behavior
 
-- New pages, frames, workers, and network contexts start with the latest applied values.
+- New pages, frames, workers, and network contexts start with the current location.
 - Existing pages and workers receive the update without a reload.
 - Existing `Intl` formatter objects and application-level caches can retain values captured before the update. Create a new formatter when you need the latest default.
 - Future requests use the updated language preference. Requests already in flight aren't rewritten.
