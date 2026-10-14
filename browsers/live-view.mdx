@@ -109,7 +109,7 @@ Both terminal events carry the same `reason`, so branch on it instead of matchin
 | --- | --- |
 | `transport` | the socket never opened inside its bound, or closed before signaling |
 | `signaling` | the socket opened but no offer arrived inside its bound |
-| `media` | a peer exists but ICE never reached `connected` inside its bound — this covers a peer that stalls after `checking` |
+| `media` | a peer exists but ICE never reached `connected` or `completed` inside its bound — this covers a peer that stalls after `checking` |
 | `peer` | peer construction or the remote offer threw |
 | `unsupported` | the browser has no `RTCPeerConnection` |
 | `server` | the server closed the connect |
@@ -161,7 +161,7 @@ window.addEventListener('message', (event) => {
 arm();
 ```
 
-Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. The watchdog behind it is cleared once negotiation begins, so a connection that stalls after that point never emits it. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
+Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. On images without the connect-failure fix, the watchdog behind it is cleared once negotiation begins, so a connection that stalls after that point never emits it. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
 
 `KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly: a `peer` or `unsupported` reason is a property of the browser environment, so a remount repeats it, while a `transport` reason is worth one retry.
 
