@@ -12,7 +12,7 @@ verify and approve each purchase before completing checkout.
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
 - choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
-- use a low-value checkout you control. link is live-only and requires an https merchant origin and verified field selectors. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
+- use a low-value checkout you control. link is live-only and requires an https merchant origin. on stripe checkouts that support link pay tokens, KERNEL fills the payment without field selectors; elsewhere you need verified field selectors for the virtual card. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
 - identify how you'll read the merchant's trusted order record. you need it to confirm a matching paid order. deterministic checkout data can verify purchase details before submission, but without the order record afterward, the result remains indeterminate.
 
@@ -215,9 +215,9 @@ step 2, a connected wallet in the same vault, and this browser session.
 #### Prepare and authorize the card
 
 1. list the wallet's payment methods and let the user select one.
-2. [create a link card item](/integrations/wallets/stripe-link) named `notebook-order` from the verified purchase and selected method.
-3. require `authorize` in `available_operations`, invoke it with that same purchase object, and present any returned action through your controller.
-4. wait for the card to become `ready`, then require `fill` immediately before use. link cards never expose `state.aliases`.
+2. with the browser on the final checkout page, [create a link card item](/integrations/wallets/stripe-link#create-and-authorize-a-card-item) named `notebook-order` from the verified purchase and selected method.
+3. require `authorize` in `available_operations` and invoke it with the browser's `browser_id` and the checkout's exact current `page_url`. KERNEL inspects the checkout and chooses a [link pay token or a virtual card](/integrations/wallets/stripe-link#link-pay-tokens-and-virtual-cards). present any returned action through your controller.
+4. wait for the card to become `ready`, then require `fill` immediately before use and follow its description. link cards never expose `state.aliases`.
 
 <CodeGroup>
 
@@ -256,8 +256,14 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 your controller must authorize the destination and selectors before disclosure.
 `checkoutURL` / `checkout_url` is the browser's exact current top-level https url,
-including query and fragment. it must share the origin of `spec.merchant_url`.
-no playwright page object is required. see [field requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+including query and fragment. it must be on the origin of the checkout page you
+authorized at. no playwright page object is required. see
+[field requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+
+if the card's `fill` description says to omit fields, KERNEL delivered a link pay
+token: send only `browser_id` and `page_url`, as in
+[fill a link pay token](/integrations/wallets/stripe-link#fill-a-link-pay-token).
+the example below is for a virtual card.
 
 `fill` supports stored [billing fields](/integrations/wallets/stripe-link#map-card-fields-to-inputs)
 as well as card fields. requesting an absent value returns `field_unavailable`
@@ -717,25 +723,32 @@ card.
    creating or authorizing a card.
 6. show me the verified merchant, amount, currency, and item or cart contents.
    wait for my explicit confirmation, then freeze that verified purchase object.
-7. list the wallet's payment methods and ask me which one to use. create a link
-   card item named `checkout-card` from that same verified, confirmed object and
-   the selected payment method. use the exact checkout url as `merchant_url` and
-   include a specific context of at least 100 characters.
+7. list the wallet's payment methods and ask me which one to use. with the
+   browser still on the final checkout page, create a link card item named
+   `checkout-card` from that same verified, confirmed object and the selected
+   payment method. use the exact checkout url as `merchant_url` and include a
+   specific context of at least 100 characters.
 8. retrieve the card item and confirm that `authorize` appears in
-   `available_operations`. give me the exact cli command, but do not run it. ask
-   me to invoke authorization and complete any provider action from a trusted
-   terminal or application outside this agent. after i confirm completion,
-   retrieve the item again and require its status to be `ready`. do not print,
-   return, or open an action url.
-9. require `fill` in the card's `available_operations`. inspect the checkout's
-   inputs and invoke `kernel vaults items invoke user-12345 checkout-card fill`
-   with `--params` or `--spec-file`: browser_id is the attached session id,
+   `available_operations`. give me the exact cli command, including
+   `--browser-id` with the attached session id and `--page-url` with the exact
+   current top-level checkout url, but do not run it. ask me to invoke
+   authorization and complete any provider action from a trusted terminal or
+   application outside this agent. KERNEL inspects the checkout and chooses a
+   link pay token or a virtual card; do not inspect or invoke the checkout's
+   webmcp tools yourself. after i confirm completion, retrieve the item again
+   and require its status to be `ready`. do not print, return, or open an
+   action url.
+9. require `fill` in the card's `available_operations` and follow its
+   description. invoke `kernel vaults items invoke user-12345 checkout-card fill`
+   with `--params` or `--spec-file`: browser_id is the attached session id and
    page_url is the exact current top-level https url (including query and
-   fragment), and fields maps stored field names to unique css selectors.
-   the page must share the card's merchant_url origin. combined expiration
-   requires format MM/YY or MM/YYYY; timeout_ms is optional. request only needed
-   card and billing fields. fill writes actual values into the browser; do not
-   read them back, expose them in model context, or assume recordings omit them.
+   fragment), on the origin of the checkout you authorized at. if the
+   description says to omit fields, send no fields. otherwise inspect the
+   checkout's inputs and add fields mapping stored field names to unique css
+   selectors; combined expiration requires format MM/YY or MM/YYYY. timeout_ms
+   is optional. request only needed card and billing fields. fill writes actual
+   values into the browser; do not read them back, expose them in model
+   context, or assume recordings omit them.
 10. preserve the value-free fill result and every per-field outcome. continue
    only on `completed`. after failed or unknown outcomes or transport errors:
    fill never submits, so a retry is safe. retry only after checking the page,

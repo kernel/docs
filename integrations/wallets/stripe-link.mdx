@@ -3,11 +3,11 @@ title: "Link by Stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a single-use card for an approved purchase. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a payment credential for an approved purchase: a merchant-bound link pay token on supported stripe checkouts, or a single-use virtual card everywhere else. KERNEL inspects the checkout and chooses which one; you never choose or handle it. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
 
 use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
 
-link is the wallet provider, not the merchant's payment processor. `fill` does not require a native processor adapter; link-issued cards require supported, uniquely selectable checkout inputs on an allowed merchant page. the merchant's processor doesn't need to be stripe. for the overall offering, see [payments on KERNEL](/browsers/payments).
+link is the wallet provider, not the merchant's payment processor. a virtual card works on any checkout with supported, uniquely selectable card inputs, so the merchant's processor doesn't need to be stripe. a link pay token works only on stripe checkouts that expose link's agent payment tools; KERNEL detects them during authorization. for the overall offering, see [payments on KERNEL](/browsers/payments).
 
 
 ## Before you start
@@ -184,10 +184,12 @@ that grant. continue with [Select a payment method](#select-a-payment-method).
 1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
 2. require the wallet to be `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
-4. create a `card` item with the purchase details.
-5. retrieve the card, verify that it advertises `authorize`, and perform that operation after explicit user approval.
+4. reach the final checkout page in a browser with the vault attached, then create a `card` item with the purchase details. creating the card doesn't contact link. to change the details before authorizing, update the card.
+5. retrieve the card, verify that it advertises `authorize`, and after explicit user approval invoke it with the browser's `browser_id` and the checkout's exact current top-level `page_url`. KERNEL inspects that checkout, chooses a link pay token or a virtual card, and sends the user an approval request.
 6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
-7. require the advertised `fill` operation, then supply the attached browser's session id, exact current top-level https `page_url`, and field/selector bindings. inspect every fill outcome before deciding whether to submit checkout once.
+7. require the advertised `fill` operation and follow its description: a link pay token takes `browser_id` and `page_url` only, and a virtual card also takes field/selector bindings. inspect the fill outcome, then submit the checkout yourself once.
+
+each item's `available_operations[].description` describes the next step and its recovery, so have your agent read it rather than hard-coding the flow.
 
 ## Connect a wallet
 
@@ -377,6 +379,8 @@ show the returned methods in a trusted user-facing surface, let the user choose 
 
 ## Create and authorize a card item
 
+create the card once the browser is on the final checkout page and you know the final amount, currency, and merchant. the examples use `browser`, a KERNEL browser created with this vault attached, and `checkoutURL` / `checkout_url`, the browser's exact current top-level checkout url obtained through your browser-control method.
+
 <CodeGroup>
 
 ```typescript TypeScript
@@ -405,6 +409,8 @@ if (!card.available_operations.some(({ type }) => type === "authorize")) {
 card = await kernel.vaults.items.performOperation(card.key, {
   id_or_name: vault.id,
   type: "authorize",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
 });
 if (card.action && "url" in card.action) {
   await presentProviderAction({
@@ -443,6 +449,8 @@ card = kernel.vaults.items.perform_operation(
     card.key,
     id_or_name=vault.id,
     type="authorize",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
 )
 if card.action is not None and hasattr(card.action, "url"):
     present_provider_action(
@@ -465,25 +473,104 @@ kernel vaults cards create user-12345 notebook-order \
     "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated."
   }'
 kernel vaults items get user-12345 notebook-order -o json
-kernel vaults items invoke user-12345 notebook-order authorize --open
+# BROWSER_ID is the attached session ID; PAGE_URL is its exact current checkout URL.
+kernel vaults items invoke user-12345 notebook-order authorize \
+  --browser-id "$BROWSER_ID" --page-url "$PAGE_URL" --open
 kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 
 </CodeGroup>
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 50000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000, but a virtual card allows at most 50000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
-`merchant_url` supplies provider context and restricts the destination for card use. see [fill the checkout](#fill-the-checkout) for exact page and origin requirements; `state.domains` is metadata, not an authorization rule.
+until you authorize the card at a checkout, you can change its spec with an update. after that, updates return `409`: delete the card and create a new one with the updated details.
+
+### Link pay tokens and virtual cards
+
+authorization fixes how link delivers the credential:
+
+| | link pay token | virtual card |
+| --- | --- | --- |
+| when KERNEL chooses it | the checkout is a stripe checkout that exposes link's agent payment tools | any other checkout |
+| amount limit | 500000 minor units | 50000 minor units |
+| what `fill` does | passes a short-lived token to the checkout's link tools; the checkout shows link as the payment method | writes the card number, cvc, expiry, and requested billing fields into the inputs you select |
+| where `fill` works | pages on the origin of the checkout you authorized at, for the stripe account the user approved | pages on the origin of the checkout you authorized at |
+
+link resolves the merchant shown on the approval screen from the checkout's stripe account, so a link pay token request doesn't send `merchant_name` or `merchant_url`. the token is fetched fresh for each fill and never returned to you.
+
+don't inspect or invoke the checkout's webmcp tools yourself. KERNEL does that during `authorize` and `fill`.
+
+authorizing without `browser_id` and `page_url` still issues a virtual card that fills pages on the `merchant_url` origin. use it only as a fallback when checkout inspection keeps failing.
+
+### Authorization errors
+
+these errors happen before any payment request is created, so the card stays `requested` and you can authorize again:
+
+| code | what to do |
+| --- | --- |
+| `page_not_found` | open the checkout in the browser at exactly `page_url`, then authorize again |
+| `ambiguous_page` | close extra tabs so exactly one is at `page_url`, then authorize again |
+| `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser has the vault attached and the checkout is open in exactly one tab, then authorize again |
+| `invalid_request` for the amount | the checkout needs a virtual card and the amount exceeds 50000. update the card to a smaller amount or tell the user this checkout can't be paid with link |
+| `invalid_request` for `expires_at` | link pay tokens don't support `spec.expires_at`. remove it with an update, then authorize again |
+
+if the user declines or the request expires, delete the card and create a new one. once approval has been requested, `{"type":"authorize"}` only re-checks the request and never creates another payment request.
 
 ## Fill the checkout
 
 after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-payment-fields).
 
-supply `browser_id`, exact current top-level `page_url`, and ordered `fields` bindings. the browser must have the vault attached in the same project. the card must remain ready, unexpired, and undeleted, with stored encrypted material and an existing parent wallet. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`; `timeout_ms` is optional.
+the advertised `fill` description says which inputs the card needs. every fill supplies `browser_id` and the exact current top-level `page_url`. the browser must have the vault attached in the same project, and the card must remain ready, unexpired, and undeleted with a connected parent wallet. `timeout_ms` is optional.
 
-`page_url` is required, must use https without embedded credentials, and must share the https origin of `spec.merchant_url`. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the checkout path can differ from the stored merchant url, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
+`page_url` must use https without embedded credentials and must be on the origin of the checkout page you authorized at, or on the origin of `spec.merchant_url` for a card authorized without a checkout. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the path can differ, so a fill still works after the checkout moves to another page on the same origin, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
 
-### Map card fields to inputs
+### Fill a link pay token
+
+omit `fields`. KERNEL selects card on the checkout if needed, checks that the checkout's stripe account is the one the user approved, retrieves a fresh token, and passes it to the checkout's link tools. on stripe checkouts, the card form is replaced by the user's link payment method.
+
+<CodeGroup>
+
+```typescript TypeScript
+const result = await kernel.vaults.items.performOperation("notebook-order", {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+if (result.status !== "completed") {
+  throw new Error(`fill ${result.status}; check the checkout page, then retry`);
+}
+```
+
+```python Python
+result = kernel.vaults.items.perform_operation(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+if result.status != "completed":
+    raise RuntimeError(f"fill {result.status}; check the checkout page, then retry")
+```
+
+```bash CLI
+kernel vaults items invoke user-12345 notebook-order fill \
+  --params "{\"browser_id\":\"$BROWSER_ID\",\"page_url\":\"$PAGE_URL\"}" -o json
+```
+
+</CodeGroup>
+
+a different stripe account on the page returns `403 destination_denied` before any token is retrieved.
+
+### Fill a virtual card
+
+supply ordered `fields` bindings. combined `expiration` requires `format: "MM/YY"` or `"MM/YYYY"`.
+
+#### Map card fields to inputs
 
 the examples below continue after wallet connection and spend approval with a ready `notebook-order` card, the same project-scoped `kernel` client with retries disabled, and a `browser` created with its vault attached. `checkoutURL` / `checkout_url` is the browser's exact current top-level url, obtained through your browser-control method; no playwright page object is required. verify the purchase and destination before calling fill; neither a model-proposed url nor a selector authorizes disclosure.
 
@@ -601,11 +688,11 @@ the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`amount` uses minor currency units. link accepts 1–50000, requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds.
+`amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds; link pay tokens don't support it. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
-card updates replace the complete `spec`; they are not partial merges. link card items can update only while `requested`.
+card updates replace the complete `spec`; they are not partial merges. a `requested` link card accepts any valid spec, and a pending virtual-card request can update the fields link supports on its existing request. once a card is authorized with `browser_id` and `page_url`, updates return `409`: delete it and create a new card.
 
 ### Item states
 

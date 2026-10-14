@@ -44,9 +44,9 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 | ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | user eligibility          | requires a US phone number                               | —                                                                   |
 | payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
-| purchase authorization    | explicit `authorize` operation before checkout           | the user approves with Face ID                                      |
+| purchase authorization    | explicit `authorize` operation at the final checkout page | the user approves with Face ID                                      |
 | payment handoff           | KERNEL's `fill` api injects values without passing them through application code or model context; values enter the browser | agentcard executes the intercepted request; KERNEL replays the response |
-| reuse                     | provider-issued single-use card | reusable card item; each checkout requires approval             |
+| reuse                     | single-use virtual card, or a merchant-bound link pay token on supported stripe checkouts | reusable card item; each checkout requires approval             |
 | environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
 choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, single-use card. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
@@ -55,7 +55,7 @@ both integrations may provide additional benefits, including card rewards and ch
 
 ## Checkout and processor coverage
 
-KERNEL's `fill` api does not require a native processor adapter. for link-issued cards, the page must match the allowed merchant origin and provide supported checkout inputs. see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout).
+KERNEL's `fill` api does not require a native processor adapter. for link virtual cards, the page must be on the authorized origin and provide supported checkout inputs. on stripe checkouts that expose link's agent payment tools, KERNEL delivers a link pay token instead, with no field selectors. see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout).
 
 agentcard's alias-based checkout requires a recognized processor request. see [agentcard's processor coverage](/integrations/wallets/agentcard#checkout-and-processor-coverage) for supported formats and limitations. neither field filling nor provider handoff guarantees processor acceptance or payment success.
 
