@@ -93,7 +93,7 @@ Every captcha event has `ts` (Unix microseconds), `type`, `category: captcha`, a
 | `task_kind` | `token`, `image_challenge`, `press_and_hold` | A `token` answers the whole widget; `image_challenge` completes one round that may be followed by another; `press_and_hold` is one attempt. Task events only; can be absent when the task can't be classified. |
 | `captcha_type` | `hcaptcha`, `recaptcha_v2`, `recaptcha_v3`, `turnstile`, `geetest`, `press_and_hold`, `other` | Deprecated classification, still emitted on every captcha event. |
 
-Use `captcha_provider` for the product and `task_kind` for what a task result means. `captcha_type` values are frozen: image rounds sent through the captcha relay report `other`, while press-and-hold reports `press_and_hold`. Older events may lack the new fields, so fall back to `captcha_type` when reading stored events.
+Use `captcha_provider` for the product and `task_kind` for what a task result means. `captcha_type` values are frozen: `other` covers Arkose, unclassified tasks, and some image rounds; press-and-hold reports `press_and_hold`. An image round can also report `hcaptcha`, so don't infer its task kind from `captcha_type`. Older events may lack the new fields, so fall back to `captcha_type` when reading stored events.
 
 | Other `data` field | Events | Meaning |
 | --- | --- | --- |
@@ -108,9 +108,9 @@ Use `captcha_provider` for the product and `task_kind` for what a task result me
 
 ### What each captcha provider emits
 
-| `captcha_provider` | `task_kind` on classified tasks | Challenge result | `challenge_id` on task events |
+| `captcha_provider` | `task_kind` on classified tasks | Challenge result | `challenge_id` on emitted task events |
 | --- | --- | --- | --- |
-| `hcaptcha` | `token` or `image_challenge` | Observed | Sometimes |
+| `hcaptcha` | `token` or `image_challenge` | Observed | In-browser image rounds only |
 | `recaptcha_v2` | `token` or `image_challenge` | Observed | No |
 | `human` | `press_and_hold` | Observed | Yes |
 | `turnstile` | `token` | None | No |
@@ -125,13 +125,13 @@ An observed result covers the visible challenge across its solver tasks. An infe
 
 Use `task_id` to pair a `captcha_solve_started` event with its `captcha_solve_result`. Use `challenge_id` to group tasks for a visible challenge when it's present. It can continue across a page reload; it doesn't indicate task order or completion.
 
-Tasks sent through the captcha relay don't have `challenge_id` because it sees individual tasks, not the visible challenge. In-browser hCaptcha image rounds and press-and-hold attempts do have it. This means an observed `recaptcha_v2` result can't be joined to its task events, even when both arrive. Join an inferred result on its `task_id` instead; it has no `challenge_id`.
+Most solver tasks identify an individual solve, so they have `task_id` but no `challenge_id`. In-browser hCaptcha image rounds and press-and-hold attempts also identify the visible challenge and carry `challenge_id`. This means an observed `recaptcha_v2` result can't be joined to its task events, even when both arrive. Join an inferred result on its `task_id` instead; it has no `challenge_id`.
 
 Telemetry delivery is best-effort and unordered: a start can arrive after its result, and any event can be absent. When you need a challenge outcome, wait for a bounded interval, then check available task results and the current page state.
 
 ### Captcha challenge outcomes
 
-Observed `recaptcha_v2` and `hcaptcha` results report `solved` or `abandoned`. `human` can also report `failure` and `timeout`. Inferred results report `solved` without observing the page.
+Observed `recaptcha_v2` and `hcaptcha` results report `solved` or `abandoned`. `human` can also report `failure` when its solve budget is exhausted. Inferred results report `solved` without observing the page.
 
 Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. An observed challenge's duration covers every solver attempt from when it appeared until its terminal outcome.
 
