@@ -173,14 +173,56 @@ Telemetry is off by default. The default set isn't limited to session metadata: 
 | `captcha` | Captcha type, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
 | `platform`, `connection`, `system`, `monitor` | Session and VM metadata only (VM-management calls, connection and health events). No page content. |
 
-Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Events are retained for 30 days, then expired (see [Retention](/browsers/telemetry/overview#retention)). Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
+When storage is enabled, captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect). Stored events are retained for 30 days, then expired (see [Retention](/browsers/telemetry/overview#retention)). Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
 
 Some exposure is reduced for you automatically: input into sensitive fields such as passwords is suppressed (`interaction_key` isn't emitted for them, and `interaction_click` omits the element text), and `cdp_command` reports text lengths rather than the text itself. Beyond that, because selection is opt-in, the most effective control is to capture only the categories you need - enable `network`, `console`, `page`, `interaction`, or `screenshot` deliberately, and prefer the operational categories when you only need session health.
 
 If you capture `control` and run Playwright code, pass credentials in through variables your snippet reads rather than as literals in the submitted source, so the captured `code` doesn't carry them.
 
 <Warning>
-If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data captures that data into storage. If your organization has a BAA with Kernel, the `network`, `console`, and `screenshot` categories are disabled and can't be captured. `control` and `captcha` stay available; keep regulated values out of the Playwright source you submit, and disable `captcha` if the page host or path identifies regulated data.
+If you operate under HIPAA, GDPR, or similar obligations, be deliberate about the browser-activity categories: pointing them at a site that handles regulated data can capture it. If your organization has a BAA with Kernel, `network`, `console`, `page`, and `interaction` return `400 telemetry_category_restricted` unless Kernel has enabled export-only telemetry for your organization and you create the browser with storage disabled and an enabled OTLP destination bound. `screenshot` remains restricted even in export-only mode because it isn't exported. `control` and `captcha` stay available; keep regulated values out of the Playwright source you submit, and disable `captcha` if the page host or path identifies regulated data.
 
 If you have compliance requirements around what Kernel may process, [contact us](mailto:security@kernel.sh) before enabling them.
 </Warning>
+
+### Export restricted categories for a BAA organization
+
+Once Kernel enables export-only telemetry for your organization and you've [created an OTLP destination](/browsers/telemetry/export#create-a-destination), disable storage in the same browser create request. For example, to export `page` and `interaction` to a destination named `honeycomb-prod`:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  telemetry: {
+    browser: {
+      page: { enabled: true },
+      interaction: { enabled: true },
+    },
+    storage: { enabled: false },
+    export: { otlp: { destination: { name: 'honeycomb-prod' } } },
+  },
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    telemetry={
+        "browser": {
+            "page": {"enabled": True},
+            "interaction": {"enabled": True},
+        },
+        "storage": {"enabled": False},
+        "export": {"otlp": {"destination": {"name": "honeycomb-prod"}}},
+    },
+)
+```
+</CodeGroup>
+
+With storage disabled, you can stream events live, but can't retrieve or replay them later from Kernel storage. `screenshot` isn't sent to your OTLP destination and remains restricted.
