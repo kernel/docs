@@ -159,7 +159,7 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 ### Expiry and revocation
 
 - Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A scoped key can't outlive the key that creates it.
-- An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither closes browser connections that are already open, so delete those browsers to cut off access.
+- An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither revokes connection URLs (CDP, WebDriver, live view) the key already obtained. They keep working, including for new connections, until the browser is deleted, so delete the key's browsers to cut off access.
 - Rotating a scoped key keeps its policy.
 
 Scoped keys can't manage API keys, and they get `403` on endpoints that don't support scoped access yet.
