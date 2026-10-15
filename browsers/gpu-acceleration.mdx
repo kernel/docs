@@ -59,6 +59,68 @@ func main() {
 
 You can also enable GPU acceleration in the dashboard when deploying a browser under **Advanced Configuration**.
 
+## Request more video memory
+
+A GPU browser gets 2 GiB of video memory by default, with 4 vCPUs and 6 GiB of memory. For WebGL scenes, large canvases, or video that run out of video memory, set `video_memory` to `4GiB`. That browser gets 4 GiB of video memory, 8 vCPUs, and 12 GiB of memory.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({
+  gpu: true,
+  video_memory: '4GiB',
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(
+    gpu=True,
+    video_memory="4GiB",
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		GPU:         kernel.Bool(true),
+		VideoMemory: kernel.BrowserVideoMemory4GiB,
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
+
+```bash CLI
+kernel browsers create --gpu --video-memory 4GiB
+```
+</CodeGroup>
+
+`video_memory` requires SDK version 0.123.0 or later, or CLI version 0.47.0 or later. It accepts `2GiB` or `4GiB` and requires `gpu: true`. You can't set `memory` on a GPU browser, because `video_memory` determines its memory. The browser response includes `video_memory` and `memory`, so you can confirm the allocation you received.
+
+A browser with 4 GiB of video memory is billed for its 12 GiB of memory, so it costs twice the [standard GPU rate](/info/pricing#usage-rates).
+
+These browsers come from separate capacity. If none is available, creation fails with HTTP 529 and the `no_gpu_browsers_available` code instead of falling back to 2 GiB of video memory. Retry later, or omit `video_memory` to get a standard GPU browser.
+
 ## Use cases
 
 GPU acceleration is useful for:
