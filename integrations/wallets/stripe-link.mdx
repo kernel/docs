@@ -512,7 +512,6 @@ these errors happen before any payment request is created, so the card stays `re
 | `ambiguous_page` | close extra tabs so exactly one is at `page_url`, then authorize again |
 | `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser has the vault attached and the checkout is open in exactly one tab, then authorize again |
 | `invalid_request` for the amount | the checkout needs a virtual card and the amount exceeds 50000. update the card to a smaller amount or tell the user this checkout can't be paid with link |
-| `invalid_request` for `expires_at` | link pay tokens don't support `spec.expires_at`. remove it with an update, then authorize again |
 
 if the user declines or the request expires, delete the card and create a new one. once approval has been requested, `{"type":"authorize"}` only re-checks the request and never creates another payment request.
 
@@ -682,13 +681,13 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
-| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata`, `expires_at` |
+| card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata` |
 
 the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. its optional `expires_at` is a unix timestamp in seconds; link pay tokens don't support it. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
+`amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. the card item's `expires_at` comes from link: the spend request's expiry, or the issued virtual card's validity. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
