@@ -406,12 +406,16 @@ if (!card.available_operations.some(({ type }) => type === "authorize")) {
   throw new Error("authorization is unavailable");
 }
 
-card = await kernel.vaults.items.performOperation(card.key, {
+const authorized = await kernel.vaults.items.performOperation(card.key, {
   id_or_name: vault.id,
   type: "authorize",
   browser_id: browser.session_id,
   page_url: checkoutURL,
 });
+if (authorized.type !== "card") {
+  throw new Error("unexpected operation response");
+}
+card = authorized;
 if (card.action && "url" in card.action) {
   await presentProviderAction({
     userID: authenticatedUser.id,
@@ -510,8 +514,8 @@ these errors happen before any payment request is created, so the card stays `re
 | --- | --- |
 | `page_not_found` | open the checkout in the browser at exactly `page_url`, then authorize again |
 | `ambiguous_page` | close extra tabs so exactly one is at `page_url`, then authorize again |
-| `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser has the vault attached and the checkout is open in exactly one tab, then authorize again |
-| `invalid_request` for the amount | the checkout needs a virtual card and the amount exceeds 50000. update the card to a smaller amount or tell the user this checkout can't be paid with link |
+| `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser exists in this project, is leased, has the vault attached, and isn't busy with another fill, and that the checkout is open in exactly one tab, then authorize again |
+| `invalid_request` for the amount | the checkout needs a virtual card and the amount exceeds 50000. delete the card and tell the user this checkout can't be paid with a link virtual card; don't lower the amount of a confirmed purchase |
 
 if the user declines or the request expires, delete the card and create a new one. once approval has been requested, `{"type":"authorize"}` only re-checks the request and never creates another payment request.
 
@@ -519,7 +523,7 @@ if the user declines or the request expires, delete the card and create a new on
 
 after the user completes approval, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. the examples below show the fill request; for the full controller and agent handoff, follow the [browser agent payments guide](/browsers/enable-payments-in-browser-agent#4-fill-payment-fields).
 
-the advertised `fill` description says which inputs the card needs. every fill supplies `browser_id` and the exact current top-level `page_url`. the browser must have the vault attached in the same project, and the card must remain ready, unexpired, and undeleted with a connected parent wallet. `timeout_ms` is optional.
+the advertised `fill` description says which inputs the card needs. every fill supplies `browser_id` and the exact current top-level `page_url`. the browser must have the vault attached in the same project, and the card must remain ready, unexpired, and undeleted with its parent wallet. a link pay token fill also requires that wallet to be connected, because the token is retrieved with it. `timeout_ms` is optional.
 
 `page_url` must use https without embedded credentials and must be on the origin of the checkout page you authorized at, or on the origin of `spec.merchant_url` for a card authorized without a checkout. the origin comparison includes the host and port (default `443` is normalized); it does not allow other subdomains. the path can differ, so a fill still works after the checkout moves to another page on the same origin, but the request must name the exact current page. a disallowed origin returns `403 destination_denied`. descendant payment frames can have different origins; the restriction applies to the top-level merchant page.
 
@@ -563,7 +567,7 @@ kernel vaults items invoke user-12345 notebook-order fill \
 
 </CodeGroup>
 
-a different stripe account on the page returns `403 destination_denied` before any token is retrieved.
+a different stripe account on the page returns `403 destination_denied`, and nothing is passed to the page. KERNEL checks the account before retrieving the token and again before passing it.
 
 ### Fill a virtual card
 

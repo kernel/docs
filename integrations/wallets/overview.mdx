@@ -5,7 +5,7 @@ description: "Connect user wallets through KERNEL's native integrations"
 
 KERNEL's native wallet integrations connect a user's payment method to vault items and expose provider-hosted connection and approval through the KERNEL api. your application works with item references, advertised operations, and outcomes instead of passing raw card details to the agent.
 
-wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies approved single-use cards that you inject through KERNEL's [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
+wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies an approved credential for each purchase, a merchant-bound link pay token on supported stripe checkouts or a single-use virtual card elsewhere, that you inject through KERNEL's [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
 
 for the platform capabilities, benefits, and end-to-end lifecycle, start with [payments on KERNEL](/browsers/payments).
 
@@ -49,7 +49,7 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 | reuse                     | single-use virtual card, or a merchant-bound link pay token on supported stripe checkouts | reusable card item; each checkout requires approval             |
 | environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
 
-choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid by a newly approved, single-use card. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
+choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid with a newly approved credential: a link pay token on supported stripe checkouts, or a single-use virtual card elsewhere. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
 
 both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
 
