@@ -61,8 +61,8 @@ The response includes everything you need to drive the browser: `session_id`, `c
 
 | Type | When to use it | How to set it |
 | --- | --- | --- |
-| **Headful** (default) | Agents on real sites. It has a real display, so [live view](/browsers/live-view) and [replays](/browsers/replays) work and bot detectors see a normal browser. 8 GB of memory by default. | Nothing to set |
-| **[Headless](/browsers/headless)** | Short-lived or highly concurrent jobs that don't need to be watched. Lighter, at 1 GB by default, but some bot detectors notice it. | `headless: true` |
+| **Headful** (default) | Agents on real sites. It has a real display, so [live view](/browsers/live-view) and [replays](/browsers/replays) work and bot detectors see a normal browser. 8 GB of memory by default, or 16 GB with `memory`. | `memory: "8GiB"` or `"16GiB"` |
+| **[Headless](/browsers/headless)** | High-volume or short-lived work that doesn't need to be watched. Fixed at 1 GB, so keep individual pages light. Some bot detectors notice it. | `headless: true` |
 | **[GPU-accelerated](/browsers/gpu-acceleration)** | WebGL, video, and canvas-heavy sites. Headful only, doesn't support standby, and has its own usage rate. | `gpu: true` |
 
 ## Set common options
@@ -83,6 +83,7 @@ browser = kernel.browsers.create(
 ```
 </CodeGroup>
 
+- **[Memory](/browsers/concurrency-and-limits#per-browser-resources):** headful browsers take `8GiB` (the default) or `16GiB`. Headless browsers are fixed at `1GiB`. Memory is set at creation and can't be changed on a running browser.
 - **[Viewport](/browsers/viewport):** defaults to 1920x1080 at 25Hz. A custom viewport restarts Chromium on creation, so use a [browser pool](/browsers/pools) if you need it to be instant.
 - **[Termination and timeouts](/browsers/termination):** `timeout_seconds` sets how long a browser can sit in standby before KERNEL deletes it. It defaults to 60 seconds and can be up to 72 hours. Delete browsers explicitly when you're done; Playwright's `browser.close()` doesn't delete them.
 

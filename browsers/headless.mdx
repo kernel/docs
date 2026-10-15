@@ -4,7 +4,7 @@ title: "Headless Mode"
 
 Kernel browsers ship in `headful` mode by default. In headful mode, the launched browser has a corresponding GUI. This enables features like [live view](/browsers/live-view) and [replays](/browsers/replays).
 
-`headless` mode runs without a visual interface. They generally run faster and have a lighter footprint (1 GB rather than headful's 8 GB), resulting in significant cost savings. This is useful for short-lived or highly concurrent browser automations.
+`headless` mode runs without a visual interface. Headless browsers start faster and use 1 GB of memory instead of headful's 8 GB, which makes them cheaper for high-volume work. That 1 GB is fixed: you can't raise it, so a memory-heavy page that runs fine in a headful browser can exhaust a headless one. See [per-browser resources](/browsers/concurrency-and-limits#per-browser-resources).
 Some bot detectors may detect headless mode.
 
 To launch a Kernel browser in `headless` mode, set its config:

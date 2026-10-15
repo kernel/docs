@@ -51,9 +51,13 @@ If you're hitting the ceiling in normal operation, [contact us](https://calendly
 
 | Resource | Headful | Headless |
 | --- | --- | --- |
-| Default memory | 8 GB | 1 GB |
+| Memory | 8 GB or 16 GB | 1 GB |
 
-Memory is the practical ceiling on how many tabs and how heavy a page one browser handles. A [headless](/browsers/headless) browser at 1 GB is sized for short-lived, single-page, high-concurrency automation; open a dozen heavy tabs in one and Chromium starts killing renderers. If your workload needs many concurrent pages, spread it across more browsers rather than more tabs in one. Headful browsers support up to 16 GB: set `memory` on a [browser pool](/browsers/pools) when a workload needs more than the default.
+Memory is the practical ceiling on how heavy a page one browser can hold. When a browser runs out of memory, the kernel kills a Chromium process and the page fails with `Page crashed` or `Target crashed`. One heavy page can do this on its own — it doesn't take many tabs. See [a crashed page](/browsers/playwright-execution#a-crashed-page).
+
+Headless browsers have 1 GB and no larger option. Headful browsers get 8 GB by default and 16 GB when you pass `memory` to [create](/api-reference/browsers/create-a-browser-session) or set it on a [browser pool](/browsers/pools). Memory is fixed at creation: you can't change it on a running browser, and a pool change applies only to browsers built after it.
+
+If pages are dying, recreate the browser headful with more memory, or spread the work across more browsers rather than more tabs in one. To check memory before a page fails, run `free -m` inside the session and watch `available`. If it trends toward zero before the page dies, the page's working set is the problem. See [measure memory and CPU usage](/browsers/process-execution#measure-memory-and-cpu-usage).
 
 [GPU acceleration](/browsers/gpu-acceleration) is a separate browser type with its own [usage rate](/info/pricing#usage-rates), available on Start-Up and Enterprise.
 
