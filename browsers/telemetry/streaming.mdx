@@ -35,7 +35,7 @@ with kernel.browsers.telemetry.stream(session_id) as stream:
 ```
 </CodeGroup>
 
-To filter, check `event.category` and `event.type` in your loop. If the stream drops, re-open it with the last `seq` you processed as `last_event_id` to resume without gaps.
+To filter, check `event.category` and `event.type` in your loop, or pass `type` when you open the stream. For direct HTTP requests, repeat `type` or pass comma-separated values for multiple types. The [Read telemetry events](https://kernel.sh/docs/api-reference/browser-telemetry/read-telemetry-events-for-a-browser-session) endpoint accepts the same filter. If the stream drops, re-open it with the last `seq` you processed as `last_event_id` to resume without gaps.
 
 ## Via CLI
 

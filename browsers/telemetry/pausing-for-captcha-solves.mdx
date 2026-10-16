@@ -17,11 +17,12 @@ The design follows one split: telemetry decides **what to say**, while the live 
 | --- | --- | --- |
 | `captcha_solve_started` | Solver task | The solver accepted a task. It does **not** mean a solve is currently in flight. |
 | `captcha_solve_result` | Solver task | A task ended `success`, `failure`, `timeout`, or `abandoned`. Success means the solver returned a usable answer, not that the challenge cleared. |
-| `captcha_challenge_result` | Visible challenge | The challenge reached its overall outcome. Only emitted for challenge types Kernel tracks as a widget. |
+| `captcha_challenge_result` | Visible challenge or inferred token result | An observed challenge reached its overall outcome, or a successful token task produced an inferred result without page observation. |
 
-Three rules from [Correlate captcha tasks and challenges](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) shape everything below:
+Four rules from [Correlate captcha tasks and challenges](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) shape everything below:
 
-- **`task_id` is the only join.** Pair a start with its result on it. `challenge_id` groups tasks for one visible challenge and is present only when Kernel tracked the widget — tasks without one can never be joined to a `captcha_challenge_result`, even when one is emitted for the same page.
+- **Use the identifier the result carries.** Pair a start with its task result on `task_id`. An observed challenge result joins on `challenge_id` when the task carries it; an inferred result has `inferred: true` and joins on `task_id` instead.
+- **A task result isn't always the end of a challenge.** `task_kind: token` returns an answer for the whole widget, while `image_challenge` completes only one image round. On older events without `task_kind`, the gate falls back to `captcha_type` where it can and leaves ambiguous tasks unclassified.
 - **Delivery is best-effort and unordered.** A start can arrive after its result, and any event can be absent. Nothing may depend on arrival order, and every wait needs a deadline.
 - **Fall back to the page.** When you need a challenge-level outcome and don't have one, use the available task results and the current page state.
 
@@ -51,7 +52,7 @@ The four snippets below are one file, `captcha-gate.ts`, in order.
 
 <Steps>
   <Step title="Read the events">
-    Three maps, one per thing the telemetry can tell you, all keyed so nothing depends on arrival order. `joinable` is the important one: it holds only the `challenge_id`s that actually appeared on a task event, which are the only ones a challenge result may be attributed to.
+    The gate records task and challenge events by ID, so delivery order doesn't matter. It joins inferred results on `task_id` and observed results on `challenge_id`.
 
     A task record created by a *result* already has a status, so a `captcha_solve_started` that arrives afterwards finds a closed task and leaves it closed. That only works while the task is still in `tasks`, though — once `reset` has cleared it, a late start for the same `task_id` would otherwise look like a brand-new one. `settledAt` remembers when `reset` cleared each ID, so a late arrival within `TASK_SETTLE_MS` of that is dropped instead of reopening an episode the agent has already been told about. Past that window the same ID is treated as fresh again, since Kernel can reuse a `challenge_id` when an episode continues across a page reload.
 
@@ -84,7 +85,10 @@ interface PageState {
 interface Outcome {
 	status?: string;
 	durationMs?: number;
-	captchaType?: string;
+	captchaProvider?: string;
+	taskKind?: string;
+	challengeId?: string;
+	inferred?: boolean;
 }
 
 interface Verdict extends Outcome {
@@ -98,15 +102,23 @@ interface Verdict extends Outcome {
 function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => Promise<PageState>) {
 	const tasks = new Map<string, Outcome & { openedAt: number }>();
 	const challenges = new Map<string, Outcome & { status: string }>();
-	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
-	// task_ids and challenge_ids reported and cleared by reset(), each stamped
+	// Task and challenge keys reported and cleared by reset(), each stamped
 	// with when that happened. A late-arriving duplicate within TASK_SETTLE_MS
 	// of that -- delivery is unordered, a start can arrive after its own
 	// result -- is dropped instead of reopening an already-told episode. Past
 	// that window it's treated as fresh, since Kernel can reuse the same
 	// challenge_id when an episode continues across a page reload.
 	const settledAt = new Map<string, number>();
+	const taskKey = (id: string) => `task:${id}`;
+	const challengeKey = (id: string) => `challenge:${id}`;
+	const providerOf = (data: { captcha_provider?: string; captcha_type?: string }) =>
+		data.captcha_provider ?? (data.captcha_type === "press_and_hold" ? "human" : data.captcha_type);
+	const kindOf = (data: { task_kind?: string; captcha_type?: string }) => {
+		if (data.task_kind) return data.task_kind;
+		if (data.captcha_type === "press_and_hold") return "press_and_hold";
+		if (["turnstile", "geetest", "recaptcha_v3"].includes(data.captcha_type ?? "")) return "token";
+	};
 	const isSettled = (id: string) => {
 		const at = settledAt.get(id);
 		return at !== undefined && Date.now() - at < TASK_SETTLE_MS;
@@ -119,25 +131,38 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(event.data.task_id)) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(taskKey(event.data.task_id))) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
-				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				task.captchaProvider = providerOf(event.data) ?? task.captchaProvider;
+				task.taskKind = kindOf(event.data) ?? task.taskKind;
+				task.challengeId = event.data.challenge_id ?? task.challengeId;
 				tasks.set(event.data.task_id, task);
-				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(event.data.task_id)) {
+				joinable.add(taskKey(event.data.task_id));
+				if (event.data.challenge_id) joinable.add(challengeKey(event.data.challenge_id));
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(taskKey(event.data.task_id))) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
-				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				task.captchaProvider = providerOf(event.data) ?? task.captchaProvider;
+				task.taskKind = kindOf(event.data) ?? task.taskKind;
+				task.challengeId = event.data.challenge_id ?? task.challengeId;
 				tasks.set(event.data.task_id, task);
-				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !isSettled(event.data.challenge_id)) {
-				challenges.set(event.data.challenge_id, {
+				joinable.add(taskKey(event.data.task_id));
+				if (event.data.challenge_id) joinable.add(challengeKey(event.data.challenge_id));
+			} else if (event.type === "captcha_challenge_result" && event.data) {
+				const key = event.data.challenge_id
+					? challengeKey(event.data.challenge_id)
+					: event.data.inferred && event.data.task_id
+						? taskKey(event.data.task_id)
+						: undefined;
+				if (!key || isSettled(key)) continue;
+				challenges.set(key, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
-					captchaType: event.data.captcha_type,
+					captchaProvider: providerOf(event.data),
+					inferred: event.data.inferred,
 				});
 			}
 		}
@@ -152,6 +177,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const isOpen = (t: Outcome & { openedAt: number }) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS;
 	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
+	const expectsChallengeResult = () => [...tasks.values()].some((task) =>
+		task.taskKind !== "image_challenge" &&
+		(task.challengeId || (task.status === "success" && task.captchaProvider !== "turnstile"))
+	);
 
 	async function until(done: () => boolean, timeoutMs: number) {
 		const deadline = Date.now() + timeoutMs;
@@ -161,7 +190,7 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
   </Step>
 
   <Step title="Resolve an outcome">
-    `resolve` settles what it can, waits a bounded interval for a challenge-level result *only* when a task actually carried a `challenge_id`, then reads the page and picks the best available source: an attributable challenge result, then any challenge result (labelled as a page observation rather than a join), then task results, then the page alone.
+    `resolve` waits briefly for a challenge result when one can follow the task, then reads the page. It prefers a joined challenge result, then an unjoined result, a task result, or the page alone. Known image rounds and Turnstile tokens don't trigger the extra wait. An observed reCAPTCHA result can be used without joining it to a task.
 
     `holding` and `pending` are separate on purpose. `pending` covers a terminal outcome that lands while no action is in flight — without it, a challenge result arriving between tool calls is recorded and never told to anyone. It has to catch *every* settled task, not just failures: a successful task-only result (Turnstile's usual path) and a task whose deadline lapsed with no result at all are both settled outcomes the agent needs to hear about.
 
@@ -169,9 +198,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 
 ```ts captcha-gate.ts
 	async function resolve(): Promise<Verdict> {
-		// A challenge result covers every task under it, so stop waiting once one lands.
 		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
-		if (joinable.size > 0 && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+		if (expectsChallengeResult() && challenges.size === 0) await until(() => challenges.size > 0, CHALLENGE_GRACE_MS);
 
 		const page = await probePage();
 		const challenge = joinedResult() ?? [...challenges][0];
@@ -191,16 +219,15 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
-			// A challenge result covers every task under it, open or not, so an
-			// open task isn't preserved once its challenge already resolved --
-			// only when there's no other signal covering it yet, meaning the
-			// solver may still be working via a follow-up task resolve() hasn't
-			// seen close out.
-			const covered = Boolean(joinedResult());
+			// Keep an open task unless a result joined to that task or its
+			// challenge covers it.
+			const result = joinedResult();
 			const now = Date.now();
 			for (const [id, t] of tasks) {
+				const covered = result && (result[0] === taskKey(id) ||
+					(t.challengeId && result[0] === challengeKey(t.challengeId)));
 				if (isOpen(t) && !covered) continue;
-				settledAt.set(id, now);
+				settledAt.set(taskKey(id), now);
 				tasks.delete(id);
 			}
 			for (const id of challenges.keys()) settledAt.set(id, now);
@@ -214,25 +241,32 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 
 function describe(source: Verdict["source"], status: string, joined: boolean, outcome: Outcome, page: PageState): Verdict {
 	const took = outcome.durationMs ? ` after ${(outcome.durationMs / 1000).toFixed(1)}s` : "";
-	const kind = outcome.captchaType ? `${outcome.captchaType} ` : "";
-	const headline =
-		source === "page"
-			? "No terminal captcha telemetry arrived."
-			: source === "task"
-				? status === "success"
-					? `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`
-					: `A ${kind}solver task ended as "${status}"${took}.`
-				: status === "solved"
-					? `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`
-					: `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	const kind = outcome.captchaProvider ? `${outcome.captchaProvider} ` : "";
+	let headline: string;
+	if (source === "page") {
+		headline = "No terminal captcha telemetry arrived.";
+	} else if (source === "task") {
+		if (status !== "success") headline = `A ${kind}solver task ended as "${status}"${took}.`;
+		else if (outcome.taskKind === "image_challenge") headline = `The solver completed one ${kind}image round${took}. The challenge may serve another round.`;
+		else if (outcome.taskKind === "token") headline = `The solver returned a token for a ${kind}challenge${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`;
+		else headline = `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`;
+	} else if (outcome.inferred) {
+		headline = `Kernel inferred a ${kind}challenge result from a successful token task${took}. The page did not confirm it cleared.`;
+	} else if (status === "solved") {
+		headline = `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`;
+	} else {
+		headline = `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	}
 	const caveat =
 		source === "challenge" && !joined
-			? " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
+			? outcome.inferred
+				? " It could not be joined to this page's solver tasks, so treat it as an uncorrelated token result."
+				: " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
 			: "";
 	const where = page.widgets.length
 		? `A captcha widget is still on the page (${page.widgets.join(", ")}).`
 		: "No captcha widget is visible on the page.";
-	return { source, status, joined, captchaType: outcome.captchaType, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
+	return { source, status, joined, captchaProvider: outcome.captchaProvider, taskKind: outcome.taskKind, inferred: outcome.inferred, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
 }
 ```
   </Step>
@@ -352,7 +386,10 @@ interface PageState {
 interface Outcome {
 	status?: string;
 	durationMs?: number;
-	captchaType?: string;
+	captchaProvider?: string;
+	taskKind?: string;
+	challengeId?: string;
+	inferred?: boolean;
 }
 
 interface Verdict extends Outcome {
@@ -366,15 +403,23 @@ interface Verdict extends Outcome {
 function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => Promise<PageState>) {
 	const tasks = new Map<string, Outcome & { openedAt: number }>();
 	const challenges = new Map<string, Outcome & { status: string }>();
-	// Only challenge_ids that appeared on a task event may be attributed to it.
 	const joinable = new Set<string>();
-	// task_ids and challenge_ids reported and cleared by reset(), each stamped
+	// Task and challenge keys reported and cleared by reset(), each stamped
 	// with when that happened. A late-arriving duplicate within TASK_SETTLE_MS
 	// of that -- delivery is unordered, a start can arrive after its own
 	// result -- is dropped instead of reopening an already-told episode. Past
 	// that window it's treated as fresh, since Kernel can reuse the same
 	// challenge_id when an episode continues across a page reload.
 	const settledAt = new Map<string, number>();
+	const taskKey = (id: string) => `task:${id}`;
+	const challengeKey = (id: string) => `challenge:${id}`;
+	const providerOf = (data: { captcha_provider?: string; captcha_type?: string }) =>
+		data.captcha_provider ?? (data.captcha_type === "press_and_hold" ? "human" : data.captcha_type);
+	const kindOf = (data: { task_kind?: string; captcha_type?: string }) => {
+		if (data.task_kind) return data.task_kind;
+		if (data.captcha_type === "press_and_hold") return "press_and_hold";
+		if (["turnstile", "geetest", "recaptcha_v3"].includes(data.captcha_type ?? "")) return "token";
+	};
 	const isSettled = (id: string) => {
 		const at = settledAt.get(id);
 		return at !== undefined && Date.now() - at < TASK_SETTLE_MS;
@@ -387,25 +432,38 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		for await (const { event } of stream) {
 			if (event.category !== "captcha") continue;
 
-			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(event.data.task_id)) {
+			if (event.type === "captcha_solve_started" && event.data?.task_id && !isSettled(taskKey(event.data.task_id))) {
 				// A result for an unseen task lands already closed, so a start that
 				// arrives after its own result never reopens it.
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
-				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				task.captchaProvider = providerOf(event.data) ?? task.captchaProvider;
+				task.taskKind = kindOf(event.data) ?? task.taskKind;
+				task.challengeId = event.data.challenge_id ?? task.challengeId;
 				tasks.set(event.data.task_id, task);
-				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(event.data.task_id)) {
+				joinable.add(taskKey(event.data.task_id));
+				if (event.data.challenge_id) joinable.add(challengeKey(event.data.challenge_id));
+			} else if (event.type === "captcha_solve_result" && event.data?.task_id && !isSettled(taskKey(event.data.task_id))) {
 				const task = tasks.get(event.data.task_id) ?? { openedAt: Date.now() };
 				task.status = event.data.status;
 				task.durationMs = event.data.duration_ms;
-				task.captchaType = event.data.captcha_type ?? task.captchaType;
+				task.captchaProvider = providerOf(event.data) ?? task.captchaProvider;
+				task.taskKind = kindOf(event.data) ?? task.taskKind;
+				task.challengeId = event.data.challenge_id ?? task.challengeId;
 				tasks.set(event.data.task_id, task);
-				if (event.data.challenge_id) joinable.add(event.data.challenge_id);
-			} else if (event.type === "captcha_challenge_result" && event.data?.challenge_id && !isSettled(event.data.challenge_id)) {
-				challenges.set(event.data.challenge_id, {
+				joinable.add(taskKey(event.data.task_id));
+				if (event.data.challenge_id) joinable.add(challengeKey(event.data.challenge_id));
+			} else if (event.type === "captcha_challenge_result" && event.data) {
+				const key = event.data.challenge_id
+					? challengeKey(event.data.challenge_id)
+					: event.data.inferred && event.data.task_id
+						? taskKey(event.data.task_id)
+						: undefined;
+				if (!key || isSettled(key)) continue;
+				challenges.set(key, {
 					status: event.data.status,
 					durationMs: event.data.duration_ms,
-					captchaType: event.data.captcha_type,
+					captchaProvider: providerOf(event.data),
+					inferred: event.data.inferred,
 				});
 			}
 		}
@@ -414,6 +472,10 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	const isOpen = (t: Outcome & { openedAt: number }) => !t.status && Date.now() - t.openedAt < TASK_SETTLE_MS;
 	const openTasks = () => [...tasks.values()].filter(isOpen);
 	const joinedResult = () => [...challenges].find(([id]) => joinable.has(id));
+	const expectsChallengeResult = () => [...tasks.values()].some((task) =>
+		task.taskKind !== "image_challenge" &&
+		(task.challengeId || (task.status === "success" && task.captchaProvider !== "turnstile"))
+	);
 
 	async function until(done: () => boolean, timeoutMs: number) {
 		const deadline = Date.now() + timeoutMs;
@@ -421,9 +483,8 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 	}
 
 	async function resolve(): Promise<Verdict> {
-		// A challenge result covers every task under it, so stop waiting once one lands.
 		await until(() => openTasks().length === 0 || Boolean(joinedResult()), TASK_SETTLE_MS);
-		if (joinable.size > 0 && !joinedResult()) await until(() => Boolean(joinedResult()), CHALLENGE_GRACE_MS);
+		if (expectsChallengeResult() && challenges.size === 0) await until(() => challenges.size > 0, CHALLENGE_GRACE_MS);
 
 		const page = await probePage();
 		const challenge = joinedResult() ?? [...challenges][0];
@@ -443,16 +504,15 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 		pending: () => challenges.size > 0 || [...tasks.values()].some((t) => !isOpen(t)),
 		resolve,
 		reset: () => {
-			// A challenge result covers every task under it, open or not, so an
-			// open task isn't preserved once its challenge already resolved --
-			// only when there's no other signal covering it yet, meaning the
-			// solver may still be working via a follow-up task resolve() hasn't
-			// seen close out.
-			const covered = Boolean(joinedResult());
+			// Keep an open task unless a result joined to that task or its
+			// challenge covers it.
+			const result = joinedResult();
 			const now = Date.now();
 			for (const [id, t] of tasks) {
+				const covered = result && (result[0] === taskKey(id) ||
+					(t.challengeId && result[0] === challengeKey(t.challengeId)));
 				if (isOpen(t) && !covered) continue;
-				settledAt.set(id, now);
+				settledAt.set(taskKey(id), now);
 				tasks.delete(id);
 			}
 			for (const id of challenges.keys()) settledAt.set(id, now);
@@ -466,25 +526,32 @@ function createCaptchaGate(kernel: KERNEL, sessionId: string, probePage: () => P
 
 function describe(source: Verdict["source"], status: string, joined: boolean, outcome: Outcome, page: PageState): Verdict {
 	const took = outcome.durationMs ? ` after ${(outcome.durationMs / 1000).toFixed(1)}s` : "";
-	const kind = outcome.captchaType ? `${outcome.captchaType} ` : "";
-	const headline =
-		source === "page"
-			? "No terminal captcha telemetry arrived."
-			: source === "task"
-				? status === "success"
-					? `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`
-					: `A ${kind}solver task ended as "${status}"${took}.`
-				: status === "solved"
-					? `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`
-					: `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	const kind = outcome.captchaProvider ? `${outcome.captchaProvider} ` : "";
+	let headline: string;
+	if (source === "page") {
+		headline = "No terminal captcha telemetry arrived.";
+	} else if (source === "task") {
+		if (status !== "success") headline = `A ${kind}solver task ended as "${status}"${took}.`;
+		else if (outcome.taskKind === "image_challenge") headline = `The solver completed one ${kind}image round${took}. The challenge may serve another round.`;
+		else if (outcome.taskKind === "token") headline = `The solver returned a token for a ${kind}challenge${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`;
+		else headline = `The solver returned an answer for a ${kind}task${took}. No challenge-level outcome was reported, so this is not a cleared challenge.`;
+	} else if (outcome.inferred) {
+		headline = `Kernel inferred a ${kind}challenge result from a successful token task${took}. The page did not confirm it cleared.`;
+	} else if (status === "solved") {
+		headline = `Kernel observed the ${kind}challenge clear${took}. That is not proof the site accepted the solution.`;
+	} else {
+		headline = `Kernel reported the ${kind}challenge as "${status}"${took}.`;
+	}
 	const caveat =
 		source === "challenge" && !joined
-			? " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
+			? outcome.inferred
+				? " It could not be joined to this page's solver tasks, so treat it as an uncorrelated token result."
+				: " It could not be joined to this page's solver tasks, so treat it as an observation about the page."
 			: "";
 	const where = page.widgets.length
 		? `A captcha widget is still on the page (${page.widgets.join(", ")}).`
 		: "No captcha widget is visible on the page.";
-	return { source, status, joined, captchaType: outcome.captchaType, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
+	return { source, status, joined, captchaProvider: outcome.captchaProvider, taskKind: outcome.taskKind, inferred: outcome.inferred, durationMs: outcome.durationMs, page, message: `${headline}${caveat} ${where}` };
 }
 
 const PROBE = `
@@ -569,9 +636,12 @@ Every verdict pairs a telemetry claim with the page state it was checked against
 
 | Source | Message |
 | --- | --- |
-| Attributable challenge result | "Kernel observed the challenge clear after 18.0s. That is not proof the site accepted the solution. No captcha widget is visible on the page." |
-| Unjoinable challenge result | Same, plus "It could not be joined to this page's solver tasks, so treat it as an observation about the page." |
-| Task result only | "The solver returned an answer for a turnstile task after 3.9s. No challenge-level outcome was reported, so this is not a cleared challenge. A captcha widget is still on the page (turnstile)." |
+| Observed challenge result | "Kernel observed the recaptcha_v2 challenge clear after 18.0s. That is not proof the site accepted the solution. No captcha widget is visible on the page." |
+| Inferred challenge result | "Kernel inferred a geetest challenge result from a successful token task after 3.9s. The page did not confirm it cleared. No captcha widget is visible on the page." |
+| Unjoinable observed result | Same, plus "It could not be joined to this page's solver tasks, so treat it as an observation about the page." |
+| Unjoinable inferred result | Same, plus "It could not be joined to this page's solver tasks, so treat it as an uncorrelated token result." |
+| Token task result only | "The solver returned a token for a turnstile challenge after 3.9s. No challenge-level outcome was reported, so this is not a cleared challenge. A captcha widget is still on the page (turnstile)." |
+| Image-round task result only | "The solver completed one recaptcha_v2 image round after 3.9s. The challenge may serve another round. A captcha widget is still on the page (recaptcha)." |
 | Nothing terminal arrived | "No terminal captcha telemetry arrived. A captcha widget is still on the page (turnstile)." |
 
 Durations come straight from each event's `duration_ms`, which is authoritative; don't compute them from event timestamps.
@@ -579,7 +649,7 @@ Durations come straight from each event's `duration_ms`, which is authoritative;
 ## Limits
 
 - **`TASK_SETTLE_MS` and `CHALLENGE_GRACE_MS` are the safety net.** Events can be absent, so both waits are bounded and the gate falls through to the page rather than stalling. Raise `TASK_SETTLE_MS` if your solves routinely run longer than 20s.
-- **Challenge results aren't emitted for every widget type.** Turnstile, for instance, reports task events only, so the task-plus-page path is the one that runs there.
+- **Challenge results aren't emitted for every widget type.** Turnstile reports task events only, so the task-plus-page path is the one that runs there. An inferred result for another provider reports a returned token, not an observed page clear.
 - **One episode at a time.** The gate resets after each verdict; overlapping visible challenges from the same provider aren't split apart, and the telemetry docs note Kernel's own event model can't always attribute a result in that case either.
 - **The page probe is best-effort.** It reads the DOM for known widget markers and a response token. A site that renders its challenge somewhere those selectors miss won't be held past the logged message alone.
 - **GeeTest has no selector either.** The solver reports `geetest` task events, but `PROBE`'s `groups` has no GeeTest entry and `tokenPresent` checks no GeeTest field, so `widgets` never reports one and the agent proceeds as soon as the task settles, even while the challenge is still open. Add a selector for your target's GeeTest integration if you need it to hold.
@@ -589,7 +659,7 @@ Durations come straight from each event's `duration_ms`, which is authoritative;
 
 ## Next steps
 
-- [Telemetry Categories](/browsers/telemetry/categories#correlate-captcha-tasks-and-challenges) — the full captcha event schema and correlation rules
+- [Telemetry Categories](/browsers/telemetry/categories#captcha-event-fields) — captcha event fields and correlation rules
 - [Stream Telemetry](/browsers/telemetry/streaming) — resuming a dropped stream, filtering by category
 - [Stealth mode](/browsers/bot-detection/stealth) — what the automatic captcha solver covers
 - [Playwright with Computer Use Fallback](/browsers/playwright-computer-use-fallback) — holding and redirecting an agent mid-run for a different reason
