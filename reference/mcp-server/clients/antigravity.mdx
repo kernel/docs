@@ -4,8 +4,10 @@ description: "Connect Google Antigravity to the Kernel MCP server"
 ---
 
 <Note>
-Kernel connects to Antigravity over stdio through `mcp-remote` rather than as a remote `serverUrl` server. Antigravity's remote-server client can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)). `mcp-remote` runs the OAuth flow itself, so the token does not depend on that client.
+Kernel connects to Antigravity over stdio through `mcp-remote` rather than as a remote `serverUrl` server. Antigravity's remote-server client can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)). As of `agy` 1.3.3 the client also registers a new OAuth client on every session and never requests the authorization endpoint, so nothing in this client finishes the flow on its own. `mcp-remote` runs the OAuth flow itself, so the token does not depend on that client.
 </Note>
+
+If the browser flow doesn't connect, [authenticate with an API key](#connect-with-an-api-key) instead. That path works without Antigravity's OAuth, and it's what the Antigravity maintainers recommend as the workaround for the bug above.
 
 ## Install with the Kernel CLI
 
@@ -56,9 +58,9 @@ Go to **Settings → Customizations**, scroll to **Installed MCP Servers**, and 
 
 ## Connect with an API key
 
-For headless or scripted use, where no browser is available to complete the OAuth flow, authenticate with a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) instead. `kernel mcp install --target antigravity` always writes the OAuth config, so wire this up by hand.
+Authenticate with a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) when no browser is available to complete the OAuth flow, or when the flow doesn't connect. This path doesn't touch Antigravity's OAuth. `kernel mcp install --target antigravity` always writes the OAuth config, so wire this up by hand.
 
-Put the key in a header file that only you can read:
+To keep the key out of a config file and the process list, point `mcp-remote` at a header file instead. Put the key in a file that only you can read:
 
 ```bash
 mkdir -p ~/.kernel
