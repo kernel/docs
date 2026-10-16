@@ -109,7 +109,7 @@ Both terminal events carry the same `reason`, so branch on it instead of matchin
 | --- | --- |
 | `transport` | the socket never opened inside its bound, or closed before signaling |
 | `signaling` | the socket opened but no offer arrived inside its bound |
-| `media` | a peer exists but ICE never reached `checking` inside its bound |
+| `media` | a peer exists but ICE never reached `connected` inside its bound |
 | `peer` | peer construction or the remote offer threw |
 | `unsupported` | the browser has no `RTCPeerConnection` |
 | `server` | the server closed the connect |
@@ -130,7 +130,7 @@ Both terminal events carry the same `reason`, so branch on it instead of matchin
 
 ### Detecting a viewer that never starts
 
-Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived:
+Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived. The timer has to outlast the client's connect bounds, which run in sequence — transport, then signaling, then media — and sum to 23s. Reload the frame sooner than that and you will tear it down before it can report which stage stalled:
 
 ```typescript Typescript/Javascript
 const iframe = document.querySelector('#kernel-live-view');
@@ -147,7 +147,7 @@ function arm() {
     iframe.src = 'about:blank';
     iframe.src = src;
     arm();
-  }, 15000);
+  }, 25000);
 }
 
 window.addEventListener('message', (event) => {
@@ -161,7 +161,7 @@ window.addEventListener('message', (event) => {
 arm();
 ```
 
-Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. The watchdog behind it is cleared once negotiation begins, so a connection that stalls after that point never emits it. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
+Do not gate on `KERNEL_CONNECTION_TIMEOUT` alone. It only covers a connect that is still negotiating: the media bound clears once ICE reaches `connected`, and a viewer whose frames stop after that never emits one. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
 
 `KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly: a `peer` or `unsupported` reason is a property of the browser environment, so a remount repeats it, while a `transport` reason is worth one retry.
 
