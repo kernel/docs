@@ -13,7 +13,7 @@ This is useful for services reachable through Tailscale, a corporate VPN, or ano
 
 ## Configure a browser
 
-Set private hosts when you create the browser. You can't change the network configuration after creation.
+Set private hosts when you create the browser. You can't change them after creation.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -108,7 +108,7 @@ These CIDR rules only match URLs that use literal IP addresses. They don't match
 Providing `private_hosts` replaces the default list; it doesn't add to it. Include any default CIDRs you still need alongside your hostname rules.
 </Warning>
 
-To disable direct private routing and send all traffic through Kernel-managed egress, provide an explicit empty list:
+To disable direct private routing for browser requests and send them through Kernel-managed egress, provide an explicit empty list:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -169,6 +169,6 @@ kernel browser-pools create private-services \
 ```
 </CodeGroup>
 
-A browser-pool update applies only to browsers created after the update. Pass `discard_all_idle: true` in an SDK request, or `--discard-all-idle` in the CLI, to immediately replace idle browsers with the new configuration. Acquired browsers keep their original configuration until you release them with reuse disabled.
+Changes to a browser pool's `private_hosts` apply only to browsers created after the update. Pass `discard_all_idle: true` in an SDK request, or `--discard-all-idle` in the CLI, to immediately replace idle browsers with the new configuration. Acquired browsers keep their original private-host configuration until you release them with reuse disabled. [Egress allowlist updates](/browsers/egress-allowlists#use-allowlists-with-browser-pools) follow different replacement and release rules.
 
 Use `kernel browser-pools update private-services --clear-private-hosts --discard-all-idle` to remove a pool override and restore the default private IP ranges. To configure an explicit empty list, use an SDK request with `network.private_hosts: []`.
