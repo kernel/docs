@@ -137,6 +137,7 @@ Each event becomes one OTLP log record:
 
 - The record's event name is the event type, such as `network_response` or `console_error`. It's also set as the `kernel.event.type` attribute, because some backends drop the event name.
 - `kernel.event.category` holds the category, and `kernel.event.seq` holds the same sequence number the [stream](/browsers/telemetry/streaming) uses.
+- `kernel.session_id` holds the browser's `session_id`, so you can join records to the browser that produced them. `kernel.session_name` holds the browser's `name` when it has one; if you rename the browser, later records carry the new name.
 - The body is the event's payload.
 - Network events also carry `http.request.method`, `url.full`, and `http.response.status_code` when the payload has them, and console events carry `kernel.console.level`, so you can filter on them in backends that don't index a structured body.
 - The resource's `service.name` is `kernel-browser`.
@@ -145,29 +146,29 @@ See [Categories](/browsers/telemetry/categories) for every event type and what i
 
 ## Confirm export is working
 
-To confirm a browser's events reach your backend, generate an event you can recognize and search for it. Exported records don't carry the browser's session ID, so this example has the page log a marker that includes it:
+To confirm a browser's events reach your backend, generate an event you can recognize and search for it. This example has the page log a marker:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 await kernel.browsers.playwright.execute(browser.session_id, {
-  code: `await page.evaluate(() => console.log('kernel-export-check ${browser.session_id}'));`,
+  code: `await page.evaluate(() => console.log('kernel-export-check'));`,
 });
 ```
 
 ```python Python
 kernel.browsers.playwright.execute(
     browser.session_id,
-    code=f"await page.evaluate(() => console.log('kernel-export-check {browser.session_id}'));",
+    code="await page.evaluate(() => console.log('kernel-export-check'));",
 )
 ```
 
 ```bash CLI
 kernel browsers playwright execute <session-id> \
-  "await page.evaluate(() => console.log('kernel-export-check <session-id>'))"
+  "await page.evaluate(() => console.log('kernel-export-check'))"
 ```
 </CodeGroup>
 
-Search your backend for `kernel-export-check` followed by the session ID. It arrives as a `console_log` record whose body's `text` field holds the marker. This relies on the browser capturing `console`; if it doesn't, generate an event from a category it does capture.
+Search your backend for `kernel-export-check` in records whose `kernel.session_id` is the browser's session ID. It arrives as a `console_log` record whose body's `text` field holds the marker. This relies on the browser capturing `console`; if it doesn't, generate an event from a category it does capture.
 
 If the record doesn't arrive, check the browser and the destination. Browser responses report the session's export state under `telemetry.export.otlp`. When the session is exporting, `enabled` is `true` and `destination` is the ID of the destination it's bound to:
 
