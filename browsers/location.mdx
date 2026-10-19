@@ -8,7 +8,7 @@ Each browser session has one timezone and one formatting locale. By default, bot
 The setting applies across browser contexts, pages, frames, workers, `Intl`, `navigator.language`, `navigator.languages`, and future `Accept-Language` headers. Updating it doesn't restart Chromium or reload pages.
 
 <Note>
-Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome. KERNEL doesn't derive location from a browser's proxy; to match a proxy's country, set the location explicitly.
+Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome.
 </Note>
 
 ## Set location when creating a browser
@@ -49,57 +49,45 @@ print(browser.location)
 
 ## Update a running browser
 
-Use `browsers.update()` to set an override on a running browser:
+Use `browsers.update()` to change the location of a running browser:
 
 <CodeGroup>
 ```typescript TypeScript
-const browser = await kernel.browsers.update('01j8m3w6q2d7av9n5k4f1p8c', {
+// Set a field to override it. Fields you leave out keep their current value.
+await kernel.browsers.update(browser.session_id, {
   location: {
     timezone: 'America/Los_Angeles',
     locale: 'en-US',
   },
 });
+
+// Set a field to null to go back to the default for the browser's region.
+await kernel.browsers.update(browser.session_id, {
+  location: { timezone: null },
+});
 ```
 
 ```python Python
-browser = kernel.browsers.update(
-    "01j8m3w6q2d7av9n5k4f1p8c",
+# Set a field to override it. Fields you leave out keep their current value.
+kernel.browsers.update(
+    browser.session_id,
     location={
         "timezone": "America/Los_Angeles",
         "locale": "en-US",
     },
 )
-```
-</CodeGroup>
 
-PATCH semantics are field-specific:
-
-- omit `location` or one of its fields to leave that field unchanged
-- set a string to create or replace a session override
-- set a field to `null` in TypeScript or `None` in Python to clear that override and return to the default for the browser's region
-
-<CodeGroup>
-```typescript TypeScript
-const browser = await kernel.browsers.update('01j8m3w6q2d7av9n5k4f1p8c', {
-  location: {
-    timezone: null,
-  },
-});
-```
-
-```python Python
-browser = kernel.browsers.update(
-    "01j8m3w6q2d7av9n5k4f1p8c",
+# Set a field to None to go back to the default for the browser's region.
+kernel.browsers.update(
+    browser.session_id,
     location={"timezone": None},
 )
 ```
 </CodeGroup>
 
-Clearing one field doesn't clear the other. Overrides stay in place when you change the browser's proxy.
-
 ## Read effective location
 
-Browser responses include the effective values and where each came from:
+Browser responses include the timezone and locale the browser is using, and whether each one is your override or the region's default:
 
 ```json
 {
@@ -112,14 +100,12 @@ Browser responses include the effective values and where each came from:
 }
 ```
 
-`timezone_source` and `locale_source` are `override` for a value set on the session and `metro` for the default of the browser's region. The fields are independent, so their sources can differ.
+## How changes take effect
 
-## Runtime behavior
-
-- New pages, frames, workers, and network contexts start with the current location.
-- Existing pages and workers receive the update without a reload.
-- Existing `Intl` formatter objects and application-level caches can retain values captured before the update. Create a new formatter when you need the latest default.
-- Future requests use the updated language preference. Requests already in flight aren't rewritten.
-- Customer CDP emulation remains separate from the session default and can temporarily override what a particular target reports.
-- Location overrides last only for the browser session, and profiles don't save them.
-- A pooled browser released with `reuse: true` keeps its location for the next acquirer, as it keeps cookies and open tabs. Release with `reuse: false` to get a fresh browser.
+- Open tabs pick up a change right away, without reloading.
+- New tabs and frames start with the current timezone and locale.
+- Date and number formatters a page already created keep their original settings. Create a new one, such as `new Intl.DateTimeFormat()`, to use the new values.
+- Requests already in progress keep their original language. Later requests use the new one.
+- A timezone or locale you set yourself through Playwright or Puppeteer, such as Playwright's `timezoneId`, takes precedence on the pages it applies to.
+- The location lasts for the browser session. Profiles don't save it.
+- A pooled browser you release with `reuse: true` keeps its location for the next acquirer, just as it keeps cookies and open tabs. Release it with `reuse: false` to get a fresh browser instead.
