@@ -30,7 +30,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 - **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
 - **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
 - **A profile set on the browser pool loads read-only**, and a browser pool holds one at a time — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools) for how to persist state per user.
-- **Browser pool capacity counts against your [concurrency limit](/browsers/concurrency-and-limits#concurrency)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
+- **Browser pool capacity counts against the [concurrency limit](/browsers/concurrency-and-limits#concurrency) of the pool's region** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
 - **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
 
 ## Create a browser pool

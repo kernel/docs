@@ -9,7 +9,7 @@ A **Project** is a named container for Kernel resources inside an organization. 
 
 - **Isolate environments** — keep `production` resources apart from `staging` or experiments.
 - **Scope access** — issue API keys that can only see resources in one project.
-- **Concurrency limits** — set an org-wide default cap for every project, or override it per project, so one team or environment can't exhaust your org quota.
+- **Concurrency limits** — set an org-wide default cap for every project, or override it per project, so one team or environment can't exhaust your org's capacity.
 
 ## The default project
 
@@ -301,7 +301,7 @@ if err := client.Projects.Delete(ctx, "proj_abc123"); err != nil {
 
 Kernel caps how many browsers can run at once, at two levels. A single limit covers both on-demand browsers (`browsers.create()`) and [browser pools](/browsers/pools) — standalone sessions and pool capacity count against the same cap.
 
-- **Organization limit** — the total concurrent browsers allowed across your whole organization, determined by your plan. See [concurrency and limits](/browsers/concurrency-and-limits#concurrency) for each plan's limit. Every browser session and every browser in a browser pool counts against it.
+- **Regional limits** — the concurrent browsers your organization can run in each [region](/browsers/regions#limits-per-region), determined by your plan. See [concurrency and limits](/browsers/concurrency-and-limits#concurrency) for each plan's limits. Every browser session and every browser in a browser pool counts against the limit of the region it runs in.
 - **Per-project limits** — optional caps on individual projects, so one team or environment can't consume the entire org limit.
 
 Per-project caps come from two places:
@@ -313,15 +313,15 @@ A project's effective cap resolves in this order:
 
 1. The project's explicit override, if set.
 2. Otherwise, the organization's default project cap, if set.
-3. Otherwise, no per-project cap — only the organization limit applies.
+3. Otherwise, no per-project cap — only the regional limits apply.
 
-A per-project cap never lets a project exceed your organization's concurrency limit.
+A per-project cap counts the project's browsers in every region combined. Regional limits still apply on top of it, so a project can't run more in a region than your organization's limit there. The org-wide default cap can't be set above your `us-east` limit.
 
 Concurrency limits control how many browsers can run at once. To control monthly usage cost instead, see [Spending Caps](/info/spending-caps).
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/org/limits` | Get the effective org concurrency limit, current usage, available capacity, and default per-project cap |
+| `GET` | `/org/limits` | Get your `us-east` concurrency limit, current usage, and available capacity, and the default per-project cap |
 | `PATCH` | `/org/limits` | Set the default per-project cap (send `0` to clear it) and return the updated limits and usage |
 | `GET` | `/org/projects/{id}/limits` | Get a single project's limit overrides |
 | `PATCH` | `/org/projects/{id}/limits` | Set a single project's limit overrides (send `0` to clear a cap) |

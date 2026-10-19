@@ -7,27 +7,33 @@ Three separate limits shape a scaled workload, and they're easy to confuse. Conc
 
 ## Concurrency
 
-One org-wide limit covers every browser you're running, whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools). The full limit is available to either API in any mix.
+Each [region](/browsers/regions) has its own concurrent browser limit. In a region, one limit covers every browser you're running there, whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools) in that region. The full limit is available to either API in any mix.
 
 | Limit | Developer | Hobbyist | Start-Up | Enterprise |
 | --- | --- | --- | --- | --- |
-| Concurrent browsers | 5 | 10 | 150 | Custom |
+| Concurrent browsers in `us-east` | 5 | 10 | 150 | Custom |
+| Concurrent browsers in `eu-west` | — | — | 150 | 150 or custom |
+| Concurrent browsers in `ap-southeast` | — | — | 150 | 150 or custom |
 | App invocations | 5 | 10 | 50 | Custom |
 | App invocations (per app) | 5 | 10 | 20 | Custom |
 | Managed auth health check interval | 6 hours minimum | 1 hour minimum | 20 minutes minimum | Custom |
 
-Limits are org-wide unless stated otherwise.
+Concurrent browser limits apply per region. The other limits are org-wide.
+
+Browsers in one region don't count against another region's limit. On Start-Up, for example, you can run 150 browsers in `us-east` and another 150 in `eu-west` at the same time. A raised limit applies only to the region it was raised in, so if you need more capacity outside `us-east`, ask for it in that region.
 
 Two things count against the concurrent browser limit that people don't expect:
 
-- **Reserved pool capacity counts whether or not it's acquired.** A pool sized to 40 browsers uses 40 of your limit for as long as it exists.
+- **Reserved pool capacity counts whether or not it's acquired.** A pool sized to 40 browsers uses 40 of the limit in the pool's region for as long as it exists.
 - **Browsers in [standby](/browsers/standby) count.** Standby stops usage charges, not the concurrency slot. Delete the browser to release it.
 
-Set per-project caps if you're splitting one org limit across teams or environments — see [project concurrency limits](/info/projects#concurrency-limits).
+When a region is at its limit, creating a browser or growing a pool there returns `429 Too Many Requests` with code `region_limit_exceeded`. Delete a browser or shrink a pool in that region to free capacity, or run the work in another region you have capacity in.
+
+Set per-project caps if you're splitting your limits across teams or environments — see [project concurrency limits](/info/projects#concurrency-limits). A project cap counts the project's browsers in every region combined.
 
 ## Rate limits
 
-Kernel enforces per-organization rate limits on API requests. Browser creation is rate limited separately from concurrency: the create rate caps how fast you can create browsers, not how many you may run.
+Kernel enforces per-organization rate limits on API requests. Browser creation is rate limited separately from concurrency: the create rate caps how fast you can create browsers, not how many you may run. Each region has its own browser create rate, so creating browsers in one region doesn't use up your create rate in another. Other rate-limited endpoints share one org-wide limit.
 
 {/* TODO: add the per-plan browser-create rate table once the numbers are confirmed. */}
 
