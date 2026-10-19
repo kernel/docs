@@ -9,6 +9,44 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="October 16" tags={["Product", "Docs"]}>
+## Product updates
+
+- **Scoped API keys** are here. `POST /org/api_keys` takes an optional `policy` of allow statements plus an exact `expires_at`, and a scoped key can only issue keys inside its own grants. The dashboard's create-key dialog has a Permissions section, and the keys list shows a restricted key's policy. In the Node, Python, and Go SDKs from 0.125.0; CLI support follows.
+- **Config Registry** is now generally available on hobbyist plans and up.
+- **Kernel-managed Visa cards** reached the CLI and MCP server: wallet enrollment, card purchase requests, `confirm_transaction` for reporting outcomes, and `restart_verification` for recovering cards that failed verification. The MCP server's Kernel card cap is now 10,000 USD.
+- **Link Pay Tokens** authorize a [Link](/integrations/wallets/stripe-link) card at checkout with `browser_id` and `page_url` (`--browser-id` and `--page-url` in the CLI), then fill without listing fields. `expires_at` is gone from the Link card spec.
+- Headless browsers can now run on `2GiB` or `4GiB` of memory, through the API and the Node, Python, and Go SDKs from 0.127.0. CLI support follows.
+- A large GPU tier joins the lineup: `kernel browsers create --gpu --video-memory 4GiB` gets 8 vCPU, 12GiB memory, and 4GiB VRAM. GPU browsers still default to `2GiB` VRAM.
+- Managed auth connections and [vaults](/vaults/overview) can now share credentials, so you can store a login once and fill it from either.
+- TOTP seeds accept SHA256 and SHA512 with configurable digits and period (`totp_algorithm`, `totp_digits`, `totp_period`), including in the MCP server's credential tool.
+- [`fill`](/vaults/fill) now types values as real key events through the browser's input pipeline instead of writing the field value directly, so credential entry produces the keystream a human would.
+- [1Password](/vaults/1password) access requests no longer need a browser: `1pw_create_access_request` works without `browser_id` or `page_url`. A failed autosubmit comes back as `fill_unknown`, and the CLI and MCP server no longer retry 1Password fills automatically — they tell the agent to check the page instead.
+- Vault credentials reach WebMCP tools through the new `webmcp_invoke` item operation: `kernel vaults items invoke <vault> <key> webmcp_invoke` in the CLI, and `manage_vault_items` in the MCP server.
+- Custom credential collection forms can encrypt values in the client with `kernel vaults get-encryption-key` and submit them as `encrypted_value`. The [vault-react-example](https://github.com/kernel/vault-react-example) now includes an encrypted flow.
+- Per-host proxy routes extend to [browser pools](/browsers/pools), with `--proxy-route` and `--clear-proxy-routes` on `kernel browser-pools create` and `update`.
+- Residential traffic now routes across several providers. Each session gets a preferred provider, and a destination that provider doesn't support — or can't reach during an outage — fails over to a compatible one, so exit IPs can differ between destinations in a session. Paired ISP proxies share the same failover path. See [residential proxies](/proxies/residential).
+- Datacenter proxies are deprecated. `--type datacenter` is gone from the CLI and the generated SDKs, and the docs point to [ISP proxies](/proxies/isp) instead. Existing datacenter configurations keep working.
+- `kernel browsers telemetry stream --types` filters the live [telemetry](/browsers/telemetry/overview) stream by event type, server-side.
+- Captcha [telemetry](/browsers/telemetry/overview) events now carry `captcha_provider` and `task_kind`, and a challenge result is inferred for providers Kernel can't observe directly.
+- Stealth fingerprints got closer to a real Ubuntu desktop: Chromium audio now defaults to 48 kHz.
+- [Chrome policy](/browsers/chrome-policies) overrides accept `DeveloperToolsAvailability` `0` and `1`, so you can attach DevTools or CDP to your own policy-installed extension's service worker.
+- The Launch Browser dialog is reorganized around a side nav, and network controls — saved proxy routes and private hosts — are available on browser launch and pool creation.
+- Vault details split into credentials and payments in the dashboard, with search and row actions on the vault list and managed auth credentials shown next to payment items.
+- The [MCP server](/reference/mcp-server) gained a `manage_browser_files` tool. It reads, downloads, and zips files in the browser's filesystem, up to 10 MiB by default and 25 MiB at most.
+- MCP tool inputs now mirror the API's `proxy` and browser objects, tool annotations follow ChatGPT app guidelines, WebMCP listings leave out `outputSchema` by default, and vault errors come back from the API unchanged.
+
+## Documentation updates
+
+- Reorganized the docs into **Overview**, **How it works** (Configure, Control, Scale, Observe, Manage), **Start building**, and **Partnering with KERNEL**, and linked the KERNEL GitHub org from the docs home page.
+- New cookbooks for parallel task execution and iMessage Agent as a Service, plus a parallel profile Playwright executors recipe in [kernel/cookbooks](https://github.com/kernel/cookbooks).
+- New guides for Docker Sandboxes and Fill from Managed Auth, alongside notes on checking managed auth before running tasks and on `input_mode` for managed auth fields.
+- Wrote up scoped API keys, Link Pay Tokens and checkout authorization, browserless 1Password access requests and the updated fill outcomes, vault credentials with WebMCP tools, and AgentCard checkout origin matching — and made the two vault credential paths read the same way across pages.
+- The proxy docs cover residential routing and failover, the `destination_route_unavailable` error code, and exit IP stability across sessions. Datacenter proxies are out of them.
+- The browser docs cover debugging extensions with DevTools and the `2GiB` and `4GiB` headless memory options.
+- The `kernel-auth` skill now covers vault credentials.
+</Update>
+
 <Update label="October 6" tags={["Product", "Docs"]}>
 ## Product updates
 
