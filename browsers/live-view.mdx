@@ -130,7 +130,7 @@ Both terminal events carry the same `reason`, so branch on it instead of matchin
 
 ### Detecting a viewer that never starts
 
-Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived. The timer has to outlast the client's connect bounds, which run in sequence — transport, then signaling, then media — and sum to 28s by default. It also covers loading the frame, including waking a browser that has gone to sleep, so leave room above that budget when you set it. If you reload sooner, you'll tear the frame down before it can report which stage stalled:
+Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived. The timer has to outlast the client's connect bounds, which run in sequence — transport, then signaling, then media — and sum to 48s by default. If you wait less than that, you'll tear the frame down before it can report a stage that stalled late. The timer also covers loading the frame, including waking a browser that has gone to sleep, so leave room above the budget when you set it:
 
 ```typescript Typescript/Javascript
 const iframe = document.querySelector('#kernel-live-view');
@@ -147,7 +147,7 @@ function arm() {
     iframe.src = 'about:blank';
     iframe.src = src;
     arm();
-  }, 35000);
+  }, 50000);
 }
 
 window.addEventListener('message', (event) => {
