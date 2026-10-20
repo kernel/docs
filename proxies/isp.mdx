@@ -101,7 +101,7 @@ func main() {
 
 ## .gov support
 
-ISP proxies reach US `.gov` sites. The upstream ISP provider blocks many government domains outside the US, such as `.gov.br`, `.gov.uk`, `.gov.au`, `.gov.in`, and `.gov.il`. ISP proxies don't reroute blocked destinations, so these requests fail with a `502` and the [`provider_blacklisted`](/proxies/errors#error-codes) error code. Changing the proxy's `country` doesn't help, because the provider blocks the destination for every exit IP.
+ISP proxies can reach US `.gov` sites, though individual sites can still refuse proxy traffic. The upstream ISP provider blocks many government domains outside the US, such as `.gov.br`, `.gov.uk`, `.gov.au`, `.gov.in`, and `.gov.il`. ISP proxies don't reroute blocked destinations, so these requests fail with a `502` and the [`provider_blacklisted`](/proxies/errors#error-codes) error code. Changing the proxy's `country` doesn't help, because the provider blocks the destination for every exit IP.
 
 To reach government sites outside the US, you can:
 
