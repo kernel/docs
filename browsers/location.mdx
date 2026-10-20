@@ -1,0 +1,111 @@
+---
+title: "Browser Location"
+description: "Set a browser session's timezone and locale, or use the defaults for its region"
+---
+
+Each browser session has one timezone and one formatting locale. By default, both come from the [region](/browsers/regions) the browser runs in, for example `America/New_York` and `en-US` for a browser in `us-east`. Set either field to override it for the session.
+
+The setting applies across browser contexts, pages, frames, workers, `Intl`, `navigator.language`, `navigator.languages`, and future `Accept-Language` headers. Updating it doesn't restart Chromium or reload pages.
+
+<Note>
+Location controls timezone and language behavior. It doesn't set geolocation coordinates, grant geolocation permission, change the system clock, translate browser UI, or guarantee a bot-detection outcome.
+</Note>
+
+## Set location when creating a browser
+
+Set either field independently. An omitted field uses the default for the browser's region.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const browser = await kernel.browsers.create({
+  location: {
+    timezone: 'Europe/Berlin',
+    locale: 'de-DE',
+  },
+});
+
+console.log(browser.location);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+browser = kernel.browsers.create(
+    location={
+        "timezone": "Europe/Berlin",
+        "locale": "de-DE",
+    },
+)
+
+print(browser.location)
+```
+</CodeGroup>
+
+`timezone` accepts IANA identifiers such as `America/Los_Angeles`. `locale` accepts BCP 47 tags such as `en-US` or `de-DE` that the browser formats dates and numbers for with that exact region. KERNEL normalizes spelling and deprecated codes, so `en-us` becomes `en-US` and `iw-IL` becomes `he-IL`. An unsupported value such as `en-QQ` returns a `400` with code `invalid_browser_location`.
+
+## Update a running browser
+
+Use `browsers.update()` to change the location of a running browser:
+
+<CodeGroup>
+```typescript TypeScript
+// Set a field to override it. Fields you leave out keep their current value.
+await kernel.browsers.update(browser.session_id, {
+  location: {
+    timezone: 'America/Los_Angeles',
+    locale: 'en-US',
+  },
+});
+
+// Set a field to null to go back to the default for the browser's region.
+await kernel.browsers.update(browser.session_id, {
+  location: { timezone: null },
+});
+```
+
+```python Python
+# Set a field to override it. Fields you leave out keep their current value.
+kernel.browsers.update(
+    browser.session_id,
+    location={
+        "timezone": "America/Los_Angeles",
+        "locale": "en-US",
+    },
+)
+
+# Set a field to None to go back to the default for the browser's region.
+kernel.browsers.update(
+    browser.session_id,
+    location={"timezone": None},
+)
+```
+</CodeGroup>
+
+## Read effective location
+
+Browser responses include the timezone and locale the browser is using, and whether each one is your override or the region's default:
+
+```json
+{
+  "location": {
+    "timezone": "America/Los_Angeles",
+    "locale": "en-US",
+    "timezone_source": "override",
+    "locale_source": "metro"
+  }
+}
+```
+
+## How changes take effect
+
+- Open tabs pick up a change right away, without reloading.
+- New tabs and frames start with the current timezone and locale.
+- Date and number formatters a page already created keep their original settings. Create a new one, such as `new Intl.DateTimeFormat()`, to use the new values.
+- Requests already in progress keep their original language. Later requests use the new one.
+- A timezone or locale you set yourself through Playwright or Puppeteer, such as Playwright's `timezoneId`, takes precedence on the pages it applies to.
+- The location lasts for the browser session. Profiles don't save it.
+- A pooled browser you release with `reuse: true` keeps its location for the next acquirer, just as it keeps cookies and open tabs. Release it with `reuse: false` to get a fresh browser instead.
