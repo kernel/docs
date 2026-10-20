@@ -107,10 +107,10 @@ Both terminal events carry the same `reason`, so branch on it instead of matchin
 
 | `reason` | Meaning |
 | --- | --- |
-| `transport` | the socket never opened inside its bound, or closed before signaling |
+| `transport` | the socket never opened inside its bound, or closed at any point before the connect succeeded |
 | `signaling` | the socket opened but no offer arrived inside its bound |
 | `media` | a peer exists but ICE never reached `connected` or `completed` inside its bound — this covers a peer that stalls after `checking` |
-| `peer` | peer construction or the remote offer threw |
+| `peer` | peer construction or the remote offer threw, ICE reached `failed` or `closed`, or the data channel closed before the connect succeeded |
 | `unsupported` | the browser has no `RTCPeerConnection` |
 | `server` | the server closed the connect |
 
@@ -163,7 +163,7 @@ arm();
 
 Don't gate on `KERNEL_CONNECTION_TIMEOUT` alone. It only covers a connect that is still negotiating: the media bound clears once ICE reaches `connected` or `completed`, and a viewer whose frames stop after it connected never emits one. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
 
-`KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly: a `peer` or `unsupported` reason is a property of the browser environment, so a remount repeats it, while a `transport` reason is worth one retry.
+`KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly. `unsupported`, and a `peer` reason from peer construction or the remote offer, are properties of the browser environment, so a remount repeats them. A `transport` reason, or a `peer` reason from ICE reaching `failed` or `closed`, can come from the network path instead, so give those one retry.
 
 The client does not retry a connect itself, so whatever `reason` you get is the first failure, and whether to try again is your call.
 
