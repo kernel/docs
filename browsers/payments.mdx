@@ -23,7 +23,7 @@ agentcard uses an integration-specific alternative: the agent enters non-sensiti
 1. create a vault for the user or task.
 2. create a wallet item and send the user through the provider-hosted collection flow.
 3. attach the vault when you create the browser session. the attachment also covers items created later in that vault.
-4. create a card item for the verified, user-confirmed purchase. complete the provider's required preparation and approval. link issues a single-use card; agentcard can reuse a card item with separate approval for each checkout.
+4. create a card item for the verified, user-confirmed purchase. complete the provider's required preparation and approval. link authorizes at the checkout page and issues a merchant-bound link pay token on supported stripe checkouts or a single-use virtual card elsewhere; agentcard can reuse a card item with separate approval for each checkout.
 5. invoke KERNEL's advertised `fill` operation to inject payment fields without supplying their values, then inspect the outcomes before submitting. for agentcard's alias-based flow, enter aliases and keep a trusted approval observer running while the checkout request is held.
 6. submit checkout once, complete any remaining provider-hosted approval, and reconcile with the merchant's order state. fill or approval alone is not payment success.
 

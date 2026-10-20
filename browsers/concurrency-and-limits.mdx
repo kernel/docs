@@ -51,13 +51,13 @@ If you're hitting the ceiling in normal operation, [contact us](https://calendly
 
 | Resource | Headful | Headless |
 | --- | --- | --- |
-| Memory | 8 GB or 16 GB | 1 GB |
+| Memory | 8 GB or 16 GB | 1 GB, 2 GB, or 4 GB |
 
 Memory is the practical ceiling on how heavy a page one browser can hold. When a browser runs out of memory, the kernel kills a Chromium process and the page fails with `Page crashed` or `Target crashed`. One heavy page can do this on its own — it doesn't take many tabs. See [a crashed page](/browsers/playwright-execution#a-crashed-page).
 
-Headless browsers have 1 GB and no larger option. Headful browsers get 8 GB by default and 16 GB when you pass `memory` to [create](/api-reference/browsers/create-a-browser-session) or set it on a [browser pool](/browsers/pools). Memory is fixed at creation: you can't change it on a running browser, and a pool change applies only to browsers built after it.
+Memory is set when the browser is created and can't be changed on a running browser: headless browsers take `1GiB`, `2GiB`, or `4GiB`, and headful browsers take `8GiB` (the default) or `16GiB`. Pass `memory` to [create](/api-reference/browsers/create-a-browser-session) or set it on a [browser pool](/browsers/pools); a pool change applies only to browsers built after it.
 
-If pages are dying, recreate the browser headful with more memory, or spread the work across more browsers rather than more tabs in one. To check memory before a page fails, run `free -m` inside the session and watch `available`. If it trends toward zero before the page dies, the page's working set is the problem. See [measure memory and CPU usage](/browsers/process-execution#measure-memory-and-cpu-usage).
+If pages are dying, create the browser with more memory, or spread the work across more browsers rather than more tabs in one. To check memory before a page fails, run `free -m` inside the session and watch `available`. If it trends toward zero before the page dies, the page's working set is the problem. See [measure memory and CPU usage](/browsers/process-execution#measure-memory-and-cpu-usage).
 
 [GPU acceleration](/browsers/gpu-acceleration) is a separate browser type with its own [usage rate](/info/pricing#usage-rates), available on Start-Up and Enterprise.
 
