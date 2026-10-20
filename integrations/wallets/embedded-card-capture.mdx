@@ -1,0 +1,274 @@
+---
+title: "Embedded Card Capture"
+description: "Collect a card for a KERNEL wallet on your own branded page"
+---
+
+a KERNEL wallet (`provider: "kernel"`) collects the user's card through a `card_enrollment` action. by default, `action.url` opens a KERNEL-hosted page on `vault.kernel.sh`. to keep card entry inside your own application, render [`@onkernel/vault-react`](https://www.npmjs.com/package/@onkernel/vault-react)'s `KernelCardCapture` component on your page and style it to match your brand.
+
+card number, expiry, and cvc are entered in very good security (VGS) iframes, and VGS creates the card in its vault directly from the cardholder's browser. your page, your servers, and KERNEL never receive the card number. KERNEL receives only the card's vault id and the cardholder's email, then enrolls the card for network tokens.
+
+use the embedded component when:
+
+- you want card entry on your own domain, with your own layout, copy, and fonts
+- you don't want to send cardholders to a KERNEL-hosted page during onboarding
+
+use `action.url` instead when a hosted page is acceptable. it needs no frontend work.
+
+<Note>
+  only card entry is embeddable. visa purchases still send the cardholder to
+  the KERNEL-hosted `spend_approval` page, because visa's authentication runs
+  in its own iframe and passkey window there. mastercard purchases don't use
+  that page.
+</Note>
+
+## Install
+
+```bash
+bun add @onkernel/vault-react
+# or: npm install @onkernel/vault-react
+```
+
+the package requires react 18 or later and ships no styles.
+
+## Create the wallet on your backend
+
+create the wallet from your authenticated backend, then read `action.capture_token` from the `card_enrollment` action. the token is a secret capability for this one wallet, not an api key.
+
+<CodeGroup>
+
+```typescript TypeScript
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+const wallet = await kernel.vaults.items.upsert("card-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: { provider: "kernel" },
+});
+
+if (wallet.action?.name === "card_enrollment") {
+  // return this to the cardholder's page only
+  const captureToken = wallet.action.capture_token;
+}
+```
+
+```python Python
+vault = kernel.vaults.upsert(name="user-12345")
+
+wallet = kernel.vaults.items.upsert(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={"provider": "kernel"},
+)
+
+if wallet.action is not None and wallet.action.name == "card_enrollment":
+    # return this to the cardholder's page only
+    capture_token = wallet.action.capture_token
+```
+
+</CodeGroup>
+
+`capture_token` is present only on KERNEL wallets. don't parse it out of `action.url`; the url format isn't part of the api.
+
+the wallet starts in `pending_authorization`. after the cardholder adds a card, it becomes `connected`.
+
+## Render the component
+
+deliver the token to the intended cardholder's page through your authenticated application, then render `KernelCardCapture`:
+
+```tsx AddCard.tsx
+"use client";
+
+import { KernelCardCapture } from "@onkernel/vault-react";
+
+export function AddCard({ captureToken }: { captureToken: string }) {
+  return (
+    <KernelCardCapture
+      token={captureToken}
+      className="acme-card"
+      email="cardholder@example.com"
+      labels={{
+        title: "Add a payment card",
+        description: "Your agent pays with a network token. We never see your card number.",
+        completeTitle: "Card added",
+        completeDescription: "Your agent can now request purchases with this card.",
+        submit: "Save card",
+      }}
+      onComplete={() => {
+        // show your next step, then confirm the wallet from your backend
+      }}
+      onError={(code) => {
+        // handle the fixed error code
+      }}
+    />
+  );
+}
+```
+
+| prop          | description                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| `token`       | the wallet's `action.capture_token`                                                                          |
+| `baseUrl`     | api origin; defaults to `https://api.onkernel.com`                                                           |
+| `className`   | added to the root element, in both the form and completion views                                             |
+| `fieldCss`    | css applied inside the card number, expiry, and cvc iframes                                                  |
+| `labels`      | partial override of the component's text                                                                     |
+| `email`       | prefills the email input; the cardholder can still change it                                                 |
+| `onComplete`  | runs once after KERNEL confirms the card was added                                                           |
+| `onError`     | receives a fixed error code; see [handle errors](#handle-errors)                                             |
+
+the component calls the api directly from the cardholder's browser, with the token as a bearer and no cookies. call it directly rather than through your own proxy: the api rate-limits this route per client address, so every cardholder behind a proxy shares the proxy's limit.
+
+## Style the component
+
+the package ships no css. you style two layers separately.
+
+### Surrounding form
+
+the component renders stable class hooks. target them under your `className`:
+
+| class                                      | element                                                      |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| `card-capture` / `credential-complete`     | root, in the form view and the completion view               |
+| `credential-header`                        | header containing the title and description                  |
+| `credential-title`, `credential-description` | heading and description text                               |
+| `credential-form`                          | the form                                                     |
+| `credential-field`, `credential-label`     | each field wrapper and its label                             |
+| `card-field`                               | container that holds a VGS iframe                            |
+| `card-row`                                 | row containing expiry and cvc                                |
+| `credential-input`                         | the email input                                              |
+| `credential-hint`                          | hint text under the email input                              |
+| `credential-error`                         | error message                                                |
+| `credential-primary`, `credential-retry`   | submit and retry buttons                                     |
+
+```css acme-card.css
+.acme-card {
+  font-family: "Inter", system-ui, sans-serif;
+  color: #1f1147;
+}
+.acme-card .credential-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.acme-card .card-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.acme-card .card-field,
+.acme-card .credential-input {
+  height: 46px;
+  border: 1px solid #d9d0f5;
+  border-radius: 10px;
+  padding: 0 12px;
+}
+.acme-card .card-field iframe {
+  width: 100%;
+  height: 100%;
+}
+.acme-card .credential-primary {
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  background: #7b4dff;
+}
+```
+
+the iframes fill their `card-field` container, so give that container an explicit height.
+
+### Card fields
+
+css on your page can't reach inside the VGS iframes. pass `fieldCss` instead; it's applied to the inputs in all three iframes:
+
+```tsx
+<KernelCardCapture
+  token={captureToken}
+  className="acme-card"
+  fieldCss={{
+    "font-family": "Inter, system-ui, sans-serif",
+    "font-size": "16px",
+    color: "#1f1147",
+    "&::placeholder": { color: "#9a8fbf" },
+    "&:focus": { color: "#1f1147" },
+    "&.invalid.touched": { color: "#d1243a" },
+    "@media (max-width: 414px)": { "font-size": "16px" },
+  }}
+/>
+```
+
+`fieldCss` supports nested pseudo-classes, `@font-face`, media queries, and the state classes `&.invalid`, `&.valid`, `&.empty`, `&.dirty`, and `&.touched`. the component reads it once, when it mounts; remount the component to change it.
+
+### Text
+
+override any of these keys through `labels`: `title`, `description`, `completeTitle`, `completeDescription`, `number`, `expiry`, `expirationPlaceholder`, `cvc`, `email`, `emailHint`, `submit`, `submitting`, `retry`, `checkAgain`, and `missingToken`.
+
+set at least `title`, `description`, `completeTitle`, and `completeDescription`. the defaults are KERNEL's lowercase copy, and the default completion text mentions KERNEL. error messages are fixed and can't be overridden; use `onError` if you want to show your own.
+
+## Allow the component in your CSP
+
+the component loads VGS's collect script from `https://js.verygoodvault.com`, renders its iframes, and calls the KERNEL api. merge these directives into your existing content security policy:
+
+```text
+script-src 'self' 'nonce-<per-request-nonce>' https://js.verygoodvault.com;
+frame-src https://js.verygoodvault.com;
+connect-src 'self' https://api.onkernel.com;
+```
+
+if `fieldCss` uses `@font-face`, also allow the font's source. you don't need to allow VGS's analytics endpoint; blocking it doesn't affect card capture.
+
+## Handle completion
+
+`onComplete` means KERNEL confirmed the card was added. it isn't a payment notification. confirm the wallet's state from your backend before you treat it as ready:
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.retrieve("card-wallet", {
+  id_or_name: "user-12345",
+  wait: 60,
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.retrieve(
+    "card-wallet",
+    id_or_name="user-12345",
+    wait=60,
+)
+```
+
+</CodeGroup>
+
+a `connected` wallet has a stored card. inspect the wallet's `payment_methods` before creating a purchase.
+
+## Handle errors
+
+`onError` receives one of these codes. the component never surfaces raw api or VGS messages.
+
+| code            | meaning                                                                 | what to do                                                                |
+| --------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `invalid`       | the card details or email are invalid                                   | the cardholder corrects them and submits again                            |
+| `rejected`      | the card can't be added                                                 | the cardholder tries a different visa or mastercard card                  |
+| `card_in_use`   | the card is already connected to another wallet                         | the cardholder uses a different card                                      |
+| `in_progress`   | the card is still being added                                           | nothing; the component keeps checking for about 50 seconds                |
+| `rate_limited`  | too many attempts from this address                                     | wait, then retry                                                          |
+| `network`       | the api couldn't be reached                                             | retry; the component resends the same card rather than creating another  |
+| `expired`       | the capture link expired                                                | get a new `capture_token` from your backend                               |
+| `unavailable`   | the token is invalid or the capture is no longer available              | get a new `capture_token` from your backend                               |
+| `unconfirmed`   | KERNEL couldn't confirm whether the card was added                      | don't ask the cardholder to add the card again; retrieve the wallet from your backend |
+
+after `expired`, `unavailable`, or `unconfirmed`, the component removes the form.
+
+## Token lifetime
+
+a `capture_token` lasts 30 minutes. when it expires, retrieve the wallet again from your backend; KERNEL returns a new `card_enrollment` action with a new `capture_token`. changing the component's `token` prop resets it.
+
+if the cardholder leaves the page after creating a card but before KERNEL confirms it, the component sends the card once more as it unmounts, so the card isn't left unrecorded.
+
+## Security
+
+- treat `capture_token` as a secret. deliver it only to the intended cardholder, and never put it in a path, query string, cookie, browser storage, logs, traces, or analytics. if you put it in a link, use a url fragment and clear it once capture completes.
+- don't add native card inputs, card-data callbacks, analytics, or session replay around the component.
+- serve the page over HTTPS.
