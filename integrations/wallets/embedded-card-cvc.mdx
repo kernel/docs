@@ -1,0 +1,223 @@
+---
+title: "Embedded Card CVC"
+description: "Collect a per-purchase security code on your own branded page"
+---
+
+Alias-mode purchases with a KERNEL wallet (`provider: "kernel"`) require a fresh CVC for each purchase, on any card network. Authorization returns `pending_authorization` with a `spend_approval` action. Render [`@onkernel/vault-react`](https://www.npmjs.com/package/@onkernel/vault-react)'s `KernelCardCVC` component to keep this step inside your application, or open `action.url` for the hosted fallback.
+
+The cardholder enters the code in a Very Good Security (VGS) iframe. Your page, your servers, and KERNEL never receive the raw CVC. VGS sends KERNEL a temporary alias bound to this purchase. The component doesn't collect a card number, enroll a wallet, or submit merchant checkout.
+
+<Note>
+  Use this component only for the CVC action whose URL points to `/card-cvc` on
+  your configured KERNEL vault origin. Other spend approvals, including Visa
+  network-token authentication, still use the hosted URL. Don't select a CVC
+  flow by action name or card network alone. Use [embedded card
+  capture](/integrations/wallets/embedded-card-capture) for enrollment.
+</Note>
+
+## Install
+
+```bash
+bun add @onkernel/vault-react@^0.4.0
+# or: npm install @onkernel/vault-react@^0.4.0
+```
+
+The package requires React 18 or later and ships no CSS.
+
+## Deliver the capability from your backend
+
+After authorizing the purchase, retrieve it from your authenticated backend. There isn't a dedicated `action.cvc_token` field yet. For this CVC flow, extract the `token` parameter from the action URL's fragment and deliver it only to the intended cardholder's authenticated application. Validate the origin and `/card-cvc` path before selecting this component:
+
+<CodeGroup>
+
+```typescript TypeScript
+const purchase = await kernel.vaults.items.retrieve("purchase-12345", {
+  id_or_name: "user-12345",
+});
+
+if (
+  purchase.type === "card" &&
+  purchase.state.status === "pending_authorization" &&
+  purchase.action?.name === "spend_approval"
+) {
+  const actionURL = new URL(purchase.action.url);
+  if (
+    actionURL.origin === "https://vault.kernel.sh" &&
+    actionURL.pathname === "/card-cvc"
+  ) {
+    const cvcToken = new URLSearchParams(actionURL.hash.slice(1)).get("token");
+    if (cvcToken && /^[a-z0-9]{1,64}\.[A-Za-z0-9_-]{43}$/.test(cvcToken)) {
+      // Return cvcToken only to this purchase's cardholder.
+    }
+  }
+}
+```
+
+```python Python
+import re
+from urllib.parse import parse_qs, urlparse
+
+purchase = kernel.vaults.items.retrieve(
+    "purchase-12345",
+    id_or_name="user-12345",
+)
+
+if (
+    purchase.type == "card"
+    and purchase.state.status == "pending_authorization"
+    and purchase.action is not None
+    and purchase.action.name == "spend_approval"
+):
+    action_url = urlparse(purchase.action.url)
+    if (
+        action_url.scheme == "https"
+        and action_url.netloc == "vault.kernel.sh"
+        and action_url.path == "/card-cvc"
+    ):
+        cvc_token = parse_qs(action_url.fragment).get("token", [None])[0]
+        if cvc_token and re.fullmatch(r"[a-z0-9]{1,64}\.[A-Za-z0-9_-]{43}", cvc_token):
+            # Return cvc_token only to this purchase's cardholder.
+            pass
+```
+
+</CodeGroup>
+
+Use your configured vault origin instead of `https://vault.kernel.sh` when targeting another environment. This fragment extraction is specific to the current CVC integration; it doesn't change enrollment's `action.capture_token` contract. `cvcToken` is a one-purchase capability, not an API key or enrollment token. Keep the action URL available as a hosted fallback. Don't send either capability to your automation agent.
+
+## Render the component
+
+```tsx ConfirmPurchase.tsx
+"use client";
+
+import { KernelCardCVC } from "@onkernel/vault-react";
+
+export function ConfirmPurchase({ cvcToken }: { cvcToken: string }) {
+  return (
+    <KernelCardCVC
+      token={cvcToken}
+      className="purchase-cvc"
+      fieldCss={{
+        "box-sizing": "border-box",
+        height: "100%",
+        padding: "0",
+        "font-family": "system-ui, sans-serif",
+        "font-size": "16px",
+        color: "#1f1147",
+        "&::placeholder": { color: "#9a8fbf" },
+      }}
+      labels={{
+        title: "Verify your purchase",
+        description: "Enter your card's security code for this purchase.",
+        completeTitle: "Code collected",
+        completeDescription: "Continue checkout before this purchase expires.",
+        submit: "Continue",
+      }}
+      onComplete={() => {
+        // Ask your backend to retrieve the purchase before resuming checkout.
+      }}
+      onError={(code) => {
+        // Handle the fixed code, not raw VGS or API responses.
+      }}
+    />
+  );
+}
+```
+
+The server-derived merchant, amount, and card's last four digits remain visible. Callbacks never include the code, alias, token, or provider response body.
+
+| Prop         | Description                                                                                                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `token`      | Required purchase capability from the CVC action URL fragment                                                                                                                            |
+| `baseUrl`    | API origin; defaults to `https://api.onkernel.com`. HTTPS required; HTTP loopback is allowed for local development. Paths, query strings, fragments, and URL credentials aren't allowed. |
+| `className`  | Root class in both form and completion views                                                                                                                                             |
+| `fieldCss`   | CSS inside the single VGS CVC iframe; read at mount                                                                                                                                      |
+| `labels`     | Partial text overrides; see below                                                                                                                                                        |
+| `onComplete` | Runs once after a 2xx response with `status: "approved"` confirms collection, not payment                                                                                                |
+| `onError`    | Receives only a fixed error code                                                                                                                                                         |
+
+The component reads `GET /vault/card-cvc/current` directly with the bearer and `credentials: "omit"`. Don't route reads through your backend: the API rate-limits per client address, so a proxy makes cardholders share its limit. The iframe submits through VGS, not through your page or backend.
+
+Changing `token` or `baseUrl` unmounts the old field and resets the component. Don't change them during submission. An unmounted component ignores late callbacks; retrieve purchase state from your backend if you don't know whether collection completed.
+
+## Style the component
+
+Style the surrounding form through your `className`. Give the iframe container an explicit height:
+
+```css
+.purchase-cvc .credential-field {
+  margin-bottom: 16px;
+}
+.purchase-cvc .credential-label {
+  display: block;
+  margin-bottom: 8px;
+}
+.purchase-cvc .card-field {
+  height: 48px;
+  border: 1px solid #d9d0f5;
+  padding: 0 12px;
+}
+.purchase-cvc .card-field iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+```
+
+| Class                                        | Element                                  |
+| -------------------------------------------- | ---------------------------------------- |
+| `card-cvc` / `credential-complete`           | Root in form / completion view           |
+| `credential-header`                          | Title, purchase summary, and description |
+| `credential-title`, `credential-description` | Headings and description text            |
+| `approval-summary`                           | Server-derived purchase summary          |
+| `credential-form`                            | Form                                     |
+| `credential-field`, `credential-label`       | Field wrapper and label                  |
+| `card-field`                                 | VGS iframe container                     |
+| `credential-primary`, `credential-retry`     | Submit and initialization-retry buttons  |
+| `credential-error`                           | Fixed error message                      |
+
+Page CSS can't reach into the iframe. Use `fieldCss` for input styling, including nested selectors such as `&:focus`, `&.invalid.touched`, `&::placeholder`, media queries, and `@font-face`. Supply it before mounting; remount to change it.
+
+Override these `labels` keys: `title`, `description`, `completeTitle`, `completeDescription`, `cvc`, `cvcPlaceholder`, `submit`, `submitting`, `loading`, `retry`, and `missingToken`. Set the title, descriptions, and completion copy to your application's wording; defaults use KERNEL's lowercase copy and mention KERNEL. Error messages are fixed.
+
+## Allow the component in your CSP
+
+Merge these directives into your existing policy:
+
+```text
+script-src 'self' 'nonce-<per-request-nonce>' https://js.verygoodvault.com;
+frame-src https://js.verygoodvault.com;
+connect-src 'self' https://api.onkernel.com;
+```
+
+Collect loads a pinned, integrity-checked script and submits from its iframe origin. You don't need the inbound proxy hostname or Collect analytics endpoints in your page's `connect-src`. If you use external fonts, allow their source in the appropriate context and test the iframe rendering. The hosted fallback cannot itself be framed.
+
+## Handle completion and expiry
+
+`onComplete` confirms CVC collection, not a merchant payment. Retrieve the purchase from your backend and inspect `state.status === "ready"` and `expires_at` before resuming checkout. Fill and **submit checkout before `expires_at`**.
+
+The unused collection capability lasts 30 minutes. After capture, the purchase expires at the temporary CVC alias deadline, **five minutes by default**. Repeated fill or collection doesn't extend that deadline. An expired alias-mode purchase requires a new purchase and fresh authorization; refreshing an enrollment token won't recover it.
+
+If a dispatched submission has an unknown outcome, retrieve the existing purchase before taking any further action. Don't automatically recollect, create a second purchase, or repeat payment.
+
+## Handle errors
+
+| Code               | Meaning                                                                                     | What to do                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `invalid`          | Field validation failed                                                                     | Correct the code and submit again                                                       |
+| `rate_limited`     | Too many attempts                                                                           | Wait, then retry                                                                        |
+| `network`          | View read or Collect initialization failed                                                  | Use the initialization retry button                                                     |
+| `expired`          | Purchase expired                                                                            | Create and authorize a new purchase                                                     |
+| `unavailable`      | Capability is invalid or purchase is no longer available                                    | Retrieve purchase state; obtain a new purchase if needed                                |
+| `invalid_response` | Purchase view couldn't be decoded safely, or API origin is invalid                          | Stop and check your integration; keep the link for investigation                        |
+| `unconfirmed`      | A dispatched submission timed out, failed ambiguously, or returned an unrecognized response | Retrieve the existing purchase; don't automatically recollect or create another payment |
+
+The form is removed from use after `expired`, `unavailable`, `invalid_response`, or `unconfirmed`. The component doesn't resend CVC submissions on unmount or unload. A known field validation failure or definitive rate limit permits retry.
+
+## Security
+
+- Serve your page over HTTPS with no-store and no-referrer policies.
+- Treat `cvc_token` as a secret. Never put it in a path, query string, cookie, browser storage, logs, traces, or analytics. If you deliver a link, use a fragment and clear it after completion or terminal invalidation.
+- Don't add native CVC inputs, raw-value callbacks, analytics, or session replay around the component. Control scripts and dependencies that can modify the surrounding page.
+- Raw CVC stays in the VGS-hosted field and VGS processing. Your page and KERNEL never receive it. This preserves the isolated-field boundary used by embedded card capture; it doesn't certify your PCI scope or SAQ eligibility. Confirm your integration's eligibility and script-security requirements with your acquirer or QSA.
+- Don't configure VGS to accept every integrator origin. The submission origin is `https://js.verygoodvault.com`; no VGS credentials or callback secrets belong in your frontend.
