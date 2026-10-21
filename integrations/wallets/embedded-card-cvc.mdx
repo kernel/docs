@@ -26,7 +26,7 @@ The package requires React 18 or later and ships no CSS.
 
 ## Deliver the capability from your backend
 
-After authorizing the purchase, retrieve it from your authenticated backend. There isn't a dedicated `action.cvc_token` field yet. For this CVC flow, extract the `token` parameter from the action URL's fragment and deliver it only to the intended cardholder's authenticated application. Validate the origin and `/card-cvc` path before selecting this component:
+After authorizing the purchase, retrieve it from your authenticated backend. There isn't a dedicated `action.cvc_token` field yet. The fragment extraction below, including the `token` parameter name and validation regex, is provisional and will be replaced by a dedicated API field. For this interim CVC flow, extract the `token` parameter from the action URL's fragment and deliver it only to the intended cardholder's authenticated application. Validate the origin and `/card-cvc` path before selecting this component:
 
 <CodeGroup>
 
@@ -135,6 +135,8 @@ The server-derived merchant, amount, and card's last four digits remain visible.
 | `onComplete` | Runs once after a 2xx response with `status: "approved"` confirms collection, not payment                                                                                                |
 | `onError`    | Receives only a fixed error code                                                                                                                                                         |
 
+`KernelCardCVC` requires `baseUrl` to be a bare origin, unlike `KernelCardCapture`, which accepts a path prefix. An invalid `baseUrl` throws a developer error during render, before sending the capability; it doesn't call `onError`.
+
 The component reads `GET /vault/card-cvc/current` directly with the bearer and `credentials: "omit"`. Don't route reads through your backend: the API rate-limits per client address, so a proxy makes cardholders share its limit. The iframe submits through VGS, not through your page or backend.
 
 Changing `token` or `baseUrl` unmounts the old field and resets the component. Don't change them during submission. An unmounted component ignores late callbacks; retrieve purchase state from your backend if you don't know whether collection completed.
@@ -198,6 +200,8 @@ Collect loads a pinned, integrity-checked script and submits from its iframe ori
 
 The unused collection capability lasts 30 minutes. After capture, the purchase expires at the temporary CVC alias deadline, **five minutes by default**. Repeated fill or collection doesn't extend that deadline. An expired alias-mode purchase requires a new purchase and fresh authorization; refreshing an enrollment token won't recover it.
 
+Submission times out after 60 seconds: the component hides the form, calls `onError('unconfirmed')`, and ignores late approval callbacks.
+
 If a dispatched submission has an unknown outcome, retrieve the existing purchase before taking any further action. Don't automatically recollect, create a second purchase, or repeat payment.
 
 ## Handle errors
@@ -209,7 +213,7 @@ If a dispatched submission has an unknown outcome, retrieve the existing purchas
 | `network`          | View read or Collect initialization failed                                                  | Use the initialization retry button                                                     |
 | `expired`          | Purchase expired                                                                            | Create and authorize a new purchase                                                     |
 | `unavailable`      | Capability is invalid or purchase is no longer available                                    | Retrieve purchase state; obtain a new purchase if needed                                |
-| `invalid_response` | Purchase view couldn't be decoded safely, or API origin is invalid                          | Stop and check your integration; keep the link for investigation                        |
+| `invalid_response` | Purchase view couldn't be decoded safely                                                    | Stop and check your integration; keep the link for investigation                        |
 | `unconfirmed`      | A dispatched submission timed out, failed ambiguously, or returned an unrecognized response | Retrieve the existing purchase; don't automatically recollect or create another payment |
 
 The form is removed from use after `expired`, `unavailable`, `invalid_response`, or `unconfirmed`. The component doesn't resend CVC submissions on unmount or unload. A known field validation failure or definitive rate limit permits retry.
@@ -217,7 +221,7 @@ The form is removed from use after `expired`, `unavailable`, `invalid_response`,
 ## Security
 
 - Serve your page over HTTPS with no-store and no-referrer policies.
-- Treat `cvc_token` as a secret. Never put it in a path, query string, cookie, browser storage, logs, traces, or analytics. If you deliver a link, use a fragment and clear it after completion or terminal invalidation.
+- Treat the CVC capability as a secret. Never put it in a path, query string, cookie, browser storage, logs, traces, or analytics. If you deliver a link, use a fragment and clear it after completion or terminal invalidation.
 - Don't add native CVC inputs, raw-value callbacks, analytics, or session replay around the component. Control scripts and dependencies that can modify the surrounding page.
 - Raw CVC stays in the VGS-hosted field and VGS processing. Your page and KERNEL never receive it. This preserves the isolated-field boundary used by embedded card capture; it doesn't certify your PCI scope or SAQ eligibility. Confirm your integration's eligibility and script-security requirements with your acquirer or QSA.
 - Don't configure VGS to accept every integrator origin. The submission origin is `https://js.verygoodvault.com`; no VGS credentials or callback secrets belong in your frontend.
