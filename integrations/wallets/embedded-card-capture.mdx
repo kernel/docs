@@ -265,7 +265,7 @@ after `expired`, `unavailable`, or `unconfirmed`, the component removes the form
 
 a `capture_token` lasts 30 minutes. when it expires, retrieve the wallet again from your backend; KERNEL returns a new `card_enrollment` action with a new `capture_token`. changing the component's `token` prop resets it.
 
-if the cardholder leaves the page after creating a card but before KERNEL confirms it, the component sends the card once more as it unmounts, so the card isn't left unrecorded.
+if the cardholder leaves the page after creating a card but before KERNEL confirms it, the component makes one best-effort attempt to resend the card as it unmounts or the page unloads. it ignores that request's result, so the card can still go unrecorded. always confirm the wallet's state from your backend, as described in [handle completion](#handle-completion).
 
 ## Security
 
