@@ -15,11 +15,11 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 
 ## Choose a provider
 
-| integration | use it to |
-| --- | --- |
-| [KERNEL card](/integrations/wallets/kernel) | collect a user's card directly through hosted or embedded enrollment |
-| [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number |
-| [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout |
+| integration | use it to | environment |
+| --- | --- | --- |
+| [KERNEL card](/integrations/wallets/kernel) | collect a user's card directly through hosted or embedded enrollment | live only |
+| [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number | live only |
+| [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout | sandbox or live, set by the agentcard credential |
 
 approval, eligibility, and reuse depend on the integration and card. follow the provider guide before choosing a checkout flow.
 
@@ -84,7 +84,7 @@ operation; deletion is not payment recovery.
 
 start with the provider guide in [choose a provider](#choose-a-provider). for a complete agent workflow using link or agentcard, follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
 
-the link and agentcard guides include CLI commands for creating wallets and cards. once
+the provider guides include CLI commands for creating wallets and cards. once
 the card item is ready, the shared CLI flow is:
 
 ```bash CLI
