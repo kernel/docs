@@ -29,32 +29,20 @@ agentcard uses an integration-specific alternative: the agent enters non-sensiti
 
 `wallet` and `card` are vault item types. the wallet supplies the provider connection; the card represents payment material and its authorization state. retrieve the item and check `available_operations` before invoking an operation. don't assume every item supports `fill`.
 
-<Tabs>
-  <Tab title="Fill">
-    ```mermaid
-    flowchart TD
-      U[user] --> H["wallet connection<br/>and approval"]
-      H --> W[wallet item]
-      W --> C[prepared card item]
-      C --> T["trusted controller supplies<br/>references and selectors"]
-      T --> F["KERNEL fill api writes<br/>attached browser fields"]
-      F --> O["controller receives<br/>value-free outcomes"]
-      O --> S[merchant form submission]
-    ```
-  </Tab>
-  <Tab title="Agentcard">
-    ```mermaid
-    flowchart TD
-      U[user] --> H["wallet connection<br/>and approval"]
-      H --> W[wallet item]
-      W --> C[prepared card item]
-      C --> A[non-sensitive aliases]
-      A --> E["KERNEL interception<br/>and approval hold"]
-      E --> X[agentcard executes request]
-      X --> R[KERNEL replays response]
-    ```
-  </Tab>
-</Tabs>
+```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 24, "rankSpacing": 28, "padding": 12}}}%%
+flowchart TD
+  U[user] --> H["wallet connection<br/>and approval"]
+  H --> W[wallet item]
+  W --> C[prepared card item]
+  C -->|fill| T["trusted controller:<br/>references and<br/>selectors"]
+  T --> F["KERNEL fills<br/>browser fields;<br/>returns value-free<br/>outcomes"]
+  F --> S["merchant form<br/>submission"]
+  C -->|agentcard| A["non-sensitive<br/>aliases"]
+  A --> E["KERNEL intercepts<br/>and holds request<br/>for approval"]
+  E --> X["agentcard<br/>executes request"]
+  X --> R["KERNEL replays<br/>response"]
+```
 
 ## Verify the purchase
 
