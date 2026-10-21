@@ -1,0 +1,43 @@
+---
+title: "KERNEL Card"
+description: "Collect a user's card and use it for browser purchases"
+---
+
+use `provider: "kernel"` to collect a user's existing card for browser purchases. KERNEL manages the provider connection; you don't need your own vgs account.
+
+## Connect a card
+
+1. create a [vault](/vaults/overview) and a `wallet` item with `spec.provider: "kernel"`.
+2. open the returned `card_enrollment` action for the cardholder. the hosted page collects their card and email. for card entry on your own domain, use [embedded card capture](/integrations/wallets/embedded-card-capture).
+3. retrieve the wallet and inspect its `payment_methods` expansion. a `connected` wallet means the card is stored, not necessarily eligible to pay.
+
+card details go directly to very good security (vgs) through hosted fields. vgs stores the original card; KERNEL receives a card reference and metadata rather than the original card number. request pci compliance documents through [vgs's trust center](https://security.verygoodsecurity.com/).
+
+## Make a purchase
+
+1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
+2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency.
+3. invoke the advertised `authorize` operation and complete any returned user action. keep action urls in your trusted user interface, outside the agent's context.
+4. when `fill` appears in `available_operations`, [fill the checkout](/vaults/fill), submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
+
+for eligible cards, checkout receives a network token number, expiry, and one-time security code. the token represents the user's existing card; it isn't a newly issued disposable card. fill is restricted to the configured merchant's top-level origin.
+
+| network-token purchase | cardholder interaction |
+| --- | --- |
+| visa | complete the returned `spend_approval` action, including any required verification |
+| supported mastercard | no hosted purchase approval |
+
+there's no general standing approval or spending-limit setting across these paths. your application must verify purchase details before authorization. complete any returned user action and fill before the purchase's `expires_at`.
+
+<Accordion title="Cards without network tokens">
+  fallback availability depends on the card and checkout. [contact support](/info/support) before building on this path.
+
+  where supported, the cardholder enters a fresh security code through a hosted action for each purchase. fill writes aliases that vgs replaces with the stored card details before sending the payment request to the processor. this path doesn't issue a one-time network security code.
+
+  the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
+</Accordion>
+
+## Reference
+
+- [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, eligibility, operations, and expiry.
+- [pricing](/info/pricing): vault limits and payment charges.
