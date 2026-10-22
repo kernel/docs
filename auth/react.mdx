@@ -19,7 +19,7 @@ bun add @onkernel/managed-auth-react
 
 ## Getting started
 
-### 1. Start a Login Session on your backend
+### 1. Start a login session on your backend
 
 Same as the Hosted UI flow — create a connection and start a login. The login response returns the connection `id` and a one-time `handoff_code`; those are the two values you'll hand to the component on the frontend.
 
@@ -103,11 +103,17 @@ export default function LoginPage({
 
 The component is client-only — `"use client"` is required in any RSC framework (Next.js App Router, Remix, etc.).
 
+## Reconnect when user input is required
+
+rendering the component for the initial login doesn't provide ongoing automatic recovery. your application must handle a connection that returns to `NEEDS_AUTH`, such as when the site requires a new email or sms code or an approval.
+
+call `auth.connections.login()` on the existing connection from your backend, then bring the user back to your login route. pass the new login response's `id` as `sessionId` and its fresh `handoff_code` as `handoffCode`. don't reuse the previous handoff code: it is single-use. wait for successful authentication before resuming work that requires the account. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
+
 ## Backend connectivity
 
 By default the component talks directly to `https://api.onkernel.com`. That works out of the box; nothing else to configure.
 
-If you'd rather keep all auth traffic same-origin (cookies, CSP, observability), set `baseUrl=""` and proxy the three endpoints the package hits through your own framework:
+If you'd rather keep all auth traffic same-origin (cookies, CSP, observability), set `baseUrl=""` and proxy the four endpoints the package hits through your own framework:
 
 ```ts next.config.ts
 export default {
@@ -124,6 +130,10 @@ export default {
       {
         source: "/auth/connections/:id/submit",
         destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/submit`,
+      },
+      {
+        source: "/auth/connections/:id/events",
+        destination: `${process.env.KERNEL_BASE_URL}/auth/connections/:id/events`,
       },
     ];
   },
@@ -260,10 +270,10 @@ import {
 
 Wrap them in `<AppearanceProvider>` and `<LocalizationProvider>` to inherit the same styling/localization plumbing as the all-in-one component.
 
-## Connection Configuration
+## Connection configuration
 
 Connection-level options — custom login URL, SSO/OAuth, custom proxy, session recording, post-login URL, and updates — are set on `auth.connections.create` (or later via `auth.connections.update`) and apply equally regardless of which integration flow you use. See [Connection Configuration](/auth/configuration).
 
 ## Reference integration
 
-A full reference integration — Next.js shell, rewrites, end-to-end flow — lives at [`kernel/managed-auth-hosted-ui`](https://github.com/kernel/managed-auth-hosted-ui). It powers Kernel's own hosted login page and is a copy-pasteable starting point for embedding the component in your own app.
+A full reference integration lives in the [`kernel/managed-auth-react`](https://github.com/kernel/managed-auth-react) repo's demo app. It's a copy-pasteable starting point for embedding the component in your own app.

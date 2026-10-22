@@ -64,6 +64,8 @@ https://api.onkernel.com/browser/live/<TOKEN>?readOnly=true
 
 The live view URL can be embedded in an iframe to integrate the browser view into your own application or dashboard.
 
+If your environment restricts outbound traffic, allow the [Live View domains and ports](/info/network-access#required-destinations) before you embed it.
+
 ```html
 <iframe src={browser.browser_live_view_url}></iframe>
 ```
@@ -74,21 +76,103 @@ The live view URL can be embedded in an iframe to integrate the browser view int
 
     To enable clipboard sharing, add `allow="autoplay; clipboard-read; clipboard-write"` to the iframe element.
 
-If your application uses a **Content Security Policy (CSP)**, you'll need to add the following directives to allow the live view iframe and its WebSocket connection:
+If your application uses a **Content Security Policy (CSP)**, you must add the following directives to allow the live view iframe and its WebSocket connection. See [firewall allowlist](/info/network-access#content-security-policy) for the complete firewall and CSP requirements.
 
 ```
-frame-src https://*.onkernel.com:8443;
+frame-src https://*.onkernel.com:8443
+          https://*.kernel.sh:8443;
 connect-src https://*.onkernel.com:8443
-            wss://*.onkernel.com:8443;
+            wss://*.onkernel.com:8443
+            https://*.kernel.sh:8443
+            wss://*.kernel.sh:8443;
 ```
 </Info>
+
+## Parent frame events
+
+When the live view is embedded in an iframe, the client posts messages to the parent window as the connection and playback state change, and accepts one message back. Use them to tell a working viewer apart from one that never starts.
+
+### Sent to the parent
+
+| Event | Payload | Meaning |
+| --- | --- | --- |
+| `KERNEL_CONNECTED` | `connected`, `capabilities` (recent images only) | Signaling is established. Frames are not necessarily rendering yet. |
+| `KERNEL_PLAYING` | `playing: true` | Video frames are rendering. |
+| `KERNEL_PAUSED` | `playing: false` | Playback has stopped. |
+| `KERNEL_CONNECTION_TIMEOUT` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | A connect stage ran out its bound without completing. `reason` names the stage. |
+| `KERNEL_CONNECTION_FAILED` | `reason`, `iceConnectionState`, `connectionState`, `signalingState`, `socketOpen` | The connect failed outright. `reason` says why. Nothing further happens until the iframe reloads. |
+| `KERNEL_READ_ONLY_CHANGED` | `readOnly`, `requestId` | Acknowledges a `KERNEL_SET_READ_ONLY` request. |
+
+Both terminal events carry the same `reason`, so branch on it instead of matching message text:
+
+| `reason` | Meaning |
+| --- | --- |
+| `transport` | the socket never opened inside its bound, or closed at any point before the connect succeeded |
+| `signaling` | the socket opened but no offer arrived inside its bound |
+| `media` | a peer exists but ICE never reached `connected` or `completed` inside its bound — this covers a peer that stalls after `checking` |
+| `peer` | peer construction or the remote offer threw, ICE reached `failed` or `closed`, or the data channel closed before the connect succeeded |
+| `unsupported` | the browser has no `RTCPeerConnection` |
+| `server` | the server closed the connect |
+
+### Accepted from the parent
+
+| Event | Payload | Effect |
+| --- | --- | --- |
+| `KERNEL_SET_READ_ONLY` | `readOnly` (boolean), `requestId` (string, optional) | Toggles interactivity without reloading the iframe. Acknowledged with `KERNEL_READ_ONLY_CHANGED`. |
+
+<Info>
+    `KERNEL_CONNECTION_TIMEOUT`, `KERNEL_READ_ONLY_CHANGED` and `KERNEL_SET_READ_ONLY` require a recent browser image. `KERNEL_CONNECTED`, `KERNEL_PLAYING` and `KERNEL_PAUSED` are available on all current images, but `capabilities` is sent only by recent ones — older images post `{ type: 'KERNEL_CONNECTED', connected: true }`, so treat a missing `capabilities` as unknown rather than unsupported.
+
+    `KERNEL_CONNECTION_FAILED` requires a browser image that includes the connect-failure fix. On images without it the client fails silently instead, so treat a missing `KERNEL_CONNECTION_FAILED` as unknown rather than as a successful start, and keep gating on `KERNEL_PLAYING`. On images before that fix, `KERNEL_CONNECTION_TIMEOUT` carries `reason: 'connection timeout'` rather than a stage name.
+
+    Messages are exchanged with the parent origin derived from `document.referrer`. If the referrer is unavailable — for example under a restrictive `Referrer-Policy` — the client cannot resolve your origin and will reject `KERNEL_SET_READ_ONLY`.
+</Info>
+
+### Detecting a viewer that never starts
+
+Gate on `KERNEL_PLAYING`. It fires only once frames actually arrive, so it is the signal that distinguishes a working viewer from one that is still connecting or has silently failed. The terminal events below tell you when the client has stopped trying. Start a timer when you mount the iframe and remount if `KERNEL_PLAYING` has not arrived. The timer has to outlast the client's connect bounds, which run in sequence — transport, then signaling, then media — and sum to 48s by default. If you wait less than that, you'll tear the frame down before it can report a stage that stalled late. The timer also covers loading the frame itself, so leave room above the budget when you set it:
+
+```typescript Typescript/Javascript
+const iframe = document.querySelector('#kernel-live-view');
+const src = iframe.src;
+const liveViewOrigin = new URL(src).origin;
+
+let attempts = 0;
+let watchdog;
+
+function arm() {
+  clearTimeout(watchdog);
+  watchdog = setTimeout(() => {
+    if (attempts++ >= 2) return showFallback();
+    iframe.src = 'about:blank';
+    iframe.src = src;
+    arm();
+  }, 60000);
+}
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== liveViewOrigin) return;
+  if (event.data?.type === 'KERNEL_PLAYING') clearTimeout(watchdog);
+  if (event.data?.type === 'KERNEL_PAUSED') arm();
+  if (event.data?.type === 'KERNEL_CONNECTION_FAILED') showFallback(event.data);
+  if (event.data?.type === 'KERNEL_CONNECTION_TIMEOUT') showFallback(event.data);
+});
+
+arm();
+```
+
+Don't gate on `KERNEL_CONNECTION_TIMEOUT` alone. It only covers a connect that is still negotiating: the media bound clears once ICE reaches `connected` or `completed`, and a viewer whose frames stop after it connected never emits one. Log it alongside `KERNEL_PLAYING` to capture the connection state at the moment things stalled.
+
+`KERNEL_CONNECTION_FAILED` and `KERNEL_CONNECTION_TIMEOUT` are both terminal, and a failed connect posts one of them, never both. Whichever arrives, nothing further happens until the iframe reloads. Surface a persistent message rather than remounting blindly. `unsupported`, and a `peer` reason from peer construction or the remote offer, are properties of the browser environment, so a remount repeats them. A `transport` reason, or a `peer` reason from ICE reaching `failed` or `closed`, can come from the network path instead, so give those one retry.
+
+The client does not retry a connect itself, so whatever `reason` you get is the first failure, and whether to try again is your call.
 
 ## Kiosk mode
 
 Kiosk mode provides a fullscreen live view experience without browser UI elements like the address bar and tabs. You can enable kiosk mode when creating a browser by setting the `kiosk_mode` parameter to `true`.
 
 <Info>
-    Kiosk mode triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools/overview) to access kiosk mode browsers faster.
+    Kiosk mode triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access kiosk mode browsers faster.
 </Info>
 
 <CodeGroup>

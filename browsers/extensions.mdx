@@ -45,14 +45,16 @@ Extensions uploaded to Kernel are assigned a random ID, but you can also give th
 This name must be unique within your [project](/info/projects).
 
 To retrieve an extension's metadata without downloading the archive, call `GET /extensions/{id_or_name}/metadata`.
-The response includes the extension's ID, name, size, and timestamps.
+The response includes the extension's ID, name, size, timestamps, and, when available, a lowercase hexadecimal SHA-256 `checksum`.
+
+The checksum is calculated from the exact archive bytes uploaded to Kernel. It is not a normalized checksum of the unpacked extension: archive metadata, file ordering, or compression can produce a different checksum for otherwise identical files. The value can be absent for legacy extensions and Chrome Web Store extensions that Kernel repackaged.
 
 ## Using extensions in a browser
 
 Passing the extension name or ID to the `create` method will load it into the browser.
 
 <Info>
-    Loading an extension into a browser triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools/overview) to access browsers with extensions faster.
+    Loading an extension into a browser triggers a Chromium restart, which can take several seconds. Use [browser pools](/browsers/pools) to access browsers with extensions faster.
 </Info>
 
 
@@ -132,6 +134,14 @@ kernel browsers extensions upload <session_id> ./my-extension
 Loading an extension triggers a Chromium restart, which takes several seconds and may disrupt active CDP connections.
 </Warning>
 
+## Debugging your extensions
+
+You can open DevTools on your extension or attach to its service worker over CDP to read its console, set breakpoints, and inspect its storage. This works by default for most extensions.
+
+<Note>
+If Kernel added your extension through enterprise policy, Chrome blocks DevTools on it by default. See [Debugging with DevTools](#debugging-with-devtools) to allow it.
+</Note>
+
 ## Extensions requiring enterprise policies
 
 For a complete list of available extension settings and policies, refer to the [Chrome Enterprise Policy documentation](https://chromeenterprise.google/policies/extension-settings/).
@@ -182,3 +192,37 @@ Once you successfully upload an enterprise policy extension, Kernel handles the 
 5. **Installation** - Chrome installs the extension via enterprise policy when the browser starts
 
 No additional HTTP server or manual policy configuration is needed. The extension works seamlessly in any browser session that it's uploaded to.
+
+### Debugging with DevTools
+
+Chrome blocks DevTools on extensions added through enterprise policy by default. To allow it, set `DeveloperToolsAvailability` to `1` in [`chrome_policy`](/browsers/chrome-policies) when you create the browser or pool:
+
+<CodeGroup>
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.create(
+    extensions=[{"name": "request-signer"}],
+    chrome_policy={
+        "DeveloperToolsAvailability": 1,
+    },
+)
+```
+
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create({
+  extensions: [{ name: 'request-signer' }],
+  chrome_policy: {
+    DeveloperToolsAvailability: 1,
+  },
+});
+```
+</CodeGroup>
+
+This applies to every extension added through enterprise policy in that browser. Anyone with access to the browser, including live view users, can then inspect those extensions' code and storage. Kernel rejects `2` because it turns off DevTools everywhere, including the CDP connection Kernel uses to control the browser.

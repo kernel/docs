@@ -1,9 +1,10 @@
 const { useState, useCallback } = React;
 
-export const CopyPromptButton = () => {
+export const CopyPromptButton = (props) => {
+  const { label = 'copy prompt' } = props || {};
   const [copied, setCopied] = useState(false);
 
-  const prompt = `# Setup Kernel
+  const prompt = (props && props.prompt) || `# Setup Kernel
 
 ## Prerequisites
 - Read the kernel-cli skill at https://github.com/kernel/skills/blob/main/plugins/kernel-cli/skills/kernel-cli/SKILL.md for reference on commands and capabilities.
@@ -92,7 +93,7 @@ export const CopyPromptButton = () => {
             <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
             <path d="M10.5 5.5V3.5C10.5 2.67 9.83 2 9 2H3.5C2.67 2 2 2.67 2 3.5V9C2 9.83 2.67 10.5 3.5 10.5H5.5" />
           </svg>
-          copy prompt
+          {label}
         </>
       )}
     </button>

@@ -1,18 +1,28 @@
 ---
-title: "Pricing & Limits"
+title: "Pricing"
+sidebarTitle: "Plans and Pricing"
 ---
 
-With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), idle browsers in a pool incur no disk charges, and you're never charged for proxies.
+With Kernel, you only pay for what you use and nothing more. You don't pay for idle time thanks to [Standby Mode](/browsers/standby), and idle browsers in a browser pool incur no usage charges.
 
-## Pricing
+## Plan Pricing
+| Plan | Monthly cost | Included Credits / mo
+| --- | --- | --- |
+| Developer | Free + usage | $5 |
+| Hobbyist | $30 + usage | $10 | 
+| Start-Up | $200 + usage | $50 | 
+| Enterprise | Custom | Custom |
 
-| Browser type | Price ($/sec) |
+## Usage Rates
+
+| Usage type | Price ($/sec) |
 | --- | --- |
-| Headless | 0.0000166667 |
-| Headful | 0.0001333336 |
-| Headful + GPU acceleration | 0.0008000016 |
+| Headful browser | 0.0001333336 |
+| Headless browser | 0.0000166667 |
+| Headful browser + GPU acceleration | 0.0008000016 |
+| App invocation | 0.0000666668 |
 
-> Note: GPU acceleration is only available on headful, on-demand browsers. Standby mode is not supported for GPU-accelerated browsers.
+> Included monthly credits apply to usage costs only.
 
 ### Pricing calculator
 
@@ -22,70 +32,71 @@ import { PricingCalculator } from '/snippets/calculator.jsx';
 
 ## Managed infrastructure
 
-| Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
+| Feature | Developer | Hobbyist | Start-Up | Enterprise |
 | --- | --- | --- | --- | --- |
-| Included credits / mo | $5 | $10 | $50 | Custom |
-| Extended browser timeouts | ✅ | ✅ | ✅ | ✅ |
 | Browser live view | ✅ | ✅ | ✅ | ✅ |
-| Browser telemetry | ✅ | ✅ | ✅ | ✅ |
+| Extended browser timeouts | ✅ | ✅ | ✅ | ✅ |
 | Configurable browser viewports | ✅ | ✅ | ✅ | ✅ |
 | Managed stealth mode | ✅ | ✅ | ✅ | ✅ |
 | Computer controls API | ✅ | ✅ | ✅ | ✅ |
-| Browser replays | ❌ | 7 days | 30 days | Custom |
-| Browser profiles | ❌ | ✅ | ✅ | ✅ |
-| Managed auth profiles | ❌ | ✅ | ✅ | ✅ |
-| File uploads & downloads | ❌ | ✅ | ✅ | ✅ |
-| Configurable browser extensions | ❌ | ❌ | ✅ | ✅ |
-| Configurable & BYO proxies | ❌ | ❌ | ✅ | ✅ |
-| Browser pools | ❌ | ❌ | ✅ | ✅ |
-| Support | Discord | Discord | Email | Shared Slack |
+| Browser pools | ✅ | ✅ | ✅ | ✅ |
 | SOC2 compliance | ✅ | ✅ | ✅ | ✅ |
+| Browser replays | 1 day | 7 days | 30 days | Custom |
+| Managed auth connections | 3 | unlimited | unlimited | unlimited |
+| Vaults | 3 | unlimited | unlimited | unlimited |
+| Custom browser extensions | 1 | 1 | unlimited | unlimited |
+| Projects | 1 | 1 | unlimited | unlimited |
+| Support | Discord | Email | Email | Shared Slack |
+| Configurable proxies | ❌ | ✅ | ✅ | ✅ |
+| BYO proxies | ❌ | ❌ | ✅ | ✅ |
 | GPU acceleration | ❌ | ❌ | ✅ | ✅ |
+| Regional browsers | ❌ | ❌ | ✅ | ✅ |
+| Audit log search & export | ❌ | ❌ | ✅ | ✅ |
+| Continuous audit log export to S3 | ❌ | ❌ | ❌ | ✅ |
 | HIPAA compliance (BAA) | ❌ | ❌ | ❌ | ✅ |
 
-> Note: Included monthly credits apply to usage costs only.
 
-## Reserved browsers (browser pools)
+<span id="concurrency-limits" />
+<span id="rate-limiting" />
+<span id="notes" />
+## Limits
 
-With Browser Pools, you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges — you only pay when a browser is actively in use.
+Concurrency, rate limits, and per-browser resources for each plan are on [concurrency and limits](/browsers/concurrency-and-limits).
 
-> Note: GPU acceleration is not available for browser pools.
+## Other ways to pay
 
-## Managed Auth
+Agents can buy a single browser without a KERNEL account or API key through the [machine payments protocol (MPP)](/info/mpp). One stealth, headful browser for 30 minutes costs \$0.50, paid with a Link payment. See [buy a browser with MPP](/info/mpp) for the payment flow.
 
-Managed Auth is included on all paid plans with no per-connection fees. Under the hood, it uses browser sessions to log in and keep your sessions fresh—these count toward your browser usage and concurrency like any other browser session.
+## FAQ
 
-Auth sessions are fast (typically 5-30 seconds each). Kernel monitors session health and re-authenticates automatically when sessions expire—most stay valid for days. For example, keeping 100 auth connections logged in typically costs less than $5/month in browser usage.
+<Accordion title="How does billing work across a browser's lifecycle? Am I charged for the full timeout_seconds, or only while it's actively in use?">
+  Only for active runtime. `timeout_seconds` sets an idle auto-delete ceiling, not a billing window. Once a browser goes idle — 5 seconds after the last CDP or Live View activity — it enters Standby Mode and stops accruing usage cost, even if it stays alive until the timeout is reached. Deleting a browser early doesn't lower cost any further (idle time is already free), but it does free up your concurrency slot sooner.
+</Accordion>
+<Accordion title="How can I control my team's usage spending?">
+  Set an organization or project [spending cap](/info/spending-caps).
+</Accordion>
+<Accordion title="How are browser pools charged?">
+  you pay the standard usage-based price per GB-second while browsers are running. Idle browsers in a pool incur no disk charges—you only pay when a browser is actively in use.
 
-## Concurrency limits
+  Note: A browser pool counts toward your concurrency limit whether or not its browsers are currently acquired — a browser pool sized to 40 browsers uses 40 of your limit.
+</Accordion>
+<Accordion title="How is Managed Auth charged?">
+Managed Auth is included on all plans with no per-connection fees. It uses browser sessions for login, health checks, and eligible automatic reauthentication. These count toward your browser usage and concurrency like any other browser session.
 
-Kernel enforces a single concurrency limit covering all browsers you run at once — whether created on demand with `browsers.create()` or reserved in a [browser pool](/browsers/pools/overview). Your full limit is available to either API in any mix.
+Auth sessions are fast, typically 5-30 seconds each, and most website sessions remain valid for days. For example, monitoring 100 auth connections typically costs less than $5/month in browser usage.
+</Accordion>
+<Accordion title="Does it cost money to use Vaults and Agentic Payments?">
+Free users can create up to three vaults. Unlimited vaults are included in paid plans. There are no surcharges to use Kernel's agentic payments products.
+</Accordion>
+<Accordion title="What do regional browsers cost?">
+Regional browsers are charged at the same usage rates as our default, US-based browsers.
+</Accordion>
+<Accordion title="How are app invocations charged?">
+App invocations are billed for active compute time, not per API call. The invocation rate in [Usage Rates](#usage-rates) is based on the current 4 GB memory allocation at $0.0000166667 per GB-second.
 
-| Feature | Developer (free + usage) | Hobbyist ($30 / mo + usage) | Start-Up ($200 / mo + usage) | Enterprise |
-| --- | --- | --- | --- | --- |
-| Concurrent browsers | 5 | 10 | 150 | Custom |
-| App invocations | 5 | 10 | 50 | Custom |
-| App invocations (per-app) | 5 | 10 | 20 | Custom |
-| Managed auth health check interval | N/A | 1 hour minimum | 20 minutes minimum | Custom |
+Billing starts when your code begins executing and stops when it finishes. You aren't charged for queued time, deploying an app, or leaving a deployed app idle. Failed and canceled invocations still accrue charges for the time they ran.
 
-> Note: Reserved capacity in a [browser pool](/browsers/pools/overview) counts toward your concurrency limit whether or not the browsers are currently acquired — a pool sized to 40 browsers uses 40 of your limit. Browser pools are available on Start-Up and Enterprise plans.
+Browsers created by an invocation are billed separately for their active runtime at the browser rates above. Services your code calls, such as an LLM API, also bill you independently.
 
-> Note: Browsers in [Standby Mode](/browsers/standby) count against your concurrency limit.
-
-> Note: Limits are org-wide by default unless stated otherwise. `Managed auth profiles` refer to profiles with active auth connections that Kernel maintains using your stored [Credentials](/auth/credentials) or [1Password connection](/integrations/1password). A single profile can have multiple auth connections (one per domain) — see [Profiles](/auth/profiles#multiple-auth-connections-per-profile) for details.
-
-## Rate limiting
-
-Kernel enforces per-organization rate limits on API requests. When you exceed the rate limit, the API returns a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying.
-
-Rate-limited endpoints include these headers on every response:
-
-| Header | Description |
-| --- | --- |
-| `X-RateLimit-Limit` | Maximum requests allowed per minute |
-| `X-RateLimit-Remaining` | Requests remaining in the current window |
-| `Retry-After` | Seconds to wait before retrying (only on `429` responses) |
-
-All Kernel SDKs automatically retry `429` responses up to 2 times, respecting the `Retry-After` header for delay timing. If retries are exhausted, the SDK throws a typed `RateLimitError` with the response headers accessible for custom backoff logic.
-
-If you need higher rate limits, [contact us](https://calendly.com/d/d3tn-5kp-5yt).
+The [app invocation limits](/browsers/concurrency-and-limits#concurrency) are concurrency limits, not a number of invocations included with your plan.
+</Accordion>

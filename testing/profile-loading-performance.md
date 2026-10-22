@@ -182,6 +182,6 @@ Support flexible domain matching:
 
 ## References
 
-- [Kernel Profiles Documentation](/auth/profiles)
+- [Kernel Profiles Documentation](/browsers/profiles)
 - [Profile API Reference](https://kernel.sh/docs/api-reference/profiles/list-profiles)
 - [Browser Creation API](https://kernel.sh/docs/api-reference/browsers/create-a-browser-session)

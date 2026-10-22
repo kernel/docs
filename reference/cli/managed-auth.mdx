@@ -2,10 +2,10 @@
 title: "Managed Auth"
 ---
 
-Manage [managed auth](/auth/overview) connections, stored credentials, and external credential providers from the CLI. For authenticating the CLI itself (login, logout, API keys), see [Authentication](/reference/cli/auth).
+Manage [managed auth](/auth/managed-auth) connections, stored credentials, and external credential providers from the CLI. For authenticating the CLI itself (login, logout, API keys), see [Authentication](/reference/cli/auth).
 
 ## Connections
-A managed auth connection keeps a [profile](/auth/profiles) logged into a domain so future browsers reuse the authenticated session. See [Managed auth](/auth/overview) for concepts and the [programmatic flow](/auth/programmatic) for the SDK equivalent.
+A Managed Auth connection saves a domain's authentication state to a [profile](/browsers/profiles) so future browsers can reuse it. Eligible credential-based flows can reauthenticate automatically. See [Managed Auth](/auth/managed-auth) for concepts and the [programmatic flow](/auth/programmatic) for the SDK equivalent.
 
 ### `kernel auth connections create`
 Create a managed auth connection for a profile and domain.
@@ -17,6 +17,9 @@ Create a managed auth connection for a profile and domain.
 | `--allowed-domain <domain>` | Additional allowed domains (repeatable). |
 | `--login-url <url>` | Login page URL to skip discovery. |
 | `--health-check-interval <seconds>` | Seconds between health checks (300–86400). |
+| `--no-health-checks` | Disable periodic health checks. |
+| `--no-auto-reauth` | Disable automatic reauthentication attempts after an expired session is detected. |
+| `--region <region>` | Browser region for login, health-check, and reauthentication sessions: `us-east`, `eu-west`, or `ap-southeast`. Defaults to `us-east`. |
 | `--proxy-id <id>` | Proxy ID to use. |
 | `--proxy-name <name>` | Proxy name to use. |
 | `--credential-provider <name>` | External credential provider name. |
@@ -50,13 +53,14 @@ Start a login flow and return a hosted URL for authentication.
 
 | Flag | Description |
 |------|-------------|
+| `--region <region>` | Region override for this login only. Omit it to inherit the connection region. |
 | `--proxy-id <id>` | Proxy ID to use for this login. |
 | `--proxy-name <name>` | Proxy name to use for this login. |
 | `--telemetry <spec>` | Override telemetry for this login only, merged with the connection's config. Pass `all`, `off`, or a comma-separated category list like `console,network`. |
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ### `kernel auth connections submit <id>`
-Submit field values to an in-progress login flow. Poll the connection (or use `follow`) to track progress.
+Submit field values to an in-progress login flow. Use `kernel auth connections follow <id>` to stream progress.
 
 | Flag | Description |
 |------|-------------|
@@ -106,6 +110,9 @@ Update connection settings such as login URL, health checks, credential source, 
 | `--login-url <url>` | Login page URL (set to an empty string to clear). |
 | `--allowed-domain <domain>` | Additional allowed domains (replaces the existing list). |
 | `--health-check-interval <seconds>` | Seconds between health checks. |
+| `--health-checks` / `--no-health-checks` | Enable or disable periodic health checks. |
+| `--auto-reauth` / `--no-auto-reauth` | Enable or disable automatic reauthentication attempts after an expired session is detected. |
+| `--region <region>` | Region for browser sessions created after the update: `us-east`, `eu-west`, or `ap-southeast`. Active sessions don't move. |
 | `--proxy-id <id>` | Proxy ID to use. |
 | `--proxy-name <name>` | Proxy name to use. |
 | `--credential-provider <name>` | External credential provider name. |
@@ -125,7 +132,7 @@ Delete a managed auth connection.
 | `--yes`, `-y` | Skip the confirmation prompt. |
 
 ## Credentials
-Store login field values, TOTP secrets, and SSO settings that managed auth connections use to authenticate. See [Credentials](/auth/credentials) for concepts.
+Store login field values, TOTP secrets, and SSO settings that managed auth connections use to authenticate. See [Credentials](/auth/configuration#credentials-and-auto-reauth) for concepts.
 
 ### `kernel credentials create`
 Create a new credential.
@@ -135,7 +142,10 @@ Create a new credential.
 | `--name <name>` | Unique name for the credential (required). |
 | `--domain <domain>` | Target domain this credential is for (required). |
 | `--value <name=value>` | Field name/value pair (repeatable, e.g. `--value username=myuser --value password=mypass`). |
-| `--totp-secret <secret>` | Base32-encoded TOTP secret for 2FA. |
+| `--totp-secret <secret>` | Base32 TOTP secret (16–128 characters) or `otpauth://` provisioning URI. |
+| `--totp-algorithm <name>` | `SHA1` (default), `SHA256`, or `SHA512`. URI parameters override explicit settings. |
+| `--totp-digits <n>` | Code length, 6–9 digits (default 6). |
+| `--totp-period <seconds>` | Rotation period, 15–300 seconds (default 30). |
 | `--sso-provider <provider>` | SSO provider (e.g. `google`, `github`, `microsoft`). |
 | `--output json`, `-o json` | Output raw JSON object. |
 
@@ -163,7 +173,10 @@ Update a credential.
 |------|-------------|
 | `--name <name>` | New name for the credential. |
 | `--value <name=value>` | Field name/value pair to update (repeatable). |
-| `--totp-secret <secret>` | Base32-encoded TOTP secret (set to an empty string to remove). |
+| `--totp-secret <secret>` | Replacement base32 secret (16–128 characters) or `otpauth://` URI. Raw secret rotation retains stored settings when flags are omitted; a URI uses its own settings or defaults. |
+| `--totp-algorithm <name>` | `SHA1`, `SHA256`, or `SHA512`; requires `--totp-secret`. |
+| `--totp-digits <n>` | Code length, 6–9 digits; requires `--totp-secret`. |
+| `--totp-period <seconds>` | Rotation period, 15–300 seconds; requires `--totp-secret`. |
 | `--sso-provider <provider>` | SSO provider (set to an empty string to remove). |
 | `--output json`, `-o json` | Output raw JSON object. |
 

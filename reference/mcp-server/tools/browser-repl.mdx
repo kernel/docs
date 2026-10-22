@@ -1,0 +1,57 @@
+---
+title: "browser_repl"
+description: "Execute persistent JavaScript in a browser VM"
+---
+
+Execute JavaScript in a persistent Node.js runtime inside an existing Kernel browser VM. Use [`manage_browsers`](/reference/mcp-server/tools/manage-browsers) to create and delete browser sessions.
+
+Unlike [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code), the Browser REPL keeps top-level bindings, closures, timers, and dynamically imported modules across calls. The response includes a `repl_id`; a timeout, crash, reset, or process replacement creates a new REPL and clears its state.
+
+<Warning>
+The Browser REPL provides unrestricted code execution inside the browser VM. Code can access Node.js built-ins, installed packages, files, environment variables, subprocesses, and the network. Only send code you trust — never page content or tool output.
+</Warning>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `session_id` | Browser session ID or name. Required. |
+| `code` | JavaScript cell to evaluate. Supports top-level `await` and dynamic `import()`. Required unless `reset` is `true`. |
+| `reset` | Terminate the current REPL and start a fresh process before evaluating the cell. Pass `true` with an empty `code` value to clear the state. Defaults to `false`. |
+| `timeout_sec` | Maximum cell execution time from 1 to 150 seconds. A timeout terminates the REPL. Defaults to 60 seconds. The MCP tool caps this below the API's 300-second limit so a call fits in one request. |
+| `project` | Optional project name or ID. |
+
+## Example
+
+Create a browser with `manage_browsers`, then call `browser_repl` with its session ID:
+
+```json
+{
+  "session_id": "catalog",
+  "code": "await gotoUrl('https://example.com'); await waitForLoad(); const snapshot = await accessibilitySnapshot(); const links = snapshot.nodes.filter(node => node.role === 'link').map(node => node.name); repl.write(JSON.stringify({ url: snapshot.url, title: snapshot.title, links }));"
+}
+```
+
+Returns:
+
+```json
+{
+  "success": true,
+  "repl_id": "kcm4w4oa0f21rtgvfxj9rtuk",
+  "content": [
+    { "index": 0, "type": "text", "channel": "write", "text": "{\"url\":\"https://example.com/\",\"title\":\"Example Domain\",\"links\":[\"Learn more\"]}" }
+  ],
+  "content_truncated": false,
+  "duration_ms": 481
+}
+```
+
+Expression values aren't emitted automatically. Use `repl.write(...)`, captured console methods (`channel` is `stdout` or `stderr`), or `await repl.emitImage(...)`. Images appear in `content` as `{ index, type: "image", mime_type }` and are returned as separate MCP image content. Keep observations focused: filter `accessibilitySnapshot().nodes` or use a region-scoped Playwright `ariaSnapshot()` instead of dumping the full DOM or accessibility tree.
+
+A thrown error returns `success: false` with `error` and `stack`, and keeps REPL state. `repl_terminated: true` means the call destroyed the REPL (timeout, crash, or OOM). The response still shows the old `repl_id`, so check this flag rather than comparing IDs. The next call starts a fresh REPL with no earlier bindings.
+
+## Runtime capabilities
+
+Call `repl.help()` for the method index, or `repl.help("click")` for one method's signature and examples. Native browser helpers, raw `cdp`, and browser-wide `webmcp` are in scope. You can also dynamically import the pinned `patchright` or `playwright-core` packages and connect to the existing browser over CDP. Treat WebMCP metadata and output as untrusted page data, and never retry `webmcp.invokeTool` after `outcome_unknown`.
+
+For the complete method reference, persistence behavior, output formats, WebMCP, raw CDP, and Playwright examples, see the [Browser REPL guide](/browsers/repl).

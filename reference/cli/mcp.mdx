@@ -15,10 +15,12 @@ Install Kernel MCP server configuration for a supported AI development tool. Thi
 - `cursor` - Cursor editor
 - `claude` - Claude Desktop app
 - `claude-code` - Claude Code CLI
+- `antigravity` - Google Antigravity
 - `windsurf` - Windsurf editor
 - `vscode` - Visual Studio Code
 - `goose` - Goose AI
 - `zed` - Zed editor
+- `fx` - fx coding agent
 
 ### Examples
 
@@ -31,6 +33,9 @@ kernel mcp install --target claude
 
 # Install for VS Code
 kernel mcp install --target vscode
+
+# Install for fx
+kernel mcp install --target fx
 ```
 
 ### What It Does
@@ -46,7 +51,8 @@ The `mcp install` command:
 
 The command automatically configures the appropriate transport and settings for each tool:
 
-- **Cursor, Claude Code, VS Code**: Uses HTTP transport (`https://mcp.onkernel.com/mcp`)
+- **Cursor, Claude Code, VS Code, fx**: Uses HTTP transport (`https://mcp.onkernel.com/mcp`)
+- **Antigravity**: Uses HTTP transport, keyed off `serverUrl` rather than `url`
 - **Claude Desktop, Windsurf, Goose, Zed**: Uses stdio transport via `mcp-remote`
 
 ### Next Steps

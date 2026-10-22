@@ -6,17 +6,14 @@ Manage [Projects](/info/projects) from the CLI and scope other commands to a spe
 
 ## Scoping commands to a project
 
-Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to scope any `kernel` command to a project. The flag accepts either a **project ID** or a **project name** — names are resolved case-insensitively by listing your projects.
+Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to scope any `kernel` command to a project ID. Project names are accepted by project-management commands whose arguments say `<id-or-name>`, but not by this global request-scoping flag.
 
 ```bash
-# Scope a single command by name
-kernel browsers list --project staging
-
 # Scope by ID
 kernel browsers list --project proj_abc123
 
 # Scope via environment variable
-export KERNEL_PROJECT=staging
+export KERNEL_PROJECT=proj_abc123
 kernel apps list
 ```
 
@@ -25,8 +22,6 @@ Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenti
 <Info>
   Project-scoped API keys are already bound to a project server-side, so you don't need `--project` when using them — but if you do pass it, it must match the key's project or the request is rejected.
 </Info>
-
-If the name is ambiguous (multiple projects share it) or no match is found, the CLI returns a clear error; pass the project ID instead.
 
 ## Commands
 

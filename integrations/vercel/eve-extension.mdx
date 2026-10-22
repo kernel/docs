@@ -19,6 +19,7 @@ You can authenticate through [Vercel Connect](https://vercel.com/connect) or wit
   npx eve@latest init my-agent && cd my-agent
   ```
 - A [Kernel account](https://dashboard.onkernel.com), with either a Vercel Connect Kernel connector (recommended path below) or a Kernel API key
+- For the Connect path, **Vercel CLI `>= 58.8.0`**, which is where `--connection-method` landed. Older CLIs reject the flag.
 
 ## Setup with Vercel Connect (recommended)
 
@@ -26,7 +27,7 @@ Vercel Connect is the recommended path because:
 
 - No key touches your app, environment, or the model.
 - Each user authenticates as themselves with a one-time consent that's cached afterward.
-- Per-user identity is a good fit for Kernel's [managed auth](/auth/overview).
+- Per-user identity is a good fit for Kernel's [managed auth](/auth/managed-auth).
 
 **1. Install** the extension:
 
@@ -34,14 +35,14 @@ Vercel Connect is the recommended path because:
 pnpm add @onkernel/eve-extension
 ```
 
-**2. Create and attach the Kernel connector** in Vercel Connect. Name it `eve-extension` so the mount snippet works unedited:
+**2. Create and attach the Kernel connector** in Vercel Connect. Name it `kernel-mcp` so the mount snippet works unedited:
 
 ```bash
-vercel connect create mcp.onkernel.com --name eve-extension
-vercel connect attach mcp.onkernel.com/eve-extension
+vercel connect create kernel --name kernel-mcp --connection-method mcp
+vercel connect attach kernel/kernel-mcp
 ```
 
-You can also add it from the Vercel dashboard under **Connectors → Browse all → Kernel**. Confirm the UID with `vercel connect list`.
+You can also add it from the Vercel dashboard under [**Connectors → Browse all**](https://vercel.com/onkernel/~/connect/browse): look up "Kernel" and choose **MCP**. Confirm the UID with `vercel connect list`.
 
 **3. Mount the extension** in one line, passing the connector UID:
 
@@ -49,7 +50,7 @@ You can also add it from the Vercel dashboard under **Connectors → Browse all 
 // agent/extensions/kernel.ts
 import kernel from "@onkernel/eve-extension";
 
-export default kernel({ connect: "mcp.onkernel.com/eve-extension" });
+export default kernel({ connect: "kernel/kernel-mcp" });
 ```
 
 **4. Run it:**
@@ -60,6 +61,10 @@ npx eve dev     # or: npx eve deploy
 
 Leave `KERNEL_API_KEY` unset. The first time a user drives the browser, Eve surfaces a Connect consent prompt; they approve once and it's cached from then on, persisting across threads and sessions.
 
+<Note>
+  Connectors created before Kernel was in the registry keep working. Leave them as they are and point `connect` at the UID `vercel connect list` prints for them, e.g. `mcp.onkernel.com/eve-extension`.
+</Note>
+
 ## Included tools and skills
 
 Once mounted, the agent has the following tools, namespaced under your mount (e.g. `kernel__browser__*`; discover the exact names via `connection_search`):
@@ -67,9 +72,9 @@ Once mounted, the agent has the following tools, namespaced under your mount (e.
 - **`manage_browsers`**: create, list, get, and delete browser sessions. Returns a `session_id` and a `live_view_url` you can watch or take over.
 - **`execute_playwright_code`**: run Playwright against the live page to read, navigate, click, or type.
 - **`computer_action`**: human-like mouse, keyboard, and screenshot controls for the same session.
-- **`manage_auth_connections`**: Kernel's [managed auth](/auth/overview), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
-- **`manage_profiles`**: create and reuse browser [profiles](/auth/profiles) (persistent cookies, logins, storage).
-- **`manage_proxies`**: create and attach [proxies](/proxies/overview) (datacenter, ISP, residential, mobile) with geo-targeting.
+- **`manage_auth_connections`**: Kernel's [managed auth](/auth/managed-auth), so the agent logs into sites through a stored connection or a hosted login flow instead of typing credentials into the page.
+- **`manage_profiles`**: create and reuse browser [profiles](/browsers/profiles) (persistent cookies, logins, storage).
+- **`manage_proxies`**: create and attach [proxies](/proxies/overview) (ISP, residential, mobile) with geo-targeting.
 - **`manage_replays`**: start, stop, and list video replay recordings for a session, so you can capture what the agent did as an MP4. Requires a paid Kernel plan.
 - the **`browse` skill**: the loop the model follows to drive the browser end to end.
 
@@ -84,7 +89,7 @@ A few heavier tools are off by default to keep an autonomous agent's blast radiu
 - `browser_curl`: raw HTTP through the session.
 - `manage_credentials`: create, read, and delete stored credentials (the managed-auth flow above works without it).
 - `exec_command`: shell exec in the VM.
-- `manage_browser_pools`: manage pools of pre-warmed browsers.
+- `manage_browser_pools`: manage pools of pre-provisioned browsers.
 
 <Warning>
   The default mount has no approval gate, and its toolset can run arbitrary JS in the browser VM (`execute_playwright_code`) and reuse logged-in sessions (`manage_auth_connections`). On a shared `KERNEL_API_KEY`, every agent user effectively acts as your whole org.
@@ -150,7 +155,7 @@ Mount the extension as a directory and name the connection file `browser.ts` to 
 
 ```
 agent/extensions/kernel/
-  extension.ts             # export default kernel({ connect: "mcp.onkernel.com/eve-extension" })
+  extension.ts             # export default kernel({ connect: "kernel/kernel-mcp" })
   connections/browser.ts   # shadows the extension's "browser" connection
 ```
 
@@ -163,7 +168,7 @@ import { always } from "eve/tools/approval";
 export default defineMcpClientConnection({
   url: "https://mcp.onkernel.com/mcp",
   description: "Kernel cloud browser.",
-  auth: connect("mcp.onkernel.com/eve-extension"), // or { getToken: async () => ({ token: process.env.KERNEL_API_KEY! }) }
+  auth: connect("kernel/kernel-mcp"), // or { getToken: async () => ({ token: process.env.KERNEL_API_KEY! }) }
   tools: {
     allow: [
       "manage_browsers",
@@ -203,7 +208,7 @@ export default defineMcpClientConnection({
   <Card
     title="Managed Auth"
     icon="key"
-    href="/auth/overview"
+    href="/auth/managed-auth"
   >
     Log agents into sites without handling credentials
   </Card>
