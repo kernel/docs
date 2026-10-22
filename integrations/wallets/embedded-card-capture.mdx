@@ -15,10 +15,13 @@ use the embedded component when:
 use `action.url` instead when a hosted page is acceptable. it needs no frontend work.
 
 <Note>
-  only card entry is embeddable. visa purchases still send the cardholder to
-  the KERNEL-hosted `spend_approval` page, because visa's authentication runs
-  in its own iframe and passkey window there. mastercard purchases don't use
-  that page.
+  card enrollment and [per-purchase CVC
+  collection](/integrations/wallets/embedded-card-cvc) are embeddable.
+  alias-mode purchases on any card network require fresh CVC collection, either
+  embedded or through the hosted fallback. Visa network-token authentication
+  still uses the KERNEL-hosted `spend_approval` page with its own iframe and
+  passkey window. Network-token Mastercard purchases don't need that hosted
+  approval step.
 </Note>
 
 ## Install
