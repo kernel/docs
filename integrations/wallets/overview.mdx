@@ -5,7 +5,7 @@ description: "Connect user wallets through KERNEL's native integrations"
 
 KERNEL's native wallet integrations connect a user's payment method to vault items and expose provider-hosted connection and approval through the KERNEL api. your application works with item references, advertised operations, and outcomes instead of passing raw card details to the agent.
 
-wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. link supplies an approved credential for each purchase, a merchant-bound link pay token on supported stripe checkouts or a single-use virtual card elsewhere, that you inject through KERNEL's [`fill` api](/vaults/fill), keeping the values out of your application's injection flow and model context. agentcard uses aliases and provider-executed requests instead of `fill`.
+wallet providers supply payment material and determine approval and reuse behavior; they are not the merchant's payment processor. KERNEL's [`fill` api](/vaults/fill) injects values from supported items without passing them through your application or model. agentcard uses aliases and provider-executed requests instead of `fill`.
 
 for the platform capabilities, benefits, and end-to-end lifecycle, start with [payments on KERNEL](/browsers/payments).
 
@@ -15,43 +15,13 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 
 ## Choose a provider
 
-<CardGroup cols={2}>
-  <Card
-    title="link by stripe"
-    href="/integrations/wallets/stripe-link"
-    icon="link"
-  >
-    collect a link wallet and approve a one-use credential for a specific
-    purchase.
-  </Card>
-  <Card
-    title="Agentcard"
-    href="/integrations/wallets/agentcard"
-    icon="credit-card"
-  >
-    add users' cards to agentcard's vault. the user approves each transaction
-    with Face ID and earns points on the purchase.
-  </Card>
-</CardGroup>
+| integration | use it to | environment |
+| --- | --- | --- |
+| [KERNEL card](/integrations/wallets/kernel) | collect a user's card directly through hosted or embedded enrollment | live only |
+| [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number | live only |
+| [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout | sandbox or live, set by the agentcard credential |
 
-<Note>
-  link and agentcard identify where the credential comes from and how the
-  user approves it. choose between them based on that lifecycle, not the
-  merchant processor. only agentcard's alias handoff depends on processor-adapter coverage.
-</Note>
-
-| behavior                  | link by stripe                                            | agentcard                                                           |
-| ------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------- |
-| user eligibility          | requires a US phone number                               | —                                                                   |
-| payment-method collection | hosted `link_oauth` action                               | fully white-labeled `card_enrollment` page                          |
-| purchase authorization    | explicit `authorize` operation at the final checkout page | the user approves with Face ID                                      |
-| payment handoff           | KERNEL's `fill` api injects values without passing them through application code or model context; values enter the browser | agentcard executes the intercepted request; KERNEL replays the response |
-| reuse                     | single-use virtual card, or a merchant-bound link pay token on supported stripe checkouts | reusable card item; each checkout requires approval             |
-| environment               | live only                                                | credential-defined; customer-owned configs expose `test_mode`       |
-
-choose [link by stripe](/integrations/wallets/stripe-link) to enable users to pay with cards stored in their link wallet, each purchase is paid with a newly approved credential: a link pay token on supported stripe checkouts, or a single-use virtual card elsewhere. choose [agentcard](/integrations/wallets/agentcard) to enable users to pay with their actual cards, the same card can be used for multiple purchases and user-approval is required for each.
-
-both integrations may provide additional benefits, including card rewards and chargeback protection. review each provider’s own documentation for the most up-to-date details.
+approval, eligibility, and reuse depend on the integration and card. follow the provider guide before choosing a checkout flow.
 
 ## Checkout and processor coverage
 
@@ -98,7 +68,7 @@ has a wallet in any state, and reuse or recover the existing item.
 a card's `spec.wallet` must reference a wallet in the same vault and from the
 same provider.
 
-for provider-specific specifications and states, see [link](/integrations/wallets/stripe-link#item-reference) or [agentcard](/integrations/wallets/agentcard#item-reference).
+for provider-specific behavior, see [KERNEL card](/integrations/wallets/kernel), [link](/integrations/wallets/stripe-link#item-reference), or [agentcard](/integrations/wallets/agentcard#item-reference).
 
 ## Payment actions and recovery
 
@@ -112,9 +82,9 @@ operation; deletion is not payment recovery.
 
 ## Next step
 
-configure [link by stripe](/integrations/wallets/stripe-link) or [agentcard](/integrations/wallets/agentcard), then follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
+start with the provider guide in [choose a provider](#choose-a-provider). for a complete agent workflow using link or agentcard, follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
 
-the provider pages show the CLI commands for creating wallets and cards. once
+the provider guides include CLI commands for creating wallets and cards. once
 the card item is ready, the shared CLI flow is:
 
 ```bash CLI
