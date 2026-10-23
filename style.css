@@ -362,3 +362,10 @@ html.dark .cookbook-tag {
   width: 100% !important;
   max-width: 100% !important;
 }
+
+/* the landing page sets a frontmatter description for its meta description
+   tag but, unlike other pages, shows no subtitle under the title. mintlify
+   renders the description as a .prose div inside #header. */
+html[data-current-path="/"] #header > div.prose {
+  display: none !important;
+}
