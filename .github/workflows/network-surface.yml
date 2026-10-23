@@ -1,0 +1,19 @@
+name: Check Network Surface
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  network-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the allowlist page matches the published surface
+        run: python3 scripts/check_network_surface.py
