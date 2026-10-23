@@ -101,9 +101,16 @@ func main() {
 
 ## .gov support
 
-If your workload targets `.gov`, use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting. Kernel's default egress reaches `.gov` directly, so running without a proxy also works.
+ISP proxies can reach US `.gov` sites, though individual sites can still refuse proxy traffic. The upstream ISP provider blocks many government domains outside the US, such as `.gov.br`, `.gov.uk`, `.gov.au`, `.gov.in`, and `.gov.il`. ISP proxies don't reroute blocked destinations, so these requests fail with a `502` and the [`provider_blacklisted`](/proxies/errors#error-codes) error code. Changing the proxy's `country` doesn't help, because the provider blocks the destination for every exit IP.
 
-ISP proxies don't route `.gov` automatically today. Kernel attaches the provider that handles `.gov` to residential proxies only, so a `.gov` request from an ISP proxy falls back to the default provider, which carries some `.gov` destinations and returns a `502` on the rest.
+To reach government sites outside the US, you can:
+
+- Use a [residential proxy](/proxies/residential#gov-support) with no targeting, country-only targeting, or US state targeting. Residential proxies route blocked destinations through a compatible upstream provider.
+- Add the domains to [`bypass_hosts`](#bypass-hosts), for example `*.gov.br`, to send them through Kernel's direct egress. Direct egress uses a datacenter IP from the browser's Kernel region, so sites that only accept local IPs can still block it.
+
+<Note>
+[Stealth browsers](/browsers/bot-detection/stealth) without a `proxy_id` use a Kernel-managed ISP proxy, so the same restrictions apply. Running a stealth browser without a proxy doesn't give you direct egress. To route a stealth browser directly, set [`disable_default_proxy`](/proxies/overview#disable-default-proxy-on-stealth-browsers).
+</Note>
 
 ## Bypass hosts
 
