@@ -1,0 +1,31 @@
+---
+title: "Single Sign-On (SSO)"
+sidebarTitle: "SSO"
+description: "Sign in to Kernel with your corporate identity provider on the Enterprise plan"
+---
+
+Single sign-on (SSO) lets your team sign in to the Kernel dashboard with their corporate identity provider (IdP) instead of a Kernel email and password. SSO is included in the [Enterprise plan](/info/enterprise).
+
+Connections are configured per organization and scoped to your email domain: anyone signing in with an address at that domain is redirected to your IdP. Subdomains can be allowed if your team spans more than one. Accounts are created on first sign-in, and existing accounts with matching email addresses are linked automatically.
+
+## Supported identity providers
+
+| Protocol | Providers |
+| --- | --- |
+| SAML 2.0 | Microsoft Entra ID (formerly Azure AD), Okta Workforce, Google Workspace, or any other SAML 2.0 provider |
+| OpenID Connect | Any OIDC-compatible provider |
+
+Both service provider-initiated and IdP-initiated sign-in flows are supported for SAML connections.
+
+## User provisioning
+
+- **Just-in-time** — accounts are created the first time someone signs in through your IdP, so there's nothing to provision before your team gets started.
+- **Directory sync** (available on request) — Kernel accounts stay in sync with your IdP's directory: people are added as they join, their attributes update as they change, and they're deactivated — with their active sessions revoked — when they leave. Supported for Microsoft Entra ID, Okta, Google Workspace, and other directory providers.
+
+## MFA
+
+Your IdP's multi-factor policy applies to SSO sign-ins. Users can also add a TOTP second factor on their Kernel account.
+
+## Getting started
+
+Setting up SSO is a short metadata exchange between Kernel and your IT team: Kernel shares the reply URL and entity ID for your IdP's SAML application (or the parameters your provider needs for OIDC), and your team shares your IdP's federation metadata. To scope it for your organization, [contact sales](/info/contact-sales).
