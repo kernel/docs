@@ -1,0 +1,31 @@
+---
+title: "Single Sign-On (SSO)"
+sidebarTitle: "SSO"
+description: "Sign in to Kernel with your corporate identity provider on the Enterprise plan"
+---
+
+Single sign-on (SSO) lets your team sign in to the Kernel dashboard with their corporate identity provider (IdP) instead of a Kernel email and password. SSO is included in the [Enterprise plan](/info/enterprise).
+
+Connections are configured per organization and scoped to your email domain: anyone signing in with an address at that domain is redirected to your IdP. Accounts are created on first sign-in, and existing accounts at the domain are linked automatically.
+
+Kernel's SSO runs on [Clerk](https://clerk.com). For protocol details, claim mappings, and per-provider setup walkthroughs, refer to [Clerk's enterprise SSO documentation](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/overview).
+
+## Supported identity providers
+
+| Protocol | Providers |
+| --- | --- |
+| SAML 2.0 | [Microsoft Entra ID](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/saml/azure) (formerly Azure AD), [Okta Workforce](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/saml/okta), [Google Workspace](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/saml/google), or [any other SAML 2.0 provider](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/saml/custom-provider) |
+| OpenID Connect | [Any OIDC-compatible provider](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/oidc/custom-provider) |
+
+## User provisioning
+
+- **Just-in-time** — accounts are created the first time someone signs in through your IdP, so there's nothing to provision before your team gets started.
+- **SCIM directory sync** (available on request) — [Clerk's Directory Sync](https://clerk.com/docs/guides/configure/auth-strategies/enterprise-connections/directory-sync) keeps Kernel accounts in sync with your IdP directory: accounts are created as people join, updated as their attributes change, and deactivated — revoking their active sessions — when they leave. Works with Microsoft Entra ID, Okta, and any provider that supports SCIM 2.0; Google Workspace syncs through its Admin SDK.
+
+## MFA
+
+Your IdP's multi-factor policy applies to SSO sign-ins. Users can also add a TOTP second factor on their Kernel account.
+
+## Getting started
+
+Setting up SSO is a short metadata exchange between Kernel and your IT team — reply URLs, entity IDs, and certificates for SAML, or a discovery URL for OIDC. To scope it for your organization, [contact sales](/info/contact-sales).
