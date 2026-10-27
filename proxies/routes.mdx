@@ -1,0 +1,72 @@
+---
+title: "Per-Host Proxy Routes"
+description: "Send selected browser destinations through different proxies"
+---
+
+Use `network.proxy_routes` when a browser needs a different proxy for specific destination hosts. Create a proxy configuration first, then choose it by ID or name for each route. Hosts that don't match a route use the browser's top-level `proxy` setting (or the browser default if you omit `proxy`).
+
+## Configure routes when creating a browser
+
+This example sends requests to `catalog.example.com` and subdomains of `partners.example.com` through a datacenter proxy. Other requests use direct egress.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const routeProxy = await kernel.proxies.create({ type: 'datacenter' });
+
+const browser = await kernel.browsers.create({
+  proxy: { mode: 'direct' },
+  network: {
+    proxy_routes: [
+      {
+        hosts: ['catalog.example.com', '*.partners.example.com'],
+        proxy: { id: routeProxy.id },
+      },
+    ],
+  },
+});
+
+console.log(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+route_proxy = kernel.proxies.create(type="datacenter")
+
+browser = kernel.browsers.create(
+    proxy={"mode": "direct"},
+    network={
+        "proxy_routes": [
+            {
+                "hosts": ["catalog.example.com", "*.partners.example.com"],
+                "proxy": {"id": route_proxy.id},
+            }
+        ]
+    },
+)
+
+print(browser.session_id)
+```
+</CodeGroup>
+
+You can use `proxy: { name: "..." }` in a route instead of an ID. The name must resolve to exactly one active proxy in the browser's project; use an ID when names might be ambiguous. A route can't select direct egress—set the top-level `proxy` to `{ mode: "direct" }` for unmatched hosts instead.
+
+Routes take effect after browser setup. A `start_url` and other setup traffic use the top-level proxy, even if their hosts match a route.
+
+## Host matching and limits
+
+- Each route has 1–50 hosts, and a browser can have up to 10 routes.
+- Use exact hostnames or a leading wildcard such as `*.partners.example.com`. A wildcard matches subdomains, not `partners.example.com` itself. Add both patterns if you need both.
+- Matching ignores ports. An exact hostname wins over a wildcard; among wildcards, the longer matching suffix wins. Route order doesn't affect the result.
+- A host pattern can appear in only one route. Route hosts can't overlap with explicitly configured `network.private_hosts` entries.
+- If a route's proxy becomes unavailable, requests to matching hosts fail rather than falling back to the top-level proxy.
+
+`network.proxy_routes` works on browsers created through `POST /browsers`, not browser pools. You can't change the routes after creating a browser.
+
+<Note>
+To reach a private service through a VPN or tunnel inside the browser, use [`network.private_hosts`](/browsers/private-networking). Unlike `proxy_routes`, it sends matching traffic through the browser session's own network, not through a selected proxy. A proxy's [`bypass_hosts`](/proxies/overview#bypass-hosts) instead bypasses that proxy for Kernel-managed direct egress.
+</Note>

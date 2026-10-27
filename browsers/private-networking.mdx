@@ -8,7 +8,7 @@ Use `network.private_hosts` when a browser session joins a VPN or tunnel and mus
 This is useful for services reachable through Tailscale, a corporate VPN, or another tunnel running inside the browser session.
 
 <Info>
-`network.private_hosts` is different from a proxy's [`bypass_hosts`](/proxies/overview#bypass-hosts). Proxy bypass rules choose between your upstream proxy and Kernel-managed direct egress. Private hosts bypass Kernel-managed egress so traffic can follow routes inside the browser session, including VPN and tunnel routes.
+`network.private_hosts` is different from [`network.proxy_routes`](/proxies/routes), which sends selected hosts through a chosen proxy, and a proxy's [`bypass_hosts`](/proxies/overview#bypass-hosts), which chooses between that proxy and Kernel-managed direct egress. Private hosts bypass Kernel-managed egress so traffic can follow routes inside the browser session, including VPN and tunnel routes.
 </Info>
 
 ## Configure a browser
