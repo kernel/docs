@@ -60,6 +60,40 @@ Example:
 https://api.onkernel.com/browser/live/<TOKEN>?readOnly=true
 ```
 
+## Read-only and control URLs
+
+To share the live view with someone who should only watch, or to hand out access that works only for the live view, create a live view URL with a scope:
+
+- `read` shows the browser without accepting input.
+- `control` lets the viewer drive the browser through the live view.
+
+Both grant access to the live view only. Create a new URL for each person or page view, and set `ttl_seconds` so that a shared URL stops working after a set time.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const liveView = await kernel.browsers.liveView.create(browser.session_id, {
+  scope: 'read',
+  ttl_seconds: 3600,
+});
+console.log(liveView.url, liveView.expires_at);
+```
+
+```python Python
+live_view = kernel.browsers.live_view.create(
+    browser.session_id,
+    scope="read",
+    ttl_seconds=3600,
+)
+print(live_view.url, live_view.expires_at)
+```
+</CodeGroup>
+
+`scope` defaults to `read`. Without `ttl_seconds`, the URL stays valid until the browser is deleted, and `expires_at` is omitted. For a browser acquired from a [pool](/browsers/pools), the URL stops working when you release the browser. URLs can't be revoked before then, so treat them as credentials.
+
+<Info>
+    Read-only URLs need a recent browser image; on older images they don't connect. Live view URLs are in early access; contact support to enable them for your organization.
+</Info>
+
 ## Embedding in an iframe
 
 The live view URL can be embedded in an iframe to integrate the browser view into your own application or dashboard.
@@ -203,4 +237,4 @@ _ = browser
 
 ## URL lifetime
 
-`browser_live_view_url` becomes invalid once the browser is [deleted](/browsers/termination) manually or via timeout.
+`browser_live_view_url` becomes invalid once the browser is [deleted](/browsers/termination) manually or via timeout. URLs created with a scope also expire after `ttl_seconds` when you set it.
