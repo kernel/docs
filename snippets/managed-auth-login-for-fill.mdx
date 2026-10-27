@@ -1,0 +1,29 @@
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel();
+const auth = await kernel.auth.connections.create({
+  domain: "github.com",
+  profile_name: "user-12345-github",
+});
+const login = await kernel.auth.connections.login(auth.id);
+// Hand login.hosted_url, or login.id and login.handoff_code, to the user
+// and wait for the login to finish before continuing.
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+auth = kernel.auth.connections.create(
+    domain="github.com",
+    profile_name="user-12345-github",
+)
+login = kernel.auth.connections.login(auth.id)
+# Hand login.hosted_url, or login.id and login.handoff_code, to the user
+# and wait for the login to finish before continuing.
+```
+
+</CodeGroup>

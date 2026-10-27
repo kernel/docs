@@ -29,20 +29,21 @@ export const PricingCalculator = () => {
     const handleBrowserTypeChange = (type) => {
         hasInteracted.current = true;
         setBrowserType(type);
-        if (type === 'gpu' && plan !== 'startup') {
+        if (type === 'gpu' && plan !== 'startup' && plan !== 'enterprise') {
             setPlan('startup');
         }
     };
 
     const handlePlanChange = (newPlan) => {
         hasInteracted.current = true;
-        if (browserType === 'gpu' && newPlan !== 'startup') {
+        if (browserType === 'gpu' && newPlan !== 'startup' && newPlan !== 'enterprise') {
             return;
         }
         setPlan(newPlan);
     };
 
-    var price = planPrices[plan];
+    var isEnterprise = plan === 'enterprise';
+    var price = isEnterprise ? 0 : planPrices[plan];
     var multiplier = browserMultipliers[browserType];
     var usageCost = usagePrices * multiplier * numSessions * avgSessionLength;
 
@@ -89,9 +90,10 @@ export const PricingCalculator = () => {
                 <div style={rowStyle}>
                     <label style={labelStyle}>Plan</label>
                     <select style={selectStyle} value={plan} onChange={(e) => handlePlanChange(e.target.value)}>
-                        <option value="free">Free</option>
+                        <option value="free">Developer</option>
                         <option value="hobbyist">Hobbyist</option>
-                        <option value="startup">Startup</option>
+                        <option value="startup">Start-Up</option>
+                        <option value="enterprise">Enterprise</option>
                     </select>
                 </div>
                 <div style={rowStyle}>
@@ -110,16 +112,23 @@ export const PricingCalculator = () => {
                 <div style={rowStyle}>
                     <span style={{ width: '100%', fontSize: '0.8rem', fontStyle: 'italic' }}>
                         ${(usagePrices * multiplier).toFixed(8)}/second
-                        {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem' }}>(Startup tier required)</span>}
+                        {browserType === 'gpu' && <span style={{ marginLeft: '0.5rem' }}>(Start-Up or Enterprise plan required)</span>}
                     </span>
                 </div>
             </Card>
-            <Card title="Price" icon="circle-dollar">
-                <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
-                <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
-            </Card>
+            {isEnterprise ? (
+                <Card title="Price" icon="circle-dollar">
+                    <p style={{ marginTop: 0 }}>Enterprise pricing is custom, with custom concurrency, rate limits, support, and compliance terms.</p>
+                    <p style={{ marginBottom: 0 }}><a href="https://www.kernel.sh/docs/info/contact-sales">Contact the KERNEL team</a> for a quote.</p>
+                </Card>
+            ) : (
+                <Card title="Price" icon="circle-dollar">
+                    <div style={rowStyle}><span style={labelStyle}>Base plan:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${planPrices[plan].toFixed(2)}</span></div>
+                    <div style={rowStyle}><span style={labelStyle}>Usage:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>+${usageCost.toFixed(2)}</span></div>
+                    <div style={rowStyle}><span style={labelStyle}>Free credits:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>-${includedUsageCredits.toFixed(2)}</span></div>
+                    <div style={rowStyle}><span style={labelStyle}>Total cost:</span> <span style={{ background: flash ? '#CAB168' : 'transparent', transition: 'background 0.5s ease', marginLeft: 'auto' }}>${price.toFixed(2)}</span></div>
+                </Card>
+            )}
         </Columns>
     );
 };

@@ -4,7 +4,7 @@ title: "Proxy Errors"
 
 When a request cannot be completed at the proxy layer, Kernel serves a branded error page and sets the `X-Kernel-Proxy-Error` response header to a typed code.
 
-The header is set on every branded proxy-layer error response, including WebSocket and subresource requests where the page body never renders. The status is always `502`, including for timeouts, so use the header rather than the status to decide what went wrong.
+The header is set on every branded proxy-layer error response, including WebSocket and subresource requests where the page body never renders. The status is `502` for every proxy-layer failure, including timeouts, and `403` when the session's [egress allowlist](/browsers/egress-allowlists) blocks the destination. When Chromium exposes the response, use the header rather than the status to decide what went wrong. Cross-origin requests can fail CORS or opaque response blocking (ORB) checks before page JavaScript can inspect the response; see [blocked destinations](/browsers/egress-allowlists#when-a-destination-is-blocked).
 
 ## Error codes
 
@@ -16,11 +16,13 @@ The header is set on every branded proxy-layer error response, including WebSock
 | `upstream_dns_failure` | The upstream proxy host could not be resolved. | Yes |
 | `origin_tls_timeout` | The proxy reached the destination, but the destination did not complete its TLS handshake in time. | Yes |
 | `restricted_route_unavailable` | The destination requires a specialized egress route and Kernel could not build one. Kernel will not fall back to a provider known to reject the destination. | Yes, except on `.gov` destinations. There, create a new residential proxy with no targeting, country-only targeting, or a U.S. state, confirm it with [`POST /proxies/{id}/check`](https://kernel.sh/docs/api-reference/proxies/check-proxy-health), then use it for the session. |
+| `destination_route_unavailable` | The destination matches a per-host proxy route, but that route's proxy is unavailable, for example because it was deleted. Kernel does not fall back to the session proxy or a direct connection. | No. Routes cannot be changed on a running browser, so create a new browser whose route uses an available proxy, or a new browser without the route. If the route's proxy still exists, contact support with the error code. |
 | `proxy_unavailable` | A failure inside Kernel's own proxy layer, not your automation or the destination. | Yes |
-| `origin_response_incomplete` | The destination closed the connection before sending a complete response. | Only if safe. The destination may have received the request, so retry only when repeating the action cannot cause duplicate changes. |
+| `origin_response_incomplete` | The connection closed or stopped responding before Kernel received response headers. | Only if safe. The destination may have received the request, so retry only when repeating the action cannot cause duplicate changes. |
 | `provider_rejected` | The upstream proxy provider rejected the request before the destination connection was established. | No. Try a different proxy or proxy type, and check the credentials on a [custom proxy](/proxies/custom). |
 | `provider_blacklisted` | The upstream proxy provider blocks this destination. | No. Try a different proxy or proxy type, or disable the proxy for this destination. |
 | `destination_blocked` | Kernel policy blocks connections to internal and private addresses. | No. Use a public destination address. |
+| `network_policy_denied` | The destination isn't in the session's [egress allowlist](/browsers/egress-allowlists), so Kernel didn't connect to it. The status is `403`. | No. If the session needs the destination, add it to `network.allowed_hosts` from your own code. |
 
 ## Recovering from a proxy error
 
@@ -53,8 +55,12 @@ async function navigate(page, url, attempts = 3) {
 
 `origin_response_incomplete` is deliberately absent from that set. The destination may have already acted on the request, so retrying it automatically can duplicate a submission.
 
+If the connection drops after response headers reach the browser, you may get a truncated response or a browser network error. Kernel can't change the status or add `X-Kernel-Proxy-Error` at that point.
+
 ## Observing proxy errors after the fact
 
-Proxy failures are also reported as `proxy_error` [browser telemetry](/browsers/telemetry/overview) events in the `network` category. Use the header to recover in the moment, and telemetry to attribute failures per session and per URL afterwards.
+With network [browser telemetry](/browsers/telemetry/overview) enabled, the collector classifies branded `502` or `403` responses exposed in Chromium's `Network.responseReceived` as `proxy_error` events. These events aren't a complete record of proxy refusals: cross-origin requests blocked by CORS or ORB can appear only as `network_loading_failed`, without the proxy status or header. WebSocket handshake failures and bare CONNECT refusals on ports other than 443 aren't classified as `proxy_error` either.
 
-The telemetry `code` does not cover every code above. `origin_response_incomplete` is not reported as a `proxy_error` event, and a header value the browser image does not recognize is reported as `unknown`, with the original value in `raw_code`. Read the header when you need the exact code.
+Use the header when it's available to recover in the moment, and correlate network events by request and URL when investigating failures. A generic loading error alone doesn't identify a proxy refusal.
+
+A header value the browser image does not recognize is reported as `unknown`, with the original value in `raw_code`. Read the header when you need the exact code.

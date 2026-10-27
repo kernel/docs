@@ -1,0 +1,35 @@
+---
+title: "Codex"
+description: "Give OpenAI's Codex a KERNEL browser"
+---
+
+<Note>
+This is a starter guide. A full walkthrough is coming.
+</Note>
+
+[Codex](https://developers.openai.com/codex) is OpenAI's coding agent. You can give it KERNEL know-how with the KERNEL plugin, and KERNEL browsers as tools with the KERNEL MCP server. Use either or both.
+
+## Install the KERNEL plugin
+
+The plugin adds [Agent Skills](/skills/overview) for the KERNEL CLI and SDKs, so Codex knows how to create and drive browsers.
+
+```bash
+codex plugin marketplace add kernel/skills
+codex plugin add kernel-cli@kernel
+codex plugin add kernel-sdks@kernel
+```
+
+You can also find the KERNEL plugins under **Plugins** in the ChatGPT desktop app after adding the marketplace.
+
+## Connect the MCP server
+
+The [KERNEL MCP server](/reference/mcp-server) gives Codex tools to create browsers, run Playwright code, take screenshots, and more.
+
+```bash
+codex mcp add kernel --url https://mcp.onkernel.com/mcp
+codex mcp login kernel
+```
+
+`codex mcp login` opens your browser so you can authorize access to your KERNEL account. To use an API key instead, see [MCP authentication](/reference/mcp-server/authentication).
+
+Start a Codex session and run `/mcp` to confirm the KERNEL tools are available.

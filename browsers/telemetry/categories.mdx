@@ -1,5 +1,6 @@
 ---
 title: "Telemetry Categories"
+sidebarTitle: "Categories"
 description: "The categories a browser session can capture, what each contains, and their cost"
 ---
 
@@ -17,7 +18,7 @@ These categories report on the session itself rather than page content.
 | `platform` | Calls that manage the VM rather than drive the browser: recording lifecycle, filesystem, process execution, log streaming, scale-to-zero, telemetry, display and browser configuration, and extension uploads | `platform_api_call` |
 | `connection` | CDP and live view connect/disconnect activity | `cdp_connect`, `cdp_disconnect`, `live_view_connect`, `live_view_disconnect` |
 | `system` | VM-level failures | `system_oom_kill`, `service_crashed` |
-| `captcha` | Solver task lifecycle and visible challenge outcomes | `captcha_solve_started`, `captcha_solve_result`, `captcha_challenge_result` |
+| `captcha` | Solver task and challenge outcomes | `captcha_solve_started`, `captcha_solve_result`, `captcha_challenge_result` |
 
 `control` answers "what did my agent do." `platform` is mostly Kernel acting on the VM on your behalf - saving a profile, capturing a replay, polling a recorder - so it is off by default even though the rest of this group is on. Enable it when you are debugging a profile save, a replay, or a session-setup step rather than the agent itself.
 
@@ -74,41 +75,69 @@ browser = kernel.browsers.create(
 
 Exclusion affects telemetry only; the commands still reach the browser. On `cdp_disconnect`, `telemetry_excluded` counts configured exclusions. Treat a nonzero `telemetry_dropped` as a telemetry-loss signal rather than using it to reconstruct the missing command sequence; the browser commands themselves still reach the browser.
 
-### Correlate captcha tasks and challenges
+### Captcha event fields
 
-A visible captcha challenge can require multiple solver tasks. When the identifiers are present, use `task_id` to pair a `captcha_solve_started` event with its terminal `captcha_solve_result`, and use `challenge_id` to group the tasks for the same visible challenge. A `challenge_id` can continue across a page reload when the same challenge episode continues; it doesn't indicate task order or completion.
+A visible captcha challenge can require multiple solver tasks. These events report task progress and challenge outcomes separately:
 
 | Event type | Scope | Meaning |
 | --- | --- | --- |
 | `captcha_solve_started` | Solver task | The solver accepted a task. This doesn't mean a solve is currently in flight. |
 | `captcha_solve_result` | Solver task | A task ended with `success`, `failure`, `timeout`, or `abandoned`. A successful task means the solver returned a usable solution, not that the visible challenge cleared. |
-| `captcha_challenge_result` | Visible challenge | When emitted, the challenge reached its overall `solved`, `failure`, `timeout`, or `abandoned` outcome. |
+| `captcha_challenge_result` | Challenge | An observed challenge reached an outcome, or a successful token task produced an inferred `solved` result without page observation. |
 
-Challenge results are currently emitted for visible reCAPTCHA v2, hCaptcha, and press-and-hold challenges. Other captcha types can emit task events without a challenge result. Telemetry delivery is best-effort and isn't ordered: a start can arrive after its result, and any event can be absent. When you need a challenge-level outcome, wait for a bounded interval and fall back to available task results and the current page state.
+Every captcha event has `ts` (Unix microseconds), `type`, `category: captcha`, and `source`. The `data` payload holds the event details, and optional `truncated: true` means the payload was cut to the size limit.
 
-What each `captcha_type` emits today:
+| Classification field | Values | Meaning |
+| --- | --- | --- |
+| `captcha_provider` | `hcaptcha`, `recaptcha_v2`, `recaptcha_v3`, `turnstile`, `geetest`, `arkose`, `human`, `other` | Captcha product. FunCaptcha uses `arkose`, press-and-hold uses `human`, and Enterprise reCAPTCHA uses its version bucket. |
+| `task_kind` | `token`, `image_challenge`, `press_and_hold` | A `token` answers the whole widget; `image_challenge` completes one round that may be followed by another; `press_and_hold` is one attempt. Task events only; can be absent when the task can't be classified. |
+| `captcha_type` | `hcaptcha`, `recaptcha_v2`, `recaptcha_v3`, `turnstile`, `geetest`, `press_and_hold`, `other` | Deprecated classification, still emitted on every captcha event. |
 
-| `captcha_type` | Task events | `captcha_challenge_result` | `challenge_id` on task events |
+Use `captcha_provider` for the product and `task_kind` for what a task result means. `captcha_type` values are frozen: `other` covers Arkose, unclassified tasks, and some image rounds; press-and-hold reports `press_and_hold`. An image round can also report `hcaptcha`, so don't infer its task kind from `captcha_type`. Older events may lack the new fields, so fall back to `captcha_type` when reading stored events.
+
+| Other `data` field | Events | Meaning |
+| --- | --- | --- |
+| `task_id` | Task start and result; inferred challenge result | Opaque task identifier. Pair task events on it. |
+| `challenge_id` | Task start and result when available; observed challenge result | Opaque identifier for one visible challenge. It can span tasks or continue across a reload. |
+| `status` | Task and challenge results | Task: `success`, `failure`, `timeout`, `abandoned`. Challenge: `solved`, `failure`, `timeout`, `abandoned`. |
+| `duration_ms` | Task and challenge results | Wall-clock duration of the task or challenge. An inferred result uses its task's duration. |
+| `website_host` | All three | Host of the page; can be empty when a task has no page URL. |
+| `website_path` | All three | Path of the page, excluding the query string. |
+| `error_code` | Task result | Solver-specific failure code; absent on success. |
+| `inferred` | Challenge result | True when a successful token task produced the result without page observation; absent on observed results. |
+
+### What each captcha provider emits
+
+| `captcha_provider` | `task_kind` on classified tasks | Challenge result | `challenge_id` on emitted task events |
 | --- | --- | --- | --- |
-| `hcaptcha` | Yes | Yes | Yes |
-| `press_and_hold` | Yes | Yes | Yes |
-| `recaptcha_v2` | Yes | Yes | Can be absent |
-| `turnstile` | Yes | No | Can be absent |
-| `geetest` | Yes | No | Can be absent |
-| `recaptcha_v3` | Yes | No | Can be absent |
-| `other` | Yes | No | Can be absent |
+| `hcaptcha` | `token` or `image_challenge` | Observed | In-browser image rounds only |
+| `recaptcha_v2` | `token` or `image_challenge` | Observed | No |
+| `human` | `press_and_hold` | Observed | Yes |
+| `turnstile` | `token` | None | No |
+| `geetest` | `token` | Inferred on successful token tasks | No |
+| `recaptcha_v3` | `token` | Inferred on successful token tasks | No |
+| `arkose` | `token` or `image_challenge` | Inferred on successful token tasks | No |
+| `other` | `image_challenge` or absent | None | No |
 
-Challenge results for `recaptcha_v2` and `hcaptcha` report `solved` or `abandoned`. `failure` and `timeout` are reported for `press_and_hold`, whose solver has an explicit attempt budget.
+An observed result covers the visible challenge across its solver tasks. An inferred result reports a returned token without observing the page. Each eligible successful `token` task can produce one, so a challenge may have several inferred results. Failed tasks and image rounds don't produce inferred results. Turnstile tokens don't produce challenge results.
 
-Task events carry a `task_id`, but not all of them carry a `challenge_id`. Kernel sets `challenge_id` from tracking the challenge widget in the page - the same tracking that produces `captcha_challenge_result` - so a task the automatic solver runs without it reports a `task_id` only. Those task events can't be joined to a challenge result for the same page, even when one is emitted. Pair a start with its result on `task_id`, and use `challenge_id` for grouping only when it's there.
+### Correlate captcha tasks and challenges
 
-Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. Challenge duration covers every solver attempt from when the challenge appeared until its terminal outcome.
+Use `task_id` to pair a `captcha_solve_started` event with its `captcha_solve_result`. Use `challenge_id` to group tasks for a visible challenge when it's present. It can continue across a page reload; it doesn't indicate task order or completion.
 
-Challenge outcomes have these meanings:
+Most solver tasks identify an individual solve, so they have `task_id` but no `challenge_id`. In-browser hCaptcha image rounds and press-and-hold attempts also identify the visible challenge and carry `challenge_id`. This means an observed `recaptcha_v2` result can't be joined to its task events, even when both arrive. Join an inferred result on its `task_id` instead; it has no `challenge_id`.
+
+Telemetry delivery is best-effort and unordered: a start can arrive after its result, and any event can be absent. When you need a challenge outcome, wait for a bounded interval, then check available task results and the current page state.
+
+### Captcha challenge outcomes
+
+Observed `recaptcha_v2` and `hcaptcha` results report `solved` or `abandoned`. `human` can also report `failure` when its solve budget is exhausted. Inferred results report `solved` without observing the page.
+
+Use each result event's `duration_ms` as the authoritative duration rather than calculating it from event timestamps. An observed challenge's duration covers every solver attempt from when it appeared until its terminal outcome.
 
 | Status | Meaning |
 | --- | --- |
-| `solved` | The page observed the challenge clear after a solver attempt. This doesn't prove the site accepted the solution or that the guarded action succeeded. |
+| `solved` | The page observed the challenge clear, or an inferred result reports a token without page observation. Neither proves the site accepted the solution or that the guarded action succeeded. |
 | `failure` | A terminal solver failure occurred, or all attempts ended while the challenge remained. |
 | `timeout` | The challenge-level wait budget expired while the challenge remained. |
 | `abandoned` | Observation ended without an attributable terminal challenge outcome. This includes a dismissed widget, a page unload, or a token appearing while multiple challenges from the same provider are open. In the last case, a task can report `success` while the challenge with the same `challenge_id` reports `abandoned`. |
@@ -169,7 +198,7 @@ Telemetry is off by default. The default set isn't limited to session metadata: 
 | `interaction` | Text of clicked elements and typed keys, which can include personal data entered into forms. |
 | `screenshot` | A full rendered image of the page - the broadest exposure, capturing anything visible on screen. |
 | `control` | The source you submit to the Playwright code-execution endpoint, on the `code` field of `api_call`, capped at 8 KB and marked with `...[truncated]` when cut. Whatever your script embeds is captured with it, so a literal password or token in the snippet is captured too. `cdp_command` carries sanitized arguments such as the method and phase, coordinates, counts, flags, and named keys such as `Enter` and `Tab`. Typed text, file paths, scripts, templates, dialog input, and autofill values aren't captured; navigation commands retain only the URL scheme, not the host, path, query, or fragment. |
-| `captcha` | Captcha type, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
+| `captcha` | Captcha provider and task kind, task and challenge outcomes and durations, and opaque `task_id` and `challenge_id` values. It can include the host and path of the page where a task ran or a challenge appeared; the query string is excluded. Failed tasks can include a solver-specific error code. |
 | `platform`, `connection`, `system`, `monitor` | Session and VM metadata only (VM-management calls, connection and health events). No page content. |
 
 Captured events are persisted and can be replayed by [resuming the stream](/browsers/telemetry/streaming#resuming-after-a-disconnect), so this sensitivity applies to the data at rest, not just the live stream. Events are retained for 30 days, then expired (see [Retention](/browsers/telemetry/overview#retention)). Treat captured telemetry - and anywhere you forward or store it - with the same care as the underlying content. For how Kernel encrypts, retains, and processes data overall, see [Security](/security) and the [Data Processing Addendum](/dpa).
