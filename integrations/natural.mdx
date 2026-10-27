@@ -16,11 +16,21 @@ There's nothing to install or enable on the Kernel side. Natural works through a
 
 Use Natural when:
 
+- Your agent needs to do more with money than check out, like paying bills or paying people. See [beyond checkout](#beyond-checkout).
 - Your users already keep cards on Natural, or you want one place to manage agent spending, limits, and approvals.
 - Your agent needs to check out on arbitrary merchant sites, not just ones with a native wallet integration.
 - You want the user to approve each purchase (merchant, amount, and which payment hosts can receive the card) from their phone before the agent pays.
 
-If you'd rather keep payments inside Kernel's vault and [`fill`](/vaults/fill) API, see the native [wallet integrations](/integrations/wallets/overview) instead.
+## Beyond checkout
+
+Checkout is only part of what Natural does. Each of your users gets a full Natural account with its own [wallet](https://docs.natural.com/guides/flows/wallets-and-balances). Once a user connects their account to your agent, you can use the same API to move money for them outside the browser:
+
+- **Pay bills.** [Send ACH, realtime, or wire payments](https://docs.natural.com/guides/payments/pay-over-rail) to people and businesses that aren't on Natural.
+- **Pay friends.** [Send a payment](https://docs.natural.com/guides/flows/send-money) to anyone by email, phone number, or `@handle`.
+- **Request money.** [Collect from anyone](https://docs.natural.com/guides/flows/collect-money) with a payment link that Natural delivers for you.
+- **Hold funds.** Fund the wallet from a linked bank account and let your agent spend from it within [limits](https://docs.natural.com/guides/controls/limits) the user sets.
+
+This lets one agent do both jobs: check out in a Kernel browser, and handle the payments that don't happen on a website. To act on a user's account, connect them as a customer with [Natural Connect](https://docs.natural.com/guides/flows/build-platform).
 
 ## How it works
 
