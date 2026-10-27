@@ -13,6 +13,8 @@ payments. sensitive values aren't returned by the vault api.
 
 use KERNEL's [`fill` api](/vaults/fill) to safely inject stored values from supported items into browser fields without passing the values through your application's injection code or model context. your controller supplies references and selectors; KERNEL writes the values and returns outcomes, not the values. invoke `fill` when the item advertises it in `available_operations`.
 
+credential items can also hold [passkeys](/vaults/passkeys). an attached browser registers and signs in with them while KERNEL signs on its servers, so the private key never enters the browser.
+
 for authentication workflows where your application or agent controls
 navigation and submission, start with [Fill from Vault](/auth/fill-from-vault).
 
