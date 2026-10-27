@@ -1,0 +1,156 @@
+---
+title: "Natural"
+description: "Let your browser agent pay at checkout with a user's saved card through Natural, without seeing the card number"
+icon: "wallet"
+---
+
+[Natural](https://natural.com) is a payments platform for AI agents. If your agent shops in a Kernel browser and you want it to complete the purchase, Natural lets it pay with a card the user saved on Natural, while the real card number never reaches your agent, your servers, or Kernel.
+
+There's nothing to install or enable on the Kernel side. Natural works through a [custom proxy](/proxies/custom): your agent types a stand-in card at checkout, and Natural's proxy swaps in the real card on its way to the merchant's payment processor.
+
+<Note>
+  This page gives you the shape of the integration. For the full walkthrough, including approval polling, error handling, and Connect customers, see [Kernel in Natural's docs](https://docs.natural.com/guides/integrations/kernel).
+</Note>
+
+## When to use Natural
+
+Use Natural when:
+
+- Your users already keep cards on Natural, or you want one place to manage agent spending, limits, and approvals.
+- Your agent needs to check out on arbitrary merchant sites, not just ones with a native wallet integration.
+- You want the user to approve each purchase (merchant, amount, and which payment hosts can receive the card) from their phone before the agent pays.
+
+If you'd rather keep payments inside Kernel's vault and [`fill`](/vaults/fill) API, see the native [wallet integrations](/integrations/wallets/overview) instead.
+
+## How it works
+
+1. **Shop.** Your agent browses in a Kernel browser and stops at the merchant's payment step.
+2. **Request approval.** Your backend opens a Natural card session with the purchase details and the processor host that receives the card (for example, `api.stripe.com`). Natural returns an `approvalUrl` you send to the user.
+3. **Claim.** Once the user approves, your backend claims the session. Natural returns a stand-in card and a one-purchase proxy login.
+4. **Swap the proxy.** You create a Kernel custom proxy from the claim and switch the running browser onto it. The cart and checkout state stay intact.
+5. **Pay.** Your agent fills in the stand-in card and submits. Natural's proxy swaps in the real card only for the approved hosts.
+6. **Clean up.** You switch the browser back to Kernel's default egress and delete the proxy.
+
+| Party | Sees |
+| --- | --- |
+| Your agent, your servers, Kernel | The stand-in card and a proxy login that expire after the purchase |
+| Natural's proxy | The real card, sent only to the approved hosts |
+| The merchant's payment processor | The real card, as in any checkout |
+
+## Before you start
+
+- A [Natural account](https://natural.com/signup) and an [agent key](https://docs.natural.com/guides/concepts/agent-keys) with the `saved_cards.use` scope, set as `NATURAL_API_KEY`.
+- A user with a [saved card](https://docs.natural.com/guides/concepts/saved-cards) on Natural.
+- A Kernel API key set as `KERNEL_API_KEY`. Custom proxies are available on Kernel's [Start-Up and Enterprise plans](/info/pricing).
+
+## Route the browser through Natural
+
+After your backend [opens and claims a card session](https://docs.natural.com/guides/concepts/browser-tokens), create a Kernel proxy from the claim and swap it onto the browser your agent is already using. Create a new proxy for every claim: the login changes between claims, and a Kernel proxy can't be edited after you create it.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel();
+
+// `claim` is the response from Natural's POST /card-sessions/{sessionId}/claim
+const caBundle = await fetch(claim.proxy.caBundleUrl).then((r) => r.text());
+
+const proxy = await kernel.proxies.create({
+  type: "custom",
+  name: `natural-${session.sessionId}`,
+  protocol: claim.proxy.protocol,
+  config: {
+    host: claim.proxy.host,
+    port: claim.proxy.port,
+    username: claim.proxy.username,
+    password: claim.proxy.password,
+    ca_bundle: caBundle,
+  },
+});
+
+await kernel.browsers.update(kernelBrowser.session_id, { proxy: { id: proxy.id } });
+
+try {
+  // Your agent fills in claim.card, claim.card.holderName, and
+  // claim.billingAddress on the payment page, then submits once.
+} finally {
+  await kernel.browsers.update(kernelBrowser.session_id, { proxy: { mode: "default" } });
+  await kernel.proxies.delete(proxy.id);
+}
+```
+
+```python Python
+import httpx
+from kernel import Kernel
+
+kernel = Kernel()
+
+# `claim` is the response from Natural's POST /card-sessions/{sessionId}/claim
+ca_bundle = httpx.get(claim["proxy"]["caBundleUrl"]).text
+
+proxy = kernel.proxies.create(
+    type="custom",
+    name=f"natural-{session['sessionId']}",
+    protocol=claim["proxy"]["protocol"],
+    config={
+        "host": claim["proxy"]["host"],
+        "port": claim["proxy"]["port"],
+        "username": claim["proxy"]["username"],
+        "password": claim["proxy"]["password"],
+        "ca_bundle": ca_bundle,
+    },
+)
+
+kernel.browsers.update(kernel_browser.session_id, proxy={"id": proxy.id})
+
+try:
+    # Your agent fills in claim["card"], its holderName, and
+    # claim["billingAddress"] on the payment page, then submits once.
+    pass
+finally:
+    kernel.browsers.update(kernel_browser.session_id, proxy={"mode": "default"})
+    kernel.proxies.delete(proxy.id)
+```
+
+</CodeGroup>
+
+Swap the proxy while the payment page is idle, before your agent fills in the card. Requests in flight during the swap might fail. Kernel validates the proxy login when you create the proxy, so an expired claim fails there instead of at checkout.
+
+<Warning>
+  - Before your agent submits, load each allowed host through the proxy. If Kernel returns a `5xx` with an `X-Kernel-Proxy-Error` or `X-Forwarder-Error` header, stop: never send the stand-in card around the proxy.
+  - Treat the claim as a secret. Don't log it or put it in your model's context, including the cardholder name and billing address.
+  - Submit checkout once. Before retrying anything, check the merchant's order record to confirm the earlier attempt didn't go through.
+</Warning>
+
+## Find the processor host
+
+The host you approve has to be the one the checkout sends the card to, not the merchant's site. To find it, log the checkout's `POST` requests while your agent is on the payment page:
+
+<CodeGroup>
+
+```typescript TypeScript
+page.on("request", (request) => {
+  if (request.method() === "POST") console.log(new URL(request.url()).hostname);
+});
+```
+
+```python Python
+from urllib.parse import urlparse
+
+page.on(
+    "request",
+    lambda request: request.method == "POST" and print(urlparse(request.url).hostname),
+)
+```
+
+</CodeGroup>
+
+Common hosts include `api.stripe.com`, `payments.braintree-api.com`, and `pci-connect.squareup.com`. Some checkouts encrypt the card inside the browser or the processor's iframe, so the proxy never sees the stand-in. For those, Natural offers [agent tokens](https://docs.natural.com/guides/concepts/agent-tokens): a tokenized card your agent types in directly, with no proxy swap.
+
+## Next steps
+
+- [Kernel guide in Natural's docs](https://docs.natural.com/guides/integrations/kernel): the complete, end-to-end example.
+- [Browser tokens](https://docs.natural.com/guides/concepts/browser-tokens): what the user approves, permissions, and retrying a claim.
+- [Custom proxies](/proxies/custom): how Kernel handles proxy logins and CA bundles.
