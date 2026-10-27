@@ -30,19 +30,18 @@ agentcard uses an integration-specific alternative: the agent enters non-sensiti
 `wallet` and `card` are vault item types. the wallet supplies the provider connection; the card represents payment material and its authorization state. retrieve the item and check `available_operations` before invoking an operation. don't assume every item supports `fill`.
 
 ```mermaid
-flowchart LR
-  U[user] --> H[wallet connection and approval]
+%%{init: {"flowchart": {"nodeSpacing": 24, "rankSpacing": 28, "padding": 12}}}%%
+flowchart TD
+  U[user] --> H["wallet connection<br/>and approval"]
   H --> W[wallet item]
   W --> C[prepared card item]
-  C --> F["KERNEL fill api"]
-  T[trusted controller: references and selectors] --> F
-  F --> B[attached browser fields]
-  F --> O[value-free outcomes]
-  B --> S[merchant form submission]
-  C -->|agentcard exception| A[non-sensitive aliases]
-  A --> E[KERNEL interception and approval hold]
-  E --> X[agentcard executes request]
-  X --> R[KERNEL replays response]
+  C -->|fill| T["trusted controller:<br/>references and<br/>selectors"]
+  T --> F["KERNEL fills<br/>browser fields;<br/>returns value-free<br/>outcomes"]
+  F --> S["merchant form<br/>submission"]
+  C -->|agentcard| A["non-sensitive<br/>aliases"]
+  A --> E["KERNEL intercepts<br/>and holds request<br/>for approval"]
+  E --> X["agentcard<br/>executes request"]
+  X --> R["KERNEL replays<br/>response"]
 ```
 
 ## Verify the purchase
@@ -56,5 +55,7 @@ your application must independently verify the merchant, items, amount, and curr
 ## Get started
 
 - [choose a wallet integration](/integrations/wallets/overview) for payment-method connection, approval, and reuse options.
+- [KERNEL card](/integrations/wallets/kernel) to collect a user's card directly, with hosted or embedded enrollment.
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent) for the controller, agent, and checkout walkthrough.
 - [fill browser fields](/vaults/fill) for KERNEL's injection api, field selection, and outcome contract.
+- [pricing](/info/pricing) for vault limits and payment charges.

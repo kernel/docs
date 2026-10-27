@@ -99,7 +99,9 @@ when supplied, `page_url` must exactly match one current top-level page, includi
 
 **credentials:** omit `page_url` only when the browser has exactly one open page. credential items have no destination allowlist. your trusted controller must authorize the destination before disclosing credentials; neither `description` nor `page_url` grants or restricts that permission.
 
-each selector must identify exactly one editable input or select across the main frame and all descendant frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
+each selector must identify exactly one editable input or select across the main frame and all descendant frames, including cross-origin frames. a selector may identify a container only if it resolves to one unique editable element inside it. zero matches, multiple matches, or two bindings targeting the same element fail validation. selects match option values, not labels.
+
+this includes supported card inputs inside payment frames. filling those fields doesn't guarantee that the payment processor will accept the payment.
 
 KERNEL validates bindings before writing, then fills in request order. if navigation or a disappearing target interrupts filling, it stops instead of choosing a different page or element. `timeout_ms` is the total operation deadline, not a timeout per field; it defaults to 10,000 and accepts 1–30,000 milliseconds.
 
