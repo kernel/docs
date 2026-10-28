@@ -215,11 +215,7 @@ if err != nil {
 ```
 </CodeGroup>
 
-<Note>
-SDK support for `saveProfile` arrives with the next SDK release. Until you upgrade, call the endpoint directly as in the cURL example.
-</Note>
-
-Saving copies the browser's data while Chromium is stopped, restarts Chromium, then uploads the copy. The request returns once the restarted browser accepts CDP connections again and the profile is stored. Large profiles can take longer than the SDKs' default one-minute timeout, so the examples above raise it. A longer timeout also stops the SDK from retrying a slow save that is still running.
+Saving copies the browser's data while Chromium is stopped, restarts Chromium, then uploads the copy. The request returns once the restarted browser accepts CDP connections again and the profile is stored. Large profiles can take longer than the TypeScript and Python SDKs' default one-minute timeout, so the examples above set five minutes. A longer timeout also stops the SDK from retrying a slow save that is still running.
 
 ### What restarting the browser means for your automation
 
