@@ -1,5 +1,4 @@
 const { useState, useEffect, useRef } = React;
-const { Card, Columns } = MintlifyComponents;
 
 export const PricingCalculator = () => {
     const defaults = { plan: 'free', browserType: 'headful', avgSessionLength: 30, numSessions: 100 };
