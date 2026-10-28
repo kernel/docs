@@ -5,6 +5,13 @@ description: "Collect a user's card and use it for browser purchases"
 
 use `provider: "kernel"` to collect a user's existing card for browser purchases. KERNEL manages the provider connection; you don't need your own vgs account.
 
+<Note>
+  this page covers a wallet with one card, which every organization gets by
+  default. where [payment methods](/integrations/wallets/kernel-payment-methods)
+  are enabled, a new wallet starts empty and `connected`, and you add each card
+  with `add_payment_method` instead of the wallet's `card_enrollment` action.
+</Note>
+
 ## Connect a card
 
 1. create a [vault](/vaults/overview) and a `wallet` item with `spec.provider: "kernel"`.
@@ -60,7 +67,7 @@ card details go directly to very good security (vgs) through hosted fields. vgs 
 ## Make a purchase
 
 1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
-2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency. visa cards also require `merchant_country`, the merchant's two-letter country code.
+2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency. visa cards also require `merchant_country`, the merchant's two-letter country code. without `spec.payment_method_id`, the purchase uses the wallet's default card, `card`; to choose another card, see [payment methods](/integrations/wallets/kernel-payment-methods#choose-a-card-for-a-purchase).
 3. invoke the advertised `authorize` operation and complete any returned user action. keep action urls in your trusted user interface, outside the agent's context.
 4. when `fill` appears in `available_operations`, [fill the checkout](/vaults/fill), submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
 
@@ -146,6 +153,8 @@ for eligible cards, checkout receives a network token number, expiry, and one-ti
 | --- | --- |
 | visa | requires `spec.merchant_country`; complete the returned `spend_approval` action, including any required verification |
 | supported mastercard | no hosted purchase approval |
+
+the purchase's `state.payment_method_id` names the card it's bound to, and `state.funding_status` reports whether that card can still pay. see [check the card funding a purchase](/integrations/wallets/kernel-payment-methods#check-the-card-funding-a-purchase).
 
 there's no general standing approval or spending-limit setting across these paths. your application must verify purchase details before authorization. complete any returned user action and fill before the purchase's `expires_at`.
 
