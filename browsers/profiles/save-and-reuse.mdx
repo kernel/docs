@@ -107,6 +107,8 @@ Before starting more than one writer, read [Sharing and concurrency](/browsers/p
 
 Navigate, authenticate, or complete the part of the workflow whose state you want to retain. Then delete the Kernel browser to save the state.
 
+To save without ending the browser, see [Save a running browser to a profile](#save-a-running-browser-to-a-profile).
+
 <Warning>
 Calling `browser.close()` only closes the Playwright connection. It doesn't save the profile. You must delete the Kernel browser or let it [time out](/browsers/termination#automatic-deletion-via-timeout).
 </Warning>
@@ -167,6 +169,88 @@ if err != nil {
 }
 ```
 </CodeGroup>
+
+## Save a running browser to a profile
+
+You can save a running browser's current state to a profile without deleting the browser. Send `POST /browsers/{id_or_name}/profiles` with either:
+
+- `id` to overwrite an existing profile, or
+- `name` to overwrite the profile with that name in the browser's project, or create it when it doesn't exist.
+
+The response is the saved profile. It returns `201` when the request created the profile and `200` when it overwrote one.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://api.onkernel.com/browsers/$BROWSER_ID/profiles" \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "checkout-session"}'
+```
+
+```typescript TypeScript
+const profile = await kernel.browsers.saveProfile(
+  browser.session_id,
+  { name: 'checkout-session' },
+  { timeout: 5 * 60 * 1000 },
+);
+```
+
+```python Python
+profile = await kernel.browsers.save_profile(
+    browser.session_id,
+    name="checkout-session",
+    timeout=300,
+)
+```
+
+```go Go
+profile, err := client.Browsers.SaveProfile(ctx, browser.SessionID, kernel.BrowserSaveProfileParams{
+	SaveProfileRequest: kernel.SaveProfileRequestParam{
+		Name: kernel.String("checkout-session"),
+	},
+}, option.WithRequestTimeout(5*time.Minute))
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+Saving copies the browser's data while Chromium is stopped, restarts Chromium, then uploads the copy. The request returns once the restarted browser accepts CDP connections again and the profile is stored. Large profiles can take longer than the TypeScript and Python SDKs' default one-minute timeout, so the examples above set five minutes. A longer timeout also stops the SDK from retrying a slow save that is still running.
+
+### What restarting the browser means for your automation
+
+- **Connections close.** Existing CDP, Playwright, Puppeteer and WebDriver connections disconnect. Reconnect to the browser's `cdp_ws_url` after the request returns, and create a new WebDriver session.
+- **Pages reload.** Open tabs are restored, but each page reloads. In-page state that wasn't persisted, such as JavaScript variables, unsent form input, and in-flight requests, is lost.
+
+Call the endpoint at a stable point in your workflow, for example right after a login completes, rather than while a page is mid-action. The browser keeps the same session ID and connection URLs.
+
+### What's saved
+
+The saved profile contains the same state as a profile saved when the browser is deleted: cookies, local storage and other site data, open tabs, and preferences. Data that's large or that Chromium can rebuild is left out, including caches, service worker registrations and their storage, and some large offline storage that web apps keep. That data stays in the running browser; it's only left out of the saved profile.
+
+Saving doesn't attach the profile to the browser or change the browser's `save_changes` setting. Other browsers already using the profile keep the state they loaded, and new browsers get the saved state the next time they load the profile.
+
+### Overlapping saves
+
+When saves to the same profile overlap, the save that started most recently wins, even if an earlier one finishes after it. If the profile is also attached to a browser with `save_changes: true`, the save made when that browser is deleted replaces the stored profile with that browser's state.
+
+### Inactivity timeout
+
+A successful save counts as activity: it restarts the browser's [inactivity timeout](/browsers/termination#automatic-deletion-via-timeout). A failed save leaves the timeout unchanged.
+
+### Errors
+
+| Status | Code | Meaning | What to do |
+| --- | --- | --- | --- |
+| `409` | `browser_busy` | The browser briefly couldn't accept a save | Retry the request |
+| `409` | `browser_lease_changed` | The [pooled](/browsers/pools) browser was released or acquired again after you made the request | Don't retry against this browser; save from a browser you currently hold |
+| `409` | `browser_not_active` | The browser is no longer running | Don't retry |
+| `400` | `pooled_session_not_leased` | The pooled browser isn't currently acquired | Acquire the browser before saving |
+| `404` | `not_found` | The browser, or the profile `id`, doesn't exist | Check the ID or name |
+
+A failed save never stores a partial or corrupt profile. When a `name` request created a new profile and the save was rejected with a `409`, that empty profile is removed so the name stays free.
+
+With a scoped [API key](/info/api-key-permissions), saving requires `browsers:use` on the browser and `profiles:write` on the profile, or `profiles:create` when the request creates it.
 
 ## Control the starting tab
 
