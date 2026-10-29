@@ -15,6 +15,32 @@ export const PricingCalculator = () => {
     const hasInteracted = useRef(false);
 
     useEffect(() => {
+        // Read after hydration so the server and first client render agree.
+        if (hasInteracted.current) return;
+        const params = new URLSearchParams(window.location.search);
+        const readCount = (key, fallback) => {
+            const value = params.get(key);
+            if (value === null || !/^\d+$/.test(value)) return fallback;
+            const count = Number(value);
+            return Number.isSafeInteger(count) ? count : fallback;
+        };
+        const requestedPlan = params.get('plan');
+        const requestedBrowserType = params.get('browserType');
+        const restoredBrowserType = ['headless', 'headful', 'gpu'].includes(requestedBrowserType)
+            ? requestedBrowserType : defaults.browserType;
+        let restoredPlan = ['free', 'hobbyist', 'startup', 'enterprise'].includes(requestedPlan)
+            ? requestedPlan : defaults.plan;
+        if (restoredBrowserType === 'gpu' && restoredPlan !== 'startup' && restoredPlan !== 'enterprise') {
+            restoredPlan = 'startup';
+        }
+        setPlan(restoredPlan);
+        setBrowserType(restoredBrowserType);
+        setAvgSessionLength(readCount('duration', defaults.avgSessionLength));
+        setNumSessions(readCount('sessions', defaults.numSessions));
+        // Restoration isn't an interaction: leave the incoming URL untouched.
+    }, []);
+
+    useEffect(() => {
         if (!hasInteracted.current) return;
         var url = new URL(window.location);
         url.searchParams.set('plan', plan);
