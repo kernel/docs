@@ -10,7 +10,7 @@ verify and approve each purchase before completing checkout.
 ## Before you start
 
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
-- choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below.
+- choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below. for shop pay, follow the [shop pay guide](/integrations/wallets/shop-pay), which uses the same controller pattern.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
 - use a low-value checkout you control. link is live-only and requires an https merchant origin. on stripe checkouts that support link pay tokens, KERNEL fills the payment without field selectors; elsewhere you need verified field selectors for the virtual card. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
@@ -164,6 +164,13 @@ kernel browsers create --vault user-12345 -o json
 ```
 
 </CodeGroup>
+
+<Tip>
+  the examples create a headful browser. to run checkout headless, create the
+  browser with at least `2GiB` of memory (`memory: "2GiB"`, or `--memory 2GiB`
+  in the cli). heavy checkout pages can exhaust a `1GiB` headless browser, which
+  then stops responding to KERNEL during authorization and fill.
+</Tip>
 
 `browser_live_view_url` lets the user watch the checkout during confirmation
 and agentcard approval pauses. `presentLiveView` represents your authenticated
@@ -667,6 +674,15 @@ control, locate the associated real `input[type="checkbox"]` and invoke its
 native dom `click()`. read that same input's `checked` property and require it to
 be `true` before submission. if you can't verify the checked state, stop without
 submitting.
+
+</Accordion>
+<Accordion title="Stripe's save with link option">
+
+stripe checkouts can pre-check "save my information with link for faster
+checkout". while it's checked, stripe also requires a phone number and won't
+submit the payment without one. unless the user asked to save their details to link, uncheck it before submitting and read
+the input's `checked` property to confirm. these are stripe page details rather
+than a KERNEL contract.
 
 </Accordion>
 <Accordion title="Missing or unconnected wallets">
