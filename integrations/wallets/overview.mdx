@@ -17,7 +17,7 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 
 | integration | use it to | environment |
 | --- | --- | --- |
-| [KERNEL card](/integrations/wallets/kernel) | collect a user's card directly through hosted or embedded enrollment | live only |
+| [KERNEL card](/integrations/wallets/kernel) | collect a user's card directly through hosted or embedded enrollment; where enabled, hold several cards as [payment methods](/integrations/wallets/kernel-payment-methods) | live only |
 | [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number | live only |
 | [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout | sandbox or live, set by the agentcard credential |
 
@@ -68,7 +68,14 @@ has a wallet in any state, and reuse or recover the existing item.
 a card's `spec.wallet` must reference a wallet in the same vault and from the
 same provider.
 
-for provider-specific behavior, see [KERNEL card](/integrations/wallets/kernel), [link](/integrations/wallets/stripe-link#item-reference), or [agentcard](/integrations/wallets/agentcard#item-reference).
+link and KERNEL purchases can also be `payment_request` items where they're
+enabled for your organization; [contact support](/info/support) to enable them.
+a `payment_request` takes the same spec as the provider's `card` item and
+supports the same operations. KERNEL payment requests must set
+`payment_method_id`. agentcard purchases stay `card` items. updates to a
+`payment_request` item must set `type: "payment_request"`.
+
+for provider-specific behavior, see [KERNEL card](/integrations/wallets/kernel), [KERNEL payment methods](/integrations/wallets/kernel-payment-methods), [link](/integrations/wallets/stripe-link#item-reference), or [agentcard](/integrations/wallets/agentcard#item-reference).
 
 ## Payment actions and recovery
 

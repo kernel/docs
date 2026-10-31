@@ -27,7 +27,7 @@ agentcard uses an integration-specific alternative: the agent enters non-sensiti
 5. invoke KERNEL's advertised `fill` operation to inject payment fields without supplying their values, then inspect the outcomes before submitting. for agentcard's alias-based flow, enter aliases and keep a trusted approval observer running while the checkout request is held.
 6. submit checkout once, complete any remaining provider-hosted approval, and reconcile with the merchant's order state. fill or approval alone is not payment success.
 
-`wallet` and `card` are vault item types. the wallet supplies the provider connection; the card represents payment material and its authorization state. retrieve the item and check `available_operations` before invoking an operation. don't assume every item supports `fill`.
+`wallet` and `card` are vault item types. the wallet supplies the provider connection; the card represents payment material and its authorization state. where enabled for your organization, link and KERNEL purchases can also be `payment_request` items, which work like card items; agentcard purchases are always `card` items. retrieve the item and check `available_operations` before invoking an operation. don't assume every item supports `fill`.
 
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 24, "rankSpacing": 28, "padding": 12}}}%%
@@ -56,6 +56,7 @@ your application must independently verify the merchant, items, amount, and curr
 
 - [choose a wallet integration](/integrations/wallets/overview) for payment-method connection, approval, and reuse options.
 - [KERNEL card](/integrations/wallets/kernel) to collect a user's card directly, with hosted or embedded enrollment.
+- [KERNEL payment methods](/integrations/wallets/kernel-payment-methods) to hold several cards in one KERNEL wallet and choose which card pays.
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent) for the controller, agent, and checkout walkthrough.
 - [fill browser fields](/vaults/fill) for KERNEL's injection api, field selection, and outcome contract.
 - [pricing](/info/pricing) for vault limits and payment charges.
