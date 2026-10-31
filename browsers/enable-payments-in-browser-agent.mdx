@@ -220,7 +220,7 @@ page: the one-time security code expires shortly after it's issued.
 
 1. [create a KERNEL card item](/integrations/wallets/kernel#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. KERNEL card items can't be updated; to change the purchase, delete the item and create a new one.
 2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/kernel#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
-3. wait for the card to become `ready`. if it's still `pending_authorization`, retrieve it again; an unused approval link expires after 30 minutes.
+3. wait for the card to become `ready`. a `wait` read holds for at most 60 seconds, so keep retrieving while it's `pending_authorization`; the cardholder has up to 30 minutes to use the approval link.
 
 <CodeGroup>
 
@@ -255,10 +255,16 @@ if (authorized.action && "url" in authorized.action) {
   });
 }
 
-const card = await kernel.vaults.items.retrieve(created.key, {
+let card = await kernel.vaults.items.retrieve(created.key, {
   id_or_name: vault.id,
   wait: 60,
 });
+while (card.type === "card" && card.state.status === "pending_authorization") {
+  card = await kernel.vaults.items.retrieve(created.key, {
+    id_or_name: vault.id,
+    wait: 60,
+  });
+}
 if (card.type !== "card" || card.state.status !== "ready") {
   throw new Error(`payment item is ${card.state.status}`);
 }
@@ -297,6 +303,8 @@ if authorized.action is not None and hasattr(authorized.action, "url"):
     )
 
 card = kernel.vaults.items.retrieve(created.key, id_or_name=vault.id, wait=60)
+while card.type == "card" and card.state.status == "pending_authorization":
+    card = kernel.vaults.items.retrieve(created.key, id_or_name=vault.id, wait=60)
 if card.type != "card" or card.state.status != "ready":
     raise RuntimeError(f"payment item is {card.state.status}")
 ```
@@ -319,7 +327,8 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 </CodeGroup>
 
 run the cli's `--open` only in your controller or a human-operated terminal, and
-keep its output outside the agent.
+keep its output outside the agent. repeat the `get` while `state.status` is
+`pending_authorization`.
 
 `declined` means the card network refused to issue a code. stop; KERNEL never
 approves the purchase again on its own, so the cardholder must approve a new
@@ -415,9 +424,9 @@ disclosures, then submit once, promptly: the one-time security code expires.
 
 after the merchant's order record shows a definitive outcome, report it once
 with `confirm_transaction` when the card advertises it. report the amount the
-merchant charged, in minor units, and the time you observed the outcome. don't
-report an outcome you couldn't verify, and don't repeat a report whose response
-was lost. `waitForMerchantResolution` represents your order backend.
+merchant charged, in minor units, its currency as an uppercase code such as
+`USD`, and the time you observed the outcome. don't report an outcome you
+couldn't verify, and don't repeat a report whose response was lost. `waitForMerchantResolution` represents your order backend.
 
 <CodeGroup>
 
@@ -436,7 +445,7 @@ if (
     status: "APPROVED",
     transaction_type: "PURCHASE",
     amount: order.amount,
-    currency: order.currency,
+    currency: order.currency.toUpperCase(),
     occurred_at: order.observedAt,
   });
 }
@@ -455,7 +464,7 @@ if order.paid and any(
         status="APPROVED",
         transaction_type="PURCHASE",
         amount=order.amount,
-        currency=order.currency,
+        currency=order.currency.upper(),
         occurred_at=order.observed_at,
     )
 ```
@@ -988,7 +997,8 @@ card.
    `available_operations`. give me the exact cli command to invoke
    authorization, but do not run it. ask me to invoke it and complete any
    approval from a trusted terminal or application outside this agent. after i
-   confirm completion, retrieve the item again and require its status to be
+   confirm completion, retrieve the item again with `--wait 60`, repeating
+   while its status is `pending_authorization`, and require its status to be
    `ready`. do not print, return, or open an action url.
 9. require `fill` in the card's `available_operations` and follow its
    description. invoke `kernel vaults items invoke user-12345 checkout-card fill`
@@ -1014,8 +1024,8 @@ card.
    reconciliation. if the item reports recovery_required, do not delete it or
    its parent wallet or vault.
 12. if the order record shows a definitive outcome and the card advertises
-   `confirm_transaction`, give me the exact cli command to report it once, but
-   do not run it.
+   `confirm_transaction`, give me the exact cli command to report it once, with
+   the currency as an uppercase code such as `USD`, but do not run it.
 ```
 
 ```text link by stripe
