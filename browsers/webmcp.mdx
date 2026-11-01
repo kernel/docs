@@ -262,7 +262,7 @@ Don't invoke the tool again to submit it; that would start another invocation. U
 
 ## Tool reference lifecycle
 
-A `tool_ref` identifies a live registration, not a persistent tool name. It becomes invalid when its document closes or is replaced by navigation, when the registration is removed, or when the browser process is replaced. Don't cache references across these changes or reconstruct them from names.
+A `tool_ref` identifies a live registration, not a persistent tool name. It becomes invalid when its document closes or is replaced by navigation, when its tab crashes, when the registration is removed, or when the browser process is replaced. Don't cache references across these changes or reconstruct them from names.
 
 Always discover again before selecting your next invocation. If a reference is no longer available, inspect the new snapshot and select the intended tool again. A fresh snapshot doesn't prevent the page from changing between discovery and invocation.
 
@@ -270,7 +270,7 @@ Navigation **after an invocation begins** is allowed when the tool starts it: th
 
 ## Handle an unknown outcome
 
-If invocation begins but Kernel can't observe its final result, the API returns **HTTP 504** with `code: "outcome_unknown"`. This can happen when the tab or frame disappears or the invocation times out. If the tool's page was reloaded or navigated away before the tool responded, the API returns [`tool_page_unloaded`](#tool-page-unloaded) instead.
+If invocation begins but Kernel can't observe its final result, the API returns **HTTP 504** with `code: "outcome_unknown"`. This can happen when the tab or frame disappears or the invocation times out. If the tool's page was reloaded, navigated away, or crashed before the tool responded, the API returns [`tool_page_unloaded`](#tool-page-unloaded) instead.
 
 ```json
 {
@@ -294,7 +294,7 @@ The server doesn't retry the tool on your behalf. SDKs can retry HTTP errors by 
 
 ### Tool page unloaded
 
-If the tool's page is reloaded or replaced by a navigation the tool didn't start, the tool's result can never arrive. Kernel waits for the new page to finish loading, in case the tool's own navigation produces a result, and then returns **HTTP 410** with `code: "tool_page_unloaded"`:
+If the tool's page is reloaded or replaced by a navigation the tool didn't start, or its tab crashes, the tool's result can never arrive. After a navigation, Kernel waits for the new page to finish loading, in case the tool's own navigation produces a result. Then it returns **HTTP 410** with `code: "tool_page_unloaded"`:
 
 ```json
 {
@@ -304,7 +304,7 @@ If the tool's page is reloaded or replaced by a navigation the tool didn't start
 }
 ```
 
-Kernel knows why the invocation ended, but not what the tool did before its page went away. It might have already sent a request or submitted a form. Handle it like `outcome_unknown`: don't retry automatically, and inspect the page for the expected effect first. Then discover tools again, because the old `tool_ref` belonged to the replaced page.
+Kernel knows why the invocation ended, but not what the tool did before its page went away. It might have already sent a request or submitted a form. Handle it like `outcome_unknown`: don't retry automatically, and inspect the page for the expected effect first. Then discover tools again, because the old `tool_ref` belonged to the replaced page. A crashed tab's tools disappear from discovery right away, and invoking one of their references returns `404`. Kernel doesn't replace a crashed tab: reload it or navigate it to register tools again, or replace the browser.
 
 ## Treat page data as untrusted
 
