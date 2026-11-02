@@ -109,7 +109,7 @@ is required for browser operations, including `fill`.
 | resource           | technical behavior                                                                                  |
 | ------------------ | --------------------------------------------------------------------------------------------------- |
 | vault              | resource with an immutable `name` that groups typed items                                 |
-| item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, or `card` |
+| item               | typed resource addressed by an immutable `key`: `credential`, `wallet`, `card`, or `payment_request` |
 | alias              | non-sensitive, format-valid stand-in returned in state for eligible items; aliases belong to that item |
 | action             | user interaction returned as `action`, such as a hosted collection or approval url                  |
 | operation          | api action advertised in `available_operations`, such as `collect`, `fill`, `webmcp_invoke`, `authorize`, `prepare_checkout`, or a 1Password `1pw_*` operation, when eligible |
@@ -200,7 +200,7 @@ see the [vaults api reference](https://kernel.sh/docs/api-reference/vaults/creat
 
 ## Payment items
 
-payment items use the same vault resource model: a `wallet` connects a payment method through a provider, and a `card` represents payment material and authorization state. KERNEL's `fill` api injects values from supported cards without returning them to your application or model. agentcard uses an alias-based alternative.
+payment items use the same vault resource model: a `wallet` connects a payment method through a provider, and a `card` represents payment material and authorization state. where enabled, link and KERNEL purchases can also be `payment_request` items, which work like card items. KERNEL's `fill` api injects values from supported cards without returning them to your application or model. agentcard uses an alias-based alternative.
 
 see [payments on KERNEL](/browsers/payments) for the offering and lifecycle, then [choose a wallet integration](/integrations/wallets/overview).
 

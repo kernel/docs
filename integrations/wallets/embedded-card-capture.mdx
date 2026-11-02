@@ -33,9 +33,13 @@ bun add @onkernel/vault-react
 
 the package requires react 18 or later and ships no styles.
 
-## Create the wallet on your backend
+## Get a capture token on your backend
 
-create the wallet from your authenticated backend, then read `action.capture_token` from the `card_enrollment` action. the token is a secret capability for this one wallet, not an api key.
+read `capture_token` from a `card_enrollment` action in your authenticated backend. the token is a secret capability for one card enrollment, not an api key. where the action comes from depends on whether your organization has [payment methods](/integrations/wallets/kernel-payment-methods) enabled.
+
+### Wallet with one card
+
+create the wallet, then read `action.capture_token` from the wallet's `card_enrollment` action.
 
 <CodeGroup>
 
@@ -75,6 +79,40 @@ if wallet.action is not None and wallet.action.name == "card_enrollment":
 
 the wallet starts in `pending_authorization`. after the cardholder adds a card, it becomes `connected`.
 
+### Wallet with payment methods
+
+where payment methods are enabled, the wallet starts `connected` with no card and no action. invoke `add_payment_method` for each card, then read `payment_method.action.capture_token` from the result.
+
+<CodeGroup>
+
+```typescript TypeScript
+const added = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: "user-12345",
+  type: "add_payment_method",
+});
+
+if (added.type === "add_payment_method") {
+  // return this to the cardholder's page only
+  const captureToken = added.payment_method.action?.capture_token;
+}
+```
+
+```python Python
+added = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name="user-12345",
+    type="add_payment_method",
+)
+
+if added.type == "add_payment_method" and added.payment_method.action is not None:
+    # return this to the cardholder's page only
+    capture_token = added.payment_method.action.capture_token
+```
+
+</CodeGroup>
+
+the new payment method starts in `pending_enrollment`. after the cardholder adds a card, it becomes `active`.
+
 ## Render the component
 
 deliver the token to the intended cardholder's page through your authenticated application, then render `KernelCardCapture`:
@@ -110,7 +148,7 @@ export function AddCard({ captureToken }: { captureToken: string }) {
 
 | prop          | description                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------ |
-| `token`       | the wallet's `action.capture_token`                                                                          |
+| `token`       | the `capture_token` from the wallet's or payment method's `card_enrollment` action                          |
 | `baseUrl`     | api origin; defaults to `https://api.onkernel.com`                                                           |
 | `className`   | added to the root element, in both the form and completion views                                             |
 | `fieldCss`    | css applied inside the card number, expiry, and cvc iframes                                                  |
@@ -244,7 +282,7 @@ wallet = kernel.vaults.items.retrieve(
 
 </CodeGroup>
 
-a `connected` wallet has a stored card. inspect the wallet's `payment_methods` before creating a purchase.
+for a wallet with one card, `connected` means the card is stored. a wallet with payment methods is `connected` even before its first card, so retrieve it with the `payment_methods` expansion and check that the payment method you added is `active`. in both cases, inspect the wallet's `payment_methods` before creating a purchase.
 
 ## Handle errors
 
@@ -266,7 +304,7 @@ after `expired`, `unavailable`, or `unconfirmed`, the component removes the form
 
 ## Token lifetime
 
-a `capture_token` lasts 30 minutes. when it expires, retrieve the wallet again from your backend; KERNEL returns a new `card_enrollment` action with a new `capture_token`. changing the component's `token` prop resets it.
+a `capture_token` lasts 30 minutes. when it expires on a wallet with one card, retrieve the wallet again from your backend; KERNEL returns a new `card_enrollment` action with a new `capture_token`. for a wallet with payment methods, invoke `add_payment_method` again for a new payment method and token. changing the component's `token` prop resets it.
 
 if the cardholder leaves the page after creating a card but before KERNEL confirms it, the component makes one best-effort attempt to resend the card as it unmounts or the page unloads. it ignores that request's result, so the card can still go unrecorded. always confirm the wallet's state from your backend, as described in [handle completion](#handle-completion).
 

@@ -1,0 +1,340 @@
+---
+title: "KERNEL Card Payment Methods"
+sidebarTitle: "KERNEL Payment Methods"
+description: "Hold several cards in one KERNEL wallet and choose which card pays"
+---
+
+a [KERNEL wallet](/integrations/wallets/kernel) can hold zero or more cards. each card is a payment method scoped to its wallet: you add cards with `add_payment_method`, list them with the `payment_methods` expansion, choose one per purchase with `payment_method_id`, and remove them with `remove_payment_method`.
+
+<Note>
+  payment methods and `payment_request` items are enabled per organization and
+  are off by default. [contact support](/info/support) to enable them for your
+  organization.
+
+  without payment methods, a KERNEL wallet holds one card: it starts in
+  `pending_authorization` with a `card_enrollment` action and becomes
+  `connected` once the card is stored. that card is the wallet's default
+  payment method, with the id `card`. follow [KERNEL card](/integrations/wallets/kernel)
+  for that flow.
+</Note>
+
+## Create an empty wallet
+
+with payment methods enabled, creating a KERNEL wallet returns a `connected` wallet with no cards and no `action`. the wallet stays `connected` before its first card and after its last card is removed, so `connected` doesn't mean the wallet can pay. add a card, then check the card's status and eligibility.
+
+a connected wallet advertises `add_payment_method` and, once it holds a card, `remove_payment_method` in `available_operations`. invoke them only when they're advertised.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+const wallet = await kernel.vaults.items.upsert("card-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: { provider: "kernel" },
+});
+
+const canAddCard = wallet.available_operations.some(
+  ({ type }) => type === "add_payment_method",
+);
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+
+wallet = kernel.vaults.items.upsert(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={"provider": "kernel"},
+)
+
+can_add_card = any(
+    operation.type == "add_payment_method" for operation in wallet.available_operations
+)
+```
+
+</CodeGroup>
+
+wallets created before payment methods were enabled keep their card as the default payment method `card` and can add more cards.
+
+## Add a card
+
+`add_payment_method` creates a payment method in `pending_enrollment` and returns it with a single-use `card_enrollment` action and an `expires_at` 30 minutes later. each call creates a separate link for one card.
+
+<CodeGroup>
+
+```typescript TypeScript
+const added = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "add_payment_method",
+});
+if (added.type !== "add_payment_method") {
+  throw new Error("unexpected operation response");
+}
+
+const paymentMethod = added.payment_method;
+// show paymentMethod.action.url to the cardholder in your trusted ui, not to the agent
+console.log(paymentMethod.id, paymentMethod.status, paymentMethod.expires_at);
+```
+
+```python Python
+added = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="add_payment_method",
+)
+if added.type != "add_payment_method":
+    raise RuntimeError("unexpected operation response")
+
+payment_method = added.payment_method
+# show payment_method.action.url to the cardholder in your trusted ui, not to the agent
+print(payment_method.id, payment_method.status, payment_method.expires_at)
+```
+
+</CodeGroup>
+
+share `action.url` privately with the cardholder, for example on an authenticated page in your application. the url is a capability for this one enrollment: don't send it to the agent, log it, or share it with anyone else. to collect the card on your own page instead, pass `action.capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture).
+
+the card goes directly to the card vault; KERNEL never accepts card details through this api. if enrollment fails, the link accepts another card until it expires. an expired link doesn't affect the wallet's other cards; call `add_payment_method` again for a new link.
+
+a wallet holds at most 10 payment methods, including pending ones, and at most 3 open enrollment links. at either limit, the wallet stops advertising `add_payment_method`, and invoking it returns `409` with the reason. remove a card or let an open link expire before adding another.
+
+## List payment methods
+
+retrieve the wallet with the `payment_methods` expansion to list its cards in creation order. each method includes `id`, `status`, `is_default`, `display`, and `capabilities.single_use_card`, with `eligible` and `reasons`. a pending method also includes its `action` and `expires_at`.
+
+<CodeGroup>
+
+```typescript TypeScript
+const current = await kernel.vaults.items.retrieve("card-wallet", {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+if (current.type !== "wallet") {
+  throw new Error("unexpected item type");
+}
+
+const methods = current.expanded?.payment_methods ?? [];
+for (const method of methods) {
+  console.log(
+    method.id,
+    method.status,
+    method.display.last4,
+    method.capabilities.single_use_card?.eligible,
+  );
+}
+```
+
+```python Python
+current = kernel.vaults.items.retrieve(
+    "card-wallet",
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+if current.type != "wallet":
+    raise RuntimeError("unexpected item type")
+
+methods = (current.expanded.payment_methods or []) if current.expanded else []
+for method in methods:
+    single_use_card = method.capabilities.single_use_card
+    print(
+        method.id,
+        method.status,
+        method.display.last4,
+        single_use_card.eligible if single_use_card else None,
+    )
+```
+
+</CodeGroup>
+
+| status | meaning | what to do |
+| --- | --- | --- |
+| `pending_enrollment` | an enrollment link is open | wait for the cardholder, or let the link expire |
+| `active` | the card is stored | pay with it when `capabilities.single_use_card.eligible` is `true` |
+| `removal_pending` | removal started but its outcome is unknown | retry `remove_payment_method` later |
+| `recovery_required` | the enrollment outcome is unknown, or the stored card can't be read | check `status_reason`: remove a method with an unknown enrollment outcome; [contact support](/info/support) for a card that can't be read, since removal returns `409` |
+
+a method that isn't `active` is never eligible to pay. `is_default` is `true` only for the default card `card`; wallets created with payment methods enabled have no default card.
+
+## Choose a card for a purchase
+
+pass the chosen method's `id` as `spec.payment_method_id` when you create a purchase. the purchase is bound to that card when it's created: later operations can't switch it to another card or wallet, and an update that changes either returns `409`. to pay with a different card, create a new purchase.
+
+KERNEL purchases can be `card` or `payment_request` items:
+
+| item type | `payment_method_id` |
+| --- | --- |
+| `card` | optional. omitting it selects the default card `card` and never falls back to another card. if the wallet has no default card, creation returns `400` and you must set the id. |
+| `payment_request` | required. must name an `active` method that's eligible to pay. |
+
+`payment_request` takes the same spec as a KERNEL `card` item, except that `payment_method_id` is required, and supports the same operations, including `authorize`, `fill`, and `confirm_transaction`. neither type is deprecated, and `card` items keep working. updates to a `payment_request` item must set `type: "payment_request"`.
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = methods.find(
+  (method) =>
+    method.status === "active" &&
+    method.capabilities.single_use_card?.eligible === true,
+);
+if (!card) {
+  throw new Error("add an eligible card first");
+}
+
+let purchase = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "payment_request",
+  spec: {
+    provider: "kernel",
+    wallet: "card-wallet",
+    payment_method_id: card.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com/checkout",
+    merchant_country: "US",
+  },
+});
+
+const authorized = await kernel.vaults.items.performOperation(purchase.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+if (authorized.type !== "payment_request") {
+  throw new Error("unexpected operation response");
+}
+// visa: show authorized.action.url (spend_approval) to the cardholder, then wait for ready
+purchase = await kernel.vaults.items.retrieve(purchase.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+card = next(
+    (
+        method
+        for method in methods
+        if method.status == "active"
+        and method.capabilities.single_use_card is not None
+        and method.capabilities.single_use_card.eligible
+    ),
+    None,
+)
+if card is None:
+    raise RuntimeError("add an eligible card first")
+
+purchase = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="payment_request",
+    spec={
+        "provider": "kernel",
+        "wallet": "card-wallet",
+        "payment_method_id": card.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com/checkout",
+        "merchant_country": "US",
+    },
+)
+
+authorized = kernel.vaults.items.perform_operation(
+    purchase.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+# visa: show authorized.action.url (spend_approval) to the cardholder, then wait for ready
+purchase = kernel.vaults.items.retrieve(purchase.key, id_or_name=vault.id, wait=60)
+```
+
+</CodeGroup>
+
+approval, fill, and network-token behavior are the same as for a single card. see [make a purchase](/integrations/wallets/kernel#make-a-purchase).
+
+## Check the card funding a purchase
+
+a KERNEL purchase reports the card it's bound to as `state.payment_method_id` and whether that card can still pay as `state.funding_status`:
+
+| `funding_status` | meaning |
+| --- | --- |
+| `available` | the card can fund this purchase |
+| `unavailable` | the card is being removed or awaits recovery. authorization, fill, and confirmation are refused until it recovers. |
+| `removed` | the card was removed from its wallet. this purchase can't be paid; create a new purchase with another card. |
+
+`funding_status` never changes the purchase's `status`, which still reports what already happened to the purchase. purchases created before cards could be selected report the default card `card`.
+
+## Remove a card
+
+`remove_payment_method` deletes the stored card and blocks new purchases, fills, and confirmations funded by it. the wallet's other cards aren't affected, and the wallet stays `connected` even with no cards left.
+
+<CodeGroup>
+
+```typescript TypeScript
+const removed = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "remove_payment_method",
+  payment_method_id: "zk3o8w2h0a5n4e9q1x7c6v2b",
+});
+if (removed.type === "remove_payment_method") {
+  console.log(removed.payment_method_id, removed.status); // "removed"
+}
+```
+
+```python Python
+removed = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="remove_payment_method",
+    payment_method_id="zk3o8w2h0a5n4e9q1x7c6v2b",
+)
+if removed.type == "remove_payment_method":
+    print(removed.payment_method_id, removed.status)  # "removed"
+```
+
+</CodeGroup>
+
+| response | meaning | what to do |
+| --- | --- | --- |
+| `409` `purchase_unresolved` | a purchase funded by this card has an unresolved outcome | reconcile that purchase before removing the card |
+| `409` `provider_revocation_pending` | the card vault's deletion outcome is uncertain. the method stays `removal_pending` and refuses payments. | retry the removal later |
+| `429` `provider_rate_limited` | the payment provider is rate limiting requests | wait, then retry |
+
+removal isn't proof that a payment didn't happen. reconcile any purchase with the merchant's order record before treating it as unpaid.
+
+## Permissions
+
+`add_payment_method` and `remove_payment_method` create and delete stored cards, so a [scoped api key](/info/api-key-permissions) needs `vaults:write` in addition to `vaults:use` on the vault. a key without `vaults:write` doesn't see either operation in `available_operations`, and invoking one returns `403` with `insufficient_scope`. other wallet and purchase operations need only `vaults:use`.
+
+## Events
+
+the wallet's [item events](/vaults/overview#api-behavior) record each card's lifecycle, with the card's id in `data.payment_method_id`:
+
+| event | recorded when |
+| --- | --- |
+| `payment_method_enrollment_started` | `add_payment_method` opens an enrollment link |
+| `payment_method_enrolled` | a card added with `add_payment_method` is stored |
+| `payment_method_removed` | removal finishes |
+| `payment_method_recovery_required` | the card needs recovery |
+
+each new purchase records `purchase_created` with `item_type`, `provider`, and `payment_method_id_present`.
+
+## Reference
+
+- [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, operations, and expiry.
+- [KERNEL card](/integrations/wallets/kernel): purchase approval, fill, and network tokens.
+- [embedded card capture](/integrations/wallets/embedded-card-capture): collect a card on your own page.
