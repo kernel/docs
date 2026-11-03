@@ -97,7 +97,7 @@ deleting a wallet invalidates its dependent card items; use an explicit
 remove-and-replace flow instead of adding a second wallet.
 
 1. let the user select a provider that doesn't already have a wallet in the vault.
-2. create the wallet item through your controller, following the [KERNEL card setup](/integrations/wallets/kernel#connect-a-card), [link setup](/integrations/wallets/stripe-link), or [agentcard setup](/integrations/wallets/agentcard).
+2. create the wallet item through your controller, following the [pay with card setup](/integrations/wallets/pay-with-card#connect-a-card), [link setup](/integrations/wallets/stripe-link), or [agentcard setup](/integrations/wallets/agentcard).
 3. present the returned action using the authenticated flow below. the user connects or enrolls their real payment method with the provider.
 4. wait for the wallet's status to become `connected` before preparing a purchase.
 
@@ -225,8 +225,8 @@ a KERNEL card purchase is approved before checkout, so `authorize` takes no
 browser or page parameters. authorize once the agent reaches the final checkout
 page: the one-time security code expires shortly after it's issued.
 
-1. [create a KERNEL card item](/integrations/wallets/kernel#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. KERNEL card items can't be updated; to change the purchase, delete the item and create a new one.
-2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/kernel#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
+1. [create a KERNEL card item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. KERNEL card items can't be updated; to change the purchase, delete the item and create a new one.
+2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/pay-with-card#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
 3. wait for the card to become `ready`. a `wait` read holds for at most 60 seconds, so keep retrieving while it's `pending_authorization`; the cardholder has up to 30 minutes to use the approval link.
 
 <CodeGroup>

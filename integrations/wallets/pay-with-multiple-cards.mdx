@@ -1,10 +1,10 @@
 ---
-title: "KERNEL Card Payment Methods"
-sidebarTitle: "KERNEL Payment Methods"
+title: "Pay with multiple cards"
+sidebarTitle: "Pay with multiple cards"
 description: "Hold several cards in one KERNEL wallet and choose which card pays"
 ---
 
-a [KERNEL wallet](/integrations/wallets/kernel) can hold zero or more cards. each card is a payment method scoped to its wallet: you add cards with `add_payment_method`, list them with the `payment_methods` expansion, choose one per purchase with `payment_method_id`, and remove them with `remove_payment_method`.
+a [KERNEL wallet](/integrations/wallets/pay-with-card) can hold zero or more cards. each card is a payment method scoped to its wallet: you add cards with `add_payment_method`, list them with the `payment_methods` expansion, choose one per purchase with `payment_method_id`, and remove them with `remove_payment_method`.
 
 <Note>
   payment methods and `payment_request` items are enabled per organization and
@@ -14,7 +14,7 @@ a [KERNEL wallet](/integrations/wallets/kernel) can hold zero or more cards. eac
   without payment methods, a KERNEL wallet holds one card: it starts in
   `pending_authorization` with a `card_enrollment` action and becomes
   `connected` once the card is stored. that card is the wallet's default
-  payment method, with the id `card`. follow [KERNEL card](/integrations/wallets/kernel)
+  payment method, with the id `card`. follow [pay with card](/integrations/wallets/pay-with-card)
   for that flow.
 </Note>
 
@@ -264,7 +264,7 @@ purchase = kernel.vaults.items.retrieve(purchase.key, id_or_name=vault.id, wait=
 
 </CodeGroup>
 
-approval, fill, and network-token behavior are the same as for a single card. see [make a purchase](/integrations/wallets/kernel#make-a-purchase).
+approval, fill, and network-token behavior are the same as for a single card. see [make a purchase](/integrations/wallets/pay-with-card#make-a-purchase).
 
 ## Check the card funding a purchase
 
@@ -336,5 +336,5 @@ each new purchase records `purchase_created` with `item_type`, `provider`, and `
 ## Reference
 
 - [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, operations, and expiry.
-- [KERNEL card](/integrations/wallets/kernel): purchase approval, fill, and network tokens.
+- [pay with card](/integrations/wallets/pay-with-card): purchase approval, fill, and network tokens.
 - [embedded card capture](/integrations/wallets/embedded-card-capture): collect a card on your own page.
