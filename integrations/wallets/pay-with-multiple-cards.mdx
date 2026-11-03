@@ -180,7 +180,7 @@ KERNEL purchases can be `card` or `payment_request` items:
 | `card` | optional. omitting it selects the default card `card` and never falls back to another card. if the wallet has no default card, creation returns `400` and you must set the id. |
 | `payment_request` | required. must name an `active` method that's eligible to pay. |
 
-`payment_request` takes the same spec as a KERNEL `card` item, except that `payment_method_id` is required, and supports the same operations, including `authorize`, `fill`, and `confirm_transaction`. neither type is deprecated, and `card` items keep working. updates to a `payment_request` item must set `type: "payment_request"`.
+`payment_request` takes the same spec as a `card` item with `provider: "kernel"`, except that `payment_method_id` is required, and supports the same operations, including `authorize`, `fill`, and `confirm_transaction`. neither type is deprecated, and `card` items keep working. updates to a `payment_request` item must set `type: "payment_request"`.
 
 <CodeGroup>
 

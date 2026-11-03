@@ -12,7 +12,7 @@ verify and approve each purchase before completing checkout.
 - have an existing browser agent. this guide adds payment handling, not navigation or reasoning.
 - choose a wallet integration from the [wallet overview](/integrations/wallets/overview), then follow its tab below. for shop pay, follow the [shop pay guide](/integrations/wallets/shop-pay), which uses the same controller pattern.
 - install a KERNEL sdk with the `vaults` resource. set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your controller.
-- use a low-value checkout you control. KERNEL card is live-only, and `fill` writes only on the origin of the purchase's `merchant_url`, so you need the top-level checkout page's url and verified field selectors for the card inputs. link is live-only and requires an https merchant origin. on stripe checkouts that support link pay tokens, KERNEL fills the payment without field selectors; elsewhere you need verified field selectors for the virtual card. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
+- use a low-value checkout you control. paying with the user's own card is live-only, and `fill` writes only on the origin of the purchase's `merchant_url`, so you need the top-level checkout page's url and verified field selectors for the card inputs. link is live-only and requires an https merchant origin. on stripe checkouts that support link pay tokens, KERNEL fills the payment without field selectors; elsewhere you need verified field selectors for the virtual card. agentcard requires a [native processor adapter](/integrations/wallets/overview#checkout-and-processor-coverage); the processor doesn't need to be stripe.
 - for agentcard, set `AGENTCARD_MODE` in your controller and verify it against the credential's mode. customer-owned configs expose `test_mode` (`true` means sandbox); for KERNEL-managed credentials, confirm the deployment's mode. stop if the mode is unknown or mismatched.
 - identify how you'll read the merchant's trusted order record. you need it to confirm a matching paid order. deterministic checkout data can verify purchase details before submission, but without the order record afterward, the result remains indeterminate.
 
@@ -217,15 +217,15 @@ follow the tab for your provider. each path uses the frozen purchase object from
 step 2, a connected wallet in the same vault, and this browser session.
 
 <Tabs>
-<Tab title="KERNEL card">
+<Tab title="User's own card">
 
 #### Create and authorize the purchase
 
-a KERNEL card purchase is approved before checkout, so `authorize` takes no
+a purchase using the user's own card is approved before checkout, so `authorize` takes no
 browser or page parameters. authorize once the agent reaches the final checkout
 page: the one-time security code expires shortly after it's issued.
 
-1. [create a KERNEL card item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. KERNEL card items can't be updated; to change the purchase, delete the item and create a new one.
+1. [create a `card` item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. `card` items with `provider: "kernel"` can't be updated; to change the purchase, delete the item and create a new one.
 2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/pay-with-card#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
 3. wait for the card to become `ready`. a `wait` read holds for at most 60 seconds, so keep retrieving while it's `pending_authorization`; the cardholder has up to 30 minutes to use the approval link.
 
@@ -350,24 +350,24 @@ current top-level https url, including query and fragment, on the origin of
 `merchant_url`. a page on another origin returns `403` with `destination_denied`
 before any writes. payment inputs inside processor iframes are supported.
 
-KERNEL cards have no stored billing details. requesting a `billing_*` field
+cards collected through KERNEL have no stored billing details. requesting a `billing_*` field
 returns `field_unavailable` before any writes, so enter billing details from
 the user's approved data instead.
 
 <CodeGroup>
 
 ```typescript TypeScript
-const kernelCard = await kernel.vaults.items.retrieve(card.key, {
+const paymentCard = await kernel.vaults.items.retrieve(card.key, {
   id_or_name: vault.id,
 });
 if (
-  kernelCard.type !== "card" ||
-  kernelCard.spec.provider !== "kernel" ||
-  !kernelCard.available_operations.some((operation) => operation.type === "fill")
+  paymentCard.type !== "card" ||
+  paymentCard.spec.provider !== "kernel" ||
+  !paymentCard.available_operations.some((operation) => operation.type === "fill")
 ) {
   throw new Error("fill is unavailable for this card");
 }
-const result = await kernel.vaults.items.performOperation(kernelCard.key, {
+const result = await kernel.vaults.items.performOperation(paymentCard.key, {
   id_or_name: vault.id,
   type: "fill",
   browser_id: browser.session_id,
@@ -386,15 +386,15 @@ if (result.status !== "completed") {
 ```
 
 ```python Python
-kernel_card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+payment_card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
 if (
-    kernel_card.type != "card"
-    or kernel_card.spec.provider != "kernel"
-    or not any(operation.type == "fill" for operation in kernel_card.available_operations)
+    payment_card.type != "card"
+    or payment_card.spec.provider != "kernel"
+    or not any(operation.type == "fill" for operation in payment_card.available_operations)
 ):
     raise RuntimeError("fill is unavailable for this card")
 result = kernel.vaults.items.perform_operation(
-    kernel_card.key,
+    payment_card.key,
     id_or_name=vault.id,
     type="fill",
     browser_id=browser.session_id,
@@ -977,8 +977,8 @@ they remain self-contained when copied.
 
 <CodeGroup>
 
-```text KERNEL card
-use the KERNEL cli to complete the following checkout with a KERNEL card. use
+```text Pay with card
+use the KERNEL cli to complete the following checkout with the user's own card. use
 cli commands rather than sdk or direct api calls.
 
 a vault groups items. wallet and card are the payment item types. a card item
@@ -1004,10 +1004,10 @@ card.
    creating or authorizing a card.
 6. show me the verified merchant, amount, currency, and item or cart contents.
    wait for my explicit confirmation, then freeze that verified purchase object.
-7. with the browser on the final checkout page, create a KERNEL card item named
+7. with the browser on the final checkout page, create a `card` item named
    `checkout-card` from that same verified, confirmed object. use the exact
    current top-level checkout url as `merchant_url` and include
-   `merchant_country`. KERNEL cards can't be updated; if a value is wrong,
+   `merchant_country`. `card` items with `provider: "kernel"` can't be updated; if a value is wrong,
    stop and ask me.
 8. retrieve the card item and confirm that `authorize` appears in
    `available_operations`. give me the exact cli command to invoke
@@ -1022,8 +1022,8 @@ card.
    page_url is the exact current top-level https url (including query and
    fragment), on the origin of `merchant_url`. inspect the checkout's inputs and
    add fields mapping `number`, `cvc`, and either `expiration` (format MM/YY or
-   MM/YYYY) or `exp_month` and `exp_year` to unique css selectors. KERNEL cards
-   have no billing fields. fill writes actual values into the browser; do not
+   MM/YYYY) or `exp_month` and `exp_year` to unique css selectors. cards collected
+   through KERNEL have no billing fields. fill writes actual values into the browser; do not
    read them back, expose them in model context, or assume recordings omit them.
 10. preserve the value-free fill result and every per-field outcome. continue
    only on `completed`. after failed or unknown outcomes or transport errors:
