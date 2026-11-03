@@ -14,7 +14,7 @@ Allow only the destinations used by your integration. Apply the Live View and re
 | --- | --- | --- | --- |
 | API, SDKs, and authenticated CLI requests | `api.onkernel.com` | `443` | HTTPS |
 | CLI authentication (`kernel login`) | `auth.onkernel.com`, `dashboard.onkernel.com` | `443` | HTTPS |
-| CDP, WebDriver BiDi, Live View, replays, and app connections | `*.onkernel.com`, `*.kernel.sh` | `8443` | HTTPS and secure WebSocket (WSS) |
+| CDP, WebDriver BiDi, Live View, replays, and app connections | `*.onkernel.com`, `*.kernel.sh` | `443`, `8443` | HTTPS and secure WebSocket (WSS) |
 | Live View media negotiation | `stun.relay.metered.ca` | `80` | STUN over UDP |
 | Live View media relay | `global.relay.metered.ca` | `443` | TURN over UDP or TLS/TCP |
 | Replay files | `kernel-api-prod.s3.us-east-1.amazonaws.com` | `443` | HTTPS |
@@ -22,6 +22,8 @@ Allow only the destinations used by your integration. Apply the Live View and re
 <Note>
   Allow both wildcard domains. Don't copy a single hostname from a returned `cdp_ws_url`, `webdriver_ws_url`, or `browser_live_view_url`, because that hostname can change between sessions.
 </Note>
+
+Browser URLs are moving to port `443`, which omits `:8443`. Allow both ports during the rollout and use URLs returned by the API without rewriting them.
 
 ## Content security policy
 
@@ -32,9 +34,15 @@ A network allowlist permits traffic leaving your environment. A Content Security
 Merge these sources into your application's existing CSP:
 
 ```text
-frame-src https://*.onkernel.com:8443
+frame-src https://*.onkernel.com
+          https://*.kernel.sh
+          https://*.onkernel.com:8443
           https://*.kernel.sh:8443;
-connect-src https://*.onkernel.com:8443
+connect-src https://*.onkernel.com
+            wss://*.onkernel.com
+            https://*.kernel.sh
+            wss://*.kernel.sh
+            https://*.onkernel.com:8443
             wss://*.onkernel.com:8443
             https://*.kernel.sh:8443
             wss://*.kernel.sh:8443;
@@ -45,7 +53,9 @@ connect-src https://*.onkernel.com:8443
 Merge these sources into your application's existing `frame-src` directive:
 
 ```text
-frame-src https://*.onkernel.com:8443
+frame-src https://*.onkernel.com
+          https://*.kernel.sh
+          https://*.onkernel.com:8443
           https://*.kernel.sh:8443
           https://kernel-api-prod.s3.us-east-1.amazonaws.com;
 ```
@@ -54,6 +64,6 @@ frame-src https://*.onkernel.com:8443
 
 - If API, SDK, or authenticated CLI requests time out, verify access to `api.onkernel.com:443`.
 - If `kernel login` doesn't complete, verify access to `auth.onkernel.com:443` and `dashboard.onkernel.com:443`.
-- If browser creation succeeds but CDP, WebDriver BiDi, or Live View won't connect, verify access to both wildcard domains on port `8443`.
+- If browser creation succeeds but CDP, WebDriver BiDi, or Live View won't connect, verify access to both wildcard domains on ports `443` and `8443`.
 - If Live View loads but remains disconnected or doesn't show video, verify access to the STUN and TURN destinations.
 - If the replay player loads but a recording doesn't play, verify access to the replay file destination.
