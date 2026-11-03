@@ -106,7 +106,7 @@ A frame's origin can differ from the top-level page's origin. Check both the top
 
 Call `POST /browsers/{id_or_name}/webmcp/invoke` with the latest `tool_ref` and an `input` object matching its `input_schema`. Send `{}` when the tool takes no inputs. The optional `timeout_sec` is an integer from **1 to 120**, with a default of **60 seconds**.
 
-The serialized `input` is limited to **1 MiB**. The raw JSON request body is limited to **1 MiB plus 4 KiB** for the request envelope.
+The serialized `input` is limited to **4 MiB**. The raw JSON request body is limited to **4 MiB plus 4 KiB** for the request envelope.
 
 The focused snippets below reuse the client and session variables above; place the Go snippet inside `main`. They assume the site exposes one `search_products` tool accepting `{ "query": "running shoes" }`. Replace the tool name and input with values you've verified for the site. The examples allow 5 seconds for this search; choose a timeout appropriate for your tool's expected duration.
 
@@ -262,15 +262,15 @@ Don't invoke the tool again to submit it; that would start another invocation. U
 
 ## Tool reference lifecycle
 
-A `tool_ref` identifies a live registration, not a persistent tool name. It becomes invalid when its document closes or is replaced by navigation, when the registration is removed, or when the browser process is replaced. Don't cache references across these changes or reconstruct them from names.
+A `tool_ref` identifies a live registration, not a persistent tool name. It becomes invalid when its document closes or is replaced by navigation, when its tab crashes, when the registration is removed, or when the browser process is replaced. Don't cache references across these changes or reconstruct them from names.
 
 Always discover again before selecting your next invocation. If a reference is no longer available, inspect the new snapshot and select the intended tool again. A fresh snapshot doesn't prevent the page from changing between discovery and invocation.
 
-Navigation **after an invocation begins** is allowed: the request can still return that invocation's result. This doesn't make the old reference reusable in the new document.
+Navigation **after an invocation begins** is allowed when the tool starts it: the request can still return that invocation's result. This doesn't make the old reference reusable in the new document. If something else reloads or navigates the tool's page before the tool responds, such as Playwright, a user in the live view, or the page's own scripts, the tool can't return a result. The API returns [`tool_page_unloaded`](#tool-page-unloaded) once the new page loads instead of waiting for `timeout_sec`.
 
 ## Handle an unknown outcome
 
-If invocation begins but Kernel can't observe its final result, the API returns **HTTP 504** with `code: "outcome_unknown"`. This can happen when the tab or frame disappears or the invocation times out.
+If invocation begins but Kernel can't observe its final result, the API returns **HTTP 504** with `code: "outcome_unknown"`. This can happen when the tab or frame disappears or the invocation times out. If the tool's page was reloaded, navigated away, or crashed before the tool responded, the API returns [`tool_page_unloaded`](#tool-page-unloaded) instead.
 
 ```json
 {
@@ -290,7 +290,21 @@ The schema makes `invocation_id` optional; retain it when present for diagnostic
 2. Inspect the relevant page or frame with Playwright, a focused accessibility snapshot, or the browser's live view. Check for the expected effect, such as search results or a confirmation page.
 3. Decide whether further action is needed from that state. If the outcome is still ambiguous, stop for review rather than risk repeating a side effect. Discover fresh tools before any new invocation.
 
-The server doesn't retry the tool on your behalf. SDKs can retry HTTP errors by default, which is why the examples explicitly disable retries. If you set a client-side request timeout, allow more time than `timeout_sec` so you can receive the server's result.
+The server doesn't retry the tool on your behalf. SDKs can retry HTTP errors by default, which is why the examples explicitly disable retries. Both `outcome_unknown` and `tool_page_unloaded` responses include `X-Should-Retry: false`, which current SDKs honor, but keep retries disabled so transport failures aren't retried either. If you set a client-side request timeout, allow more time than `timeout_sec` so you can receive the server's result.
+
+### Tool page unloaded
+
+If the tool's page is reloaded or replaced by a navigation the tool didn't start, or its tab crashes, the tool's result can never arrive. After a navigation, Kernel waits for the new page to finish loading, in case the tool's own navigation produces a result. Then it returns **HTTP 410** with `code: "tool_page_unloaded"`:
+
+```json
+{
+  "code": "tool_page_unloaded",
+  "invocation_id": "inv_search_example",
+  "message": "the tool's page was unloaded before the tool responded; it may have had side effects, so do not retry automatically"
+}
+```
+
+Kernel knows why the invocation ended, but not what the tool did before its page went away. It might have already sent a request or submitted a form. Handle it like `outcome_unknown`: don't retry automatically, and inspect the page for the expected effect first. Then discover tools again, because the old `tool_ref` belonged to the replaced page. A crashed tab's tools disappear from discovery right away, and invoking one of their references returns `404`. Kernel doesn't replace a crashed tab: reload it or navigate it to register tools again, or replace the browser.
 
 ## Treat page data as untrusted
 
