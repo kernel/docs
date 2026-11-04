@@ -1,0 +1,324 @@
+---
+title: "Fill Single-Use Cards"
+description: "Fill a card your backend or card issuer already has into a merchant checkout without passing its details to the agent"
+---
+
+when your backend or a card issuer already has a card for a purchase, such as a single-use virtual card, you can store it in a [KERNEL wallet](/integrations/wallets/pay-with-card) and let KERNEL type it into the merchant's checkout. your backend sends the card details to KERNEL once. KERNEL never returns them, so the agent driving the browser doesn't handle them.
+
+a single-use card doesn't use the wallet's cards or their network tokens. there's no enrollment, cardholder approval, or `authorize` step: the card is `ready` as soon as you create it, and `fill` is its only operation. it's unrelated to `capabilities.single_use_card` on the wallet's payment methods, which reports whether an enrolled card can pay.
+
+<Warning>
+  you're responsible for the cards you store. only store cards that are allowed
+  outside PCI DSS scope, such as single-use virtual cards whose issuer confirms
+  that.
+</Warning>
+
+## Before you start
+
+- create a [vault](/vaults/overview) and a [KERNEL wallet](/integrations/wallets/pay-with-card#connect-a-card) in it. the wallet must be `connected`, but it doesn't need any cards of its own.
+- get the card details from your card issuer in your backend, not in the agent's context.
+- a [scoped api key](/info/api-key-permissions) needs `vaults:write` to create and delete the card, and `vaults:use` and `browsers:use` to fill it.
+
+the examples on this page continue from one another and together form a complete flow: create the card, attach its vault to a browser, fill the checkout, then delete the card.
+
+## Create a single-use card
+
+create a `card` item under the wallet with `spec.single_use_card` set to the card's details:
+
+| field | required | description |
+| --- | --- | --- |
+| `provider` | yes | `kernel` |
+| `wallet` | yes | key of a `connected` KERNEL wallet in the same vault |
+| `amount`, `currency` | yes | the purchase amount in minor units and its iso 4217 currency |
+| `merchant_name` | yes | the merchant's name |
+| `merchant_url` | yes | an `https` url on the merchant's site. fill is allowed only on its registrable domain; see [fill the checkout](#fill-the-checkout) |
+| `expires_at` | no | when the card stops being fillable, in rfc 3339. see [expiry and deletion](#expiry-and-deletion) |
+| `single_use_card` | yes | the card's details, described in the next table |
+
+KERNEL records `amount`, `currency`, and `merchant_name` but doesn't enforce them. any spending limit is up to the card's issuer.
+
+| `single_use_card` field | required | rules |
+| --- | --- | --- |
+| `number` | yes | 12 to 19 digits that pass the luhn check |
+| `cvc` | yes | 3 or 4 digits |
+| `exp_month` | yes | two digits, `01` to `12` |
+| `exp_year` | yes | four digits. a card whose expiry month has ended is rejected. |
+| `name` | no | cardholder name, filled as `billing_name`; at most 255 printable characters |
+| `billing_address` | no | `line1`, `line2`, `city`, `state`, `postal_code`, and `country`. `country` must be an uppercase iso 3166-1 alpha-2 code, such as `US`; the other fields take at most 255 printable characters. |
+| `reference` | no | your identifier for the card, such as the issuer's card id; at most 255 printable characters |
+
+an invalid request returns `400`, and error messages never include the values you sent. `single_use_card` can't be combined with `payment_method_id`, and only `card` items accept it, not `payment_request` items. if the wallet isn't `connected`, creation returns `409`.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+await kernel.vaults.items.upsert("card-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: { provider: "kernel" },
+});
+
+// from your card issuer's api; don't log these or pass them to the agent
+const virtualCard = {
+  number: "4242424242424242",
+  cvc: "123",
+  exp_month: "11",
+  exp_year: "2030",
+};
+
+const card = await kernel.vaults.items.upsert("order-10482-card", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "kernel",
+    wallet: "card-wallet",
+    amount: 4999,
+    currency: "usd",
+    merchant_name: "Example Shop",
+    merchant_url: "https://www.example.com/checkout",
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    single_use_card: {
+      ...virtualCard,
+      name: "Jane Doe",
+      billing_address: {
+        line1: "1 Main St",
+        city: "Springfield",
+        state: "IL",
+        postal_code: "62701",
+        country: "US",
+      },
+      reference: "vc_1Q2w3E4r5T",
+    },
+  },
+});
+if (card.type !== "card" || card.state.status !== "ready") {
+  throw new Error("single-use card is not ready");
+}
+```
+
+```python Python
+import os
+from datetime import datetime, timedelta, timezone
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+
+kernel.vaults.items.upsert(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={"provider": "kernel"},
+)
+
+# from your card issuer's api; don't log these or pass them to the agent
+virtual_card = {
+    "number": "4242424242424242",
+    "cvc": "123",
+    "exp_month": "11",
+    "exp_year": "2030",
+}
+
+card = kernel.vaults.items.upsert(
+    "order-10482-card",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "kernel",
+        "wallet": "card-wallet",
+        "amount": 4999,
+        "currency": "usd",
+        "merchant_name": "Example Shop",
+        "merchant_url": "https://www.example.com/checkout",
+        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat(),
+        "single_use_card": {
+            **virtual_card,
+            "name": "Jane Doe",
+            "billing_address": {
+                "line1": "1 Main St",
+                "city": "Springfield",
+                "state": "IL",
+                "postal_code": "62701",
+                "country": "US",
+            },
+            "reference": "vc_1Q2w3E4r5T",
+        },
+    },
+)
+if card.type != "card" or card.state.status != "ready":
+    raise RuntimeError("single-use card is not ready")
+```
+
+</CodeGroup>
+
+the response describes the card without its details:
+
+```json
+{
+  "key": "order-10482-card",
+  "type": "card",
+  "spec": {
+    "provider": "kernel",
+    "wallet": "card-wallet",
+    "amount": 4999,
+    "currency": "usd",
+    "merchant_name": "Example Shop",
+    "merchant_url": "https://www.example.com/checkout",
+    "expires_at": "2026-11-04T18:30:00Z",
+    "single_use_card": { "reference": "vc_1Q2w3E4r5T" }
+  },
+  "state": {
+    "provider": "kernel",
+    "status": "ready",
+    "source": "single_use_card",
+    "masks": { "brand": "visa", "last4": "4242" },
+    "domains": ["example.com"]
+  },
+  "available_operations": [{ "type": "fill", "description": "..." }],
+  "expires_at": "2026-11-04T18:30:00Z"
+}
+```
+
+- `state.source` is `single_use_card`, which tells it apart from a purchase funded by one of the wallet's cards. a single-use card has no `payment_method_id` or `funding_status`.
+- `state.masks` holds the card's `brand` and `last4`. `state.domains` holds the registrable domain of `merchant_url`.
+- `spec.single_use_card` returns only `reference`. the card details are write-only: KERNEL stores them encrypted and never returns or logs them.
+
+## Fill the checkout
+
+attach the vault when you [create the browser](/vaults/fill#check-availability), then invoke `fill` with the browser's `browser_id`, the exact current top-level `page_url`, and field bindings. single-use cards support these fields:
+
+| field | value |
+| --- | --- |
+| `number`, `cvc` | the card number and security code |
+| `exp_month`, `exp_year` | the expiry month as `MM` and year as `YYYY` |
+| `expiration` | the combined expiry; set `format` to `MM/YY` or `MM/YYYY` |
+| `billing_name` | the card's `name` |
+| `billing_line1`, `billing_line2`, `billing_city`, `billing_state`, `billing_postal_code`, `billing_country` | the matching `billing_address` field |
+
+request only the fields the checkout shows. requesting a billing field you didn't supply returns `field_unavailable` before anything is written.
+
+fill works on any `https` page whose registrable domain matches `merchant_url`'s, including its subdomains. a card created with `https://www.example.com/checkout` fills on `https://checkout.example.com/pay`. stores on a shared hosting platform stay separate: a card for `a.myshopify.com` can't fill `b.myshopify.com`. a page on any other domain returns `403` with `destination_denied`, and KERNEL refuses `http` pages.
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+});
+
+await kernel.browsers.playwright.execute(browser.session_id, {
+  code: "await page.goto('https://www.example.com/checkout');",
+});
+
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: "https://www.example.com/checkout",
+  fields: [
+    { field: "number", selector: "#cardNumber" },
+    { field: "expiration", format: "MM/YY", selector: "#cardExpiry" },
+    { field: "cvc", selector: "#cardCvc" },
+    { field: "billing_name", selector: "#billingName" },
+    { field: "billing_postal_code", selector: "#billingPostalCode" },
+  ],
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+if (result.status !== "completed") {
+  throw new Error("fill did not complete; inspect per-field outcomes and retry");
+}
+// your controller decides when to submit the checkout
+```
+
+```python Python
+browser = kernel.browsers.create(vaults=[{"id": vault.id}])
+
+kernel.browsers.playwright.execute(
+    id=browser.session_id,
+    code="await page.goto('https://www.example.com/checkout');",
+)
+
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url="https://www.example.com/checkout",
+    fields=[
+        {"field": "number", "selector": "#cardNumber"},
+        {"field": "expiration", "format": "MM/YY", "selector": "#cardExpiry"},
+        {"field": "cvc", "selector": "#cardCvc"},
+        {"field": "billing_name", "selector": "#billingName"},
+        {"field": "billing_postal_code", "selector": "#billingPostalCode"},
+    ],
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+if result.status != "completed":
+    raise RuntimeError("fill did not complete; inspect per-field outcomes and retry")
+# your controller decides when to submit the checkout
+```
+
+</CodeGroup>
+
+fill doesn't consume the card, so you can fill it again until it expires, for example after the page reloads. fill never submits the form. for selectors, payment frames, and outcomes, see [fill browser fields](/vaults/fill).
+
+<Warning>
+  fill writes the real card details into the page. an agent with unrestricted
+  browser or cdp access can read them there. invoke `fill` and submit the
+  checkout from your trusted controller, not from a tool the agent can call
+  at will.
+</Warning>
+
+## Delete the card after checkout
+
+delete the card as soon as the checkout is submitted. deleting the card, its wallet, or its vault deletes the stored card details immediately.
+
+<CodeGroup>
+
+```typescript TypeScript
+await kernel.vaults.items.delete(card.key, { id_or_name: vault.id });
+await kernel.browsers.deleteByID(browser.session_id);
+```
+
+```python Python
+kernel.vaults.items.delete(card.key, id_or_name=vault.id)
+kernel.browsers.delete_by_id(browser.session_id)
+```
+
+</CodeGroup>
+
+## Expiry and deletion
+
+`expires_at` defaults to 2 hours after creation. a value you set must be in the future and at most 24 hours after creation. neither can be later than the end of the card's expiry month.
+
+from `expires_at`, reads report the card's status as `expired`, and `fill` returns `409` without writing anything. KERNEL deletes the stored card details shortly after `expires_at`. to remove them sooner, [delete the card](#delete-the-card-after-checkout).
+
+## Retries and updates
+
+creating a card is idempotent per key:
+
+| request at an existing key | response |
+| --- | --- |
+| identical to the original, including `expires_at` and the card details | `200` with the existing card |
+| any different spec or card details | `409` |
+| any request after the expired card's details were deleted | `409`, since there's nothing left to compare it with |
+
+compute `expires_at` once and reuse the same request when you retry. use a new key for each card.
+
+single-use cards can't be updated; `PATCH` returns `409`. to change anything, delete the card and create a new one under a new key. `authorize` and `confirm_transaction` aren't available for single-use cards.
+
+## Reference
+
+- [fill browser fields](/vaults/fill): selectors, payment frames, and fill outcomes.
+- [pay with card](/integrations/wallets/pay-with-card): create a KERNEL wallet and pay with a user's own card.
+- [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields and validation.
