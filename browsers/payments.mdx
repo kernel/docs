@@ -1,62 +1,86 @@
 ---
 title: "Payments"
 sidebarTitle: "Overview"
-description: "Let browser agents complete purchases without handling raw payment details"
+description: "Choose how your browser agents pay at checkout without handling raw payment details"
 ---
 
-your browser agent can complete purchases with KERNEL while your application keeps control of the purchase and user approval. native [wallet integrations](/integrations/wallets/overview) connect the user's payment method to a [vault](/vaults/overview), so your agent works with payment items rather than raw card details.
+your browser agent can complete purchases with KERNEL while your application keeps control of what gets bought and when the user approves it. the agent never sees raw card details, and neither does your application's injection code or the model's context.
 
-KERNEL's [`fill` api](/vaults/fill) safely injects stored values into browser fields without passing them through your application's injection code or the model's context. you provide an item reference, browser, and field selectors; KERNEL writes the values and returns per-field outcomes, not the values. wallet integrations supply payment material and approval; `fill` is a KERNEL operation shared with non-payment vault items.
+KERNEL gives you two ways to pay: collect the user's card with KERNEL hosted payments, or connect a wallet the user already has through a third-party integration such as link by stripe, shop pay, or agentcard.
 
-agentcard uses an integration-specific alternative: the agent enters non-sensitive aliases, and KERNEL holds a recognized checkout request for approval before agentcard executes it and KERNEL replays the response. the underlying card stays outside the browser.
+KERNEL hosted payments is the recommended approach if you want to own the card collection and approval experience inside your product. a third-party wallet is preferred if your users already have one, or if you'd like the provider to approve each purchase and issue the credential that pays.
 
-## Why use KERNEL payments
+## Choose a payment approach
 
-- **keep raw values out of the application and model handoff.** use KERNEL's `fill` api to inject stored payment values instead of retrieving them and passing them through application code or agent prompts.
-- **connect wallets through native integrations.** use vault items, advertised operations, and hosted actions for connection and purchase approval. KERNEL handles the provider interaction, including link card issuance or agentcard's approved request execution and response replay.
-- **control the purchase.** verify purchase details in your application and present provider-hosted approval to the user outside the agent. vault attachments and item lifecycle checks control which browser can use the payment item.
-- **observe the attempt.** inspect value-free operation outcomes and item events, then reconcile with the merchant's order record. a completed fill or approval is not proof of payment.
+<CardGroup cols={2}>
+  <Card title="KERNEL hosted payments" icon="credit-card" href="/integrations/wallets/pay-with-card">
+    **collect and store the user's card with KERNEL**
+  </Card>
+  <Card title="Third-party wallets" icon="wallet" href="/integrations/wallets/overview">
+    **use a wallet the user already has**
+  </Card>
+</CardGroup>
 
+| | KERNEL hosted payments | third-party wallets |
+| --- | --- | --- |
+| **what the user needs** | any card they want to pay with | an account with the provider: link, shop, or agentcard |
+| **onboarding** | the user enters a card on a KERNEL-hosted page or in an embedded component on your domain | the user signs in to or enrolls with the provider and connects it to your application |
+| **who approves each purchase** | your application, plus a card verification step for some cards | the provider, in its own app or approval page |
+| **what pays at checkout** | for eligible cards, a network token for the user's existing card | link and shop pay issue a credential for the approved purchase; agentcard pays on the user's behalf after approval |
+| **checkout coverage** | any checkout with a card form | depends on the provider; see [choose a third-party wallet](#choose-a-third-party-wallet) |
+| **testing** | live only | live only, except agentcard, which also has a sandbox |
 
-## How payments work
+## Common use cases
 
-1. create a vault for the user or task.
-2. create a wallet item and send the user through the provider-hosted collection flow.
-3. attach the vault when you create the browser session. the attachment also covers items created later in that vault.
-4. create a card item for the verified, user-confirmed purchase. complete the provider's required preparation and approval. paying with the user's own card requires authorization before checkout; for eligible cards, KERNEL fills a network token with a one-time security code. link authorizes at the checkout page and issues a merchant-bound link pay token on supported stripe checkouts or a single-use virtual card elsewhere. shop pay authorizes at the checkout page and issues a single-use card once the shopper approves in shop. agentcard can reuse a card item with separate approval for each checkout.
-5. invoke KERNEL's advertised `fill` operation to inject payment fields without supplying their values, then inspect the outcomes before submitting. for agentcard's alias-based flow, enter aliases and keep a trusted approval observer running while the checkout request is held.
-6. submit checkout once, complete any remaining provider-hosted approval, and reconcile with the merchant's order state. for shop pay, report the outcome with `confirm_transaction`. fill or approval alone is not payment success.
+### Use KERNEL hosted payments
 
-`wallet` and `card` are vault item types. the wallet supplies the provider connection; the card represents payment material and its authorization state. where enabled for your organization, link and KERNEL purchases can also be `payment_request` items, which work like card items; agentcard purchases are always `card` items. retrieve the item and check `available_operations` before invoking an operation. don't assume every item supports `fill`.
+- you want card entry and purchase confirmation to look and feel like your product.
+- your users don't have, or don't want to create, an account with a wallet provider.
+- a user needs to keep several cards on file and pick which one pays for each purchase, where [multiple cards](/integrations/wallets/pay-with-multiple-cards) are enabled.
 
-```mermaid
-%%{init: {"flowchart": {"nodeSpacing": 24, "rankSpacing": 28, "padding": 12}}}%%
-flowchart TD
-  U[user] --> H["wallet connection<br/>and approval"]
-  H --> W[wallet item]
-  W --> C[prepared card item]
-  C -->|fill| T["trusted controller:<br/>references and<br/>selectors"]
-  T --> F["KERNEL fills<br/>browser fields;<br/>returns value-free<br/>outcomes"]
-  F --> S["merchant form<br/>submission"]
-  C -->|agentcard| A["non-sensitive<br/>aliases"]
-  A --> E["KERNEL intercepts<br/>and holds request<br/>for approval"]
-  E --> X["agentcard<br/>executes request"]
-  X --> R["KERNEL replays<br/>response"]
-```
+one common use case is a shopping assistant inside your app. the user adds a card once during onboarding, on your own page with [embedded card capture](/integrations/wallets/embedded-card-capture). when the agent reaches checkout, your application confirms the order with the user and KERNEL fills the payment fields. the user never leaves your product.
 
-## Verify the purchase
+### Use a third-party wallet
 
-your application must independently verify the merchant, items, amount, and currency before creating or authorizing a purchase. keep wallet collection and approval urls in trusted user-facing surfaces, not model context. after submission, use the merchant's order record to establish whether the expected purchase succeeded.
+- your users already pay with link, shop pay, or agentcard and trust that brand with their cards.
+- you want the provider to ask the user to approve each purchase, instead of building that step yourself.
+- you want to limit what's in the browser at checkout: link and shop pay issue a card or token for one approved purchase, and agentcard keeps the card out of the browser entirely.
+
+one common use case is a consumer agent that books or buys on the user's behalf across many sites. the user connects their link wallet once. for each purchase, link sends the user an approval request and issues a one-time credential, and KERNEL fills it into the checkout.
+
+## Choose a third-party wallet
+
+| wallet | best when | limits |
+| --- | --- | --- |
+| [link by stripe](/integrations/wallets/stripe-link) | your users already have link, or the merchants use stripe checkout. on supported stripe checkouts, link pays without card fields | users need a us phone number |
+| [shop pay](/integrations/wallets/shop-pay) | your users keep cards saved in their shop account. the card it issues works on any checkout with a card form, not only shopify stores | usd purchases only. prefer a site's own agent checkout when it has one, and don't fall back to shop pay after another payment method fails |
+| [agentcard](/integrations/wallets/agentcard) | you need a sandbox to build and test against, or you want approval rules the user sets in agentcard | the merchant's payment processor must be [one KERNEL recognizes](/integrations/wallets/agentcard#checkout-and-processor-coverage) |
+
+need a wallet that isn't listed? [contact support](/info/support).
+
+## What every approach shares
+
+- **payment values stay out of your code and the model.** KERNEL's [`fill` api](/vaults/fill) writes payment values into the browser and returns only the outcome. agentcard goes further: the agent enters placeholder values, and the real card never enters the browser.
+- **your application stays in control.** verify the merchant, items, amount, and currency before you authorize a purchase. show connection and approval links to the user in your own trusted interface, never to the agent.
+- **the merchant decides whether the payment succeeded.** a completed fill or approval isn't proof of payment. check the merchant's order record before you report success.
 
 <Warning>
-  don't retry a failed, timed-out, rejected, or indeterminate payment. a browser error, missing response, completed `fill`, or reusable card item does not prove whether the merchant created an order or money moved. inspect existing outcomes, item events, and merchant state before taking another action.
+  don't retry a failed, timed-out, rejected, or unclear payment. a browser error, missing response, or completed `fill` doesn't tell you whether the merchant created an order or money moved. check the payment's events and the merchant's order record before you take another action.
 </Warning>
 
-## Get started
+## Next steps
 
-- [choose a wallet integration](/integrations/wallets/overview) for payment-method connection, approval, and reuse options.
-- [pay with card](/integrations/wallets/pay-with-card) to collect a user's card directly, with hosted or embedded enrollment.
-- [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards) to hold several cards in one KERNEL wallet and choose which card pays.
-- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent) for the controller, agent, and checkout walkthrough.
-- [fill browser fields](/vaults/fill) for KERNEL's injection api, field selection, and outcome contract.
-- [pricing](/info/pricing) for vault limits and payment charges.
+<CardGroup cols={2}>
+  <Card title="Pay with card" icon="credit-card" href="/integrations/wallets/pay-with-card">
+    collect a user's card through a hosted page or [your own branded page](/integrations/wallets/embedded-card-capture), then pay with it at checkout.
+  </Card>
+  <Card title="Connect a third-party wallet" icon="wallet" href="/integrations/wallets/overview">
+    compare provider setup, approval, and checkout coverage, then follow the guide for your wallet.
+  </Card>
+  <Card title="Enable payments in a browser agent" icon="robot" href="/browsers/enable-payments-in-browser-agent">
+    walk through the full controller, agent, and checkout flow.
+  </Card>
+  <Card title="Pricing" icon="receipt" href="/info/pricing">
+    vault limits and payment charges.
+  </Card>
+</CardGroup>
