@@ -3,7 +3,7 @@ title: "Pay with card"
 description: "Collect a user's card and use it for browser purchases"
 ---
 
-use `provider: "kernel"` to collect a user's existing card for browser purchases. KERNEL manages the provider connection; you don't need your own vgs account.
+use `provider: "kernel"` to collect a user's existing card for browser purchases. KERNEL manages the card vault integration; you don't need a separate provider account or configuration.
 
 <Note>
   this page covers a wallet with one card, which every organization gets by
@@ -62,7 +62,7 @@ kernel vaults wallets payment-methods user-12345 card-wallet
 
 </CodeGroup>
 
-card details go directly to very good security (vgs) through hosted fields. vgs stores the original card; KERNEL receives a card reference and metadata rather than the original card number. request pci compliance documents through [vgs's trust center](https://security.verygoodsecurity.com/).
+card details go directly to KERNEL's card vaulting provider through secure hosted fields. KERNEL receives a card reference and metadata rather than the original card number. request security and compliance artifacts through [KERNEL's trust center](/info/trust-center).
 
 ## Make a purchase
 
@@ -161,7 +161,7 @@ there's no general standing approval or spending-limit setting across these path
 <Accordion title="Cards without network tokens">
   fallback availability depends on the card and checkout. [contact support](/info/support) before building on this path.
 
-  where supported, the cardholder enters a fresh security code through a hosted action for each purchase. fill writes aliases that vgs replaces with the stored card details before sending the payment request to the processor. this path doesn't issue a one-time network security code.
+  where supported, the cardholder enters a fresh security code through a hosted action for each purchase. fill writes aliases that KERNEL resolves to the stored card details at browser egress. this path doesn't issue a one-time network security code.
 
   the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
 </Accordion>
