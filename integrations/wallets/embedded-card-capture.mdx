@@ -5,7 +5,7 @@ description: "Collect a card for a KERNEL wallet on your own branded page"
 
 a [KERNEL wallet](/integrations/wallets/pay-with-card) (`provider: "kernel"`) collects each card through the `card_enrollment` action that `add_payment_method` returns. by default, `action.url` opens a KERNEL-hosted page on `vault.kernel.sh`. to keep card entry inside your own application, render [`@onkernel/vault-react`](https://www.npmjs.com/package/@onkernel/vault-react)'s `KernelCardCapture` component on your page and style it to match your brand.
 
-card number, expiry, and cvc are entered in very good security (VGS) iframes, and VGS creates the card in its vault directly from the cardholder's browser. your page, your servers, and KERNEL never receive the card number. KERNEL receives only the card's vault id and the cardholder's email, then enrolls the card for network tokens.
+card number, expiry, and cvc are entered in secure hosted fields and sent directly to KERNEL's card vaulting provider from the cardholder's browser. your page, your servers, and KERNEL never receive the card number. KERNEL receives only a card reference and the cardholder's email, then enrolls the card for network tokens.
 
 use the embedded component when:
 
@@ -151,7 +151,7 @@ the component renders stable class hooks. target them under your `className`:
 | `credential-title`, `credential-description` | heading and description text                               |
 | `credential-form`                          | the form                                                     |
 | `credential-field`, `credential-label`     | each field wrapper and its label                             |
-| `card-field`                               | container that holds a VGS iframe                            |
+| `card-field`                               | container that holds a secure hosted field                   |
 | `card-row`                                 | row containing expiry and cvc                                |
 | `credential-input`                         | the email input                                              |
 | `credential-hint`                          | hint text under the email input                              |
@@ -198,7 +198,7 @@ the iframes fill their `card-field` container, so give that container an explici
 
 ### Card fields
 
-css on your page can't reach inside the VGS iframes. pass `fieldCss` instead; it's applied to the inputs in all three iframes:
+css on your page can't reach inside the hosted fields. pass `fieldCss` instead; it's applied to the inputs in all three iframes:
 
 ```tsx
 <KernelCardCapture
@@ -226,7 +226,7 @@ set at least `title`, `description`, `completeTitle`, and `completeDescription`.
 
 ## Allow the component in your CSP
 
-the component loads VGS's collect script from `https://js.verygoodvault.com`, renders its iframes, and calls the KERNEL api. merge these directives into your existing content security policy:
+the component loads its hosted-fields script from `https://js.verygoodvault.com`, renders secure iframes, and calls the KERNEL api. merge these directives into your existing content security policy:
 
 ```text
 script-src 'self' 'nonce-<per-request-nonce>' https://js.verygoodvault.com;
@@ -234,7 +234,7 @@ frame-src https://js.verygoodvault.com;
 connect-src 'self' https://api.onkernel.com;
 ```
 
-if `fieldCss` uses `@font-face`, also allow the font's source. you don't need to allow VGS's analytics endpoint; blocking it doesn't affect card capture.
+if `fieldCss` uses `@font-face`, also allow the font's source. you don't need to allow the hosted-fields analytics endpoint; blocking it doesn't affect card capture.
 
 ## Handle completion
 
@@ -263,7 +263,7 @@ a wallet is `connected` even before its first card, so its status doesn't tell y
 
 ## Handle errors
 
-`onError` receives one of these codes. the component never surfaces raw api or VGS messages.
+`onError` receives one of these codes. the component never surfaces raw api or provider messages.
 
 | code            | meaning                                                                 | what to do                                                                |
 | --------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------- |
