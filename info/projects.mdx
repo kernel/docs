@@ -104,9 +104,9 @@ func main() {
 
 API keys can be **org-wide** or **project-scoped**.
 
-- **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
+- **Organization-scoped API keys** can reach resources across projects. If the key has a [policy](/info/api-key-permissions), its grants determine which actions and resources it can access. Include an `X-Kernel-Project-Id` header to select a project for a request.
 - **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard, the [CLI](/reference/cli/api-keys), an SDK, or the [API keys guide](/info/api-keys), and pass the target `project_id` when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
-- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, or delete projects, or change project limits.
+- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, or delete projects, or change project limits. Policy-scoped keys additionally need `projects:read`, `projects:write`, or `projects:delete` on the target project. Creating a project requires `projects:create` on `organizations/{org_id}/*`; organization limits use `organizations:read` and `organizations:write`.
 
 ### OAuth
 
