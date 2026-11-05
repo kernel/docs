@@ -1,0 +1,250 @@
+---
+title: "Bring Your Own VGS Vault"
+description: "Pay with cards stored in your own VGS vault without copying them to KERNEL"
+---
+
+use `provider: "vgs"` when your cards already live in your own [VGS](https://www.verygoodsecurity.com) vault and you want KERNEL browsers to pay with them. your vault stays the source of truth: you give KERNEL a read-only VGS service account, and each purchase carries the card's aliases from your vault.
+
+neither your application, KERNEL's api, the agent, nor the browser receives the card number or security code. at authorization, KERNEL reads your aliases through its own VGS outbound proxy, which replaces the revealed values with aliases in KERNEL's VGS vault before they reach KERNEL. at checkout, KERNEL's VGS proxy reveals the card to the merchant.
+
+<Note>
+  `provider: "vgs"` requires `@onkernel/sdk` 0.141.0 or later, or `kernel` 0.141.0 or later for Python. the CLI doesn't support VGS provider configurations or cards yet.
+</Note>
+
+## How it works
+
+1. **register your service account once.** create a provider configuration with a VGS service account that can read aliases from your vault.
+2. **create a wallet.** the wallet binds that configuration and connects immediately. it holds no cards.
+3. **create a card for each purchase.** send the card's PAN alias, a freshly collected CVC alias, the expiry, and the last four digits.
+4. **authorize.** KERNEL reveals both aliases from your vault through its VGS proxy and stores KERNEL-vault aliases. the card becomes `ready` with no further cardholder approval.
+5. **fill and submit.** `fill` types KERNEL's aliases into the checkout. when the browser submits, KERNEL's VGS proxy replaces them with the real card details on the way to the merchant.
+
+## Before you start
+
+- **enable alias reveal on your vault.** ask VGS to enable the `aliases:read` capability and alias reveal on your vault. it's off by default.
+- **create a read-only service account.** in your VGS dashboard, create a service account with only the `aliases:read` scope. KERNEL uses it to reveal aliases; it doesn't need write or card management scopes. you can revoke or rotate it at any time; once you do, KERNEL can't authorize new cards from your vault.
+- **store cards as aliases.** store the card number as a persistent alias. any alias format works; KERNEL chooses the format of its own aliases.
+- **collect a fresh CVC for each purchase.** card networks don't allow storing a security code after authorization, so collect it again for each purchase, for example with a VGS Collect CVC field. store it as a volatile alias and create the card item right after collection. the alias must still exist when you authorize.
+
+create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+```
+
+</CodeGroup>
+
+## Register your service account
+
+register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for your organization. configurations are shared across projects, so authenticate this step with an [organization-scoped api key](/info/api-keys). keep the service account credentials in your backend, outside the agent's context.
+
+<CodeGroup>
+
+```typescript TypeScript
+const orgKernel = new Kernel({ apiKey: process.env.KERNEL_ORG_API_KEY! });
+
+const vgsConfig = await orgKernel.vaultProviderConfigs.create({
+  name: "cards-vgs",
+  provider: "vgs",
+  credentials: {
+    client_id: process.env.VGS_CLIENT_ID!,
+    client_secret: process.env.VGS_CLIENT_SECRET!,
+    vault_id: "tntabc12345",
+    environment: "live",
+  },
+});
+```
+
+```python Python
+org_kernel = Kernel(api_key=os.environ["KERNEL_ORG_API_KEY"])
+
+vgs_config = org_kernel.vault_provider_configs.create(
+    name="cards-vgs",
+    provider="vgs",
+    credentials={
+        "client_id": os.environ["VGS_CLIENT_ID"],
+        "client_secret": os.environ["VGS_CLIENT_SECRET"],
+        "vault_id": "tntabc12345",
+        "environment": "live",
+    },
+)
+```
+
+</CodeGroup>
+
+`vault_id` is your VGS vault ID, and `environment` is `sandbox` or `live` to match it. before storing anything, KERNEL checks that the service account holds `aliases:read` and that it can reach `vault_id` in `environment`. if either check fails, creation returns `400 invalid_request` and nothing is stored.
+
+the response returns `client_id`, `vault_id`, and `environment`. it never returns `client_secret`.
+
+- **rotation:** you can update `client_secret` only. KERNEL re-runs both checks against the same vault and environment, and refuses the update if either fails.
+- **changing vaults:** `client_id`, `vault_id`, and `environment` can't change. to use another vault or service account, create a new configuration and new wallets.
+
+## Create a wallet
+
+create the wallet with the project-scoped `kernel` client. `provider_config` is required, because there are no KERNEL-managed VGS credentials. pass the configuration's `name` or `id`; responses return the resolved id.
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.upsert("cards-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "vgs",
+    provider_config: { name: "cards-vgs" },
+  },
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "cards-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "vgs",
+        "provider_config": {"name": "cards-vgs"},
+    },
+)
+```
+
+</CodeGroup>
+
+the wallet's `state.status` is `connected` on creation. it has no enrollment action and no payment methods. if it reports `pending_authorization` or `degraded`, creation didn't finish; reading the wallet retries it. KERNEL checks whether the service account still works when you authorize a card, not when you read the wallet.
+
+## Make a purchase
+
+1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
+2. collect a fresh CVC from the cardholder and store it as a volatile alias in your vault.
+3. create a `card` item with the wallet, the merchant, amount, and currency, and the card's aliases in `spec.card`.
+4. invoke `authorize`. it takes no parameters and returns the card `ready`, with no action for the cardholder.
+5. [fill the checkout](/vaults/fill) before `expires_at`, submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
+
+the examples create and authorize a card for 452.10 usd.
+
+<CodeGroup>
+
+```typescript TypeScript
+// storedCard.panAlias and collectedCvcAlias are aliases from your VGS vault
+let card = await kernel.vaults.items.upsert("flight-order-8841", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "vgs",
+    wallet: "cards-wallet",
+    amount: 45210,
+    currency: "usd",
+    merchant_name: "example air",
+    merchant_url: "https://www.example-air.com/checkout",
+    card: {
+      pan_alias: storedCard.panAlias,
+      cvc_alias: collectedCvcAlias,
+      exp_month: 12,
+      exp_year: 2028,
+      last4: "4242",
+    },
+  },
+});
+
+const authorized = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+if (authorized.type !== "card") {
+  throw new Error("unexpected operation response");
+}
+card = authorized;
+if (card.state.status !== "ready") {
+  throw new Error(`card not ready: ${card.state.status} ${card.state.status_reason ?? ""}`);
+}
+```
+
+```python Python
+# stored_card.pan_alias and collected_cvc_alias are aliases from your VGS vault
+card = kernel.vaults.items.upsert(
+    "flight-order-8841",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "vgs",
+        "wallet": "cards-wallet",
+        "amount": 45210,
+        "currency": "usd",
+        "merchant_name": "example air",
+        "merchant_url": "https://www.example-air.com/checkout",
+        "card": {
+            "pan_alias": stored_card.pan_alias,
+            "cvc_alias": collected_cvc_alias,
+            "exp_month": 12,
+            "exp_year": 2028,
+            "last4": "4242",
+        },
+    },
+)
+
+card = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+if card.state.status != "ready":
+    raise RuntimeError(f"card not ready: {card.state.status} {card.state.status_reason or ''}")
+```
+
+</CodeGroup>
+
+| `spec.card` field | description |
+| --- | --- |
+| `pan_alias` | a persistent alias of the card number in your vault |
+| `cvc_alias` | a volatile alias of a freshly collected security code. it must still exist when `authorize` runs |
+| `exp_month`, `exp_year` | the card's expiry. an alias doesn't carry it |
+| `last4` | the card number's last four digits. KERNEL checks it against the revealed card |
+
+`spec.card` is write-only. KERNEL stores it encrypted and never returns it in the item, its events, or logs. a repeated `PUT` with the same key must send the same `card`, and card updates return `409`; to change anything, delete the item and create a new one.
+
+once `ready`, the card supports `fill` on `merchant_url`'s origin until `expires_at`, five minutes after authorization by default. it then becomes `expired`, and you need a new card item with a freshly collected CVC. supported fill fields are `number`, `cvc`, `exp_month`, `exp_year`, and `expiration`; billing fields aren't available for VGS cards. the item's `masks.last4` shows the card's last four digits; the card brand isn't reported.
+
+the recorded amount and merchant don't restrict the payment requests the browser sends. `expires_at` isn't a single-use guarantee.
+
+## Handle authorization failures
+
+if `authorize` fails, KERNEL stores nothing from your vault. the card's `state.status` and `state.status_reason` tell you what to do next:
+
+| outcome | cause | what to do |
+| --- | --- | --- |
+| `declined`, `invalid_card` | the revealed card doesn't match `last4`, isn't a valid card number, or the card has expired | fix the input and create a new card item |
+| `declined`, `alias_not_found` | your vault has no such alias, usually because the CVC alias expired | collect the CVC again and create a new card item |
+| `declined`, `provider_credentials_rejected` | VGS refused the service account, for example after you revoked or rotated it | update the provider configuration's `client_secret`, then create a new card item |
+| `503 provider_unavailable`, card stays `requested` | VGS or KERNEL's proxy couldn't complete the reveal | retry `authorize` on the same card item with backoff |
+
+## What KERNEL stores
+
+- **card number:** KERNEL keeps an alias of the card number in its own VGS vault. it remains there after the card item expires or is deleted.
+- **security code:** KERNEL keeps a volatile alias of the security code, which VGS deletes automatically within an hour.
+- **your aliases and credentials:** your aliases and service account secret are encrypted at rest and never returned.
+
+KERNEL never receives the card number or security code itself. to stop KERNEL from reading your vault, revoke the service account in VGS and delete the provider configuration. deletion returns `409` while any item still references it.
+
+## Reference
+
+- [wallets overview](/integrations/wallets/overview): provider configurations, wallet and card items, and payment actions.
+- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the controller, agent, fill, and checkout walkthrough.
+- [fill](/vaults/fill): field bindings and outcomes.
+- [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, operations, and expiry.
