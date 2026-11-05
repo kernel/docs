@@ -70,7 +70,7 @@ Agents can buy a single browser without a KERNEL account or API key through the 
 ## FAQ
 
 <Accordion title="How does billing work across a browser's lifecycle? Am I charged for the full timeout_seconds, or only while it's actively in use?">
-  Only for active runtime. `timeout_seconds` sets an idle auto-delete ceiling, not a billing window. Once a browser goes idle — 5 seconds after the last CDP or Live View activity — it enters Standby Mode and stops accruing usage cost, even if it stays alive until the timeout is reached. Deleting a browser early doesn't lower cost any further (idle time is already free), but it does free up your concurrency slot sooner.
+  You're charged only while the browser is active. Once the browser enters [standby](/browsers/standby), usage charges stop and the `timeout_seconds` countdown begins.
 </Accordion>
 <Accordion title="How can I control my team's usage spending?">
   Set an organization or project [spending cap](/info/spending-caps).
