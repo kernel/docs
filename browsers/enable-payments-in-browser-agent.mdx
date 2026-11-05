@@ -98,8 +98,8 @@ remove-and-replace flow instead of adding a second wallet.
 
 1. let the user select a provider that doesn't already have a wallet in the vault.
 2. create the wallet item through your controller, following the [pay with card setup](/integrations/wallets/pay-with-card#connect-a-card), [link setup](/integrations/wallets/stripe-link), or [agentcard setup](/integrations/wallets/agentcard).
-3. present the returned action using the authenticated flow below. the user connects or enrolls their real payment method with the provider.
-4. wait for the wallet's status to become `connected` before preparing a purchase.
+3. present the returned action using the authenticated flow below. the user connects or enrolls their real payment method with the provider. a KERNEL wallet is `connected` as soon as you create it and returns no action; invoke [`add_payment_method`](/integrations/wallets/pay-with-multiple-cards#add-a-card) and present the payment method's `card_enrollment` action instead.
+4. wait for the wallet's status to become `connected` before preparing a purchase. for a KERNEL wallet, wait until the card's payment method is `active` and eligible to pay.
 
 ### Present hosted actions in your application
 
@@ -225,7 +225,7 @@ a purchase using the user's own card is approved before checkout, so `authorize`
 browser or page parameters. authorize once the agent reaches the final checkout
 page: the one-time security code expires shortly after it's issued.
 
-1. [create a `card` item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. `card` items with `provider: "kernel"` can't be updated; to change the purchase, delete the item and create a new one.
+1. [create a `card` item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `payment_method_id` to the `id` of an `active`, eligible card from the wallet's [`payment_methods` expansion](/integrations/wallets/pay-with-multiple-cards#list-payment-methods). set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. `card` items with `provider: "kernel"` can't be updated; to change the purchase, delete the item and create a new one.
 2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/pay-with-card#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
 3. wait for the card to become `ready`. a `wait` read holds for at most 60 seconds, so keep retrieving while it's `pending_authorization`; the cardholder has up to 30 minutes to use the approval link.
 
@@ -238,6 +238,7 @@ const created = await kernel.vaults.items.upsert("notebook-order", {
   spec: {
     provider: "kernel",
     wallet: "card-wallet",
+    payment_method_id: "zk3o8w2h0a5n4e9q1x7c6v2b",
     amount: 2306,
     currency: "usd",
     merchant_name: "example shop",
@@ -285,6 +286,7 @@ created = kernel.vaults.items.upsert(
     spec={
         "provider": "kernel",
         "wallet": "card-wallet",
+        "payment_method_id": "zk3o8w2h0a5n4e9q1x7c6v2b",
         "amount": 2306,
         "currency": "usd",
         "merchant_name": "example shop",
@@ -321,6 +323,7 @@ kernel vaults cards create user-12345 notebook-order \
   --provider kernel \
   --spec '{
     "wallet": "card-wallet",
+    "payment_method_id": "zk3o8w2h0a5n4e9q1x7c6v2b",
     "amount": 2306,
     "currency": "usd",
     "merchant_name": "example shop",
@@ -1004,8 +1007,11 @@ card.
    creating or authorizing a card.
 6. show me the verified merchant, amount, currency, and item or cart contents.
    wait for my explicit confirmation, then freeze that verified purchase object.
-7. with the browser on the final checkout page, create a `card` item named
-   `checkout-card` from that same verified, confirmed object. use the exact
+7. list the wallet's payment methods and ask me which `active` card with
+   `eligible` set to true to use. if none is eligible, stop and ask me to add a
+   card outside this agent. with the browser on the final checkout page, create
+   a `card` item named `checkout-card` from that same verified, confirmed object,
+   with the selected card's id as `payment_method_id`. use the exact
    current top-level checkout url as `merchant_url` and include
    `merchant_country`. `card` items with `provider: "kernel"` can't be updated; if a value is wrong,
    stop and ask me.

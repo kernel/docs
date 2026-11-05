@@ -5,18 +5,12 @@ description: "Collect a user's card and use it for browser purchases"
 
 use `provider: "kernel"` to collect a user's existing card for browser purchases. KERNEL manages the card vault integration; you don't need a separate provider account or configuration.
 
-<Note>
-  this page covers a wallet with one card, which every organization gets by
-  default. where [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards)
-  are enabled, a new wallet starts empty and `connected`, and you add each card
-  with `add_payment_method` instead of the wallet's `card_enrollment` action.
-</Note>
-
 ## Connect a card
 
-1. create a [vault](/vaults/overview) and a `wallet` item with `spec.provider: "kernel"`.
-2. open the returned `card_enrollment` action for the cardholder. the hosted page collects their card and email. for card entry on your own domain, use [embedded card capture](/integrations/wallets/embedded-card-capture).
-3. retrieve the wallet and inspect its `payment_methods` expansion. a `connected` wallet means the card is stored, not necessarily eligible to pay.
+1. create a [vault](/vaults/overview) and a `wallet` item with `spec.provider: "kernel"`. the wallet is `connected` right away, with no cards and no `action`. `connected` means the wallet exists, not that it can pay.
+2. invoke the wallet's `add_payment_method` operation. it returns a payment method in `pending_enrollment` with a single-use `card_enrollment` action that expires after 30 minutes.
+3. open the action's `url` for the cardholder in your trusted ui. the hosted page collects their card and email. for card entry on your own domain, pass the action's `capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture) instead.
+4. retrieve the wallet with the `payment_methods` expansion. the card is ready to pay when its method is `active` and `capabilities.single_use_card.eligible` is `true`.
 
 <CodeGroup>
 
@@ -29,12 +23,21 @@ const kernel = new Kernel({
 });
 const vault = await kernel.vaults.upsert({ name: "user-12345" });
 
-const wallet = await kernel.vaults.items.upsert("card-wallet", {
+await kernel.vaults.items.upsert("card-wallet", {
   id_or_name: vault.id,
   type: "wallet",
   spec: { provider: "kernel" },
 });
-// show wallet.action.url to the cardholder in your trusted ui, not to the agent
+
+const added = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "add_payment_method",
+});
+if (added.type !== "add_payment_method") {
+  throw new Error("unexpected operation response");
+}
+const paymentMethod = added.payment_method;
+// show paymentMethod.action.url to the cardholder in your trusted ui, not to the agent
 ```
 
 ```python Python
@@ -45,29 +48,41 @@ from kernel import Kernel
 kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
 vault = kernel.vaults.upsert(name="user-12345")
 
-wallet = kernel.vaults.items.upsert(
+kernel.vaults.items.upsert(
     "card-wallet",
     id_or_name=vault.id,
     type="wallet",
     spec={"provider": "kernel"},
 )
-# show wallet.action.url to the cardholder in your trusted ui, not to the agent
+
+added = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="add_payment_method",
+)
+if added.type != "add_payment_method":
+    raise RuntimeError("unexpected operation response")
+payment_method = added.payment_method
+# show payment_method.action.url to the cardholder in your trusted ui, not to the agent
 ```
 
 ```bash CLI
 kernel vaults create --name user-12345
-kernel vaults wallets create user-12345 card-wallet --provider kernel --spec '{}' --open
+kernel vaults wallets create user-12345 card-wallet --provider kernel --spec '{}'
+kernel vaults items invoke user-12345 card-wallet add_payment_method
 kernel vaults wallets payment-methods user-12345 card-wallet
 ```
 
 </CodeGroup>
+
+a wallet can hold several cards. to add more, list them, or remove one, see [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards).
 
 card details go directly to KERNEL's card vaulting provider through secure hosted fields. KERNEL receives a card reference and metadata rather than the original card number. request security and compliance artifacts through [KERNEL's trust center](/info/trust-center).
 
 ## Make a purchase
 
 1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
-2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency. visa cards also require `merchant_country`, the merchant's two-letter country code. without `spec.payment_method_id`, the purchase uses the wallet's default card, `card`; to choose another card, see [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards#choose-a-card-for-a-purchase).
+2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency, and set `spec.payment_method_id` to the `id` of the card that pays. visa cards also require `merchant_country`, the merchant's two-letter country code. the purchase is bound to that card; see [choose a card for a purchase](/integrations/wallets/pay-with-multiple-cards#choose-a-card-for-a-purchase).
 3. invoke the advertised `authorize` operation and complete any returned user action. keep action urls in your trusted user interface, outside the agent's context.
 4. when `fill` appears in `available_operations`, [fill the checkout](/vaults/fill), submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
 
@@ -82,6 +97,7 @@ let card = await kernel.vaults.items.upsert("notebook-order", {
   spec: {
     provider: "kernel",
     wallet: "card-wallet",
+    payment_method_id: paymentMethod.id,
     amount: 2306,
     currency: "usd",
     merchant_name: "example shop",
@@ -113,6 +129,7 @@ card = kernel.vaults.items.upsert(
     spec={
         "provider": "kernel",
         "wallet": "card-wallet",
+        "payment_method_id": payment_method.id,
         "amount": 2306,
         "currency": "usd",
         "merchant_name": "example shop",
@@ -135,6 +152,7 @@ kernel vaults cards create user-12345 notebook-order \
   --provider kernel \
   --spec '{
     "wallet": "card-wallet",
+    "payment_method_id": "zk3o8w2h0a5n4e9q1x7c6v2b",
     "amount": 2306,
     "currency": "usd",
     "merchant_name": "example shop",
@@ -170,4 +188,5 @@ there's no general standing approval or spending-limit setting across these path
 
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the controller, agent, fill, and checkout walkthrough.
 - [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, eligibility, operations, and expiry.
+- [fill single-use cards](/integrations/wallets/single-use-cards): fill a card your backend or card issuer already has.
 - [pricing](/info/pricing): vault limits and payment charges.

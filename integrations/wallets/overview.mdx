@@ -19,7 +19,8 @@ see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the 
 
 | payment source | use it to | environment |
 | --- | --- | --- |
-| [pay with card](/integrations/wallets/pay-with-card) | collect a user's card directly through hosted or embedded enrollment; where enabled, [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards) | live only |
+| [pay with card](/integrations/wallets/pay-with-card) | collect a user's cards directly through hosted or embedded enrollment, then [choose which card pays](/integrations/wallets/pay-with-multiple-cards) | live only |
+| [single-use cards](/integrations/wallets/single-use-cards) | fill a card your backend or card issuer already has, such as a single-use virtual card, without passing its details to the agent | set by the card you supply |
 | [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number | live only |
 | [shop pay](/integrations/wallets/shop-pay) | use cards saved to the user's shop account, approved in shop for each purchase; usd only | live only |
 | [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout | sandbox or live, set by the agentcard credential |
@@ -75,10 +76,10 @@ link and KERNEL purchases can also be `payment_request` items where they're
 enabled for your organization; [contact support](/info/support) to enable them.
 a `payment_request` takes the same spec as the provider's `card` item and
 supports the same operations. KERNEL payment requests must set
-`payment_method_id`. agentcard and shop pay purchases stay `card` items. updates to a
+`payment_method_id`. agentcard and shop pay purchases and KERNEL single-use cards stay `card` items. updates to a
 `payment_request` item must set `type: "payment_request"`.
 
-for behavior specific to each payment source, see [pay with card](/integrations/wallets/pay-with-card), [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards), [link](/integrations/wallets/stripe-link#item-reference), [shop pay](/integrations/wallets/shop-pay#item-reference), or [agentcard](/integrations/wallets/agentcard#item-reference).
+for behavior specific to each payment source, see [pay with card](/integrations/wallets/pay-with-card), [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards), [single-use cards](/integrations/wallets/single-use-cards), [link](/integrations/wallets/stripe-link#item-reference), [shop pay](/integrations/wallets/shop-pay#item-reference), or [agentcard](/integrations/wallets/agentcard#item-reference).
 
 ## Payment actions and recovery
 
