@@ -310,7 +310,7 @@ Kernel knows why the invocation ended, but not what the tool did before its page
 
 Agents usually keep clicking through a page unless something tells them it has tools. For organizations with this beta turned on, [Playwright execution](/browsers/playwright-execution) and [browser REPL](/browsers/repl) responses say what the current page offers:
 
-- `tab.url` is the URL of the page the call ran on.
+- `tab.url` is the tab's URL after the call. `page_capabilities` and `guidance` describe that page.
 - `page_capabilities.webmcp` has the page's `tool_count` and up to 20 `tool_names`. To invoke a tool, get its `tool_ref` and input schema from `webmcp.listTools()`.
 - `page_capabilities.ucp` appears on pages with Shopify's read-only `get_ucp_profile` tool. Its `payment_handlers` list the payment methods the store's Universal Commerce Protocol (UCP) profile names.
 - `guidance` is a short note for your agent saying what the page offers and how to call it. It's null or omitted once that executor or REPL session was already given guidance for the page.
@@ -338,7 +338,7 @@ Agents usually keep clicking through a page unless something tells them it has t
 }
 ```
 
-The note only helps if your model sees it. Kernel's [MCP server](/reference/mcp-server/tools/webmcp) shows it automatically. If your own tool returns only `result` to the model, add `guidance` to what you return:
+The note only helps if your model sees it. Kernel's MCP server shows it automatically in [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) and [`browser_repl`](/reference/mcp-server/tools/browser-repl). If your own tool returns only `result` to the model, add `guidance` to what you return:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -351,6 +351,8 @@ const toolResult = response.guidance
 ```
 
 ```python Python
+import json
+
 response = kernel.browsers.playwright.execute(
     id=session_id,
     code="await page.goto('https://kith.com'); return page.url();",
