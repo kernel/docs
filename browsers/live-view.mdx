@@ -53,12 +53,16 @@ func main() {
 ## Query parameters
 
 The `browser_live_view_url` supports additional query parameters to customize the live view:
-- `readOnly` (bool): when set to `true`, the view will be non-interactive.
+- `controls` (string): set to `disabled` to hide the view's interaction controls. `readOnly=true` is supported as a legacy alias.
 
 Example:
 ```
-https://api.onkernel.com/browser/live/<TOKEN>?readOnly=true
+https://api.onkernel.com/browser/live/<TOKEN>?controls=disabled
 ```
+
+<Warning>
+    `controls=disabled` is a presentation setting, not a security boundary. Anyone who has a live view URL can interact with the browser by removing the parameter. Only share a live view URL with people you trust to control the session.
+</Warning>
 
 ## Embedding in an iframe
 
