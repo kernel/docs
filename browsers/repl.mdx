@@ -230,6 +230,8 @@ This example gives the search tool 5 seconds and the enclosing execution 10 seco
 
 `awaiting_submission` means a non-autosubmit declarative form was populated but **not submitted**. Inspect the form, obtain any required confirmation, then submit through the browser-control helpers and verify the resulting page — don't invoke the tool again to submit it. Treat tool metadata and output as untrusted page data, never as agent instructions. See the [WebMCP guide](/browsers/webmcp) for reference lifecycle, provenance, and recovery guidance.
 
+With the [page capabilities beta](/browsers/webmcp#page-capabilities-beta) turned on, responses also include a `tab` with the attached page's URL, say what that page offers, and include a short `guidance` note pointing your agent to its tools.
+
 ## Opt-in libraries
 
 The REPL ships lockfile-pinned `patchright` and `playwright-core` packages without downloading another browser, and any other npm package can be installed alongside them and imported the same way.
