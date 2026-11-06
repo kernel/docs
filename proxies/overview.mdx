@@ -21,7 +21,7 @@ Kernel-provided proxies are unmetered and not billed, subject to the fair use ru
 </Note>
 
 <Info>
-ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP, and it only changes in rare ISP-initiated replacement events or a temporary [failover to a backup endpoint](/proxies/isp#backup-endpoint-failover). This makes them suitable for IP allowlists or [managed auth](/auth/managed-auth) health checks that must egress from a single IP.
+ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP. The primary IP stays fixed unless you move a proxy backed by a reserved ISP allocation or an ISP initiates a replacement; traffic can temporarily use a different IP during a [failover to a backup endpoint](/proxies/isp#backup-endpoint-failover). This makes ISP proxies suitable for IP allowlists or [managed auth](/auth/managed-auth) health checks that must egress from a single IP.
 
 Residential and mobile proxy exit IPs may change per connection — see [Residential routing and IP behavior](/proxies/residential#routing-and-ip-behavior) and [Mobile Proxies](/proxies/mobile) for details.
 </Info>
