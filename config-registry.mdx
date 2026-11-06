@@ -132,6 +132,62 @@ browser = kernel.browsers.create(
 
 the dashboard generates equivalent typescript, python, and cli snippets for each recommendation. it includes only settings that differ from <span className="kernel-brand-name">KERNEL</span>'s defaults.
 
+## report what a site did
+
+when a browser session gets blocked, challenged, or degraded on a site, report it. one request attaches the outcome to the session, and <span className="kernel-brand-name">KERNEL</span> records the session's browser and proxy settings with it so the team can investigate and improve recommendations. reports for sessions that passed are welcome too, especially after applying a recommendation unchanged.
+
+only `url` and `outcome` are required. add whatever you observed: the restriction type, the provider if the page names it, the http status, a short excerpt of the block text, and what you already tried. reports are accepted for deleted sessions, so you can send one after cleaning up.
+
+<CodeGroup>
+
+```typescript TypeScript
+const report = await kernel.browsers.siteReports.create(browser.session_id, {
+  url: 'https://www.example.com/checkout',
+  outcome: 'blocked',
+  challenge_type: 'access_denied',
+  access_provider: 'akamai',
+  http_status: 403,
+  evidence: "Access Denied. You don't have permission to access this page. Reference #18.2f1c",
+  actions_tried: ['reloaded the page', 'opened a new session'],
+  task: 'add an item to the cart and open checkout',
+  config_source: 'config_registry',
+});
+
+console.log(report.id, report.browser.proxy_type);
+```
+
+```python Python
+report = kernel.browsers.site_reports.create(
+    browser.session_id,
+    url="https://www.example.com/checkout",
+    outcome="blocked",
+    challenge_type="access_denied",
+    access_provider="akamai",
+    http_status=403,
+    evidence="Access Denied. You don't have permission to access this page. Reference #18.2f1c",
+    actions_tried=["reloaded the page", "opened a new session"],
+    task="add an item to the cart and open checkout",
+    config_source="config_registry",
+)
+
+print(report.id, report.browser.proxy_type)
+```
+
+</CodeGroup>
+
+| field | values |
+| --- | --- |
+| `outcome` | `blocked` (the flow couldn't continue), `challenged` (a verification step appeared but the flow continued), `degraded` (content or functionality was restricted), `passed` |
+| `challenge_type` | `verification_prompt`, `browser_check`, `access_denied`, `rate_limited`, `login_restricted`, `browser_rejected`, `content_restricted`, `other`, `unknown` |
+| `reproducibility` | `single_observation`, `intermittent`, `consistent` |
+| `config_source` | `config_registry` when you applied a recommendation unchanged, otherwise `custom` |
+
+the response echoes the normalized url, host, and registrable domain plus a snapshot of the session: stealth, headless, gpu, proxy type, region, and whether a profile was loaded. keep the report `id` if you plan to follow up with support.
+
+<Warning>
+  the query string and fragment are dropped from `url` before the report is recorded. don't put credentials, page content, or personal data in `evidence`, `task`, or `notes`.
+</Warning>
+
 ## choose between lookup and resolve
 
 | method | use it when | behavior |
