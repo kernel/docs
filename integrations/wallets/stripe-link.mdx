@@ -184,12 +184,12 @@ if your backend must retain refresh-token rotation, set
 `authorization.token_refresh` to `"customer"` when you create the wallet, omit
 `refresh_token` from `authorization.tokens`, and keep the refresh token in your
 backend. the setting is fixed at wallet creation, and KERNEL never refreshes or
-revokes that grant. before each operation that can reach link, including
-creating, authorizing, or filling a card, refresh the grant and invoke the
-wallet's `update_access_token` operation with the current access token. this
-operation requires `vaults:write` in addition to `vaults:use`. when link rejects
-the stored access token, operations return `409` without contacting link again;
-update the token and retry.
+revokes that grant. if an operation that reaches link, including creating,
+authorizing, or filling a card, returns `409` with code
+`access_token_rejected`, obtain a fresh access token in your backend, invoke the
+wallet's `update_access_token` operation with it, then retry that operation.
+KERNEL doesn't contact link again with the rejected token.
+`update_access_token` requires `vaults:write` in addition to `vaults:use`.
 
 continue with [Select a payment method](#select-a-payment-method).
 
@@ -705,8 +705,9 @@ the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`.
 with the default `authorization.token_refresh: 'kernel'`, supply
 `authorization.tokens` with `access_token` and `refresh_token`. with
-`authorization.token_refresh: 'customer'`, supply only `access_token` and use
-`update_access_token` to replace it before operations that can reach link.
+`authorization.token_refresh: 'customer'`, supply only `access_token`. if an
+operation that reaches link returns `409` with code `access_token_rejected`, use
+`update_access_token` to store a fresh access token, then retry that operation.
 
 `amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. the card item's `expires_at` comes from link: the spend request's expiry, or the issued virtual card's validity. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
 
