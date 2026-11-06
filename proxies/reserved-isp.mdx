@@ -1,0 +1,196 @@
+---
+title: "Reserved ISP IPs"
+description: "Choose a reserved exit IP, inspect the proxies using it, and move an existing proxy with the SDK."
+---
+
+If your organization has a reserved ISP allocation, you can choose the primary exit IP of an ISP proxy instead of letting KERNEL select one. Multiple proxies can use the same IP, so you can manage how many of your users share each address.
+
+## Before you start
+
+- Your organization must have a reserved ISP allocation. Without one, the inventory endpoints return `403 reserved_isp_not_enabled`.
+- Set `KERNEL_API_KEY` to a key for that organization. Inventory reads require `proxies:read` across the current project or organization; access to an individual proxy isn't enough. The walkthrough also needs permission to create, use, update, and delete proxies and browsers.
+- Use SDK version `0.142.0` or later. The TypeScript resource is **`proxyIPs`**, with uppercase `IP`; Python uses **`proxy_ips`**.
+
+<CodeGroup>
+```bash TypeScript
+npm install @onkernel/sdk@^0.142.0
+```
+
+```bash Python
+uv pip install 'kernel>=0.142.0'
+```
+</CodeGroup>
+
+<Warning>
+Pinning selects the **primary** exit IP. Automatic fallback can temporarily use another IP if the primary endpoint is unavailable. Don't treat a pin as a guarantee that every request will always use that single address.
+</Warning>
+
+## Run the walkthrough
+
+This example selects two active US addresses from your allocation, creates a proxy pinned to the first, and opens a headless browser through it. It then moves the proxy to the second address while keeping the same proxy ID and browser session. Both temporary resources are deleted when the example finishes, including on failure.
+
+You need at least two active US addresses to run it. The example uses addresses returned by the API, not arbitrary IPs.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const inventory = await kernel.proxyIPs.list({
+  country: 'US',
+  status: 'active',
+  limit: 2,
+});
+const [first, second] = inventory.items;
+if (!first || !second) {
+  throw new Error('This example needs two active US addresses');
+}
+
+const proxy = await kernel.proxies.create({
+  type: 'isp',
+  name: `reserved-isp-demo-${Date.now()}`,
+  config: { ip_address: first.ip_address },
+});
+const proxyId = proxy.id;
+if (!proxyId) throw new Error('Proxy response is missing its ID');
+
+try {
+  console.log('Primary IP:', proxy.ip_address);
+  const onFirst = await kernel.proxies.list({
+    ip_address: first.ip_address,
+    limit: 100,
+  });
+  console.log('Proxies on this page:', onFirst.items.map(item => item.id));
+
+  const browser = await kernel.browsers.create({
+    headless: true,
+    proxy_id: proxyId,
+    timeout_seconds: 120,
+  });
+  try {
+    const visit = await kernel.browsers.playwright.execute(browser.session_id, {
+      code: `
+        await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+        return await page.title();
+      `,
+    });
+    if (!visit.success) throw new Error(visit.error ?? 'Page visit failed');
+    console.log(visit.result);
+
+    const moved = await kernel.proxies.update(proxyId, {
+      config: { ip_address: second.ip_address },
+    });
+    console.log('Same proxy ID, new primary IP:', moved.id, moved.ip_address);
+
+    const detail = await kernel.proxyIPs.retrieve(second.ip_address);
+    console.log('Proxy count across the organization:', detail.proxy_count);
+    console.log('Proxies in this project:', detail.proxies);
+  } finally {
+    await kernel.browsers.deleteByID(browser.session_id);
+  }
+} finally {
+  await kernel.proxies.delete(proxyId);
+}
+```
+
+```python Python
+import time
+
+from kernel import Kernel
+
+with Kernel() as kernel:
+    inventory = kernel.proxy_ips.list(country="US", status="active", limit=2)
+    if len(inventory.items) < 2:
+        raise RuntimeError("This example needs two active US addresses")
+    first, second = inventory.items
+
+    proxy = kernel.proxies.create(
+        type="isp",
+        name=f"reserved-isp-demo-{time.time_ns()}",
+        config={"ip_address": first.ip_address},
+    )
+    try:
+        print("Primary IP:", proxy.ip_address)
+        on_first = kernel.proxies.list(ip_address=first.ip_address, limit=100)
+        print("Proxies on this page:", [item.id for item in on_first.items])
+
+        browser = kernel.browsers.create(
+            headless=True,
+            proxy_id=proxy.id,
+            timeout_seconds=120,
+        )
+        try:
+            visit = kernel.browsers.playwright.execute(
+                browser.session_id,
+                code="""
+await page.goto('https://example.com', { waitUntil: 'domcontentloaded' });
+return await page.title();
+""",
+            )
+            if not visit.success:
+                raise RuntimeError(visit.error or "Page visit failed")
+            print(visit.result)
+
+            moved = kernel.proxies.update(
+                proxy.id,
+                config={"ip_address": second.ip_address},
+            )
+            print("Same proxy ID, new primary IP:", moved.id, moved.ip_address)
+
+            detail = kernel.proxy_ips.retrieve(second.ip_address)
+            print("Proxy count across the organization:", detail.proxy_count)
+            print("Proxies in this project:", detail.proxies)
+        finally:
+            kernel.browsers.delete_by_id(browser.session_id)
+    finally:
+        kernel.proxies.delete(proxy.id)
+```
+</CodeGroup>
+
+In an application, create a proxy once and reuse its ID across browser sessions. Keep the proxy for as long as you need that assignment; delete browsers after each use. The walkthrough deletes the proxy only because it's temporary.
+
+## Read the inventory and usage
+
+`proxyIPs.list()` / `proxy_ips.list()` lists the allocation itself, including addresses that no proxy uses yet. You can filter by `country` and `status`:
+
+- `active`: eligible for assignment. This isn't a live connectivity check.
+- `excluded`: unavailable for new assignments. Existing proxies on that address aren't automatically moved.
+
+Inventory pages default to 20 items and accept up to 100. `limit` is the **page size**, not the size of your allocation. Use `hasNextPage()` and `getNextPage()` in TypeScript, or `has_next_page()` and `get_next_page()` in Python. SDK iteration also fetches subsequent pages automatically. `proxies.list()` is paginated too; don't treat the walkthrough's first page as a complete list when more than 100 proxies share an IP.
+
+Retrieve an IP to inspect its usage:
+
+| Field | Meaning |
+| --- | --- |
+| `ip_address`, `country`, `status` | The reserved address and its assignment eligibility. |
+| `proxy_count` | Number of ISP proxies using this address as their primary across **all projects in the organization**. This isn't a browser-session or end-user count. |
+| `proxies` | IDs and names of those proxies in the **current project**. This can be empty even when `proxy_count` is nonzero. |
+
+`proxies.list(ip_address=...)` in Python, or `proxies.list({ ip_address: ... })` in TypeScript, returns the matching ISP proxy resources in your current project. These lookups describe primary assignments, not temporary fallback traffic.
+
+Assigning an IP doesn't make it exclusive to one proxy. If you need a per-IP user limit, keep your user-to-proxy mapping in your application; reading `proxy_count` doesn't atomically reserve capacity against another concurrent create.
+
+## Pin or move a proxy
+
+On **create**, set `type: 'isp'` and `config.ip_address` to an active address from your allocation. The country is inferred from the address when omitted. If you also supply `country`, it must match. Omit `ip_address` to let KERNEL choose an address.
+
+On **update**, pass the existing proxy's ID and `config.ip_address`. The new address must belong to your allocation and match the proxy's existing country. You can't move a proxy to a different country; create a separate proxy in that country instead. You can include `name` in the same update to rename and move together.
+
+A move probes the new endpoint before changing the assignment. If validation or the probe fails, the old assignment and name remain unchanged. Setting the current primary IP again is a no-op unless you're also renaming the proxy.
+
+For live browsers, **new connections** use the new primary within a few seconds. Established connections continue on the old IP until they close; moving a proxy doesn't restart its browsers. When verifying a move, use a fresh connection rather than a cached page or an existing keep-alive connection.
+
+Every ISP proxy exposes its primary IP as top-level `ip_address`. Reads also include `config.ip_address` when that primary belongs to your reserved allocation, so you can reuse that configuration in another create request.
+
+## Handle rejected requests
+
+| HTTP status | Code | What to do |
+| --- | --- | --- |
+| `403` | `reserved_isp_not_enabled` | Use an organization with a reserved allocation, or omit the pin for ordinary ISP selection. |
+| `403` | `insufficient_scope` | Use a key with the required permissions. Inventory reads need project-wide or organization-wide `proxies:read`. |
+| `400` | `validation_error` | Check the IPv4 format and country. A move must stay in the proxy's current country. |
+| `400` | `ip_not_reserved` | Choose an address from your organization's inventory. |
+| `409` | `ip_unavailable` | Choose another active address; the requested address is excluded or can't currently be assigned. |
+| `400` | `connection_test_failed` | The new endpoint failed its probe. For a move, the original assignment is unchanged. Choose another address or retry later. |
+| `409` | `conflict` | Another operation changed the proxy during the move. Retrieve it again before deciding whether to retry. |
+| `404` | `not_found` | When retrieving an IP, check that it belongs to your allocation. |
