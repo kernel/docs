@@ -1,27 +1,55 @@
 ---
 title: "API Key Permissions"
-description: "Actions and resources you can grant in a scoped API key policy"
+description: "Choose the actions and resources a scoped API key can access"
 ---
 
-This page lists everything you can grant in a scoped API key's `policy`. To create a scoped key, see [Scope a key to specific resources](/info/api-keys#scope-a-key-to-specific-resources).
+Use a scoped API key's `policy` to grant only the actions your automation needs. Each statement pairs one action with one resource. See [Create a scoped key](/info/api-keys#create-a-scoped-key) to issue a key, or start with a [policy example](/info/api-key-policy-examples).
 
 ## Resources
 
-| Resource | Matches |
+| Selector | Matches |
 | --- | --- |
-| `organizations/{org_id}/*` | Everything in the organization. |
-| `projects/{project_id}/*` | Everything in the project. |
-| `projects/{project_id}/{kind}/{id}` | One object. `kind` is `browsers`, `profiles`, `vaults`, or `proxies`. |
+| `organizations/{org_id}` | The organization itself, for organization actions. |
+| `projects/{project_id}` | The project itself, for project actions. |
+| `organizations/{org_id}/*` | Resources throughout the organization, for the statement's action. |
+| `projects/{project_id}/*` | Resources in one project, for the statement's action. |
+| `projects/{project_id}/{kind}/{id}` | One project-owned resource. |
+| `{kind}/{id}` | One resource. For a project-owned resource, the request's project determines its scope. Use this form for organization-owned resources. |
 
-Resources must be inside the new key's organization, or its project for a project-scoped key. Kernel checks that every object ID exists when you create the key.
+Choose `kind` from the following resource types:
+
+| Scope | Resource kinds |
+| --- | --- |
+| Project | `browsers`, `profiles`, `vaults`, `proxies`, `extensions`, `telemetry_destinations`, `browser_pools`, `deployments`, `invocations`, `credentials`, `auth_connections` |
+| Organization | `credential_providers`, `vault_provider_configs`, `audit_log_export_destinations` |
+| Matches the target key | `api_keys`: a project key belongs to its project; a key without a project belongs to the organization, not the default project. |
+
+All selectors must fit inside the new key's organization and, for a project-scoped key, its project. KERNEL validates exact resource IDs when you create the key. Existing project-owned resources without a project are treated as belonging to the default project.
+
+Creation actions need a container selector ending in `/*`, rather than an existing object's ID. Project creation and creation of organization-owned resources need `organizations/{org_id}/*`. Audit log access also uses an organization container. Search and configuration registry actions use a project or organization container rather than individual search or analysis IDs.
+
+<Note>
+A policy narrows your key's access; it doesn't change its organization or project boundary. Use an organization-scoped key for organization administration, credential providers, wallet provider configurations, audit logs, and telemetry destination management. A project-scoped key can rename its own project, but project creation, deletion, status changes, and limit changes require an organization-scoped credential.
+</Note>
 
 ## Actions
+
+### Organizations and projects
+
+| Action | Allows |
+| --- | --- |
+| `organizations:read` | Read organization entitlements and limits. |
+| `organizations:write` | Set the organization's default per-project limits. |
+| `projects:create` | Create projects. Grant on the organization container. |
+| `projects:read` | List projects and read project metadata and limits. |
+| `projects:write` | Rename projects, change their status, and set their limits. |
+| `projects:delete` | Delete empty projects. |
 
 ### Browsers
 
 | Action | Allows |
 | --- | --- |
-| `browsers:create` | Create browsers. Grant it on a project or organization. |
+| `browsers:create` | Create browsers. |
 | `browsers:use` | List, inspect, connect to, and control browsers. |
 | `browsers:write` | Update browser configuration. |
 | `browsers:delete` | Delete browsers. |
@@ -30,9 +58,9 @@ Resources must be inside the new key's organization, or its project for a projec
 
 | Action | Allows |
 | --- | --- |
-| `profiles:create` | Create profiles. Grant it on a project or organization. |
+| `profiles:create` | Create profiles. |
 | `profiles:read` | List profiles and view their metadata. |
-| `profiles:use` | Attach profiles to browsers and download them. |
+| `profiles:use` | Attach profiles to browsers and download their archives. |
 | `profiles:write` | Rename profiles and save browser state into them. |
 | `profiles:delete` | Delete profiles. |
 
@@ -40,7 +68,7 @@ Resources must be inside the new key's organization, or its project for a projec
 
 | Action | Allows |
 | --- | --- |
-| `vaults:create` | Create vaults. Grant it on a project or organization. |
+| `vaults:create` | Create vaults. |
 | `vaults:read` | List vaults and view vault and item metadata. |
 | `vaults:use` | Link vaults to browsers, fill credentials, and run vault item operations. |
 | `vaults:write` | Create, update, and delete vault items. |
@@ -50,31 +78,171 @@ Resources must be inside the new key's organization, or its project for a projec
 
 | Action | Allows |
 | --- | --- |
-| `proxies:create` | Create proxies. Grant it on a project or organization. |
+| `proxies:create` | Create and validate proxies. |
 | `proxies:read` | List proxies and view their configuration, without credentials. |
 | `proxies:use` | Select saved proxies for browsers and run health checks. |
 | `proxies:write` | Rename proxies. |
 | `proxies:delete` | Delete proxies. |
 
+### Extensions
+
+| Action | Allows |
+| --- | --- |
+| `extensions:create` | Upload saved extensions and import them from the Chrome Web Store. |
+| `extensions:read` | List extensions and read their metadata. |
+| `extensions:use` | Attach saved extensions to browsers and download their archives. |
+| `extensions:delete` | Delete extensions. |
+
+### Telemetry destinations
+
+| Action | Allows |
+| --- | --- |
+| `telemetry_destinations:create` | Create OTLP export destinations. |
+| `telemetry_destinations:read` | List destinations and read configuration and health, with header values redacted. |
+| `telemetry_destinations:use` | Select a destination for browser or auth connection telemetry export. |
+| `telemetry_destinations:write` | Update destinations, including endpoints and headers. A changed endpoint receives the stored headers. |
+| `telemetry_destinations:delete` | Delete destinations. |
+
+Scoped keys resolve destinations within the request's project. Reading and selecting a destination are separate permissions. Creating, updating, and deleting destinations also requires an organization-scoped credential.
+
+### Browser pools
+
+| Action | Allows |
+| --- | --- |
+| `browser_pools:create` | Create browser pools. |
+| `browser_pools:read` | List pools and read their configuration and browser counts. |
+| `browser_pools:use` | Acquire and release pooled browsers. |
+| `browser_pools:write` | Update pool configuration and flush idle browsers. |
+| `browser_pools:delete` | Delete pools and their browsers. |
+
+### Apps, deployments, and invocations
+
+| Action | Allows |
+| --- | --- |
+| `deployments:create` | Deploy apps, together with `deployments:delete` and `invocations:write`. |
+| `deployments:read` | List apps and deployments, and read deployment details, events, and logs. |
+| `deployments:delete` | Stop and delete deployments, including versions replaced by a new deployment. |
+| `invocations:create` | Run app actions, subject to the runtime-key requirements below. |
+| `invocations:read` | List invocations and read payloads, outputs, events, and logs. |
+| `invocations:write` | Update invocation status and output, and attach new browsers to invocations. |
+
+Apps are authorized through their deployments. An invocation belongs to its deployment's project. See [Deployment API keys](/info/api-keys#deployment-api-keys) for runtime permissions and expiry.
+
+<Note>
+Scoped app deployment requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.
+</Note>
+
+### Credentials and auth connections
+
+| Action | Allows |
+| --- | --- |
+| `credentials:create` | Create stored credentials. |
+| `credentials:read` | List credentials and read metadata and field names, without secret values. |
+| `credentials:use` | Generate TOTP codes and use credentials through auth connections or vault items. |
+| `credentials:write` | Update credential values and save login values into credentials. |
+| `credentials:delete` | Delete credentials. |
+| `auth_connections:create` | Create managed auth connections. |
+| `auth_connections:read` | Read connection configuration, state, events, and timelines. |
+| `auth_connections:use` | Start logins, submit login input, and obtain hosted login and live view URLs. |
+| `auth_connections:write` | Update connection configuration. |
+| `auth_connections:delete` | Delete connections. |
+
+A read grant returns connection metadata. To receive hosted login or live view URLs, you also need `auth_connections:use` and the referenced-resource permissions needed to run that login.
+
+### Credential providers and wallet provider configurations
+
+| Action | Allows |
+| --- | --- |
+| `credential_providers:create` | Create organization credential providers. |
+| `credential_providers:read` | List providers and read their metadata, without tokens. |
+| `credential_providers:use` | Test providers, list their items, and use them for auth connection logins. |
+| `credential_providers:write` | Update providers, including their tokens. |
+| `credential_providers:delete` | Delete providers. |
+| `vault_provider_configs:create` | Create organization wallet provider configurations. |
+| `vault_provider_configs:read` | List provider configurations and read their settings, without secrets. |
+| `vault_provider_configs:use` | Bind vault wallets to provider configurations. |
+| `vault_provider_configs:write` | Update provider configurations, including their secrets. |
+| `vault_provider_configs:delete` | Delete provider configurations. |
+
+### API keys
+
+| Action | Allows |
+| --- | --- |
+| `api_keys:create` | Issue keys in the authorized container. A scoped issuer must grant a subset of its own policy. |
+| `api_keys:read` | List keys and read metadata and policies, without plaintext keys. |
+| `api_keys:write` | Rename keys. |
+| `api_keys:rotate` | Replace keys whose policies the caller covers, returning the new plaintext key. |
+| `api_keys:delete` | Revoke keys. |
+
+New and rotated keys must expire no later than a scoped issuer. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
+
+### Audit logs and export destinations
+
+| Action | Allows |
+| --- | --- |
+| `audit_logs:read` | Read and export organization audit logs. |
+| `audit_log_export_destinations:create` | Create paused export destinations. |
+| `audit_log_export_destinations:read` | List destinations and read configuration and delivery status. |
+| `audit_log_export_destinations:use` | Write a test object to a destination. |
+| `audit_log_export_destinations:write` | Reconfigure, pause, or activate destinations. Also requires `audit_logs:read`. |
+| `audit_log_export_destinations:delete` | Delete destinations. |
+
+### Search and configuration registry
+
+| Action | Allows |
+| --- | --- |
+| `searches:create` | Run web searches. |
+| `searches:read` | Read stored search results and configured search providers. |
+| `searches:use` | Retrieve page content for search results. |
+| `config_registry:read` | Look up recommended browser configurations and read analyses. |
+| `config_registry:create` | Start or resolve configuration analyses. Also requires `config_registry:read`. |
+| `config_registry:write` | Cancel configuration analyses. |
+
 ## Operations that need more than one action
+
+### Browsers and pools
 
 | Operation | Requires |
 | --- | --- |
-| Create a browser | `browsers:create` and `browsers:use` on the project or organization, because the response includes connection URLs. Add `profiles:use` on its profile, `profiles:write` if it saves profile changes, `vaults:use` on each linked vault, and `proxies:use` on a saved proxy. |
-| Any operation on an existing browser | The browser action, plus `profiles:use` on its attached profile and `vaults:use` on every linked vault. If the browser saves profile changes, `profiles:write` on that profile too. |
-| Update a browser | `browsers:write` and `browsers:use`, plus `use` on any profile, vault, or proxy the update adds. |
-| Fill from a vault | `vaults:use` on the vault and `browsers:use` on the browser. |
-| Add or remove a card in a Kernel wallet (`add_payment_method`, `remove_payment_method`) | `vaults:use` and `vaults:write` on the vault. Without `vaults:write`, the wallet doesn't list either operation in `available_operations`, and invoking one returns `403` with `insufficient_scope`. Other wallet and purchase operations need only `vaults:use`. |
+| Create a browser | Container-wide `browsers:create` and `browsers:use`, because the response includes connection URLs. Add `profiles:use` on its profile, `profiles:write` if it saves changes, `vaults:use` on each linked vault, `extensions:use` on saved extensions, `proxies:use` on selected saved proxies, and `telemetry_destinations:use` on an export destination. |
+| Access an existing browser | The browser action, plus `profiles:use` on its attached profile, `vaults:use` on linked vaults, and `extensions:use` on saved extensions. If the browser saves profile changes, also grant `profiles:write`. |
+| Update a browser | `browsers:write` and `browsers:use`, plus permissions on attached resources and newly selected resources. |
+| Create or update a pool | The pool's `create` or `write` action, plus `use` on the profiles, proxies, and extensions you select. |
+| Acquire a pooled browser | `browser_pools:use`, container-wide `browsers:use`, and permissions on the pool's profile/extensions and the browser's actual attachments. An acquire-time profile also requires `profiles:write` when saving changes. |
+| Release a pooled browser | `browser_pools:use` and access to the leased browser, including its attachments. |
+| Force-delete a pool with leased browsers | `browser_pools:delete` and `browsers:delete` on every leased browser. |
 | Run a proxy health check | `proxies:use` and `proxies:read`. |
 
-List endpoints return only the objects the key can access, so a key without a matching grant gets an empty list.
+### Auth connections and vaults
 
-## Not available to scoped keys
+| Operation | Requires |
+| --- | --- |
+| Create or update an auth connection, start a login, or submit login input | The connection's action, `profiles:use` and `profiles:write` on its profile, and `credentials:use` on a linked credential. Add `credentials:write` when saving values, `credentials:create` when creating a credential, `profiles:create` when creating a profile, and `credential_providers:use` for a provider-backed connection. |
+| Select a proxy or telemetry destination for an auth connection | `proxies:use` or `telemetry_destinations:use` on the selected resource, in addition to connection and login-resource permissions. Stored telemetry destinations are also checked when you start a login. |
+| Fill from a vault | `vaults:use` and browser access, including the browser's attachments. |
+| Create a vault item backed by an auth connection | `vaults:write` on the vault, `auth_connections:use` on the connection, and `credentials:use` on its saved credential. |
+| Bind a provider wallet to a vault | `vaults:write` on the vault and `vault_provider_configs:use` on the provider configuration. |
+| Add or remove a stored wallet card (`add_payment_method`, `remove_payment_method`) | `vaults:use` and `vaults:write`. These operations appear in `available_operations` only with write access. Other wallet and purchase operations require `vaults:use`. |
 
-Scoped keys get `403` with `insufficient_scope` on:
+Connection updates check the resulting configuration. Turning off credential saving also checks the existing configuration, because an already-running login can still save values. Background health checks and reauthentication continue using the connection's saved configuration after the configuring API key is revoked; update or delete the connection to change that behavior.
 
-- API key management, including creating, listing, rotating, and deleting keys.
-- Browser pools.
-- Project and organization endpoints, such as listing projects or reading limits.
-- Creating browsers that use saved extensions, telemetry export, or app invocations.
-- Any other endpoint not covered by the actions above.
+### Apps and services
+
+| Operation | Requires |
+| --- | --- |
+| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. The runtime key inherits your project-limited policy and expiry. Add permissions for the operations your app performs. |
+| Invoke an app action | Container-wide `invocations:create`. Your policy must cover the deployment runtime key's policy, and your key must expire no earlier than that runtime key. |
+| Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
+| Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
+| Create or rotate an API key | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. Its expiry must fit within your own key's expiry. |
+| Update an audit export destination | `audit_log_export_destinations:write` and organization-wide `audit_logs:read`. |
+| Retrieve search content with an automatically created browser | `searches:use` plus container-wide `browsers:create`, `browsers:use`, and `browsers:delete`. With an existing browser, grant access to that browser and its attachments instead. |
+| Resolve a browser configuration | `config_registry:create` and `config_registry:read`. |
+
+## Lists and authentication
+
+Resource lists, such as browsers, profiles, pools, and API keys, filter permissions before pagination. A key with no grant for those resources receives an empty list. Service-wide listings, such as search providers, require the service's read action.
+
+`GET /auth/context` describes the calling credential and needs no additional policy action; the key must still be valid and unexpired.
+
+Payment-authenticated browser creation, card-capture tokens, and managed auth handoff-code exchange keep their own authentication protocols. An API key policy doesn't replace those credentials.
