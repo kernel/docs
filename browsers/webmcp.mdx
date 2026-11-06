@@ -308,12 +308,12 @@ Kernel knows why the invocation ended, but not what the tool did before its page
 
 ## Page capabilities (beta)
 
-Agents usually keep clicking through a page unless something tells them it has tools. For organizations with this beta turned on, [Playwright execution](/browsers/playwright-execution) and [browser REPL](/browsers/repl) responses say what the current page offers:
+Agents usually keep clicking through a page unless something tells them it has tools. [Playwright execution](/browsers/playwright-execution) and [browser REPL](/browsers/repl) responses say what the current page offers:
 
 - `tab.url` is the tab's URL after the call. `page_capabilities` and `guidance` describe that page.
-- `page_capabilities.webmcp` has the page's `tool_count` and up to 20 `tool_names`. To invoke a tool, get its `tool_ref` and input schema from `webmcp.listTools()`.
-- `page_capabilities.ucp` appears on pages with Shopify's read-only `get_ucp_profile` tool. Its `payment_handlers` list the payment methods the store's Universal Commerce Protocol (UCP) profile names.
-- `guidance` is a short note for your agent saying what the page offers and how to call it. It's null or omitted once that executor or REPL session was already given guidance for the page.
+- `page_capabilities.webmcp` has the page's `tool_count` and up to 20 `tool_names`. To invoke a tool, get its `tool_ref` and input schema from `webmcp.listTools()`. Tools can show up a call later while a page registers them.
+- `page_capabilities.ucp` appears when the page has a `get_ucp_profile` tool annotated read-only, as Shopify stores do. Kernel calls that tool itself and reports `ucp` if the call succeeds. Its `payment_handlers` list the payment methods named in the store's Universal Commerce Protocol (UCP) profile.
+- `guidance` is a short note for your agent saying what the page offers and how to call it. It's omitted when Kernel found no WebMCP tools on the page, and null or omitted once that executor or REPL session was already given guidance for the page. Check `page_capabilities` to tell the two apart.
 
 ```json
 {
@@ -338,16 +338,15 @@ Agents usually keep clicking through a page unless something tells them it has t
 }
 ```
 
-The note only helps if your model sees it. Kernel's MCP server shows it automatically in [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) and [`browser_repl`](/reference/mcp-server/tools/browser-repl). If your own tool returns only `result` to the model, add `guidance` to what you return. This uses the `kernel` client and session from the examples above:
+The note only helps if your model sees it. Kernel's MCP server shows it automatically in [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) and [`browser_repl`](/reference/mcp-server/tools/browser-repl). The CLI includes it with `--output json`. If your own tool returns only `result` to the model, add `guidance` to what you return. This uses the `kernel` client and session from the examples above:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 const response = await kernel.browsers.playwright.execute(sessionId, {
   code: `await page.goto('https://kith.com'); return page.url();`,
 });
-const toolResult = response.guidance
-  ? `${JSON.stringify(response.result)}\n\n${response.guidance}`
-  : JSON.stringify(response.result);
+const output = JSON.stringify({ result: response.result, error: response.error });
+const toolResult = response.guidance ? `${output}\n\n${response.guidance}` : output;
 ```
 
 ```python Python
@@ -357,13 +356,12 @@ response = kernel.browsers.playwright.execute(
     id=session_id,
     code="await page.goto('https://kith.com'); return page.url();",
 )
-tool_result = json.dumps(response.result)
-if response.guidance:
-    tool_result += f"\n\n{response.guidance}"
+output = json.dumps({"result": response.result, "error": response.error})
+tool_result = f"{output}\n\n{response.guidance}" if response.guidance else output
 ```
 </CodeGroup>
 
-`tool_names` and the names quoted in `guidance` come from the page, so treat them as untrusted, like the rest of a tool's metadata.
+`tool_names`, `payment_handlers`, and the names quoted in `guidance` come from the page, so treat them as untrusted, like the rest of a tool's metadata.
 
 ## Treat page data as untrusted
 
