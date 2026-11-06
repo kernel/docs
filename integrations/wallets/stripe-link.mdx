@@ -3,7 +3,7 @@ title: "Link by Stripe"
 description: "use link by stripe to approve a one-use payment credential for a browser checkout"
 ---
 
-[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a payment credential for an approved purchase: a merchant-bound link pay token on supported stripe checkouts, or a single-use virtual card everywhere else. KERNEL inspects the checkout and chooses which one; you never choose or handle it. KERNEL's native integration handles wallet connection, token refresh, approval actions, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
+[link by stripe](https://stripe.com/payments/link) connects a user's wallet through oauth and issues a payment credential for an approved purchase: a merchant-bound link pay token on supported stripe checkouts, or a single-use virtual card everywhere else. KERNEL inspects the checkout and chooses which one; you never choose or handle it. KERNEL's native integration handles wallet connection, approval actions, and card storage through vault items. by default, it also rotates refresh tokens; your backend can keep refresh-token rotation when it imports a grant. oauth credentials and card material use kms-backed envelope encryption.
 
 use KERNEL's [`fill` api](/vaults/fill) to safely inject the approved card's values into an attached browser without passing them through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values. link supplies the card, while `fill` is a KERNEL operation shared with other supported vault items.
 
@@ -110,10 +110,11 @@ obtain its access and refresh tokens. keep the client secret, pkce verifier, and
 tokens out of agent context, browser code, urls, and logs.
 
 create the wallet with the project-scoped `kernel` client and `vault` from
-[Before you start](#before-you-start). supply the access and refresh tokens from
-the same grant, with a currently valid access token. CLI users should restore
-their project-scoped `KERNEL_API_KEY` before running the wallet command and put
-the grant in this protected file:
+[Before you start](#before-you-start). the example uses the default
+`token_refresh: "kernel"` mode, so supply the access and refresh tokens from the
+same grant, with a currently valid access token. CLI users should restore their
+project-scoped `KERNEL_API_KEY` before running the wallet command and put the
+grant in this protected file:
 
 ```json link-grant.json
 {
@@ -176,15 +177,28 @@ kernel vaults wallets create user-12345 link-wallet --provider link \
 </CodeGroup>
 
 a successful import returns a `connected` wallet without a `link_oauth` action.
-KERNEL takes over refresh-token rotation, so your backend must stop refreshing
-that grant. continue with [Select a payment method](#select-a-payment-method).
+with the default `token_refresh: "kernel"`, KERNEL takes over refresh-token
+rotation, so your backend must stop refreshing that grant.
+
+if your backend must retain refresh-token rotation, set
+`authorization.token_refresh` to `"customer"` when you create the wallet, omit
+`refresh_token` from `authorization.tokens`, and keep the refresh token in your
+backend. the setting is fixed at wallet creation, and KERNEL never refreshes or
+revokes that grant. if an operation that reaches link, including creating,
+authorizing, or filling a card, returns `409` with code
+`access_token_rejected`, obtain a fresh access token in your backend, invoke the
+wallet's `update_access_token` operation with it, then retry that operation.
+KERNEL doesn't contact link again with the rejected token.
+`update_access_token` requires `vaults:write` in addition to `vaults:use`.
+
+continue with [Select a payment method](#select-a-payment-method).
 
 ## Lifecycle
 
 1. connect a wallet: use KERNEL's client and present the returned `link_oauth` action, or complete oauth in your backend and import the grant with your provider configuration.
 2. require the wallet to be `connected`.
 3. request the advertised `payment_methods` expansion and let the user choose an eligible method.
-4. reach the final checkout page in a browser with the vault attached, then create a `card` item with the purchase details. creating the card doesn't contact link. to change the details before authorizing, update the card.
+4. reach the final checkout page in a browser with the vault attached, then create a `card` item with the purchase details. to change the details before authorizing, update the card.
 5. retrieve the card, verify that it advertises `authorize`, and after explicit user approval invoke it with the browser's `browser_id` and the checkout's exact current top-level `page_url`. KERNEL inspects that checkout, chooses a link pay token or a virtual card, and sends the user an approval request.
 6. complete the returned `spend_approval` or `push_approval` action and wait for `state.status` to become `ready`.
 7. require the advertised `fill` operation and follow its description: a link pay token takes `browser_id` and `page_url` only, and a virtual card also takes field/selector bindings. inspect the fill outcome, then submit the checkout yourself once.
@@ -684,12 +698,16 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 
 | item | required fields | optional fields |
 | --- | --- | --- |
-| wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | write-only `authorization.tokens` is required only with a customer-managed client |
+| wallet | `provider: 'link'`, `authorization.method: 'oauth'`, `authorization.client` | `authorization.token_refresh` for a customer-managed client; write-only `authorization.tokens` is required only with a customer-managed client |
 | card | `provider`, `wallet`, `payment_method_id`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context` | `line_items`, `totals`, `metadata` |
 
 the default link client is `{type: 'kernel_managed'}`. for your own client, set
-`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
-and supply `authorization.tokens` with `access_token` and `refresh_token`.
+`authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`.
+with the default `authorization.token_refresh: 'kernel'`, supply
+`authorization.tokens` with `access_token` and `refresh_token`. with
+`authorization.token_refresh: 'customer'`, supply only `access_token`. if an
+operation that reaches link returns `409` with code `access_token_rejected`, use
+`update_access_token` to store a fresh access token, then retry that operation.
 
 `amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. the card item's `expires_at` comes from link: the spend request's expiry, or the issued virtual card's validity. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
 
