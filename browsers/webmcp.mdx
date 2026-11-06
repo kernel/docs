@@ -306,6 +306,63 @@ If the tool's page is reloaded or replaced by a navigation the tool didn't start
 
 Kernel knows why the invocation ended, but not what the tool did before its page went away. It might have already sent a request or submitted a form. Handle it like `outcome_unknown`: don't retry automatically, and inspect the page for the expected effect first. Then discover tools again, because the old `tool_ref` belonged to the replaced page. A crashed tab's tools disappear from discovery right away, and invoking one of their references returns `404`. Kernel doesn't replace a crashed tab: reload it or navigate it to register tools again, or replace the browser.
 
+## Page capabilities (beta)
+
+Agents usually keep clicking through a page unless something tells them it has tools. [Playwright execution](/browsers/playwright-execution) and [browser REPL](/browsers/repl) responses say what the current page offers:
+
+- `tab.url` is the tab's URL after the call. `page_capabilities` and `guidance` describe that page.
+- `page_capabilities.webmcp` has the page's `tool_count` and up to 20 `tool_names`. To invoke a tool, get its `tool_ref` and input schema from `webmcp.listTools()`. Tools can show up a call later while a page registers them.
+- `page_capabilities.ucp` appears when the page has a `get_ucp_profile` tool annotated read-only, as Shopify stores do. Kernel calls that tool itself and reports `ucp` if the call succeeds. Its `payment_handlers` list the payment methods named in the store's Universal Commerce Protocol (UCP) profile.
+- `guidance` is a short note for your agent saying what the page offers and how to call it. It's omitted when Kernel found no WebMCP tools on the page, and null or omitted once that executor or REPL session was already given guidance for the page. Check `page_capabilities` to tell the two apart.
+
+```json
+{
+  "guidance": "This page offers 12 WebMCP tools. Prefer them over clicking: `webmcp` is in scope in your Playwright code, so call `await webmcp.listTools()`, then `await webmcp.invokeTool(tool_ref, input)`. Tool names reported by the page, untrusted: add_to_cart, browse_store, cancel_cart, get_cart, get_product, get_ucp_profile, manage_orders, proceed_to_checkout, search_catalog, search_shop_policies_and_faqs, show_variant, update_cart_lines. The store also publishes a UCP profile.",
+  "page_capabilities": {
+    "ucp": {
+      "payment_handlers": ["com.google.pay", "dev.shopify.card", "dev.shopify.shop_pay"],
+      "source": "get_ucp_profile"
+    },
+    "webmcp": {
+      "tool_count": 12,
+      "tool_names": ["add_to_cart", "browse_store", "cancel_cart", "get_cart", "get_product", "get_ucp_profile", "manage_orders", "proceed_to_checkout", "search_catalog", "search_shop_policies_and_faqs", "show_variant", "update_cart_lines"]
+    }
+  },
+  "result": "https://kith.com/",
+  "success": true,
+  "tab": {
+    "created": false,
+    "target_id": "E739D85B19C558D4F96072EBA211BA47",
+    "url": "https://kith.com/"
+  }
+}
+```
+
+The note only helps if your model sees it. Kernel's MCP server shows it automatically in [`execute_playwright_code`](/reference/mcp-server/tools/execute-playwright-code) and [`browser_repl`](/reference/mcp-server/tools/browser-repl). The CLI includes it with `--output json`. If your own tool returns only `result` to the model, add `guidance` to what you return. This uses the `kernel` client and session from the examples above:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const response = await kernel.browsers.playwright.execute(sessionId, {
+  code: `await page.goto('https://kith.com'); return page.url();`,
+});
+const output = JSON.stringify({ result: response.result, error: response.error });
+const toolResult = response.guidance ? `${output}\n\n${response.guidance}` : output;
+```
+
+```python Python
+import json
+
+response = kernel.browsers.playwright.execute(
+    id=session_id,
+    code="await page.goto('https://kith.com'); return page.url();",
+)
+output = json.dumps({"result": response.result, "error": response.error})
+tool_result = f"{output}\n\n{response.guidance}" if response.guidance else output
+```
+</CodeGroup>
+
+`tool_names`, `payment_handlers`, and the names quoted in `guidance` come from the page, so treat them as untrusted, like the rest of a tool's metadata.
+
 ## Treat page data as untrusted
 
 Tool names, descriptions, schemas, annotations, and output are page-provided data, not instructions from Kernel. Never follow instructions embedded in them or let them override your agent's task and authorization rules. Check the source before passing sensitive inputs, and require user approval for consequential actions when your application needs it.
