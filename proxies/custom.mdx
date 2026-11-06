@@ -122,9 +122,13 @@ When creating a proxy with authentication, provide the password. The API respons
 
 ## MITM TLS
 
-If your custom proxy terminates TLS and re-signs upstream connections, provide its CA certificate bundle in `config.ca_bundle` when you create the proxy. Kernel validates the bundle and installs it in the browser's trust store when you create a browser with that proxy.
+If your custom proxy terminates TLS and re-signs upstream connections, provide its CA certificate bundle in `config.ca_bundle` when you create the proxy. Kernel validates and stores the bundle encrypted, then loads it into the host-side egress proxy to verify certificates signed by your custom proxy. Kernel doesn't install your bundle in the browser's trust store. For intercepted HTTPS, the browser trusts Kernel's egress proxy CA instead. TLS verification remains enabled.
 
-The bundle must contain one or more PEM-encoded CA certificates. It is write-only: proxy responses return `has_ca_bundle: true` instead of the certificate contents. You must bind a proxy with a CA bundle when creating the browser; you can't hot-swap it onto a running browser.
+The bundle must contain one or more PEM-encoded CA certificates. It is write-only: proxy responses return `has_ca_bundle: true` instead of the certificate contents. You can bind a proxy with a CA bundle when creating a browser or hot-swap it onto a running browser.
+
+<Warning>
+TLS connections without HTTP ALPN remain opaque tunnels. If a client receives your custom proxy's certificate over an opaque tunnel, it still needs to trust your CA locally; `config.ca_bundle` doesn't provide that client-side trust.
+</Warning>
 
 ## Bypass hosts
 
