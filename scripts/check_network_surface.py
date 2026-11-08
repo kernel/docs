@@ -26,7 +26,23 @@ PAGE = ROOT / "info/network-access.mdx"
 
 TABLE_ROW = re.compile(r"^\|(?!\s*(?:Feature|-))(.+)\|\s*$", re.M)
 CODE_FENCE = re.compile(r"```text\n(.*?)```", re.S)
-ORIGIN = re.compile(r"(?:https|wss)://(\S+?):(\d+)")
+SOURCE = re.compile(r"^(?:https|wss)://(.+)$")
+
+
+def csp_origins(block):
+    """host:port for every source in a CSP block.
+
+    A source may leave the port off, and both schemes the page uses default to
+    443, so the page is compared as hosts and ports rather than as text.
+    """
+    origins = set()
+    for source in block.split():
+        match = SOURCE.match(source.rstrip(";"))
+        if match is None:
+            continue
+        host, _, port = match.group(1).partition(":")
+        origins.add(f"{host}:{port or '443'}")
+    return origins
 
 
 def backticked(cell):
@@ -58,8 +74,9 @@ def check_table(surface, page):
             errors.append(f"feature {feature!r} != {dest['feature']!r}")
         if hosts != dest["hosts"]:
             errors.append(f"{dest['feature']}: hosts {hosts} != {dest['hosts']}")
-        if ports != [str(dest["port"])]:
-            errors.append(f"{dest['feature']}: port {ports} != [{dest['port']!r}]")
+        published_ports = [str(port) for port in dest["ports"]]
+        if ports != published_ports:
+            errors.append(f"{dest['feature']}: ports {ports} != {published_ports}")
         if protocol != dest["protocol"]:
             errors.append(f"{dest['feature']}: protocol {protocol!r} != {dest['protocol']!r}")
     return errors
@@ -68,15 +85,16 @@ def check_table(surface, page):
 def check_csp(surface, page):
     """Every session-facing host:port must appear in the Live View CSP, and nothing else."""
     session_facing = {
-        f"{host}:{dest['port']}"
+        f"{host}:{port}"
         for dest in surface["destinations"]
         if dest.get("session_facing")
         for host in dest["hosts"]
+        for port in dest["ports"]
     }
     blocks = CODE_FENCE.findall(page)
     if not blocks:
         return ["no ```text CSP block found"]
-    live_view = {f"{h}:{p}" for h, p in ORIGIN.findall(blocks[0])}
+    live_view = csp_origins(blocks[0])
     errors = []
     for missing in sorted(session_facing - live_view):
         errors.append(f"Live View CSP is missing {missing}")

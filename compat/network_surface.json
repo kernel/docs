@@ -1,41 +1,46 @@
 {
-  "version": 1,
+  "version": 2,
   "destinations": [
     {
       "feature": "API, SDKs, and authenticated CLI requests",
       "hosts": ["api.onkernel.com"],
-      "port": 443,
+      "ports": [443],
       "protocol": "HTTPS"
     },
     {
       "feature": "CLI authentication (`kernel login`)",
       "hosts": ["auth.onkernel.com", "dashboard.onkernel.com"],
-      "port": 443,
+      "ports": [443],
       "protocol": "HTTPS"
     },
     {
       "feature": "CDP, WebDriver BiDi, Live View, replays, and app connections",
       "hosts": ["*.onkernel.com", "*.kernel.sh"],
-      "port": 8443,
+      "ports": [443, 8443],
       "protocol": "HTTPS and secure WebSocket (WSS)",
-      "session_facing": true
+      "session_facing": true,
+      "transition": {
+        "adding": [443],
+        "retiring": [8443],
+        "retire_by": null
+      }
     },
     {
       "feature": "Live View media negotiation",
       "hosts": ["stun.relay.metered.ca"],
-      "port": 80,
+      "ports": [80],
       "protocol": "STUN over UDP"
     },
     {
       "feature": "Live View media relay",
       "hosts": ["global.relay.metered.ca"],
-      "port": 443,
+      "ports": [443],
       "protocol": "TURN over UDP or TLS/TCP"
     },
     {
       "feature": "Replay files",
       "hosts": ["kernel-api-prod.s3.us-east-1.amazonaws.com"],
-      "port": 443,
+      "ports": [443],
       "protocol": "HTTPS"
     }
   ],
