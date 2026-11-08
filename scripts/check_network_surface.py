@@ -50,15 +50,15 @@ def backticked(cell):
 
 
 def table_rows(page):
-    """(feature, hosts, port, protocol) for each row of the destinations table."""
+    """(feature, hosts, ports, protocol) for each row of the destinations table."""
     section = page.split("## Required destinations", 1)[-1].split("\n## ", 1)[0]
     rows = []
     for raw in TABLE_ROW.findall(section):
         cells = [c.strip() for c in raw.split("|")]
         if len(cells) != 4:
             continue
-        feature, hosts, port, protocol = cells
-        rows.append((feature, backticked(hosts), backticked(port), protocol))
+        feature, hosts, ports, protocol = cells
+        rows.append((feature, backticked(hosts), backticked(ports), protocol))
     return rows
 
 
