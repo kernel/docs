@@ -1,17 +1,43 @@
 ---
-title: "Agentcard"
+title: "AgentCard"
 description: "Use Agentcard to approve browser checkouts against an enrolled payment method"
 ---
 
-[agentcard](https://www.agentcard.sh/) collects a user's card in a hosted enrollment flow and authorizes each browser checkout against that enrolled payment method. the card number and cvc stay with agentcard. your agent receives non-secret aliases.
+[agentcard](https://agentcard.com/vault?utm_source=kernel&utm_medium=partner_docs&utm_campaign=integration) collects a user's card in a hosted enrollment flow and authorizes each browser checkout against that enrolled payment method. the card number and cvc stay with agentcard. your agent receives non-secret aliases.
 
-agentcard is the credential provider, not the merchant's payment processor. at
-the browser form layer, it works with any web checkout that accepts standard
-card details, and the merchant's processor doesn't need to be stripe. end-to-end
-handoff also requires the outgoing request to match a [native processor
-adapter](/integrations/payments/overview#checkout-and-processor-coverage).
-<span className="kernel-brand-name">KERNEL</span> currently has adapters for
-request formats used by stripe, shopify, square, recurly, and razorpay.
+KERNEL's native integration holds a recognized checkout request while the user approves it, lets agentcard execute it, and replays the processor response to the browser. this alias-based integration is an exception to KERNEL's [`fill` api](/vaults/fill), not another form of that operation. see [payments on KERNEL](/browsers/payments) for the shared offering and lifecycle.
+
+agentcard is the wallet provider, not the merchant's payment processor. end-to-end handoff requires a [recognized processor request](#checkout-and-processor-coverage); the merchant's processor doesn't need to be stripe.
+
+## Checkout and processor coverage
+
+agentcard's alias handoff uses native adapters for these checkout request formats:
+
+| merchant processor or platform | flow | recognized HTTPS `POST` request formats                                                                                                                                                     |
+| ------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| stripe                         | ordinary approval hold | form requests to `api.stripe.com/v1/payment_methods`, `/v1/tokens`, `/v1/payment_intents/{id}/confirm`, and `/v1/payment_pages/{id}/confirm`                                                |
+| shopify                        | ordinary approval hold | JSON card-session requests to `checkout.pci.shopifyinc.com/sessions` and `deposit.<region>.shopifycs.com/sessions`                                                                          |
+| square                         | prepared single-use checkout (currently enabled) | JSON card-nonce requests to `pci-connect.squareup.com/v2/card-nonce` and `pci-connect.squareupsandbox.com/v2/card-nonce`                                                                    |
+| recurly                        | ordinary approval hold | form token requests to `api.recurly.com/js/v1/token` and `api.eu.recurly.com/js/v1/token`                                                                                                   |
+| razorpay                       | ordinary approval hold; reconcile payment status with the merchant | form card-payment requests to `api.razorpay.com/v1/payments/create/ajax` and `api.razorpay.com/v1/standard_checkout/payments/create/ajax`                                                   |
+| braintree                      | prepared single-use checkout only | GraphQL guest tokenization requests to `payments.braintree-api.com/graphql` and `payments.sandbox.braintree-api.com/graphql`                                                               |
+| worldpay                       | prepared single-use checkout only | Access Checkout card-session requests to `access.worldpay.com/sessions/card` and `try.access.worldpay.com/sessions/card`                                                                   |
+| bambora                        | prepared single-use checkout only | card-token requests to `api.na.bambora.com/scripts/tokenization/tokens` and `api.bam.shift4api.net/scripts/tokenization/tokens`                                                           |
+| mercado pago                   | prepared single-use checkout only | fresh-card token requests to `api.mercadopago.com/v1/card_tokens`                                                                                                                          |
+
+for example, an attached browser can enter agentcard aliases into a shopify checkout. shopify remains the merchant platform; agentcard supplies the credential and approval flow.
+
+for ordinary approval holds, the outgoing request must contain the complete alias
+set and match the adapter's expected HTTPS method, host, path, content type, and
+card-field layout. prepared checkout rows require the card item to complete
+`prepare_checkout` before native submission; Braintree, Worldpay, Bambora and
+Mercado Pago don't support the ordinary hold flow. The current KERNEL deployment
+has prepared checkout enabled, so new Square checkouts must use
+`prepare_checkout`, and an unprepared request is rejected rather than falling back
+to an ordinary hold. The ordinary Square hold flow is retained for compatibility
+with deployments that haven't enabled prepared checkout. Encrypted payloads,
+different request layouts, and
+unrecognized processor endpoints pass through without native handoff.
 
 <span className="kernel-brand-name">KERNEL</span>'s native handoff aims to
 support the same processors supported by agentcard's direct SDK. email
@@ -69,7 +95,7 @@ setup below before following the shared payment lifecycle.
 
 ### bring your own agentcard oauth client
 
-register a [provider configuration](/vaults/overview#provider-configurations) once for
+register a [provider configuration](/integrations/wallets/overview#provider-configurations) once for
 your organization. configurations are shared across projects, so authenticate
 this step with an [organization-scoped api key](/info/api-keys). project-scoped
 credentials can reference an existing configuration when creating a wallet, but
@@ -138,10 +164,80 @@ kernel vault-provider-configs create \
 </CodeGroup>
 
 the response exposes `test_mode` (`true` means sandbox, `false` means live).
-verify it against `AGENTCARD_MODE`. then create the wallet with the
-project-scoped `kernel` client and `vault` from
-[Before you start](#before-you-start). CLI users should restore their
-project-scoped `KERNEL_API_KEY` before running the wallet command.
+verify it against `AGENTCARD_MODE`. create the wallet with the project-scoped
+`kernel` client and `vault` from [Before you start](#before-you-start).
+CLI users must restore their project-scoped `KERNEL_API_KEY` before running
+wallet commands.
+
+#### Import an existing user
+
+complete agentcard's [enrollment or sign-in flow](https://docs.agentcard.com/vault/adding-a-card)
+in your own application and store the resulting `usr_` user id. if you've
+already connected the user, reuse that id; don't enroll them again.
+
+pass the user id with your provider configuration. the examples read it from
+`AGENTCARD_USER_ID` on your server. in your application, resolve the id from the
+stored mapping for the authenticated end user who owns the vault, not from an
+untrusted request field. no per-user access or refresh tokens are required.
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.upsert("agentcard-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: {
+    provider: "agentcard",
+    provider_config: { name: agentcardConfig.name },
+    user_id: process.env.AGENTCARD_USER_ID!,
+  },
+});
+```
+
+```python Python
+wallet = kernel.vaults.items.upsert(
+    "agentcard-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={
+        "provider": "agentcard",
+        "provider_config": {"name": agentcard_config.name},
+        "user_id": os.environ["AGENTCARD_USER_ID"],
+    },
+)
+```
+
+```bash CLI
+kernel vaults wallets create user-12345 agentcard-wallet \
+  --provider agentcard \
+  --provider-config-name checkout-agentcard \
+  --spec "$(jq -n --arg user_id "$AGENTCARD_USER_ID" '{user_id: $user_id}')"
+```
+
+</CodeGroup>
+
+the cli example uses `jq` to build the json specification. KERNEL validates
+provider access using the selected credentials and their sandbox/live mode
+before creating the wallet. a successful import returns `state.status` set to
+`connected`, without a `card_enrollment` action. KERNEL manages the
+client-credentials access token; there's no per-user refresh-token handoff.
+
+a valid connection with no stored cards also returns `connected`. inspect the
+wallet's advertised `payment_methods` expansion before creating a purchase;
+a connected wallet alone doesn't mean a card is available. continue with
+[Create a card item](#create-a-card-item) once the user has a stored card.
+
+if agentcard rejects the user or credentials, import returns `400` without
+creating a wallet. check the user id, provider configuration, and sandbox/live
+mode, then retry with the corrected specification. after success, the user and
+configuration bindings are immutable. repeating the same key and specification
+returns the existing wallet; changing either binding returns `409`.
+
+#### Enroll through KERNEL instead
+
+if you want KERNEL to create and poll the hosted enrollment session, omit
+`user_id` while keeping your provider configuration. this is an alternative to
+importing a connected user, not a second step after import.
 
 <CodeGroup>
 
@@ -211,7 +307,7 @@ deadline expires. then continue with [Create a card item](#create-a-card-item).
 
 ## Lifecycle
 
-1. create a `wallet` item and open the returned `card_enrollment` action for the user.
+1. connect a `wallet` item: open the returned `card_enrollment` action, or import an existing user with your own provider configuration.
 2. wait for the wallet to become `connected`.
 3. create a reusable `card` item with the merchant, amount, and currency.
 4. attach the vault to a browser and give `state.aliases` to the agent.
@@ -326,7 +422,10 @@ kernel vaults items get user-12345 agentcard-wallet --wait 60
   contain the action url.
 </Warning>
 
-`spec.user_id` can reuse a user who was already enrolled through another wallet in your organization. it cannot reference an arbitrary agentcard user.
+with KERNEL-managed credentials, `spec.user_id` can only reuse a user already
+connected through another wallet in your organization under the same
+configuration. to import a user connected through your own application, select
+your customer-owned configuration and follow [Import an existing user](#import-an-existing-user).
 
 ## Create a card item
 
@@ -342,10 +441,16 @@ const card = await kernel.vaults.items.upsert("notebook-order", {
     merchant: "example shop",
     amount: 2306,
     currency: "usd",
+    checkout_origin: "https://shop.example.com",
   },
 });
 
-if (card.state.status !== "ready" || !card.state.aliases) {
+if (
+  card.type !== "card" ||
+  card.state.provider !== "agentcard" ||
+  card.state.status !== "ready" ||
+  !card.state.aliases
+) {
   throw new Error(`card is ${card.state.status}`);
 }
 ```
@@ -361,10 +466,16 @@ card = kernel.vaults.items.upsert(
         "merchant": "example shop",
         "amount": 2306,
         "currency": "usd",
+        "checkout_origin": "https://shop.example.com",
     },
 )
 
-if card.state.status != "ready" or card.state.aliases is None:
+if (
+    card.type != "card"
+    or card.state.provider != "agentcard"
+    or card.state.status != "ready"
+    or card.state.aliases is None
+):
     raise RuntimeError(f"card is {card.state.status}")
 ```
 
@@ -375,7 +486,8 @@ kernel vaults cards create user-12345 notebook-order \
     "wallet": "agentcard-wallet",
     "merchant": "example shop",
     "amount": 2306,
-    "currency": "usd"
+    "currency": "usd",
+    "checkout_origin": "https://shop.example.com"
   }'
 kernel vaults items get user-12345 notebook-order -o json
 ```
@@ -383,6 +495,25 @@ kernel vaults items get user-12345 notebook-order -o json
 </CodeGroup>
 
 `amount` uses minor currency units, so `2306` means 23.06 usd. omitting `card_id` lets the cardholder select an enrolled card on the approval screen. to pin a card, request the wallet's advertised `payment_methods` expansion and set a returned id as `spec.card_id`.
+
+`checkout_origin` is optional. set it to the checkout's canonical origin: an
+HTTPS origin with a lowercase host, no default port, and no path (for example,
+`https://shop.example.com`), or an HTTP `localhost` origin for local test
+pages (for example, `http://localhost:3000`). For non-prepared checkout
+authorizations, Kernel sends this caller-supplied origin to AgentCard for
+cardholder autopilot rule matching. This origin match isn't payment approval
+itself: an eligible autopilot rule can authorize the request, while an
+ineligible rule can still fall back to user approval. If you omit the field,
+the existing approval behavior remains. Prepared checkout uses the
+`merchant_origin` from its preparation instead of this field. Card updates
+replace the full `spec`, so include `checkout_origin` again when you want to
+keep using it. An autopilot match doesn't guarantee processor acceptance or
+payment success.
+
+Kernel doesn't compare `checkout_origin` with the browser's current page. Your
+application must derive or validate the origin from a trusted checkout context
+and must not treat it as proof of the page's identity. Continue to verify the
+merchant and purchase independently before checkout submission.
 
 ### Reuse a card item for a new purchase
 
@@ -415,6 +546,7 @@ reusableCard = await kernel.vaults.items.update("notebook-order", {
     merchant: "example books",
     amount: 4199,
     currency: "usd",
+    checkout_origin: "https://books.example.com",
   },
 });
 ```
@@ -444,6 +576,7 @@ reusable_card = kernel.vaults.items.update(
         "merchant": "example books",
         "amount": 4199,
         "currency": "usd",
+        "checkout_origin": "https://books.example.com",
     },
 )
 ```
@@ -456,7 +589,8 @@ kernel vaults cards update user-12345 notebook-order \
     "wallet": "agentcard-wallet",
     "merchant": "example books",
     "amount": 4199,
-    "currency": "usd"
+    "currency": "usd",
+    "checkout_origin": "https://books.example.com"
   }'
 ```
 
@@ -677,3 +811,29 @@ merchant created the expected order. return `indeterminate` when the sources
 disagree or the merchant record is unavailable, and don't retry automatically.
 
 pass the aliases to the [browser agent payments guide](/browsers/enable-payments-in-browser-agent) and observe item events while the checkout runs.
+
+## Item reference
+
+wallet and card items accept these `spec` fields. fields not listed here are rejected. a card's `spec.wallet` must reference an agentcard wallet in the same vault.
+
+| item | required fields | optional fields |
+| --- | --- | --- |
+| wallet | `provider: 'agentcard'` | `provider_config`; `user_id` to import a connected user with customer-owned credentials, or reuse an organization-local user with KERNEL-managed credentials |
+| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`, `checkout_origin`                    |
+
+agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
+
+card updates replace the complete `spec`; they are not partial merges. agentcard card items can update while `requested` or `ready`, but not while approval is pending.
+
+### Item states
+
+- **wallet:** `pending_authorization`, `connected`, `degraded`
+- **card:** `requested`, `ready`, `pending_approval`, `degraded`, `recovery_required`
+
+for an unresolved provider outcome, follow [payment recovery](/integrations/wallets/overview#payment-actions-and-recovery). a reusable card returning to `ready` does not prove purchase success.
+
+card state can include `masks.brand` and `masks.last4`, and read-only `aliases`: `number`, `cvc`, `exp_month`, and `exp_year`. aliases are non-sensitive stand-ins, not standalone credentials or permission to use the provider-backed value.
+
+the aliases include a luhn-valid 16-digit number, a three-digit cvc, and an expiry month and year. they pass client-side validation but can't resolve unless the browser session and vault are bound together.
+
+deleting a card invalidates its aliases. deleting a wallet also invalidates its dependent cards.

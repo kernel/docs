@@ -19,11 +19,11 @@ Show details for a proxy configuration.
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ## `kernel proxies create`
-Create a new proxy configuration. Proxy quality for bot detection avoidance, best to worst: mobile > residential > ISP > datacenter.
+Create a new proxy configuration. Proxy quality for bot detection avoidance, best to worst: mobile > residential > ISP.
 
 | Flag | Description |
 |------|-------------|
-| `--type <type>` | `datacenter`, `isp`, `residential`, `mobile`, or `custom`. Required. |
+| `--type <type>` | `isp`, `residential`, `mobile`, or `custom`. Required. |
 | `--name <name>` | Proxy configuration name. |
 | `--protocol <protocol>` | Protocol to use (`http` or `https`; default: `https`). |
 | `--country <code>` | ISO 3166 country code or `EU`. ISP proxies support `US`, `SG`, `GB`, `FR`, and `DE`. |
@@ -40,9 +40,6 @@ Create a new proxy configuration. Proxy quality for bot detection avoidance, bes
 | `--output json`, `-o json` | Output raw JSON object. |
 
 ```bash
-# Datacenter proxy in the US
-kernel proxies create --type datacenter --country US --name "US Datacenter"
-
 # ISP proxy with a static exit IP in the United Kingdom
 kernel proxies create --type isp --country GB --name "GB ISP"
 

@@ -1,0 +1,109 @@
+---
+title: "Wallets"
+description: "Pay with a user's own card or connect a supported wallet provider"
+---
+
+you can pay in a KERNEL browser with a user's own card or with a payment method from a supported wallet provider. when the user pays with their own card, KERNEL provides hosted or embedded enrollment and uses a stored card reference at checkout. in either path, your application works with vault item references, advertised operations, and outcomes instead of passing raw payment details to the agent.
+
+for supported wallet providers, KERNEL's native integrations connect the user's payment method to vault items and expose provider-hosted connection and approval through the KERNEL api.
+
+the payment source supplies the payment material and determines approval and reuse behavior; it isn't the merchant's payment processor. KERNEL's [`fill` api](/vaults/fill) injects values from supported items without passing them through your application or model. agentcard uses aliases and provider-executed requests instead of `fill`.
+
+for the platform capabilities, benefits, and end-to-end lifecycle, start with [payments on KERNEL](/browsers/payments).
+
+## How payments work
+
+see [how payments work on KERNEL](/browsers/payments#how-payments-work) for the vault, browser, approval, and checkout lifecycle.
+
+## Choose how to pay
+
+| payment source | use it to | environment |
+| --- | --- | --- |
+| [pay with card](/integrations/wallets/pay-with-card) | collect a user's cards directly through hosted or embedded enrollment, then [choose which card pays](/integrations/wallets/pay-with-multiple-cards) | live only |
+| [single-use cards](/integrations/wallets/single-use-cards) | fill a card your backend or card issuer already has, such as a single-use virtual card, without passing its details to the agent | set by the card you supply |
+| [link by stripe](/integrations/wallets/stripe-link) | use payment methods from the user's link wallet; requires a us phone number | live only |
+| [shop pay](/integrations/wallets/shop-pay) | use cards saved to the user's shop account, approved in shop for each purchase; usd only | live only |
+| [agentcard](/integrations/wallets/agentcard) | use agentcard's card vault and provider-executed checkout | sandbox or live, set by the agentcard credential |
+| [bring your own vgs vault](/integrations/wallets/bring-your-own-vgs-vault) | pay with cards already stored in your own vgs vault, read with your service account | set by the configuration's `environment` |
+
+approval, eligibility, and reuse depend on the payment source. follow the linked guide before choosing a checkout flow.
+
+## Checkout and processor coverage
+
+KERNEL's `fill` api does not require a native processor adapter. for link virtual cards, the page must be on the authorized origin and provide supported checkout inputs. on stripe checkouts that expose link's agent payment tools, KERNEL delivers a link pay token instead, with no field selectors. see [link card requirements](/integrations/wallets/stripe-link#fill-the-checkout). shop pay cards follow the same origin rule; see [shop pay fill](/integrations/wallets/shop-pay#fill-the-checkout).
+
+agentcard's alias-based checkout requires a recognized processor request. see [agentcard's processor coverage](/integrations/wallets/agentcard#checkout-and-processor-coverage) for supported formats and limitations. neither field filling nor provider handoff guarantees processor acceptance or payment success.
+
+## Why use KERNEL handoff
+
+see [why use KERNEL payments](/browsers/payments#why-use-kernel-payments) for safe value injection, native integrations, purchase control, and outcome handling.
+
+## Provider configurations
+
+use KERNEL-managed credentials by default. if you need your own client, follow
+the optional setup in [link](/integrations/wallets/stripe-link#bring-your-own-link-oauth-client)
+or [agentcard](/integrations/wallets/agentcard#bring-your-own-agentcard-oauth-client). [vgs](/integrations/wallets/bring-your-own-vgs-vault#register-your-service-account) always uses your own service account and also stores your `vault_id` and `environment`. shop pay connects through KERNEL's shop app only and has no provider configuration. a named
+provider configuration stores your application's `client_id` and `client_secret`,
+not an end user's wallet grant. credentials are encrypted at rest; secrets are
+never returned.
+
+with your own client, you can connect users in your backend before creating
+wallets in KERNEL. link imports the user's oauth access and refresh tokens;
+agentcard imports the connected user's `user_id` after validating provider
+access under your configuration, without another hosted enrollment action.
+
+configurations are organization-scoped and shared across projects, unlike
+project-scoped vaults. create, update, and delete require organization-scoped
+authentication; project-scoped api keys receive `403`. names are unique within
+the organization, and duplicate creates return `409` without replacing secrets.
+
+- **selection:** choose exactly one config `id` or `name` when creating a wallet. the cli accepts `--provider-config-id` or `--provider-config-name`; responses resolve names to ids.
+- **binding:** the wallet's configuration is immutable, and cards inherit it. renaming a config preserves bindings.
+- **rotation:** updating `client_secret` affects all bound wallets. provider, client id, agentcard mode, and vgs `vault_id` and `environment` cannot change; changing clients requires a new config and new wallets.
+- **deletion:** returns `409` while any non-deleted item references the config, even if disconnected. it does not delete the external oauth client or revoke unrelated grants.
+
+## Wallet and card items
+
+for payment settings ui, enforce at most one wallet per provider in each vault.
+the api currently enforces uniqueness by item key, not by wallet provider, so a
+different key can create a second wallet for the same provider. list items before
+rendering provider options, hide the add option whenever that provider already
+has a wallet in any state, and reuse or recover the existing item.
+
+a card's `spec.wallet` must reference a wallet in the same vault and from the
+same provider.
+
+link and KERNEL purchases can also be `payment_request` items where they're
+enabled for your organization; [contact support](/info/support) to enable them.
+a `payment_request` takes the same spec as the provider's `card` item and
+supports the same operations. KERNEL payment requests must set
+`payment_method_id`. agentcard, shop pay, and vgs purchases and KERNEL single-use cards stay `card` items. updates to a
+`payment_request` item must set `type: "payment_request"`.
+
+for behavior specific to each payment source, see [pay with card](/integrations/wallets/pay-with-card), [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards), [single-use cards](/integrations/wallets/single-use-cards), [link](/integrations/wallets/stripe-link#item-reference), [shop pay](/integrations/wallets/shop-pay#item-reference), [agentcard](/integrations/wallets/agentcard#item-reference), or [bring your own vgs vault](/integrations/wallets/bring-your-own-vgs-vault#make-a-purchase).
+
+## Payment actions and recovery
+
+`action.name` can be `link_oauth`, `shop_pay_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
+
+`recovery_required` means a card's provider outcome is unresolved. it stops
+item wait loops and blocks new authorization, checkout, and deletion of the
+card or its parent wallet or vault. inspect existing evidence and contact the
+provider or support when manual reconciliation is needed. there is no reset
+operation; deletion is not payment recovery.
+
+## Next step
+
+start with a payment source in [choose how to pay](#choose-how-to-pay). for a complete agent workflow using the user's own card, link, or agentcard, follow [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
+
+the payment guides include cli commands for creating wallets and cards. once
+the card item is ready, the shared CLI flow is:
+
+```bash CLI
+kernel vaults create --name user-12345
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+kernel browsers create --vault user-12345 -o json
+```
+
+`--wait` performs one bounded observation. it does not confirm that a payment
+succeeded, and the CLI does not submit or retry merchant payments.

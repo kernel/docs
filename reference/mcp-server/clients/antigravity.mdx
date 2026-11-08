@@ -1,0 +1,90 @@
+---
+title: "Google Antigravity"
+description: "Connect Google Antigravity to the Kernel MCP server"
+---
+
+<Note>
+Kernel connects to Antigravity over stdio through `mcp-remote` rather than as a remote `serverUrl` server. Antigravity's remote-server client can complete the OAuth flow and still send `initialize` without the bearer token attached, which comes back as `401 Unauthorized` ([antigravity-cli#25](https://github.com/google-antigravity/antigravity-cli/issues/25)). `mcp-remote` runs the OAuth flow itself, so the token does not depend on that client.
+</Note>
+
+## Install with the Kernel CLI
+
+Run the following command:
+
+```bash
+kernel mcp install --target antigravity
+```
+
+Check the installed Kernel entry against the example below. Add any missing callback port or cache directory before authorizing.
+
+## Configure manually
+
+Alternatively, open the agent side panel, click the ellipsis (**…**) menu, and select **MCP Servers**, then **Manage MCP Servers → View raw config**. Add Kernel to the `mcpServers` map in `mcp_config.json` — `~/.gemini/config/mcp_config.json` globally, or `.agents/mcp_config.json` for a single workspace. This Linux example uses a cache directory under `/home/user`; change it to an absolute directory in your home directory:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.onkernel.com/mcp",
+        "46094",
+        "--static-oauth-client-metadata",
+        "{\"client_name\":\"Antigravity\"}"
+      ],
+      "env": {"MCP_REMOTE_CONFIG_DIR": "/home/user/.mcp-auth/kernel-antigravity"}
+    }
+  }
+}
+```
+
+If the entry previously used `serverUrl`, remove that key. Reload the window to pick up the change.
+
+`--static-oauth-client-metadata` names the OAuth client. Without it, `mcp-remote` registers as **MCP CLI Proxy** and the Kernel consent screen asks you to trust that name instead of Antigravity.
+
+The `46094` argument sets Antigravity's OAuth callback port. Each client needs a separate port as well as a separate cache to authorize while other clients are running. The CLI preserves an existing explicit port; if you customize it, choose an unused port that no other client uses.
+
+If you already set `MCP_REMOTE_CONFIG_DIR`, use a directory dedicated to Antigravity. To clear an old registration, close Antigravity and remove the cache it used (`~/.mcp-auth/mcp-remote-v1/` by default, or `mcp-remote-v1/` under your custom `MCP_REMOTE_CONFIG_DIR`). This also signs out other clients using that cache. Authorize again after updating the config.
+
+## Connect
+
+Go to **Settings → Customizations**, scroll to **Installed MCP Servers**, and click the reload button.
+
+`mcp-remote` opens a browser window for you to authorize access. Once it completes, Kernel shows as connected in the **Installed MCP Servers** list. Tokens are cached under `~/.mcp-auth` and refreshed for you.
+
+## Connect with an API key
+
+For headless or scripted use, where no browser is available to complete the OAuth flow, authenticate with a project-scoped Kernel API key from the [Kernel Dashboard](https://dashboard.onkernel.com/api-keys) instead. `kernel mcp install --target antigravity` always writes the OAuth config, so wire this up by hand.
+
+Put the key in a header file that only you can read:
+
+```bash
+mkdir -p ~/.kernel
+install -m 600 /dev/null ~/.kernel/mcp-headers.txt
+echo "Authorization: Bearer YOUR_KERNEL_API_KEY" > ~/.kernel/mcp-headers.txt
+```
+
+Then point `mcp-remote` at it:
+
+```json
+{
+  "mcpServers": {
+    "kernel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.onkernel.com/mcp",
+        "--header-file",
+        "/Users/you/.kernel/mcp-headers.txt"
+      ]
+    }
+  }
+}
+```
+
+Use an absolute path. `mcp-remote` opens the file directly, so a leading `~` isn't expanded and a relative path resolves against whatever directory Antigravity launched it from.
+
+`--header Authorization:...` takes the value inline instead, but the key then sits in the process arguments, where any other account on the machine can read it from the process list.

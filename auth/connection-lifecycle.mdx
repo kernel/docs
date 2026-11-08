@@ -91,44 +91,109 @@ You can handle these flows in two ways:
 - **Switch to TOTP** — if the site supports authenticator apps, add a `totp_secret` to your credential. KERNEL generates codes on demand, removing the need to manually provide that authenticator code. this doesn't eliminate other challenges or guarantee unattended reauthentication. if a code expires before the site accepts it, KERNEL retries with a fresh one.
 - **Trigger manual re-auth** — Start a new login session and route the user through the [Hosted UI](/auth/hosted-ui) or [Programmatic](/auth/programmatic) flow.
 
-## Triggering re-auth manually
+## Verify authentication before starting work
 
-Call `.login()` on any connection to trigger authentication immediately, without waiting for the next scheduled health check. If the profile is already logged in, it returns quickly without starting a new flow. If the connection needs auth, it starts a new login session.
+Call `.login()` immediately before work that requires an authenticated session. Use this as a pre-task authentication check, not a replacement for the normal login flow. Don't rely only on the connection's current `status`: it reflects the latest completed health check, and the website session can expire after that check.
 
-This is useful when your workflow needs to ensure a connection is authenticated *right now*:
+For a connection with a previous successful login and saved auth check URL, `.login()` runs the verifier first. If the profile is still signed in, the flow reaches `SUCCESS` without submitting anything. If it isn't, KERNEL starts the normal login flow and uses saved credentials when available.
+
+Follow the connection until the flow reaches `SUCCESS`, then create the browser or continue the task. If the flow reaches `AWAITING_INPUT` or `AWAITING_EXTERNAL_ACTION`, stop the pre-task helper and send the user to the `hosted_url` returned by this `.login()` call. Continue that login flow; don't call `.login()` again, because a new call cancels the flow already in progress.
+
+Use this pattern whether periodic health checks are enabled or disabled:
 
 <CodeGroup>
 ```typescript TypeScript
-const state = await kernel.auth.connections.retrieve(auth.id);
+async function ensureAuthenticated(connectionId: string) {
+  const login = await kernel.auth.connections.login(connectionId);
+  const events = await kernel.auth.connections.follow(connectionId);
 
-if (state.status === 'NEEDS_AUTH') {
-  const login = await kernel.auth.connections.login(auth.id);
-  // Handle login flow as usual
+  for await (const event of events) {
+    if (event.event !== 'managed_auth_state') continue;
+
+    if (event.flow_status === 'SUCCESS') return;
+
+    if (
+      event.flow_step === 'AWAITING_INPUT' ||
+      event.flow_step === 'AWAITING_EXTERNAL_ACTION'
+    ) {
+      throw new Error(`user action required at ${login.hosted_url}`);
+    }
+  }
+
+  throw new Error('authentication did not complete successfully');
 }
+
+await ensureAuthenticated(auth.id);
+
+const kernelBrowser = await kernel.browsers.create({
+  profile: { name: 'github-profile' },
+});
 ```
 
 ```python Python
-state = await kernel.auth.connections.retrieve(auth.id)
+async def ensure_authenticated(connection_id: str):
+    login = await kernel.auth.connections.login(connection_id)
+    events = await kernel.auth.connections.follow(connection_id)
 
-if state.status == "NEEDS_AUTH":
-    login = await kernel.auth.connections.login(auth.id)
-    # Handle login flow as usual
+    async for event in events:
+        if event.event != "managed_auth_state":
+            continue
+
+        if event.flow_status == "SUCCESS":
+            return
+
+        if event.flow_step in {"AWAITING_INPUT", "AWAITING_EXTERNAL_ACTION"}:
+            raise RuntimeError(f"user action required at {login.hosted_url}")
+
+    raise RuntimeError("authentication did not complete successfully")
+
+
+await ensure_authenticated(auth.id)
+
+kernel_browser = await kernel.browsers.create(
+    profile={"name": "github-profile"},
+)
 ```
 
 ```go Go
-state, err := client.Auth.Connections.Get(ctx, auth.ID)
+login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
 if err != nil {
 	panic(err)
 }
 
-if state.Status == kernel.ManagedAuthStatusNeedsAuth {
-	login, err := client.Auth.Connections.Login(ctx, auth.ID, kernel.AuthConnectionLoginParams{})
-	if err != nil {
-		panic(err)
+events := client.Auth.Connections.FollowStreaming(ctx, auth.ID)
+authenticated := false
+for events.Next() {
+	event := events.Current()
+	if event.Event != "managed_auth_state" {
+		continue
 	}
-	_ = login
-	// Handle login flow as usual
+
+	if event.FlowStatus == "SUCCESS" {
+		authenticated = true
+		break
+	}
+
+	if event.FlowStep == "AWAITING_INPUT" || event.FlowStep == "AWAITING_EXTERNAL_ACTION" {
+		panic("user action required at " + login.HostedURL)
+	}
 }
+if err := events.Err(); err != nil {
+	panic(err)
+}
+if !authenticated {
+	panic("authentication did not complete successfully")
+}
+
+kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+	Profile: shared.BrowserProfileParam{
+		Name: kernel.String("github-profile"),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = kernelBrowser
 ```
 </CodeGroup>
 
@@ -161,7 +226,7 @@ See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-
 
 ### Recovering
 
-- **`credentials_invalid`** — Update the linked [credential](/auth/credentials) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
+- **`credentials_invalid`** — Update the linked [credential](/auth/configuration#credentials-and-auto-reauth) and call `.login()` to re-run the flow. When the site identifies which field it rejected during an interactive login, Kernel asks for a corrected value in place — see [replacing a rejected credential](/auth/programmatic#replacing-a-rejected-credential).
 - **`totp_code_rejected`** — Retry with a code from a new TOTP window. If independently generated codes keep failing, reconnect the account and update its TOTP secret. One rejected code does not prove that the saved secret is stale.
 - **`totp_required` / `sms_code_required` / `email_code_required`** — Start an interactive login and provide the requested code. Add a TOTP secret to the linked credential to make future authenticator-code challenges automatic.
 - **`account_choice_required` / `customer_input_required` / `external_action_required`** — Start an interactive login and complete the choice, field, or external approval. Kernel does not guess an identity or trigger notification-producing steps during unattended reauth.
@@ -209,5 +274,5 @@ To record every auth session on the connection (logins, health checks, and reaut
 ## See also
 
 - [Connection Configuration](/auth/configuration) — `health_check_interval`, `proxy`, `record_session`, and other shared options
-- [Credentials](/auth/credentials) — what gets stored and how it powers auto-reauth
+- [Credentials](/auth/configuration#credentials-and-auto-reauth) — what gets stored and how it powers auto-reauth
 - [FAQ](/auth/faq) — quick answers to common questions

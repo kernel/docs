@@ -1,0 +1,555 @@
+---
+title: "Shop Pay"
+description: "use shop pay to approve a single-use card for a browser checkout"
+---
+
+[shop pay](https://shop.app) connects a shopper's shop account through oauth and issues a single-use card for each purchase the shopper approves in shop. KERNEL's native integration handles the connection, token refresh, approval requests, and card storage through vault items. oauth credentials and card material use kms-backed envelope encryption.
+
+use KERNEL's [`fill` api](/vaults/fill) to inject the approved card into an attached browser without passing its values through your application's injection code or model context. you provide references and selectors; KERNEL returns outcomes, not the values.
+
+shop pay is the wallet provider, not the merchant's payment processor. the card works on any checkout with supported, uniquely selectable card inputs, so the merchant doesn't need to be on shopify. use shop pay on card-form checkouts. prefer a site's own agent checkout when one is available, and don't fall back to shop pay after another payment method fails. for the overall offering, see [payments on KERNEL](/browsers/payments).
+
+## Before you start
+
+<Note>
+  shop pay is live only: every approved card is a real card funded by the shopper's saved payment method, and purchases must be in usd.
+</Note>
+
+the shopper needs a shop account with a saved card. shop pay connects through KERNEL's shop app only, so there's no provider configuration to create.
+
+create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+```
+
+```bash CLI
+kernel vaults create --name user-12345
+```
+
+</CodeGroup>
+
+## Lifecycle
+
+1. create a shop pay wallet and present the returned `shop_pay_oauth` action. the shopper signs in to shop and approves the connection.
+2. require the wallet to be `connected`.
+3. optionally request the `payment_methods` expansion and let the shopper choose a saved card. without a choice, shop uses the shopper's preferred card.
+4. reach the final checkout page in a browser with the vault attached, then create a `card` item with the purchase details. creating the card doesn't contact shop.
+5. retrieve the card, verify that it advertises `authorize`, and once the shopper has confirmed the purchase, invoke it with the browser's `browser_id` and the checkout's exact current top-level `page_url`. KERNEL confirms the checkout is open, sends that page to shop as the merchant, and asks the shopper to approve the purchase in shop.
+6. complete the returned action: share a `spend_approval` url unchanged, or for `push_approval` tell the shopper to approve in the shop app. then wait for `state.status` to become `ready`.
+7. fill the checkout within an hour of the card becoming ready, submit it yourself once, then report the merchant's outcome with `confirm_transaction`. reporting ends the card.
+
+each item's `available_operations[].description` describes the next step and its recovery, so have your agent read it rather than hard-coding the flow.
+
+## Connect a wallet
+
+before showing a shop pay connection option, list the vault's items. if a shop pay wallet already exists in any state, reuse it and show its existing action or status instead. the api makes item keys unique but does not currently enforce one wallet per provider, so the ui must enforce a maximum of one shop pay wallet per vault.
+
+the examples use `presentProviderAction`, an application-owned function that publishes the action to an authenticated session for the shopper who owns the vault. bind the action to that shopper, vault, and item; apply a short application ttl capped by `wallet.expires_at`; and stop serving it when the action changes or disappears. the sign-in link expires after 10 minutes, and reading the wallet after that returns a new one. derive `authenticatedUser` from the server-side session, not a request field. do not log the url or put it in model context.
+
+<CodeGroup>
+
+```typescript TypeScript
+const items = await kernel.vaults.items.list(vault.id);
+const shopPayWallets = items.filter(
+  (item) => item.type === "wallet" && item.spec.provider === "shop_pay",
+);
+if (shopPayWallets.length > 1) {
+  throw new Error("vault has more than one shop pay wallet");
+}
+
+let wallet = shopPayWallets[0];
+if (!wallet) {
+  wallet = await kernel.vaults.items.upsert("shop-pay-wallet", {
+    id_or_name: vault.id,
+    type: "wallet",
+    spec: {
+      provider: "shop_pay",
+      authorization: {
+        method: "oauth",
+        client: { type: "kernel_managed" },
+      },
+    },
+  });
+}
+
+if (wallet.action?.name === "shop_pay_oauth") {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: wallet,
+  });
+}
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+```
+
+```python Python
+items = kernel.vaults.items.list(vault.id)
+shop_pay_wallets = [
+    item
+    for item in items
+    if item.type == "wallet" and item.spec.provider == "shop_pay"
+]
+if len(shop_pay_wallets) > 1:
+    raise RuntimeError("vault has more than one shop pay wallet")
+
+wallet = shop_pay_wallets[0] if shop_pay_wallets else None
+if wallet is None:
+    wallet = kernel.vaults.items.upsert(
+        "shop-pay-wallet",
+        id_or_name=vault.id,
+        type="wallet",
+        spec={
+            "provider": "shop_pay",
+            "authorization": {
+                "method": "oauth",
+                "client": {"type": "kernel_managed"},
+            },
+        },
+    )
+
+if wallet.action is not None and wallet.action.name == "shop_pay_oauth":
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=wallet,
+    )
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    wait=60,
+)
+```
+
+```bash CLI
+# create only when the list has no shop pay wallet
+kernel vaults items list user-12345 -o json
+kernel vaults wallets create user-12345 shop-pay-wallet \
+  --provider shop_pay \
+  --spec '{"authorization":{"method":"oauth","client":{"type":"kernel_managed"}}}' \
+  --open
+kernel vaults items get user-12345 shop-pay-wallet --wait 60
+```
+
+</CodeGroup>
+
+<Warning>
+  open connection and approval urls in a trusted user-facing surface. don't give
+  them to the agent or print full wallet responses into model context. run cli
+  `--open` only from a trusted, human-operated terminal because the command
+  output can contain the action url.
+</Warning>
+
+a `declined` wallet, from a shopper who denied the connection, can't be reconnected; delete it and create a new one.
+
+shop's refresh tokens last 30 days from the connection, so a shopper reconnects about once a month. when shop stops accepting the grant, the wallet becomes `reconnect_required` and returns a new `shop_pay_oauth` action; present it the same way. shop may skip the consent screen if the shopper already approved KERNEL.
+
+deleting the wallet deletes its cards, cancels their pending requests, and revokes KERNEL's access to the shop account. to remove KERNEL from shop's connected apps, the shopper removes it in shop.
+
+## Select a payment method
+
+request `payment_methods` only when `available_expansions` advertises it. the expansion comes from shop at request time and is not persisted in the vault item. each method has an `id`, a `display` with `brand`, `label` (such as `Visa •••• 4242`), and `last4`, and `is_default` for the shopper's preferred card.
+
+<CodeGroup>
+
+```typescript TypeScript
+if (
+  !wallet.available_expansions.some(({ type }) => type === "payment_methods")
+) {
+  throw new Error("payment methods are unavailable");
+}
+
+wallet = await kernel.vaults.items.retrieve(wallet.key, {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+if (wallet.type !== "wallet") {
+  throw new Error("unexpected item type");
+}
+
+const methods = wallet.expanded?.payment_methods ?? [];
+for (const method of methods) {
+  console.log(method.id, method.display, method.is_default);
+}
+```
+
+```python Python
+if not any(expansion.type == "payment_methods" for expansion in wallet.available_expansions):
+    raise RuntimeError("payment methods are unavailable")
+
+wallet = kernel.vaults.items.retrieve(
+    wallet.key,
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+
+methods = (wallet.expanded.payment_methods or []) if wallet.expanded else []
+for method in methods:
+    print(method.id, method.display, method.is_default)
+```
+
+```bash CLI
+kernel vaults wallets payment-methods user-12345 shop-pay-wallet -o json
+```
+
+</CodeGroup>
+
+show the returned methods in a trusted user-facing surface and pass the chosen `id` as the card's `payment_method_id`, or omit it to use the shopper's preferred card.
+
+## Create and authorize a card item
+
+create the card once the browser is on the final checkout page and you know the final amount and merchant. the examples use `browser`, a KERNEL browser created with this vault attached, and `checkoutURL` / `checkout_url`, the browser's exact current top-level checkout url obtained through your browser-control method.
+
+<Tip>
+  run checkout in a headful browser, or a headless one with at least `2GiB` of
+  memory. heavy checkout pages can exhaust a `1GiB` headless browser, which then
+  stops responding to KERNEL during authorization and fill.
+</Tip>
+
+<CodeGroup>
+
+```typescript TypeScript
+let card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "shop_pay",
+    wallet: wallet.key,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com",
+    context:
+      "buy one notebook from example shop for a total of 23.06 usd, including tax " +
+      "and shipping. this request is for this purchase only and must not be repeated.",
+    line_items: [{ name: "notebook", quantity: 1, unit_amount: 2000 }],
+    totals: [
+      { type: "subtotal", amount: 2000 },
+      { type: "tax", amount: 166 },
+      { type: "fulfillment", amount: 140 },
+      { type: "total", amount: 2306 },
+    ],
+  },
+});
+
+card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (!card.available_operations.some(({ type }) => type === "authorize")) {
+  throw new Error("authorization is unavailable");
+}
+
+const authorized = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+});
+if (authorized.type !== "card") {
+  throw new Error("unexpected operation response");
+}
+card = authorized;
+if (card.action) {
+  await presentProviderAction({
+    userID: authenticatedUser.id,
+    vaultID: vault.id,
+    item: card,
+  });
+}
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "shop_pay",
+        "wallet": wallet.key,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com",
+        "context": (
+            "buy one notebook from example shop for a total of 23.06 usd, including tax "
+            "and shipping. this request is for this purchase only and must not be repeated."
+        ),
+        "line_items": [{"name": "notebook", "quantity": 1, "unit_amount": 2000}],
+        "totals": [
+            {"type": "subtotal", "amount": 2000},
+            {"type": "tax", "amount": 166},
+            {"type": "fulfillment", "amount": 140},
+            {"type": "total", "amount": 2306},
+        ],
+    },
+)
+
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if not any(operation.type == "authorize" for operation in card.available_operations):
+    raise RuntimeError("authorization is unavailable")
+
+card = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="authorize",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+)
+if card.action is not None:
+    present_provider_action(
+        user_id=authenticated_user.id,
+        vault_id=vault.id,
+        item=card,
+    )
+```
+
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider shop_pay \
+  --spec '{
+    "wallet": "shop-pay-wallet",
+    "amount": 2306,
+    "currency": "usd",
+    "merchant_name": "example shop",
+    "merchant_url": "https://shop.example.com",
+    "context": "buy one notebook from example shop for a total of 23.06 usd, including tax and shipping. this request is for this purchase only and must not be repeated.",
+    "line_items": [{"name": "notebook", "quantity": 1, "unit_amount": 2000}],
+    "totals": [
+      {"type": "subtotal", "amount": 2000},
+      {"type": "tax", "amount": 166},
+      {"type": "fulfillment", "amount": 140},
+      {"type": "total", "amount": 2306}
+    ]
+  }'
+kernel vaults items get user-12345 notebook-order -o json
+# BROWSER_ID is the attached session ID; PAGE_URL is its exact current checkout URL.
+kernel vaults items invoke user-12345 notebook-order authorize \
+  --browser-id "$BROWSER_ID" --page-url "$PAGE_URL" --open
+kernel vaults items get user-12345 notebook-order --wait 60 -o json
+```
+
+</CodeGroup>
+
+`amount` uses minor currency units, so `2306` means 23.06 usd, and is the most the shopper approves. `totals` needs exactly one entry with `type: "total"`, positive and no higher than `amount`; entries such as `subtotal`, `tax`, `fulfillment`, or a negative `discount` describe the purchase. `context` is shown to the shopper when they approve, so write it for them. see [item reference](#item-reference) for every limit.
+
+until you authorize the card, you can replace its spec with an update. once it is authorized, updates return `409`: delete the card and create a new one with the updated details.
+
+authorization sends the checkout page to shop as the merchant and limits fill to that page's origin. authorizing without `browser_id` and `page_url` uses `merchant_url` instead; use it only as a fallback when checkout inspection keeps failing.
+
+`presentProviderAction` shares a `spend_approval` url with the shopper unchanged. a `push_approval` has no url: tell the shopper to approve the purchase in the shop app. the shopper has until the card's `expires_at`, currently 24 hours after authorization, to approve.
+
+an approval link works once: if the shopper opens it again, shop shows the approval as unavailable. retrieve the card and share the url from its current action instead.
+
+once approval has been requested, `{"type":"authorize"}` only re-checks the request and never creates another payment request.
+
+### Authorization errors
+
+these errors happen before shop receives a payment request, so the card stays `requested` and you can authorize again:
+
+| code | what to do |
+| --- | --- |
+| `page_not_found` | open the checkout in the browser at exactly `page_url`, then authorize again |
+| `ambiguous_page` | close extra tabs so exactly one is at `page_url`, then authorize again |
+| `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser exists in this project, is leased, has the vault attached, and isn't busy with another fill, and that the checkout is open in exactly one tab, then authorize again. on a `1GiB` headless browser, `browser_error` usually means it ran out of memory; see the tip above |
+
+if shop refuses the request, authorize returns an error with shop's reason and the card becomes `declined`: read `status_reason`, then delete the card and create a new one. if shop rate limits the request (`429`), the card stays `requested`; wait for `Retry-After`, then authorize again. if the shopper declines or the request expires, delete the card and create a new one.
+
+## Fill the checkout
+
+after the shopper approves, retrieve the card with `wait: 60`. continue only when it is `ready` and advertises `fill`; one bounded wait may finish before approval does. a ready card's `expires_at` is its fill deadline, at most an hour later, so fill and submit promptly. after that the card is `expired` and can't be filled, but you can still report its outcome.
+
+every fill supplies `browser_id`, the exact current top-level `page_url`, and ordered `fields` bindings. `page_url` must use https and must be on the origin of the checkout you authorized at, or on the origin of `spec.merchant_url` for a card authorized without a checkout. the origin includes the host and port and doesn't allow other subdomains, even though the card's `state.domains` lists the registrable domain. a disallowed origin returns `403 destination_denied`. for the shared rules, see [fill browser fields](/vaults/fill).
+
+| card field | value and format |
+| --- | --- |
+| `number`, `cvc` | actual card values; leading zeros preserved |
+| `exp_month`, `exp_year` | two-digit month (`MM`), four-digit year (`YYYY`) |
+| `expiration` | combined expiry; requires `format: "MM/YY"` or `"MM/YYYY"` |
+| `billing_name`, `billing_first_name`, `billing_last_name`, `billing_line1`, `billing_line2`, `billing_city`, `billing_state`, `billing_postal_code`, `billing_country` | the billing address shop returns with the card |
+
+`billing_name` is shop's cardholder name, or the first and last name joined when shop returns only those. `billing_first_name` and `billing_last_name` are available only when shop returns them separately; `billing_name` is never split. request only needed billing fields. an absent or empty requested billing value returns `400 field_unavailable` before any browser writes.
+
+supply 1 to 32 ordered bindings, never raw values. `format` is allowed only on the combined `expiration`. these selectors illustrate a checkout you control; replace them with selectors verified on your page, including within payment frames.
+
+<CodeGroup>
+
+```typescript TypeScript
+card = await kernel.vaults.items.retrieve(card.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+if (!card.available_operations.some((operation) => operation.type === "fill")) {
+  throw new Error("fill is unavailable for this card");
+}
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: checkoutURL,
+  fields: [
+    { field: "number", selector: "#card-number" },
+    { field: "expiration", selector: "#expiry", format: "MM/YY" },
+    { field: "cvc", selector: "#security-code" },
+    { field: "billing_name", selector: "#name-on-card" },
+    { field: "billing_postal_code", selector: "#postal-code" },
+  ],
+});
+if (result.type !== "fill") throw new Error("unexpected operation response");
+if (result.status !== "completed") {
+  throw new Error("fill did not complete; inspect per-field outcomes and retry");
+}
+```
+
+```python Python
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id, wait=60)
+if not any(operation.type == "fill" for operation in card.available_operations):
+    raise RuntimeError("fill is unavailable for this card")
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url=checkout_url,
+    fields=[
+        {"field": "number", "selector": "#card-number"},
+        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
+        {"field": "cvc", "selector": "#security-code"},
+        {"field": "billing_name", "selector": "#name-on-card"},
+        {"field": "billing_postal_code", "selector": "#postal-code"},
+    ],
+)
+if result.type != "fill":
+    raise RuntimeError("unexpected operation response")
+if result.status != "completed":
+    raise RuntimeError("fill did not complete; inspect per-field outcomes and retry")
+```
+
+```bash CLI
+jq -n --arg browser "$BROWSER_ID" --arg url "$PAGE_URL" '{
+  browser_id: $browser,
+  page_url: $url,
+  fields: [
+    {field: "number", selector: "#card-number"},
+    {field: "expiration", selector: "#expiry", format: "MM/YY"},
+    {field: "cvc", selector: "#security-code"},
+    {field: "billing_name", selector: "#name-on-card"},
+    {field: "billing_postal_code", selector: "#postal-code"}
+  ]
+}' | kernel vaults items invoke user-12345 notebook-order fill --spec-file - -o json
+```
+
+</CodeGroup>
+
+`completed` means the fields were filled, not that payment succeeded. `fill` never submits, so a retry is safe after checking the page, but never in an automatic loop. submit the checkout yourself once. see the [shared fill outcome contract](/vaults/fill#handle-the-outcome) for per-field statuses.
+
+## Report the outcome
+
+after submitting the checkout and observing the merchant's result, invoke `confirm_transaction` once when the card advertises it. reporting ends the card: KERNEL tells shop the outcome, deletes the stored card, and moves the item to `consumed` whatever the outcome. another attempt needs a new card and a new approval.
+
+| field | value |
+| --- | --- |
+| `status` | `APPROVED`, `DECLINED`, `PENDING`, `ERROR`, or `CANCELLED`, as the merchant reported it |
+| `transaction_type` | `PURCHASE`, `AUTHORIZATION`, or `CAPTURE` |
+| `amount`, `currency` | the actual amount in minor units, no higher than the approved limit, and the uppercase currency, `USD` |
+| `occurred_at` | when you observed the outcome |
+| `order_id`, `order_url` | optional, for `APPROVED`: the merchant's order number and https order page |
+| `failure_code` | optional, for other outcomes, such as `3ds_challenge`, `captcha`, `login_required`, `timeout`, or `site_error`. `payment_declined` goes only with `DECLINED` |
+
+<CodeGroup>
+
+```typescript TypeScript
+card = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (
+  !card.available_operations.some(({ type }) => type === "confirm_transaction")
+) {
+  throw new Error("confirm_transaction is unavailable");
+}
+const confirmed = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "confirm_transaction",
+  status: "APPROVED",
+  transaction_type: "PURCHASE",
+  amount: 2306,
+  currency: "USD",
+  occurred_at: new Date().toISOString(),
+  order_id: "1001",
+  order_url: "https://shop.example.com/orders/1001",
+});
+```
+
+```python Python
+from datetime import datetime, timezone
+
+card = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if not any(operation.type == "confirm_transaction" for operation in card.available_operations):
+    raise RuntimeError("confirm_transaction is unavailable")
+confirmed = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="confirm_transaction",
+    status="APPROVED",
+    transaction_type="PURCHASE",
+    amount=2306,
+    currency="USD",
+    occurred_at=datetime.now(timezone.utc).isoformat(),
+    order_id="1001",
+    order_url="https://shop.example.com/orders/1001",
+)
+```
+
+```bash CLI
+kernel vaults items invoke user-12345 notebook-order confirm_transaction \
+  --params '{
+    "status": "APPROVED",
+    "transaction_type": "PURCHASE",
+    "amount": 2306,
+    "currency": "USD",
+    "occurred_at": "2026-10-30T16:40:00Z",
+    "order_id": "1001",
+    "order_url": "https://shop.example.com/orders/1001"
+  }' -o json
+```
+
+</CodeGroup>
+
+report only what the merchant showed. if the outcome is unclear, ask the shopper to check the merchant's order confirmation or order history, then report what it shows. don't retry checkout.
+
+## Item reference
+
+wallet and card items accept these `spec` fields. fields not listed here are rejected. a card's `spec.wallet` must reference a shop pay wallet in the same vault.
+
+| item | required fields | optional fields |
+| --- | --- | --- |
+| wallet | `provider: 'shop_pay'`, `authorization: {method: 'oauth', client: {type: 'kernel_managed'}}` | none |
+| card | `provider`, `wallet`, `amount`, `currency`, `merchant_name`, `merchant_url`, `context`, `totals` | `payment_method_id`, `merchant_country`, `line_items` |
+
+`amount` is 1 to 1000000 minor units, `currency` is `usd`, `merchant_name` is at most 255 characters, `merchant_url` is an https url with a registrable domain, and `context` is 100 to 500 characters. `merchant_country` is a two-letter country code. each `line_items` entry has `name`, `quantity` (at least 1), and `unit_amount` (at least 0); each `totals` entry has `type` and `amount`.
+
+### Item states
+
+- **wallet:** `pending_authorization`, `connected`, `declined`, `reconnect_required`, `degraded`
+- **card:** `requested`, `pending_authorization`, `ready`, `consumed`, `expired`, `declined`, `recovery_required`
+
+`declined` covers a request the shopper declined, that was cancelled, or that shop refused at authorization. card state can include `masks.brand` and `masks.last4` once shop issues the card.
+
+`recovery_required` means a provider operation has an unresolved outcome and the card can't be used. when `status_reason` says shop refused retrieval before acceptance, no card was issued and a later read retries. otherwise follow `status_reason`: recovery for issuance can be abandoned by deleting the card and creating a new one, which the shopper approves separately. recovery while reporting a merchant transaction can't be deleted; [contact support](/info/support) with the vault, item key, and `status_reason`.
+
+deleting a card cancels its pending shop request and clears its stored card. it doesn't revoke a card shop already issued.

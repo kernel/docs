@@ -59,6 +59,72 @@ func main() {
 
 You can also enable GPU acceleration in the dashboard when deploying a browser under **Advanced Configuration**.
 
+## Request more video memory
+
+GPU browsers come with 3 GiB of video memory, 4 vCPUs, and 6 GiB of memory by default. For WebGL scenes, large canvases, or video workloads that need more, set `video_memory` to `6GiB` to get 6 GiB of video memory, 8 vCPUs, and 12 GiB of memory.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({
+  gpu: true,
+  video_memory: '6GiB',
+});
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(
+    gpu=True,
+    video_memory="6GiB",
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		GPU:         kernel.Bool(true),
+		VideoMemory: kernel.BrowserVideoMemory6GiB,
+	})
+	if err != nil {
+		panic(err)
+	}
+	_ = kernelBrowser
+}
+```
+
+```bash CLI
+kernel browsers create --gpu --video-memory 6GiB
+```
+</CodeGroup>
+
+`video_memory` accepts `3GiB` or `6GiB` (SDK `0.141.0` or later) and requires `gpu: true`. You can't set `memory` on a GPU browser because `video_memory` sets its system memory too. The browser response returns both `video_memory` and `memory`.
+
+<Note>
+`2GiB` and `4GiB` are deprecated aliases for `3GiB` and `6GiB`. Requests that send them receive the `3GiB` or `6GiB` allocation, and responses always report `3GiB` or `6GiB`. Update to the new values when you upgrade your SDK.
+</Note>
+
+A `6GiB` video memory browser has 12 GiB of system memory and bills at twice the [standard GPU rate](/info/pricing#usage-rates).
+
+Large GPU browsers use a separate capacity pool. When that pool is full, creation fails with HTTP `529` (`no_gpu_browsers_available`) rather than falling back to `3GiB`. Retry later, or omit `video_memory` to create a standard GPU browser.
+
 ## Use cases
 
 GPU acceleration is useful for:

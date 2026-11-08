@@ -1,27 +1,47 @@
 ---
-title: "Web Bot Auth"
-description: "Cryptographically sign browser requests with Web Bot Auth"
+title: "Web Bot Auth (WBA)"
+description: "Use Web Bot Auth (WBA) to give your agents a verifiable identity. Request KERNEL’s opt-in WBA token on Startup and Enterprise plans."
 ---
 
-[Web Bot Auth](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture) is quickly becoming the standard way for agents to establish identity. That's why we've partnered with [Vercel](https://bots.fyi/d/kernel) and [Cloudflare](https://radar.cloudflare.com/bots/directory/kernel) to support Web Bot Auth on Kernel.
+[Web Bot Auth (WBA)](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture) lets your browser agent cryptographically sign requests so participating websites can verify its identity. Sites that recognize and allow that identity can let your agent continue with fewer bot challenges and interruptions.
 
-![Kernel on Vercel's public directory of known bots used across the web](/images/botsfyi.png)
+We offer **KERNEL's WBA token** as an **opt-in feature**, enabled selectively on request for **Startup Plan and Enterprise Plan customers**. It's not enabled by default.
 
-You can now cryptographically sign browser requests, so your agents can prove who they are to services like Vercel. 
+## Request WBA access
+
+To request access, [contact support](mailto:support@kernel.sh) with your use case and the websites you want to access. We review requests and enable the feature selectively; being on an eligible plan doesn't automatically turn it on.
+
+With KERNEL's WBA token, you can sign requests using one of our bot identities instead of registering your own identity. KERNEL is listed in [Vercel's public directory](https://bots.fyi/d/kernel) and [Cloudflare's bots and agents directory](https://radar.cloudflare.com/bots/directory/kernel). See [Bots and agents](/bots) for our identities and their public key directories.
+
+![KERNEL on Vercel's public directory of known bots used across the web](/images/botsfyi.png)
+
+### Why use WBA?
+
+WBA gives participating sites a verifiable identity they can use when deciding whether to allow your agent. For workflows interrupted by bot checks, this can mean fewer challenges, fewer retries, and less time spent handling blocked requests on sites that accept the identity.
+
+WBA complements [stealth mode](/browsers/bot-detection/stealth) and [proxies](/proxies/overview). Those features address browser and network signals; WBA adds cryptographic identity that a site can verify.
+
+<Note>
+WBA verifies the signing identity. Each website still decides whether to allow its requests. WBA doesn't guarantee access to every site or replace user login, permissions, or site rate limits.
+</Note>
 
 ## How it works
 
-Web Bot Auth works via a Chrome extension that intercepts all outgoing HTTP requests and adds cryptographic signature headers:
+WBA uses HTTP message signatures to identify the signer of a request. The extension in the examples below adds cryptographic signature headers to outgoing HTTP requests:
 
 - **`Signature`**: The RFC 9421 signature of the request
 - **`Signature-Input`**: Metadata about how the signature was created
 - **`Signature-Agent`**: URL that points to your key directory
 
-Platforms like [Vercel](https://bots.fyi/) or other hosting providers can verify these signatures against your public key, confirming that the request came from your authenticated agent.
+Platforms like [Vercel](https://bots.fyi/) or other hosting providers can verify these signatures against your public key, confirming the signing identity before applying their access policies.
 
 ## Quick start with test key
 
-The fastest way to get started is using a test key, which works with this [test verification site](https://http-message-signatures-example.research.cloudflare.com/).
+To try WBA signature verification, build an extension with the test key and visit the [test verification site](https://http-message-signatures-example.research.cloudflare.com/).
+
+<Info>
+This example uses a public test key. It doesn't enable KERNEL's WBA token or establish a production identity. To use our identity, [request access](#request-wba-access).
+</Info>
 
 ### 1. Build the extension
 
@@ -96,7 +116,7 @@ This site validates requests signed with the RFC9421 test key and shows whether 
 
 ## Using your own keys
 
-For production use, you'll want to use your own signing keys instead of the test key.
+If you want to sign production requests with your own identity, use your own signing keys and publish a public key directory. This is an alternative to requesting KERNEL's WBA token.
 
 ### 1. Generate an Ed25519 key pair
 
@@ -149,15 +169,7 @@ kernel extensions build-web-bot-auth \
   --upload my-web-bot-auth
 ```
 
-### 4. Using Kernel's bot identities
-
-Kernel's own Web Bot Auth identities are already approved by Cloudflare, Vercel,
-Akamai, and other bot-verification providers. If you want to sign requests with
-one of Kernel's identities rather than your own, [contact Kernel support](https://www.kernel.sh/docs/info/support).
-See [Bots and agents](/bots) for the list of identities and their key
-directories.
-
-### 5. Register with Vercel and other Web Bot Auth-aware directories (optional)
+### 4. Register with WBA-aware directories (optional)
 
 If you want Vercel-protected sites to recognize your agent, you can register your key directory with [Vercel](https://bots.fyi/new-bot). Kernel is officially listed in the Vercel directory.
 

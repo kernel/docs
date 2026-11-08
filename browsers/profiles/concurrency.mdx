@@ -10,7 +10,7 @@ A browser loads profile data as a snapshot. Saving replaces the profile's comple
 
 For a personal assistant or another workflow where concurrent tasks act as the same end user, start one browser with that user's profile and open multiple tabs in it. Tabs in the same browser context share a live cookie jar and persistent origin storage, so a login or cookie update in one tab is available to the others without loading the profile again or restarting Chrome. Tab-local state such as `sessionStorage` remains separate.
 
-Open additional tabs with Playwright's `context.newPage()`. Keep each task on its own `Page`, and coordinate actions that change shared account or browser state. See [Playwright Execution](/browsers/playwright-execution) for ways to run code against the browser.
+Give each task its own named [Playwright executor](/browsers/playwright-execution#executors). Each executor owns a tab and runs concurrently with the others, so `page` in a task's calls is always that task's tab. Coordinate actions that change shared account or browser state. See [Playwright Execution](/browsers/playwright-execution) for ways to run code against the browser.
 
 <Tip>
   Headful, non-GPU browsers use `8GiB` by default. For tab-heavy workloads, set `memory` to `16GiB` when you [create the browser](/api-reference/browsers/create-a-browser-session).

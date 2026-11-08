@@ -25,7 +25,9 @@ kernel org entitlements --output json
 
 ## `kernel org limits get`
 
-Show the organization's maximum concurrent browser sessions and the default per-project cap.
+Show the organization's effective concurrency limits, current browser usage, available capacity, and default per-project cap.
+
+The JSON response includes `concurrent_sessions_used` and `concurrent_sessions_available`. Usage includes active on-demand browser sessions and browser pool reservations. Both fields are `null` when current usage can't be read.
 
 | Flag | Description |
 |------|-------------|

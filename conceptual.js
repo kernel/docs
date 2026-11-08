@@ -5,6 +5,11 @@
  * are served under www.kernel.sh/docs via a rewrite from the marketing site, so
  * both the c15t consent cookie and the c15t API are same-origin here and the
  * two halves of the site can share one consent decision.
+ *
+ * It also carries the first-touch campaign to dashboard sign-up. Launch posts
+ * link straight to docs pages with UTM params, but sign-ups are tracked on the
+ * dashboard, so the params are lost at the hop. That's attribution too, so it
+ * runs under the same Do Not Track and consent rules as the pixel.
  */
 (function () {
   var CONSENT_CATEGORY = "marketing";
@@ -22,6 +27,23 @@
   // invitee.created webhook instead. The UTM slots carry real campaign data.
   var CALENDLY_DOMAIN = "calendly.com";
   var CALENDLY_PARAM = "salesforce_uuid";
+  // kernel/website (src/lib/utm.ts) reads and writes the same cookie, so the
+  // name and format are shared: the UTM params as a query string. First touch
+  // on either site wins.
+  var UTM_COOKIE = "kernel_utm";
+  var UTM_COOKIE_DOMAIN = "kernel.sh";
+  var UTM_MAX_AGE = 30 * 24 * 60 * 60;
+  var UTM_HOST = "dashboard.onkernel.com";
+  var UTM_KEYS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_content",
+    "utm_term",
+  ];
+  // Marks links we added the campaign to, so a withdrawal strips only ours
+  // and hand-tagged links keep theirs.
+  var UTM_DECORATED_ATTR = "data-utm-passthrough";
 
   // Honouring Do Not Track has to cover the whole integration, not just the
   // vendor's events. respectDNT stops the pixel sending, but it doesn't stop
@@ -51,21 +73,100 @@
     return null;
   }
 
+  // Parses both the landing URL and the stored cookie, so the two can't
+  // disagree about what counts as a campaign.
+  function utmParamsFrom(search) {
+    var query = new URLSearchParams(search);
+    var params = new URLSearchParams();
+    UTM_KEYS.forEach(function (key) {
+      var value = (query.get(key) || "").trim();
+      if (value) params.set(key, value);
+    });
+    return params.toString() ? params : null;
+  }
+
+  function storedUtm() {
+    var cookie = document.cookie.match(/(?:^|;\s*)kernel_utm=([^;]*)/);
+    return cookie ? utmParamsFrom(cookie[1]) : null;
+  }
+
+  // Shared across kernel.sh subdomains. Anywhere else (local preview) the
+  // browser rejects a .kernel.sh cookie, so it stays host-only there.
+  function writeUtmCookie(value, maxAge) {
+    var host = window.location.hostname;
+    var cookie =
+      UTM_COOKIE +
+      "=" +
+      value +
+      "; Path=/; Max-Age=" +
+      maxAge +
+      "; SameSite=Lax";
+    if (host === UTM_COOKIE_DOMAIN || host.endsWith("." + UTM_COOKIE_DOMAIN)) {
+      cookie += "; Domain=." + UTM_COOKIE_DOMAIN;
+    }
+    if (window.location.protocol === "https:") cookie += "; Secure";
+    document.cookie = cookie;
+  }
+
+  // First touch wins: a later campaign never replaces the stored one.
+  function storeFirstTouch(landing) {
+    if (landing && !storedUtm()) {
+      writeUtmCookie(landing.toString(), UTM_MAX_AGE);
+    }
+  }
+
+  // Appends the stored campaign to a dashboard URL, unless the link was
+  // tagged by hand. Returns whether it added anything.
+  function addUtm(url) {
+    if (url.hostname !== UTM_HOST) return false;
+
+    var keys = Array.from(url.searchParams.keys());
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].indexOf("utm_") === 0) return false;
+    }
+
+    var utm = storedUtm();
+    if (!utm) return false;
+
+    utm.forEach(function (value, key) {
+      url.searchParams.set(key, value);
+    });
+    return true;
+  }
+
   // A click rewrites the anchor in place, so a decorated href outlives it. A
-  // later decline stops new rewrites but leaves the identifier sitting in the
-  // DOM, so it has to be taken back out.
+  // later decline stops new rewrites but leaves the identifier and campaign
+  // sitting in the DOM, so they have to be taken back out.
   function undecorateLinks() {
     var links = document.querySelectorAll("a[href]");
     for (var i = 0; i < links.length; i++) {
       try {
         var url = new URL(links[i].href, window.location.href);
-        var param = handoffParamFor(url);
-        if (!param || !url.searchParams.has(param)) continue;
+        var before = url.toString();
 
-        url.searchParams.delete(param);
-        links[i].href = url.toString();
+        // delete() reserializes the whole query even when the key is absent.
+        var param = handoffParamFor(url);
+        if (param && url.searchParams.has(param)) {
+          url.searchParams.delete(param);
+        }
+
+        if (links[i].hasAttribute(UTM_DECORATED_ATTR)) {
+          links[i].removeAttribute(UTM_DECORATED_ATTR);
+          UTM_KEYS.forEach(function (key) {
+            url.searchParams.delete(key);
+          });
+        }
+
+        if (url.toString() !== before) links[i].href = url.toString();
       } catch (e) {}
     }
+  }
+
+  // Declined or withdrawn: drop the stored campaign along with anything
+  // already written into links.
+  function withdraw() {
+    writeUtmCookie("", 0);
+    undecorateLinks();
   }
 
   // true granted, false declined, null no decision recorded yet.
@@ -144,7 +245,7 @@
       // open. There's no consent UI here to react to, so every navigation
       // re-reads the decision rather than trusting the one made at page load.
       if (storedConsent() === false) {
-        undecorateLinks();
+        withdraw();
         return;
       }
 
@@ -165,40 +266,61 @@
 
   // The device ID is stored per-domain, and the docs link to dashboard sign-up
   // in several places, so without this the ad click that led to a signup is
-  // never credited. Hand ours over on the way out; the dashboard reads it back.
-  function handOffDeviceIdOnNavigation() {
-    document.addEventListener(
-      "click",
-      function (event) {
-        var link = event.target.closest && event.target.closest("a[href]");
-        if (!link || typeof window.ca.getDeviceId !== "function") return;
-        if (storedConsent() === false) {
-          undecorateLinks();
-          return;
-        }
+  // never credited. Hand ours over on the way out, with the campaign that
+  // brought the visitor in; the dashboard reads both back.
+  function handOffOnNavigation() {
+    function decorate(event) {
+      var link = event.target.closest && event.target.closest("a[href]");
+      if (!link) return;
+      if (storedConsent() === false) {
+        withdraw();
+        return;
+      }
 
-        var url = new URL(link.href, window.location.href);
-        var param = handoffParamFor(url);
-        if (!param) return;
+      var url;
+      try {
+        url = new URL(link.href, window.location.href);
+      } catch (e) {
+        return;
+      }
+      var before = url.toString();
 
+      var param = handoffParamFor(url);
+      if (param && typeof window.ca.getDeviceId === "function") {
         url.searchParams.set(param, window.ca.getDeviceId());
-        link.href = url.toString();
-      },
-      { capture: true }
-    );
+      }
+      if (addUtm(url)) link.setAttribute(UTM_DECORATED_ATTR, "");
+
+      if (url.toString() !== before) link.href = url.toString();
+    }
+
+    // auxclick covers a middle-click opening sign-up in a new tab.
+    document.addEventListener("click", decorate, { capture: true });
+    document.addEventListener("auxclick", decorate, { capture: true });
   }
 
   function start() {
+    storeFirstTouch(landingUtm);
     load();
     trackNavigations();
-    handOffDeviceIdOnNavigation();
+    handOffOnNavigation();
   }
 
-  if (doNotTrackEnabled()) return;
+  // Nothing loads under Do Not Track, and a campaign stored before it was
+  // turned on is dropped.
+  if (doNotTrackEnabled()) {
+    writeUtmCookie("", 0);
+    return;
+  }
+
+  // Read before the consent check: the jurisdiction lookup below can resolve
+  // after a client-side navigation has dropped the query.
+  var landingUtm = utmParamsFrom(window.location.search);
 
   var stored = storedConsent();
   if (stored !== null) {
     if (stored) start();
+    else writeUtmCookie("", 0);
     return;
   }
 

@@ -1,0 +1,117 @@
+---
+title: "Parallel Task Execution"
+sidebarTitle: "Parallel Task Execution"
+description: "Execute multiple tasks in parallel on a single profiled browser session."
+---
+
+Use one profiled browser when several tasks need the same browser identity at the same time. Give each task a named [Playwright executor](/browsers/playwright-execution#executors), so each task gets its own tab while tasks on different executors run concurrently.
+
+This guide is a concise overview of the full, runnable [parallel profile Playwright executors cookbook](https://github.com/kernel/cookbooks/pull/10), which this pattern is based on.
+
+This pattern is particularly useful when the browser must save changes to a profile. All task tabs share the browser's cookies and persistent origin storage, and the browser writes the complete profile once when the run ends. If tasks only read profile state, you can use a separate read-only browser for each task instead; see [Sharing and concurrency](/browsers/profiles/concurrency).
+
+## How it works
+
+1. Start one browser with the shared profile and `save_changes: true`. Use `start_url` when you want to replace a tab restored from an earlier run.
+2. Bound the number of active tasks. A browser supports up to eight named executors, and memory, CPU, site behavior, or model limits can become constraints.
+3. Assign each task an executor name such as `lane-1` or `lane-2`. Send every Playwright call for each task to the same executor so its `page` remains bound to one tab.
+4. Keep each task's work in its executor-owned tab. Browser state persists between calls, but local JavaScript variables do not.
+5. Delete an executor and close its tab before reusing its name for another task. Delete the browser after all tasks finish so the profile is saved.
+
+## Run tasks in parallel
+
+Use `Promise.all` or `asyncio.gather` for concurrent tasks. A production worker pool can reuse a fixed set of executor names as tasks finish.
+
+The examples assume that the `parallel-task-demo` profile already exists.
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+const browser = await kernel.browsers.create({
+  stealth: true,
+  start_url: 'https://www.kernel.sh/',
+  profile: {
+    name: 'parallel-task-demo',
+    save_changes: true,
+  },
+});
+
+const runTask = (executor: string, url: string) =>
+  kernel.browsers.playwright.execute(browser.session_id, {
+    executor,
+    code: `
+      await page.goto(${JSON.stringify(url)});
+      return { title: await page.title(), url: page.url() };
+    `,
+    timeout_sec: 10,
+  });
+
+const results = await Promise.all([
+  runTask('lane-1', 'https://www.kernel.sh/docs/'),
+  runTask('lane-2', 'https://www.kernel.sh/changelog'),
+]);
+
+console.log(results.map((result) => result.result));
+
+for (const executor of ['lane-1', 'lane-2']) {
+  await kernel.browsers.playwright.executors.delete(executor, {
+    id_or_name: browser.session_id,
+    close_tab: true,
+  });
+}
+await kernel.browsers.deleteByID(browser.session_id);
+```
+
+```python Python
+import asyncio
+
+from kernel import AsyncKernel
+
+kernel = AsyncKernel()
+
+
+async def main():
+    browser = await kernel.browsers.create(
+        stealth=True,
+        start_url="https://www.kernel.sh/",
+        profile={
+            "name": "parallel-task-demo",
+            "save_changes": True,
+        },
+    )
+
+    async def run_task(executor: str, url: str):
+        return await kernel.browsers.playwright.execute(
+            browser.session_id,
+            executor=executor,
+            code=f"""
+                await page.goto({url!r});
+                return {{ title: await page.title(), url: page.url() }};
+            """,
+            timeout_sec=10,
+        )
+
+    results = await asyncio.gather(
+        run_task("lane-1", "https://www.kernel.sh/docs/"),
+        run_task("lane-2", "https://www.kernel.sh/changelog"),
+    )
+    print([result.result for result in results])
+
+    for executor in ("lane-1", "lane-2"):
+        await kernel.browsers.playwright.executors.delete(
+            executor,
+            id_or_name=browser.session_id,
+            close_tab=True,
+        )
+    await kernel.browsers.delete_by_id(browser.session_id)
+
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+One task failing doesn't need to stop the other tasks, but the run must still clean up every executor and the browser. Publish task results as they finish when callers need progress before the full run completes.
+
+For the full cookbook—including bounded concurrency, lane reuse, result publishing, and fault-tolerant cleanup—see the [parallel profile Playwright executors cookbook](https://github.com/kernel/cookbooks/pull/10).

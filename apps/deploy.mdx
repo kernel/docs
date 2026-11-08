@@ -1,5 +1,7 @@
 ---
-title: "Deploying"
+title: "Deploy an App"
+sidebarTitle: "Deploy"
+description: "Deploy your app to KERNEL, set environment variables, and pass secrets"
 ---
 
 Kernel's app deployment process is as simple as it is fast. There are no configuration files to manage or complex CI/CD pipelines.
@@ -93,6 +95,87 @@ const client = new Kernel({ apiKey: process.env.MY_KERNEL_API_KEY });
 </CodeGroup>
 
 Now the API calls your app makes go out as your key. The deployment key stays in place for Kernel's own use — running the invocation and reporting its result — so your key only needs permissions for the calls you actually make.
+
+## Secrets
+
+Pass API keys and other secrets as [environment variables](#environment-variables) when you deploy, with `--env` or `--env-file`. Then read them in your app:
+
+<CodeGroup>
+```typescript TypeScript
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
+
+app.action('ai-action', async (ctx: KernelContext) => {
+  // Access API keys from environment variables
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  // Use the clients...
+});
+```
+
+```python Python
+import os
+from anthropic import Anthropic
+from openai import OpenAI
+
+@app.action("ai-action")
+async def ai_action(ctx: KernelContext):
+    # Access API keys from environment variables
+    anthropic = Anthropic(
+        api_key=os.environ.get("ANTHROPIC_API_KEY"),
+    )
+
+    openai = OpenAI(
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+    # Use the clients...
+```
+</CodeGroup>
+
+### Per-invocation secrets
+
+For use cases where different API keys are needed per invocation (such as platforms using end-user keys), pass the secrets at runtime using the [payload parameter](/apps/invoke#payload-parameter).
+
+Use encryption standards in your app to protect sensitive data.
+
+<CodeGroup>
+```typescript TypeScript
+import OpenAI from "openai";
+
+app.action('ai-action', async (ctx: KernelContext, payload) => {
+  // Decrypt the API key passed at runtime
+  const apiKey = decrypt(payload.encryptedApiKey);
+
+  const openai = new OpenAI({
+    apiKey: apiKey,
+  });
+
+  // Use the client with the user's API key...
+});
+```
+
+```python Python
+from openai import OpenAI
+
+@app.action("ai-action")
+async def ai_action(ctx: KernelContext, payload):
+    # Decrypt the API key passed at runtime
+    api_key = decrypt(payload["encryptedApiKey"])
+
+    openai = OpenAI(
+        api_key=api_key,
+    )
+
+    # Use the client with the user's API key...
+```
+</CodeGroup>
 
 ## Deployment notes
 

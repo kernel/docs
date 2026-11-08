@@ -3,22 +3,21 @@ const { useState, useCallback } = React;
 export const CookbookSearch = () => {
   const [matches, setMatches] = useState(null);
 
-  const getCards = () => {
-    const anchors = Array.from(
-      document.querySelectorAll('a[href^="https://github.com/kernel/cookbooks/tree/main/"]')
-    ).filter((a) => !a.closest('nav') && !a.closest('aside'));
-    const cards = anchors.map((a) => a.closest('.card') || a);
-    return Array.from(new Set(cards));
-  };
-
   const handleInput = useCallback((e) => {
     const q = e.target.value.trim().toLowerCase();
-    const cards = getCards();
     let count = 0;
-    cards.forEach((card) => {
-      const hit = q === '' || card.textContent.toLowerCase().includes(q);
-      card.style.display = hit ? '' : 'none';
-      if (hit) count++;
+    document.querySelectorAll('#content .columns').forEach((section) => {
+      let sectionCount = 0;
+      section.querySelectorAll('.card').forEach((card) => {
+        const hit = q === '' || card.textContent.toLowerCase().includes(q);
+        card.style.display = hit ? '' : 'none';
+        if (hit) sectionCount++;
+      });
+      const display = sectionCount > 0 ? '' : 'none';
+      section.style.display = display;
+      const heading = section.previousElementSibling;
+      if (heading && heading.tagName === 'H2') heading.style.display = display;
+      count += sectionCount;
     });
     setMatches(q === '' ? null : count);
   }, []);

@@ -9,10 +9,145 @@ import { YouTubeVideo } from '/snippets/youtube-video.mdx';
 For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-node-sdk/blob/main/CHANGELOG.md), [Python SDK](https://github.com/onkernel/kernel-python-sdk/blob/next/CHANGELOG.md), and [Go SDK](https://github.com/onkernel/kernel-go-sdk/blob/main/CHANGELOG.md) changelogs.
 </Note>
 
+<Update label="October 16" tags={["Product", "Docs"]}>
+## Product updates
+
+- **Scoped API keys** are here. `POST /org/api_keys` takes an optional `policy` of allow statements plus an exact `expires_at`, and a scoped key can only issue keys inside its own grants. The dashboard's create-key dialog has a Permissions section, and the keys list shows a restricted key's policy. In the Node, Python, and Go SDKs from 0.125.0; CLI support follows.
+- **Config Registry** is now generally available on hobbyist plans and up.
+- **Support for paying with a user's Visa card** reached the CLI and MCP server: wallet enrollment, card purchase requests, `confirm_transaction` for reporting outcomes, and `restart_verification` for recovering cards that failed verification. The MCP server's payment cap for a user's card is now 10,000 USD.
+- **Link Pay Tokens** authorize a [Link](/integrations/wallets/stripe-link) card at checkout with `browser_id` and `page_url` (`--browser-id` and `--page-url` in the CLI), then fill without listing fields. `expires_at` is gone from the Link card spec.
+- Headless browsers can now run on `2GiB` or `4GiB` of memory, through the API and the Node, Python, and Go SDKs from 0.127.0. CLI support follows.
+- A large GPU tier joins the lineup: `kernel browsers create --gpu --video-memory 4GiB` gets 8 vCPU, 12GiB memory, and 4GiB VRAM. GPU browsers still default to `2GiB` VRAM.
+- Managed auth connections and [vaults](/vaults/overview) can now share credentials, so you can store a login once and fill it from either.
+- TOTP seeds accept SHA256 and SHA512 with configurable digits and period (`totp_algorithm`, `totp_digits`, `totp_period`), including in the MCP server's credential tool.
+- [`fill`](/vaults/fill) now types values as real key events through the browser's input pipeline instead of writing the field value directly, so credential entry produces the keystream a human would.
+- [1Password](/vaults/1password) access requests no longer need a browser: `1pw_create_access_request` works without `browser_id` or `page_url`. A failed autosubmit comes back as `fill_unknown`, and the CLI and MCP server no longer retry 1Password fills automatically — they tell the agent to check the page instead.
+- Vault credentials reach WebMCP tools through the new `webmcp_invoke` item operation: `kernel vaults items invoke <vault> <key> webmcp_invoke` in the CLI, and `manage_vault_items` in the MCP server.
+- Custom credential collection forms can encrypt values in the client with `kernel vaults get-encryption-key` and submit them as `encrypted_value`. The [vault-react-example](https://github.com/kernel/vault-react-example) now includes an encrypted flow.
+- Per-host proxy routes extend to [browser pools](/browsers/pools), with `--proxy-route` and `--clear-proxy-routes` on `kernel browser-pools create` and `update`.
+- Residential traffic now routes across several providers. Each session gets a preferred provider, and a destination that provider doesn't support — or can't reach during an outage — fails over to a compatible one, so exit IPs can differ between destinations in a session. Paired ISP proxies share the same failover path. See [residential proxies](/proxies/residential).
+- Datacenter proxies are deprecated. `--type datacenter` is gone from the CLI and the generated SDKs, and the docs point to [ISP proxies](/proxies/isp) instead. Existing datacenter configurations keep working.
+- `kernel browsers telemetry stream --types` filters the live [telemetry](/browsers/telemetry/overview) stream by event type, server-side.
+- Captcha [telemetry](/browsers/telemetry/overview) events now carry `captcha_provider` and `task_kind`, and a challenge result is inferred for providers Kernel can't observe directly.
+- Stealth fingerprints got closer to a real Ubuntu desktop: Chromium audio now defaults to 48 kHz.
+- [Chrome policy](/browsers/chrome-policies) overrides accept `DeveloperToolsAvailability` `0` and `1`, so you can attach DevTools or CDP to your own policy-installed extension's service worker.
+- The Launch Browser dialog is reorganized around a side nav, and network controls — saved proxy routes and private hosts — are available on browser launch and pool creation.
+- Vault details split into credentials and payments in the dashboard, with search and row actions on the vault list and managed auth credentials shown next to payment items.
+- The [MCP server](/reference/mcp-server) gained a `manage_browser_files` tool. It reads, downloads, and zips files in the browser's filesystem, up to 10 MiB by default and 25 MiB at most.
+- MCP tool inputs now mirror the API's `proxy` and browser objects, tool annotations follow ChatGPT app guidelines, WebMCP listings leave out `outputSchema` by default, and vault errors come back from the API unchanged.
+
+## Documentation updates
+
+- Reorganized the docs into **Overview**, **How it works** (Configure, Control, Scale, Observe, Manage), **Start building**, and **Partnering with KERNEL**, and linked the KERNEL GitHub org from the docs home page.
+- New cookbooks for parallel task execution and iMessage Agent as a Service, plus a parallel profile Playwright executors recipe in [kernel/cookbooks](https://github.com/kernel/cookbooks).
+- New guides for Docker Sandboxes and Fill from Managed Auth, alongside notes on checking managed auth before running tasks and on `input_mode` for managed auth fields.
+- Wrote up scoped API keys, Link Pay Tokens and checkout authorization, browserless 1Password access requests and the updated fill outcomes, vault credentials with WebMCP tools, and AgentCard checkout origin matching — and made the two vault credential paths read the same way across pages.
+- The proxy docs cover residential routing and failover, the `destination_route_unavailable` error code, and exit IP stability across sessions. Datacenter proxies are out of them.
+- The browser docs cover debugging extensions with DevTools and the `2GiB` and `4GiB` headless memory options.
+- The `kernel-auth` skill now covers vault credentials.
+</Update>
+
+<Update label="October 6" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added **named [Playwright executors](/browsers/playwright-execution#executors)**. Pass `executor` to `playwright.execute` to run the call in a dedicated process that owns its own tab. Calls on different executors run concurrently and fail independently; calls on the same executor run one at a time. Calls without `executor` keep running in the `default` executor on the active tab. The response now includes the `tab` the call was bound to, a browser can have up to 8 named executors, and new endpoints list and delete them. Available in the Node, Python, and Go SDKs from 0.120.0.
+
+## Documentation updates
+
+- Documented [executors](/browsers/playwright-execution#executors) in the Playwright execution guide, with a multi-language example that runs two tasks in parallel in one browser. Updated the [profile concurrency](/browsers/profiles/concurrency) and [Browser REPL](/browsers/repl) pages to point at named executors for parallel work across tabs.
+</Update>
+
+<Update label="October 2" tags={["Product", "Docs"]}>
+## Product updates
+
+### Auth
+
+- Added **[1Password Agentic Autofill](/vaults/1password)**. Your end users can approve access to logins that stay in their own 1Password account. Connect accounts through the CLI, MCP server, or dashboard.
+- The MCP server’s vault tools now return the API’s error codes and messages.
+- Added managed auth [reauthentication](/auth/configuration) controls to the dashboard: a **Health checks** switch and a separate toggle for automatic reauthentication. Both were already available through the API and CLI.
+- The dashboard now shows **Unverified** for managed auth connections whose health check was skipped because no check URL is set.
+
+### Payments
+
+- Added **[MPP browser purchases](/info/mpp)**. Agents can buy a stealth, headful browser session through the Machine Payments Protocol without a Kernel account or API key.
+- Added optional `checkout_origin` to the [AgentCard](/integrations/wallets/agentcard) card spec for autopilot rule matching. Supported in the MCP server.
+- Vault provider configs now include the Link publishable key.
+
+### Browsers
+
+- Extended `memory` to [browser pools](/browsers/pools). Create or update a pool with `16GiB` instead of the default `8GiB`. Updates apply to newly created browsers; existing browsers keep their original allocation.
+- [WebMCP](/browsers/webmcp) listings now include tools registered through a `navigator.modelContext` polyfill, so you can discover and invoke them like native page tools.
+- Added common Ubuntu desktop fonts to the headful browser image, making the fonts a page can detect more typical of a Linux desktop.
+- Launched browser-first onboarding in the dashboard.
+
+## Documentation updates
+
+- Added a [1Password Agentic Autofill](/vaults/1password) guide covering setup, credential collection as a fallback, and private vault and passkey limitations.
+- Added [Export Telemetry](/browsers/telemetry/export) for sending session events to your OpenTelemetry backend over OTLP.
+- Added [Buy a Browser with MPP](/info/mpp), covering the `402` payment flow.
+- Added [Code Mode with Browser REPL and WebMCP](/browsers/code-mode-webmcp) and a Browser REPL page in the MCP reference.
+- Added cookbooks for [e2e Web Testing](/cookbooks/e2e-kernel) and [Personal Shopper with Link and Eve](/cookbooks/personal-shopper).
+- Rewrote [Web Bot Auth](/browsers/bot-detection/web-bot-auth) around opt-in access to Kernel’s WBA token for Startup and Enterprise plans. Added links from the bot anti-detection overview and stealth guide, and moved Bot Anti-Detection to the start of the Intermediate section.
+- Documented [browser pool](/browsers/pools) memory options.
+- Split cookbooks into common patterns and harnesses & models, and updated the skills docs to recommend the `kernel` CLI.
+</Update>
+
+<Update label="September 25" tags={["Product", "Docs"]}>
+## Product updates
+
+- Added **custom WebMCP tools**: register named groups of tools backed by the page or by CDP through the API or the [Browser REPL](/browsers/repl). They are discovered alongside a site's own WebMCP tools and called the same way. Manage them with `kernel browsers webmcp custom-tools list/add/remove` in the [CLI](https://github.com/kernel/cli), and call them from the [MCP server](/reference/mcp-server).
+- Added [**per-host proxy routes**](/proxies/routes) at browser creation: send specific hosts through a chosen proxy with the repeatable `--proxy-route` flag in the CLI, or through the MCP server.
+- Added **Search API** access through `kernel search`, `kernel search get`, and `kernel search providers` in the CLI, and a web search tool in the MCP server for accounts with Search enabled.
+- Added **profile binding to browser pool acquire**, so a browser taken from a pool can start with a specific profile loaded.
+- Added optional human-readable **labels** on [credential vault item](/vaults/credentials) fields. Stable field names still control updates and `fill`. Supported in the API, CLI, and MCP server.
+- Added the persistent [Browser REPL](/browsers/repl) as an MCP server tool. MCP vault tools can now call any vault operation the API advertises, and they return the provider's reason when a card authorization is rejected.
+- Improved `kernel mcp install`: added Google Antigravity as a target, gave each stdio client its own named OAuth identity and auth cache, and changed install to merge only the Kernel entry. Hand-edited client config is preserved and config files are written with private permissions.
+- Released [`@onkernel/vault-react`](https://www.npmjs.com/package/@onkernel/vault-react) 0.2.0 with a show/hide control for sensitive fields, and added the same control to the Kernel-hosted [credential](/vaults/credentials) collection form. Stored secrets stay omitted; only newly entered values can be revealed.
+- Paced [`fill`](/vaults/fill) writes character by character, with a short randomized delay between characters and between fields, so values enter the page at human typing speed.
+- Added `iframe` and `worker` to the published browser target types. The [telemetry](/browsers/telemetry/overview) collector already attached to both, but the public enum omitted them.
+- Added per-type filtering to the archived browser [telemetry](/browsers/telemetry/overview) events endpoint. It applies alongside the existing category filter, and an event must match both when both are set.
+- Added current [concurrency usage](/info/projects#concurrency-limits) to the org limits API and `kernel org limits get`: `concurrent_sessions_used` and `concurrent_sessions_available` count active browser sessions and browser pool reservations against your organization limit.
+- Added managed [proxy](/proxies/overview) selection to the dashboard's browser launch dialog for plans entitled to use them.
+- Split the dashboard's managed auth reauthentication status into **Auto**, **Best effort**, and **Needs human**, so a connection that depends on an optimistic TOTP retry is no longer shown as fully automatic.
+- Added playback speed control to session [replays](/browsers/replays).
+
+## Documentation updates
+
+- Added a [Browser REPL](/browsers/repl) guide, and rewrote the fx co-located agent cookbook to run `libfx` over the Browser REPL.
+- Added a Google Antigravity MCP client page and a Replit integration guide. Documented named MCP OAuth clients and how to migrate their auth caches.
+- Documented proxy error codes and the `X-Kernel-Proxy-Error` header, the parent-frame `postMessage` events the [live view](/browsers/live-view) exchanges with embedders — detecting a failed viewer, and toggling read-only mode without reloading the iframe — and computed telemetry readiness events.
+- Documented which events and identifiers each `captcha_type` emits, and the challenge statuses each observed type reports. Challenge results are emitted for hCaptcha, press-and-hold, and reCAPTCHA v2; other types emit task events only.
+- Documented credential field labels and how to check current concurrency usage.
+- Added guidance on measuring session memory with [process execution](/browsers/process-execution) and on taking accessibility tree snapshots in the Playwright execution guide.
+- Added a Jev browser use on Val Town cookbook, and documented the payment processors AgentCard supports.
+- Added [`create-site-skills`](/skills/create-site-skills) to the skills docs, a Vault React collection starter example, and a `kernel-browser-loop` val link to the Val Town guide. Also corrected the Link amount limit.
+</Update>
+
+<Update label="September 18" tags={["Product", "Docs"]}>
+## Product updates
+
+- Extended [Vaults](/vaults/overview) beyond payments to general credentials: store login credentials as [vault items](/vaults/credentials), collect them from your end user through a Kernel-hosted form, and have Kernel [fill](/vaults/fill) them into the page without those values passing through your application code or your agent's context. Available through the API, the `kernel` CLI, and the MCP server.
+- Extended [`fill`](/vaults/fill) to payment card items, so a [Link](/integrations/wallets/stripe-link#fill-the-checkout) checkout can be completed by injecting card fields the same way credentials are filled. [AgentCard](/integrations/wallets/agentcard) keeps its alias-based flow.
+- Added [Vaults](/vaults/overview) to the dashboard: create project-scoped vaults, then create and inspect credential items alongside payment items. Proxy configuration also gained ISP country selection.
+- Added `start_url` to browser session [`update()`](https://www.kernel.sh/docs/api-reference/browsers/update-browser-session). Loading a [profile](/browsers/profiles) restores every tab it saved; passing `start_url` in the same update collapses them onto a single page at the URL you specify.
+- Added a persistent [Browser REPL](https://www.kernel.sh/docs/api-reference/browser-repl/execute-javascript-in-the-persistent-browser-repl) API: a long-lived Node.js runtime inside the browser VM, where top-level bindings, closures, and dynamically imported modules persist across calls. It exposes browser-control helpers, WebMCP, Patchright, Playwright, and raw CDP, and `kernel browsers repl` in the [CLI](https://github.com/kernel/cli) (v0.38.2) drives the same runtime from your terminal. Executions are serialized, and a timeout, crash, or protocol failure terminates the REPL and issues a new `repl_id`.
+
+## Documentation updates
+
+- Added cookbooks: a Jev browser use recipe, a [human-in-the-loop credentials walkthrough](/browsers/use-vault-credentials-in-browser-agent), [pausing an agent for captcha solves](/browsers/telemetry/pausing-for-captcha-solves), and an fx co-located agent that runs Vercel's `fx` coding agent inside the browser VM alongside the Chromium it drives.
+- Added a [process execution](/browsers/process-execution) guide for running processes inside the browser VM.
+- Reframed the [authentication](/auth/overview) docs around two integration paths and made browser [profiles](/browsers/profiles) first-class across guides.
+- Documented [credential vault items](/vaults/credentials), the [`fill`](/vaults/fill) API and its browser-access boundary, and how to [copy values from an existing vault](/vaults/existing-credential-vault).
+- Documented [browser payments](/browsers/payments) end to end: [enabling payments in a browser agent](/browsers/enable-payments-in-browser-agent), the [Link](/integrations/wallets/stripe-link) and [AgentCard](/integrations/wallets/agentcard) wallet integrations, optional payment provider clients, and Link's US phone number eligibility requirement.
+- Documented that Playwright is no longer the only way to drive the page, including browser [WebMCP](/browsers/webmcp) support.
+- Added a standalone [Regional Browsers](/browsers/regions) guide.
+- Expanded proxy docs: regional ISP proxies, automatic `.gov` routing (and where it doesn't apply), removal of the residential-proxy creation-date restriction, and separate pricing rows for configurable vs. BYO proxies.
+</Update>
+
 <Update label="September 11" tags={["Product", "Docs"]}>
 ## Product updates
 
-- Launched **payments for browser agents**: agents can now complete purchases without exposing card data to your application, agent, or browser. [Vaults](/vaults/overview) are a new primitive that grants a browser session permission to use a payment method without revealing the underlying credential. The agent fills the checkout form with aliases, and Kernel substitutes or authorizes the real credential at browser egress. Card numbers and CVCs stay out of the agent's context, your logs, and session recordings, which helps you avoid expanding your PCI DSS scope. Two native wallet integrations ship with it: [Link by Stripe](/integrations/payments/stripe-link) for single-use credential substitution, and [AgentCard](/integrations/payments/agentcard) for authorized request handoff. The merchant keeps its existing checkout and does not integrate with Kernel.
+- Launched **payments for browser agents**: agents can now complete purchases without exposing card data to your application, agent, or browser. [Vaults](/vaults/overview) are a new primitive that grants a browser session permission to use a payment method without revealing the underlying credential. The agent fills the checkout form with aliases, and Kernel substitutes or authorizes the real credential at browser egress. Card numbers and CVCs stay out of the agent's context, your logs, and session recordings, which helps you avoid expanding your PCI DSS scope. Two native wallet integrations ship with it: [Link by Stripe](/integrations/wallets/stripe-link) for single-use credential substitution, and [AgentCard](/integrations/wallets/agentcard) for authorized request handoff. The merchant keeps its existing checkout and does not integrate with Kernel.
 - Added `kernel vaults` commands to the [CLI](https://github.com/kernel/cli) for creating vaults, connecting wallets, requesting cards, and observing item state and events, plus `kernel browsers create --vault` to attach a vault to a session. The [MCP server](/reference/mcp-server) exposes the same vault payment operations as tools, gated on organization entitlements with curated errors and scoped operation hints.
 - Added `kernel browsers webmcp` list and invoke commands to the [CLI](https://github.com/kernel/cli), so you can discover and call a site's WebMCP tools directly from your terminal.
 - Expanded browser session telemetry to capture iframe and worker activity through shared target tracking, giving you fuller visibility into what runs inside a session.
@@ -21,7 +156,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Documented [Vaults](/vaults/overview) and [browser payments](/integrations/payments/overview), including checkout and payment-processor support, app-invocation billing, and Vault payment security guidance, and added them to the [pricing page](/info/pricing).
+- Documented [Vaults](/vaults/overview) and [browser payments](/integrations/wallets/overview), including checkout and payment-processor support, app-invocation billing, and Vault payment security guidance, and added them to the [pricing page](/info/pricing).
 - Added a new [Cookbooks](/cookbooks) tab with 13 end-to-end recipes — AI SDK, Browser Use, Claude computer use and managed agents, e2b, Eve x Foreman, Eve x Managed Auth, Mastra, Modal, Stagehand, Tinker, and Vibium — plus a Common Patterns section for the Playwright computer-use fallback and browser payments.
 - Added regional browsers to the [pricing page](/info/pricing).
 - Added regional placement to [Managed Auth](/auth/configuration#browser-region). Set a connection default or override one login through the SDK, dashboard, CLI, or MCP server; health checks and automatic reauthentication use the connection's region.
@@ -81,7 +216,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a [Foreman integration guide](/integrations/vercel/foreman) to the Vercel section.
+- Added a [Foreman integration guide](/cookbooks/eve-foreman) to the Vercel section.
 - Documented [replay iframe embedding](/browsers/replays) for embedding session replays inside your own dashboards.
 - Documented the 30-day retention window for browser telemetry events.
 - Documented automatic [proxy](/proxies/overview) cleanup behavior.
@@ -309,7 +444,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added a new [hCaptcha](/browsers/bot-detection/hcaptcha) page documenting beta support for hCaptcha solving.
+- Added a new [hCaptcha](/browsers/bot-detection/stealth#hcaptcha-beta) page documenting beta support for hCaptcha solving.
 - Refreshed [managed auth](/auth/managed-auth) documentation for May 2026: new dedicated [connection lifecycle](/auth/connection-lifecycle) page covering health checks and re-authentication, a shared [connection configuration](/auth/configuration) reference, documented `success_url` / `error_url` query parameters for the [hosted UI](/auth/hosted-ui), [`start_url`](/browsers/create-a-browser) references across browser and pool docs, a reorganized sidebar, and new FAQ entries for short-session reauth and multi-step login forms.
 - Clarified that managed residential proxy IPs are stable within a session but are not guaranteed to persist across sessions.
 - Updated the [Yutori integration guide](/integrations/computer-use/yutori) to Navigator n1.5.
@@ -359,7 +494,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Anti-detection features are now on by default for all Kernel browsers. [Stealth mode](/browsers/bot-detection/stealth) now specifically adds the managed ISP proxy and CAPTCHA solver (both opt-out), and non-stealth browsers fully support [custom proxies](/proxies/custom).
 - Revamped the [managed auth hosted login page](/auth/hosted-ui): all available sign-in options (password fields, SSO providers, MFA, alternate sign-in methods) now render together on a single page, so end users can pick the path they want, instead of being funneled through one at a time.
 - Managed auth input fields now display contextual helper text when the site surfaces hints, reducing user confusion on multi-step logins.
-- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/credentials), since those credentials are already managed externally.
+- The "Save credentials after login" option is now automatically disabled when [1Password](/integrations/1password) is selected as the [credential source](/auth/configuration#credentials-and-auto-reauth), since those credentials are already managed externally.
 - Kernel now supports WebSocket connections through its API, enabling `process attach` and other long-lived streaming workflows.
 - Exceeding invocation concurrency limits now returns a 429 response immediately, for faster and more actionable feedback.
 
@@ -414,7 +549,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 
 ## Documentation updates
 
-- Added [API rate limiting](/info/pricing#rate-limiting) documentation.
+- Added [API rate limiting](/browsers/concurrency-and-limits#rate-limits) documentation.
 - Documented the [`disable_default_proxy`](/browsers/bot-detection/stealth) option for stealth browsers.
 - Updated [live view embedding](/browsers/live-view) docs with iframe focus tips, clipboard sharing guidance, and CSP configuration.
 - Documented [managed auth re-authentication triggers](/auth/managed-auth).
@@ -523,7 +658,7 @@ For API library updates, see the [Node SDK](https://github.com/onkernel/kernel-n
 - Fixed screen resize accuracy by removing unnecessary rounding in `ChangeScreenSize` to ensure pixel-perfect display dimensions.
 
 ## Documentation updates
-- Enhanced [secrets](/apps/secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
+- Enhanced [secrets](/apps/deploy#secrets) documentation with practical examples for LLM-powered applications and detailed guidance for deploying apps with environment file configurations.
 </Update>
 
 <Update label="February 13" tags={["Product", "Docs"]}>
