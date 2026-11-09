@@ -88,11 +88,19 @@ kernel api-keys rotate key_01jwv4tn5m8k3q2v7x9p0a1bc2 \
 
 <Warning>
   Save the new plaintext key when you rotate it. Kernel won't return it again.
+  With `--expire-in-days 0`, the old key's associated browsers are ended asynchronously
+  and their unsaved profile changes are discarded. A grace-period expiry doesn't end
+  existing browsers.
 </Warning>
 
 ## `kernel api-keys delete <id>`
 
-Delete an API key.
+Delete an API key. Its associated browsers are ended asynchronously, and unsaved profile changes in those browsers are discarded.
+
+<Note>
+  Automatic cleanup only covers browsers associated with the key. Some older browsers
+  may be unaffected; delete those browsers directly. See [API key expiry and revocation](/info/api-keys#expiry-and-revocation).
+</Note>
 
 ```bash
 kernel api-keys delete key_01jwv4tn5m8k3q2v7x9p0a1bc2 --yes
