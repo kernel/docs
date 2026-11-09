@@ -86,7 +86,7 @@ for behavior specific to each payment source, see [pay with card](/integrations/
 
 ## Payment actions and recovery
 
-`action.name` can be `link_oauth`, `shop_pay_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
+`action.name` can be `link_oauth`, `shop_pay_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, `card_enrollment`, or `card_ingest`. a `card_ingest` action is for the card issuer's backend, not a user-facing hosted interaction. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
 
 `recovery_required` means a card's provider outcome is unresolved. it stops
 item wait loops and blocks new authorization, checkout, and deletion of the
