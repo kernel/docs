@@ -1,0 +1,271 @@
+---
+title: "Push Cards from a Card Issuer"
+sidebarTitle: "Push cards from an issuer"
+description: "Let a card issuer add a single-use card to a KERNEL wallet from its backend"
+---
+
+a card issuer can add a card to a [KERNEL wallet](/integrations/wallets/pay-with-multiple-cards) from its own backend, so the cardholder never types it in. you start a server enrollment, KERNEL returns a single-use `card_ingest` url, and the issuer posts the card to that url.
+
+the `card_ingest` url is served by KERNEL's PCI-compliant card vault, not by KERNEL's API. the card vault replaces the card number and CVC with aliases before the request reaches KERNEL, so neither you nor KERNEL handles raw card data. the agent's browser only ever sees aliases, which are swapped for the real values on the way to the merchant.
+
+use server enrollment for single-use cards an issuer creates for one checkout, pushed right before the agent pays. for a card the cardholder enters themselves, use [hosted enrollment](/integrations/wallets/pay-with-multiple-cards#add-a-card) instead.
+
+<Note>
+server enrollment is enabled per organization. `add_payment_method` with `enrollment: "server"` returns `409` until it's configured for your organization. [contact support](/info/support) to enable it.
+</Note>
+
+## How it works
+
+```mermaid
+sequenceDiagram
+    participant You as your backend
+    participant Issuer as card issuer
+    participant Vault as KERNEL card vault
+    participant API as KERNEL API
+    You->>API: add_payment_method (enrollment: server)
+    API-->>You: payment method with card_ingest url
+    You->>Issuer: hand the url to the issuer's backend
+    Issuer->>Vault: POST card number, CVC, expiry to the url
+    Vault->>API: same request, card number and CVC replaced with aliases
+    API-->>Issuer: payment method, status active
+    You->>API: create a purchase with the payment method and authorize
+```
+
+if you're the card issuer, you do both sides: you start the enrollment and post the card yourself.
+
+## Start a server enrollment
+
+invoke `add_payment_method` on a connected KERNEL wallet with `enrollment: "server"`. the result is a payment method in `pending_enrollment` whose `action` is a `card_ingest` url that expires 5 minutes later. each call creates a separate url for one card.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+const added = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "add_payment_method",
+  enrollment: "server",
+});
+if (added.type !== "add_payment_method") {
+  throw new Error("unexpected operation response");
+}
+
+const paymentMethod = added.payment_method;
+// send paymentMethod.action.url to the issuer's backend; don't log it or give it to the agent
+console.log(paymentMethod.id, paymentMethod.action?.name, paymentMethod.expires_at);
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+
+added = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="add_payment_method",
+    enrollment="server",
+)
+if added.type != "add_payment_method":
+    raise RuntimeError("unexpected operation response")
+
+payment_method = added.payment_method
+# send payment_method.action.url to the issuer's backend; don't log it or give it to the agent
+print(payment_method.id, payment_method.action.name, payment_method.expires_at)
+```
+
+</CodeGroup>
+
+start the enrollment only when the issuer is ready to push the card. the url can't be renewed: if it expires, start another enrollment. an expired or unused enrollment doesn't affect the wallet's other cards.
+
+## Push the card
+
+the issuer posts the card as JSON to the exact `card_ingest` url, with a KERNEL API key in the `Authorization` header. the key must belong to the wallet's organization and have `vaults:use` and `vaults:write` on the vault. if the wallet isn't in your organization's default project, send the same `X-Kernel-Project` header you used to start the enrollment.
+
+| field | required | value |
+| --- | --- | --- |
+| `card.number` | yes | card number, 13 to 19 digits, as a string |
+| `card.cvc` | yes | 3 or 4 digits, as a string |
+| `card.exp_month` | yes | two digits, `"01"` to `"12"` |
+| `card.exp_year` | yes | four digits, such as `"2029"` |
+| `network` | yes | `visa`, `mastercard`, `amex`, `discover`, `jcb`, `diners`, or `unionpay`. it must match the card number |
+| `last4` | yes | the card number's last four digits |
+| `valid_until` | yes | RFC 3339 timestamp in the future. KERNEL stops using the card at this time |
+| `issuer_reference` | no | your own id for the card, up to 128 letters, digits, `.`, `_`, `:`, or `-`. it's returned on the payment method so you can match it to your records |
+
+send every card value as a string, and send no other fields. the body must be `application/json` and under 8 KB.
+
+<CodeGroup>
+
+```typescript TypeScript
+const response = await fetch(cardIngestUrl, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.KERNEL_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    card: {
+      number: "4111111111111111",
+      cvc: "123",
+      exp_month: "09",
+      exp_year: "2029",
+    },
+    network: "visa",
+    last4: "1111",
+    issuer_reference: "vcard_7781",
+    valid_until: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+  }),
+});
+if (!response.ok) {
+  const error = await response.json();
+  throw new Error(`card push failed: ${response.status} ${error.code}`);
+}
+const { payment_method } = await response.json();
+console.log(payment_method.id, payment_method.status);
+```
+
+```python Python
+import os
+from datetime import datetime, timedelta, timezone
+
+import requests
+
+response = requests.post(
+    card_ingest_url,
+    headers={"Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}"},
+    json={
+        "card": {
+            "number": "4111111111111111",
+            "cvc": "123",
+            "exp_month": "09",
+            "exp_year": "2029",
+        },
+        "network": "visa",
+        "last4": "1111",
+        "issuer_reference": "vcard_7781",
+        "valid_until": (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat(),
+    },
+    timeout=30,
+)
+if not response.ok:
+    raise RuntimeError(f"card push failed: {response.status_code} {response.json()['code']}")
+payment_method = response.json()["payment_method"]
+print(payment_method["id"], payment_method["status"])
+```
+
+</CodeGroup>
+
+a successful push returns `200` with the payment method, now `active`:
+
+```json
+{
+  "payment_method": {
+    "id": "q4w8z2mkc7tnv1xr9pej5ha3",
+    "type": "card",
+    "provider": "kernel",
+    "status": "active",
+    "is_default": false,
+    "display": { "brand": "visa", "last4": "1111" },
+    "issuer_reference": "vcard_7781",
+    "valid_until": "2026-11-09T16:14:52Z",
+    "capabilities": { "single_use_card": { "eligible": true, "reasons": [] } }
+  }
+}
+```
+
+### Errors
+
+errors return JSON with a `code` and a `message`. KERNEL never logs the request body or card values.
+
+| status | `code` | meaning |
+| --- | --- | --- |
+| `401` | `unauthorized` | the API key is missing or invalid |
+| `403` | `forbidden` | the request didn't come through the `card_ingest` url, or the key lacks `vaults:use` and `vaults:write` on the vault |
+| `404` | `enrollment_not_found` | the url is unknown, expired, or belongs to another organization |
+| `409` | `enrollment_used` | the url already enrolled a different card, or its card's CVC was already used or expired. start a new enrollment |
+| `409` | `conflict` | the wallet can't take the card right now, such as while it's being removed |
+| `422` | `invalid_card` | the body isn't valid JSON, has unknown or invalid fields, has a `valid_until` in the past, or exceeds 8 KB. fix the request and push again to the same url |
+| `500` | `internal_error` | the card couldn't be stored. retry the same request |
+
+### Retries
+
+if the issuer loses the response, it can retry the same request to the same url. a retry with the same card, `network`, `last4`, `issuer_reference`, and `valid_until` returns `200` with the same payment method, so the issuer can tell the card was stored. a different card on a used url returns `409`.
+
+once the card's CVC has been used by a purchase or has expired, a retry returns `409` `enrollment_used`. to push the card again, start a new server enrollment.
+
+## Pay with the pushed card
+
+create a purchase with the pushed card's `id` as `spec.payment_method_id`, as in [choose a card for a purchase](/integrations/wallets/pay-with-multiple-cards#choose-a-card-for-a-purchase). because the issuer sent the CVC with the card, `authorize` makes the purchase `ready` right away, with no cardholder approval page. the agent then [fills](/vaults/fill) the checkout as usual.
+
+<CodeGroup>
+
+```typescript TypeScript
+const purchase = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "kernel",
+    wallet: "card-wallet",
+    payment_method_id: paymentMethod.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com/checkout",
+  },
+});
+
+const authorized = await kernel.vaults.items.performOperation(purchase.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+// authorized.state.status is "ready"; fill the checkout now
+```
+
+```python Python
+purchase = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "kernel",
+        "wallet": "card-wallet",
+        "payment_method_id": payment_method.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com/checkout",
+    },
+)
+
+authorized = kernel.vaults.items.perform_operation(
+    purchase.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+# authorized.state.status is "ready"; fill the checkout now
+```
+
+</CodeGroup>
+
+a pushed card pays for exactly one purchase:
+
+- **one purchase per push.** the first purchase to authorize takes the CVC. other purchases on the same card show `funding_status: "unavailable"` and no `authorize` operation, and authorizing them returns `409`. if the first purchase fails before it's issued, the CVC goes back to the card for another purchase.
+- **the CVC window starts at the push.** the CVC stays usable for 5 minutes by default, or up to an hour depending on your organization's card vault, and never past `valid_until`. the push, `authorize`, and fill must all happen inside that window, so push the card when the checkout is ready to run. the purchase expires when the CVC does.
+- **after the purchase.** the card stays in the wallet as `active` but lists as ineligible with the reason `cvc_unavailable`, or `valid_until_passed` after `valid_until`. remove it with `remove_payment_method`, and push a new card for the next checkout.
+
+## Limit the card on the issuer side
+
+KERNEL doesn't bind a pushed card to a merchant or an amount, and there's no cardholder approval step. any API key with `vaults:use` on the vault can spend the card while its CVC is valid. the issuer must limit the card itself: issue single-use cards that only work at the intended merchant, for the intended amount, and only until `valid_until`.
+
+the same card can be pushed into more than one wallet, including wallets in different organizations. the issuer decides which wallets a card belongs in.
