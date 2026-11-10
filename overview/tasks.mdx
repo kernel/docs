@@ -14,7 +14,7 @@ Your agent already knows its goal, constraints, and definition of success. KERNE
 A task supplies that missing context. It lets you:
 
 - **Keep one thread across tools and retries.** Group browser sessions and repeated attempts under the outcome they serve.
-- **Submit actionable reports.** Report success or failure against the goal instead of sending isolated infrastructure errors that lack context.
+- **Submit actionable reports.** Record relevant intent, conditions, and blockers during the run, then report one terminal outcome against the goal.
 - **Separate execution failures from agent failures.** Task context helps KERNEL distinguish a blocked browser or broken login from a plan that used the wrong site or stopped too early.
 - **Improve the next attempt.** Verified outcomes can support task-specific recommendations, such as which route or browser configuration works best for similar work.
 
@@ -47,10 +47,13 @@ The basic flow is:
 
 1. **Declare the task.** Describe the goal, constraints, and success criteria, then keep the returned task ID.
 2. **Associate the work.** Pass the task ID when the agent uses a KERNEL interface that accepts it. Reuse the same ID across retries and route changes.
-3. **Verify the outcome.** Check the source of truth for the task, not only the last tool response. A successful click or page load doesn't prove the user's goal was met.
-4. **Report once.** Submit the terminal outcome against the task ID. For a failure, include what the agent expected, what happened instead, and the last verified step.
+3. **Report useful observations.** Submit nonterminal reports for relevant intent, conditions, or blockers. A task can have multiple nonterminal reports, and none of them closes the task or determines its outcome.
+4. **Verify the outcome.** Check the source of truth for the task, not only the last tool response. A successful click or page load doesn't prove the user's goal was met.
+5. **Report the outcome once.** Submit one terminal outcome against the task ID. For a failure, include what the agent expected, what happened instead, and the last verified step.
 
 ## Report what the user experienced
+
+Nonterminal reports explain what happened during the run. They don't mean the task succeeded or failed, and their absence doesn't imply failure. Submit the terminal outcome only after the work stops and the agent verifies the result as far as it can.
 
 Report success only when the success criteria are verified. Report failure when the task reaches a terminal condition without producing the required outcome. If the result is unclear, say that the outcome couldn't be verified instead of guessing.
 
@@ -65,5 +68,5 @@ Useful failure context includes:
 You don't need to send the agent's full prompt or chain of thought. Send the smallest amount of context that lets KERNEL reproduce the condition, identify the failing layer, and improve the next attempt.
 
 <Tip>
-  One goal, one task ID, and one verified terminal report is the default. Keep the same task ID when the agent retries the same goal.
+  One goal, one task ID, any relevant nonterminal reports, and one verified terminal outcome is the default. Keep the same task ID when the agent retries the same goal.
 </Tip>
