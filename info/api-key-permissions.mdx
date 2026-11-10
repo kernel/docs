@@ -175,7 +175,7 @@ A read grant returns connection metadata. To receive hosted login or live view U
 | `api_keys:rotate` | Replace keys whose policies the caller covers, returning the new plaintext key. |
 | `api_keys:delete` | Revoke keys. |
 
-A new or rotated key with a policy must expire no later than its issuer unless the issuer holds `api_keys:issue_beyond_expiry` on the target. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
+A new key with a policy must expire no later than the credential that creates it unless that credential holds `api_keys:issue_beyond_expiry` on the target container. The same limit applies when a caller with a policy rotates a key, checked on the existing key. Rotation by a caller without a policy keeps its existing replacement-lifetime behavior. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
 
 ### Audit logs and export destinations
 

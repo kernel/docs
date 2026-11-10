@@ -162,7 +162,7 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 
 ### Expiry and revocation
 
-- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A key with a policy can't outlive its issuer unless the issuer holds `api_keys:issue_beyond_expiry` on the target. Kernel returns `400` for an expiry it can't honor; it never silently shortens the requested lifetime.
+- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. When you create a key with a policy, it can't outlive the issuing credential unless that credential holds `api_keys:issue_beyond_expiry` on the target. Kernel returns `400` for an expiry it can't honor; it never silently shortens the requested lifetime.
 - Expired and deleted keys can't authenticate new API requests.
 - Deleting a key through the API or dashboard, or rotating it with `expire_in_days: 0`, also ends browser sessions associated with that key, including pool browsers it acquired and hasn't released. Cleanup runs asynchronously and discards unsaved profile changes.
 - Grace-period expiry and natural expiry do **not** end existing browsers. Delete those browsers explicitly if you need to stop them.
@@ -184,7 +184,7 @@ You can use a scoped key to create another scoped key:
 
 For example, an issuer with `api_keys:create` and `browsers:use` on a project can issue a key with only `browsers:use` on one browser in that project. Use the same SDK creation call shown above with the narrower policy.
 
-Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. Rotation also requires the issuer to cover the target key's policy. Its expiry follows the same rule as creation, with `api_keys:issue_beyond_expiry` checked on the existing key. These permissions are separate, so you can grant metadata access without granting key issuance or rotation.
+Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. When a scoped key rotates another key, it must also cover the target key's policy, and the replacement's expiry follows the same rule as creation, with `api_keys:issue_beyond_expiry` checked on the existing key. These permissions are separate, so you can grant metadata access without granting key issuance or rotation.
 
 ### Allow longer-lived child keys
 
@@ -387,7 +387,9 @@ Two optional parameters control the timing:
 - `days_to_expire` sets the new key's lifetime in days (`1`-`3650`). Omit it to give the new key the same lifetime the rotated key originally had, or to never expire if the old key never did.
 - `expire_in_days` sets how long the old key keeps working before it expires. Use `0` to revoke it immediately, or omit it for the default 7-day grace window. The old key stops authenticating automatically once the window passes—you don't need to delete it.
 
-When you rotate using a scoped key, the caller needs `api_keys:rotate` on the target and must cover its policy. For a replacement with a policy, choose `days_to_expire` within the caller's remaining lifetime or hold `api_keys:issue_beyond_expiry` on the target. The same validation applies when you omit `days_to_expire` and reuse the old lifetime. A disallowed expiry returns `400`, never a shortened replacement. A scoped caller cannot rotate a key that itself carries `api_keys:issue_beyond_expiry`.
+If the key you rotate with has no policy, these lifetime rules apply to every target, including keys with policies, and you don't need `api_keys:issue_beyond_expiry`.
+
+If the key you rotate with has a policy, it needs `api_keys:rotate` on the target and must cover the target's policy. When the caller expires, the replacement must expire no later than the caller, or the caller must hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. The same check applies when you omit `days_to_expire` and reuse the old lifetime. A disallowed expiry returns `400`, never a shortened replacement. A caller with a policy cannot rotate a key that itself carries `api_keys:issue_beyond_expiry`.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -462,7 +464,7 @@ To cut over immediately instead of using a grace window, pass `expire_in_days: 0
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry exceeds the issuer's without the required permission. | Check [API key permissions](/info/api-key-permissions). Request an allowed expiry, or have an unscoped issuer grant `api_keys:issue_beyond_expiry`; its exception requires a finite expiry within 3650 days. |
+| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the requested expiry exceeds the issuing or rotating credential's without the required permission. | Check [API key permissions](/info/api-key-permissions). Request an allowed expiry, or have an unscoped issuer grant `api_keys:issue_beyond_expiry`; its exception requires a finite expiry within 3650 days. |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
