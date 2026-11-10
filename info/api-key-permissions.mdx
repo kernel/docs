@@ -177,7 +177,7 @@ A read grant returns connection metadata. To receive hosted login or live view U
 
 A new key with a policy must expire no later than the credential that creates it unless that credential holds `api_keys:issue_beyond_expiry` on the target container. The same limit applies when a caller with a policy rotates a key, checked on the existing key. Rotation by a caller without a policy keeps its existing replacement-lifetime behavior. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
 
-OAuth access tokens limited to specific actions can't hold any `api_keys:` action, so they can't read, create, rename, rotate, or delete API keys. Use an API key with these permissions instead. OAuth tokens without action limits keep their existing organization or project access.
+OAuth access tokens that carry a policy, including tokens limited to specific actions, machine-to-machine tokens, and exchanged tokens, can't hold any `api_keys:` action, so they can't read, create, rename, rotate, or delete API keys. Requests for these permissions are rejected. Use an API key with these permissions instead. An OAuth token that only requests identity scopes and is used directly keeps its existing organization or project access.
 
 ### Audit logs and export destinations
 
