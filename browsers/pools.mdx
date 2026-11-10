@@ -28,14 +28,14 @@ Idle browsers in a pool aren't billed, but the pool's capacity counts against yo
 A few constraints to weigh before moving a workload onto a browser pool:
 
 - **No GPU browsers.** GPU-accelerated browsers are on-demand only. Use `browsers.create()` for WebGL, video, or canvas-heavy work.
-- **One fixed configuration per browser pool**, with `start_url` the only setting you can override per acquisition — see [Create a browser pool](#create-a-browser-pool).
+- **One fixed base configuration per browser pool.** You can override selected lease settings, including `start_url` and `start_replay`, per acquisition — see [Acquire a browser](#acquire-a-browser).
 - **A profile set on the browser pool loads read-only**, and a browser pool holds one at a time — see [Per-user profiles with browser pools](#per-user-profiles-with-browser-pools) for how to persist state per user.
 - **Browser pool capacity counts against your [concurrency limit](/browsers/concurrency-and-limits#concurrency)** whether or not its browsers are acquired, though idle pooled browsers aren't billed.
 - **Plan-gated.** Browser pools are available on the Start-Up and Enterprise plans.
 
 ## Create a browser pool
 
-Create a browser pool with a size and the configuration every browser in it should use.
+Create a browser pool with a size and the configuration every browser in it should use. Set `start_replay: true` to start a [replay recording](/browsers/replays) automatically whenever a browser is acquired.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -121,7 +121,7 @@ func main() {
 
 ## Acquire a browser
 
-Acquire a browser from the browser pool. The request returns immediately if a browser is available, or waits until one becomes available. Use `acquire_timeout_seconds` to bound that wait.
+Acquire a browser from the browser pool. The request returns immediately if a browser is available, or waits until one becomes available. Use `acquire_timeout_seconds` to bound that wait. Omit `start_replay` to use the pool's replay default, or set it to `true` or `false` for that acquisition.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
