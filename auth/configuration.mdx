@@ -641,9 +641,9 @@ Browser placement and proxy location are independent. `browser.region` chooses w
 
 ## Browser locale
 
-Set `browser.location.locale` to choose the language the connection's browsers report to websites, through `navigator.language`, `Intl` formatting, and the `Accept-Language` header. The initial login, health checks, and automatic reauthentication all use it. Without it, browsers use the default for their [region](#browser-region), such as `en-US` for `us-east`.
+Set `browser.location.locale` to choose the language the connection's browsers report to websites. It's the same locale setting as [browser location](/browsers/location): it applies to `Intl`, `navigator.language`, `navigator.languages`, and `Accept-Language` headers. The initial login, health checks, and automatic reauthentication all use it. Without it, browsers use the default for their [region](#browser-region), such as `en-US` for `us-east`.
 
-Use it when the site picks its language from the browser, so the field labels, MFA prompts, and site error messages your users see during login are in their language. It doesn't change sites that choose a language by domain or IP address, and it doesn't translate Kernel's hosted login page.
+Use it when the site picks its language from the browser, so the field labels, MFA prompts, and site error messages your users see during login are in their language. It doesn't change sites that choose a language by domain or IP address. Like browser location, it doesn't set geolocation or guarantee a bot-detection outcome, and it doesn't translate KERNEL's hosted login page. To translate the text of the embedded login component, use its [`localization`](/auth/react#localization) prop.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -681,7 +681,9 @@ _ = auth
 ```
 </CodeGroup>
 
-`locale` accepts the same BCP 47 tags as [browser location](/browsers/location). Kernel normalizes spelling, so `sv-se` is stored and returned as `sv-SE`. An unsupported value returns a `400` with code `invalid_browser_location`. Connections set the locale only; the timezone follows the browser's region.
+`locale` accepts the same BCP 47 tags as browser location. KERNEL normalizes spelling and deprecated codes, so `sv-se` is stored and returned as `sv-SE`. An unsupported value such as `en-QQ` returns a `400` with code `invalid_browser_location`. Connections set the locale only; the timezone follows the browser's region.
+
+The locale is independent of `browser.region` and the connection's proxy. Choose the locale that matches your user, not the browser's region or exit IP.
 
 To change the locale, update the connection. Leave `location` out to keep the current value, or set `locale` to `null` to go back to the region default:
 
