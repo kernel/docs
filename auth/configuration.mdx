@@ -639,6 +639,96 @@ _ = login
 
 Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
 
+## Browser locale
+
+Set `browser.location.locale` to choose the language the connection's browsers report to websites, through `navigator.language`, `Intl` formatting, and the `Accept-Language` header. The initial login, health checks, and automatic reauthentication all use it. Without it, browsers use the default for their [region](#browser-region), such as `en-US` for `us-east`.
+
+Use it when the site picks its language from the browser, so the field labels, MFA prompts, and site error messages your users see during login are in their language. It doesn't change sites that choose a language by domain or IP address, and it doesn't translate Kernel's hosted login page.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'verkkokauppa.com',
+  profile_name: 'user-123',
+  browser: { location: { locale: 'sv-SE' } },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="verkkokauppa.com",
+    profile_name="user-123",
+    browser={"location": {"locale": "sv-SE"}},
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "verkkokauppa.com",
+		ProfileName: "user-123",
+		Browser: kernel.ManagedAuthBrowserConfigParam{
+			Location: kernel.ManagedAuthBrowserLocationParam{
+				Locale: kernel.String("sv-SE"),
+			},
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+`locale` accepts the same BCP 47 tags as [browser location](/browsers/location). Kernel normalizes spelling, so `sv-se` is stored and returned as `sv-SE`. An unsupported value returns a `400` with code `invalid_browser_location`. Connections set the locale only; the timezone follows the browser's region.
+
+To change the locale, update the connection. Leave `location` out to keep the current value, or set `locale` to `null` to go back to the region default:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.auth.connections.update(auth.id, {
+  browser: { location: { locale: 'fi-FI' } },
+});
+
+await kernel.auth.connections.update(auth.id, {
+  browser: { location: { locale: null } },
+});
+```
+
+```python Python
+await kernel.auth.connections.update(
+    auth.id,
+    browser={"location": {"locale": "fi-FI"}},
+)
+
+await kernel.auth.connections.update(
+    auth.id,
+    browser={"location": {"locale": None}},
+)
+```
+
+```go Go
+// import "github.com/kernel/kernel-go-sdk/packages/param"
+_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
+	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
+		Browser: kernel.ManagedAuthBrowserConfigParam{
+			Location: kernel.ManagedAuthBrowserLocationParam{
+				Locale: param.Null[string](),
+			},
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+```
+</CodeGroup>
+
+The new value applies to the next browser the connection creates. It doesn't change a login, health check, or reauthentication that's already running. The locale belongs to the connection, so passing `browser.location` to `auth.connections.login` returns a `400`.
+
+If a later browser version stops supporting a stored locale, the connection's browsers use the region default instead and the stored value stays unchanged.
+
 ## SSO/OAuth support
 
 Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
@@ -919,6 +1009,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
+| `browser.location.locale` | Locale for login, health-check, and reauth browsers. Set to `null` to use the region default. Takes effect on the next browser created for the connection |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
