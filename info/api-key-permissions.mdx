@@ -169,12 +169,13 @@ A read grant returns connection metadata. To receive hosted login or live view U
 | Action | Allows |
 | --- | --- |
 | `api_keys:create` | Issue keys in the authorized container. A scoped issuer must grant a subset of its own policy. |
+| `api_keys:issue_beyond_expiry` | Allow a scoped key's finite expiry to exceed the caller's, up to 3650 days. Grant it on the new key's container for creation, or the existing key for rotation. Scoped callers cannot pass this permission to another key. |
 | `api_keys:read` | List keys and read metadata and policies, without plaintext keys. |
 | `api_keys:write` | Rename keys. |
 | `api_keys:rotate` | Replace keys whose policies the caller covers, returning the new plaintext key. |
 | `api_keys:delete` | Revoke keys. |
 
-New and rotated keys must expire no later than a scoped issuer. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
+A new or rotated key with a policy must expire no later than its issuer unless the issuer holds `api_keys:issue_beyond_expiry` on the target. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
 
 ### Audit logs and export destinations
 
@@ -234,7 +235,7 @@ Connection updates check the resulting configuration. Turning off credential sav
 | Invoke an app action | Container-wide `invocations:create`. Your policy must cover the deployment runtime key's policy, and your key must expire no earlier than that runtime key. |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
-| Create or rotate an API key | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. Its expiry must fit within your own key's expiry. |
+| Create or rotate an API key | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. Its expiry must fit within your own key's expiry unless you also hold `api_keys:issue_beyond_expiry` on the target. A scoped caller cannot issue or rotate a key carrying that permission. |
 | Update an audit export destination | `audit_log_export_destinations:write` and organization-wide `audit_logs:read`. |
 | Retrieve search content with an automatically created browser | `searches:use` plus container-wide `browsers:create`, `browsers:use`, and `browsers:delete`. With an existing browser, grant access to that browser and its attachments instead. |
 | Resolve a browser configuration | `config_registry:create` and `config_registry:read`. |

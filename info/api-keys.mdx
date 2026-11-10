@@ -162,7 +162,7 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 
 ### Expiry and revocation
 
-- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A scoped key can't outlive the key that creates it.
+- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A key with a policy can't outlive its issuer unless the issuer holds `api_keys:issue_beyond_expiry` on the target. Kernel returns `400` for an expiry it can't honor; it never silently shortens the requested lifetime.
 - An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither revokes connection URLs (CDP, WebDriver, live view) the key already obtained. They keep working, including for new connections, until the browser is deleted, so delete the key's browsers to cut off access.
 - Rotating a scoped key keeps its policy.
 
@@ -172,11 +172,55 @@ You can use a scoped key to create another scoped key:
 
 1. Grant the issuer `api_keys:create` on the new key's project or organization container.
 2. Supply a `policy` whose statements are covered by the issuer's policy, and keep the new key inside the issuer's organization/project boundary.
-3. Set the new key's expiry no later than the issuer's expiry.
+3. Set the new key's expiry no later than the issuer's expiry, or grant the issuer `api_keys:issue_beyond_expiry` on that container and request a finite lifetime of at most 3650 days.
 
 For example, an issuer with `api_keys:create` and `browsers:use` on a project can issue a key with only `browsers:use` on one browser in that project. Use the same SDK creation call shown above with the narrower policy.
 
-Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. Rotation also requires the issuer to cover the target key's policy and the replacement's expiry. These permissions are separate, so you can grant metadata access without granting key issuance or rotation.
+Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. Rotation also requires the issuer to cover the target key's policy. Its expiry follows the same rule as creation, with `api_keys:issue_beyond_expiry` checked on the existing key. These permissions are separate, so you can grant metadata access without granting key issuance or rotation.
+
+### Allow longer-lived child keys
+
+Use an unscoped credential to issue a trusted key with `api_keys:issue_beyond_expiry`. This permission doesn't grant creation, rotation, or resource access by itself.
+
+<CodeGroup>
+```typescript TypeScript
+const issuer = await kernel.apiKeys.create({
+  name: 'ci-key-issuer',
+  project_id: 'proj_staging_9f3k',
+  days_to_expire: 30,
+  policy: {
+    statements: [
+      { action: 'api_keys:create', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'api_keys:issue_beyond_expiry', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+    ],
+  },
+});
+```
+
+```python Python
+issuer = client.api_keys.create(
+    name="ci-key-issuer",
+    project_id="proj_staging_9f3k",
+    days_to_expire=30,
+    policy={
+        "statements": [
+            {"action": "api_keys:create", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "api_keys:issue_beyond_expiry", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+        ],
+    },
+)
+```
+</CodeGroup>
+
+Authenticate with `issuer.key` to create a child with `days_to_expire: 365` and only `browsers:use` on this project. Its expiry is one year, not silently shortened to the issuer's 30 days. Without the special permission, that request returns `400`.
+
+The child must have a finite expiry of at most 3650 days. Scoped callers cannot create or rotate keys whose policies contain `api_keys:issue_beyond_expiry`, so the child can't inherit this authority. Add `api_keys:rotate` separately to let the issuer rotate other keys.
+
+<Warning>
+Grant this permission only to trusted issuers. Their child keys can remain valid after the issuer expires or is revoked.
+</Warning>
 
 ## Deployment API keys
 
@@ -335,7 +379,7 @@ Two optional parameters control the timing:
 - `days_to_expire` sets the new key's lifetime in days (`1`-`3650`). Omit it to give the new key the same lifetime the rotated key originally had, or to never expire if the old key never did.
 - `expire_in_days` sets how long the old key keeps working before it expires. Use `0` to revoke it immediately, or omit it for the default 7-day grace window. The old key stops authenticating automatically once the window passes—you don't need to delete it.
 
-When you rotate using a scoped key, the caller needs `api_keys:rotate` on the target and must cover its policy. The replacement must expire no later than the caller; choose `days_to_expire` within that remaining lifetime.
+When you rotate using a scoped key, the caller needs `api_keys:rotate` on the target and must cover its policy. For a replacement with a policy, choose `days_to_expire` within the caller's remaining lifetime or hold `api_keys:issue_beyond_expiry` on the target. The same validation applies when you omit `days_to_expire` and reuse the old lifetime. A disallowed expiry returns `400`, never a shortened replacement. A scoped caller cannot rotate a key that itself carries `api_keys:issue_beyond_expiry`.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -410,7 +454,7 @@ To cut over immediately instead of using a grace window, pass `expire_in_days: 0
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry is invalid or later than your own key's. | Check the policy against [API key permissions](/info/api-key-permissions) and send one expiry field. |
+| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, or the expiry exceeds the issuer's without the required permission. | Check [API key permissions](/info/api-key-permissions). Request an allowed expiry, or have an unscoped issuer grant `api_keys:issue_beyond_expiry`; its exception requires a finite expiry within 3650 days. |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |
