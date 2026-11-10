@@ -163,8 +163,16 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 ### Expiry and revocation
 
 - Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A key with a policy can't outlive its issuer unless the issuer holds `api_keys:issue_beyond_expiry` on the target. Kernel returns `400` for an expiry it can't honor; it never silently shortens the requested lifetime.
-- An expired key is rejected immediately, and a deleted key within about 10 seconds. Neither revokes connection URLs (CDP, WebDriver, live view) the key already obtained. They keep working, including for new connections, until the browser is deleted, so delete the key's browsers to cut off access.
+- Expired and deleted keys can't authenticate new API requests.
+- Deleting a key through the API or dashboard, or rotating it with `expire_in_days: 0`, also ends browser sessions associated with that key, including pool browsers it acquired and hasn't released. Cleanup runs asynchronously and discards unsaved profile changes.
+- Grace-period expiry and natural expiry do **not** end existing browsers. Delete those browsers explicitly if you need to stop them.
+- Connection URLs (CDP, WebDriver, live view) stop working when their browser ends, not when the key stops authenticating.
+- If browser cleanup can't be scheduled, deletion or immediate rotation fails without committing the key change.
 - Rotating a scoped key keeps its policy.
+
+<Note>
+Automatic cleanup only covers browsers associated with the key. Some browsers created before this behavior was introduced may not have that association. Delete those browsers directly. Cleanup doesn't undo profile changes you've already saved, delete browser pools, or stop app invocations or deployments.
+</Note>
 
 ### Delegate a narrower key
 
@@ -311,7 +319,7 @@ func main() {
 Rename a key when the owner or purpose changes. Delete a key when the workload no longer needs access.
 
 <Warning>
-An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it.
+An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
 </Warning>
 
 <CodeGroup>
@@ -446,7 +454,7 @@ After you rotate a key:
 2. Deploy or restart the workload that uses `KERNEL_API_KEY`.
 3. Verify the workload can call Kernel before the grace window ends.
 
-To cut over immediately instead of using a grace window, pass `expire_in_days: 0` so the old key stops working as soon as the new one is issued.
+To cut over immediately instead of using a grace window, pass `expire_in_days: 0`. The old key stops working, its associated browsers are ended asynchronously, and unsaved profile changes in those browsers are discarded. With a grace period, existing browsers keep running after the old key expires.
 
 ## Troubleshooting
 
