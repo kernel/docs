@@ -514,6 +514,8 @@ authorization fixes how link delivers the credential:
 | what `fill` does | passes a short-lived token to the checkout's link tools; the checkout shows link as the payment method | writes the card number, cvc, expiry, and requested billing fields into the inputs you select |
 | where `fill` works | pages on the origin of the checkout you authorized at, for the stripe account the user approved | pages on the origin of the checkout you authorized at |
 
+`state.credential_type` reports that choice after `authorize` sends the request to link. `link_pay_token` means fill without `fields`; `card` means fill the virtual card with field bindings. the field is absent before authorization and after link rejects the request. if a ready card doesn't include it, fill it as `card`.
+
 link resolves the merchant shown on the approval screen from the checkout's stripe account, so a link pay token request doesn't send `merchant_name` or `merchant_url`. the token is fetched fresh for each fill and never returned to you.
 
 don't inspect or invoke the checkout's webmcp tools yourself. KERNEL does that during `authorize` and `fill`.
