@@ -91,7 +91,7 @@ The user will:
 1. See the login page for the target website
 2. Enter their credentials
 3. Complete 2FA or another verification step if needed
-4. If the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the site shows a CAPTCHA the login browser can't solve, complete it in the embedded browser and click **Continue**
+4. If the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the site shows a CAPTCHA the login browser can't solve, complete it in the login browser's live view shown on the page, then click **Continue**. This runs on KERNEL's page, so your CSP isn't involved
 
 <Info>
 KERNEL can attempt automatic reauthentication for eligible flows using stored credentials, including totp codes generated from an available secret. completing this interactive login doesn't guarantee unattended reauthentication. supplying an email or sms code doesn't give KERNEL access to future codes. when the connection needs user input again, start a new login and direct the user to its `hosted_url`. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).

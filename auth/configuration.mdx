@@ -839,7 +839,7 @@ The [Hosted UI](/auth/hosted-ui) and the [React component](/auth/react) embed th
 
 How the pause behaves:
 
-- It applies to interactive logins, including CAPTCHAs that appear before the login form. Automatic reauthentication never pauses, because nobody is there to solve the challenge; it still fails with `captcha_blocked`.
+- It applies to every login you start with `.login()`, including a [pre-task check](/auth/connection-lifecycle#verify-authentication-before-starting-work) and CAPTCHAs that appear before the login form. Automatic reauthentication after a health check never pauses, because nobody is there to solve the challenge; it still fails with `captcha_blocked`.
 - Each pause waits up to 10 minutes, or until the login session expires if that's sooner. If nobody confirms in time, the login fails with `captcha_blocked` and an `error_message` saying a person was asked and didn't finish in time.
 - If the site asks for another check after the person continues, the login pauses again. From the second pause on, the confirmation choice's `description` says the site is asking to verify again.
 

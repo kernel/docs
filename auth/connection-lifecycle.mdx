@@ -99,6 +99,8 @@ For a connection with a previous successful login and saved auth check URL, `.lo
 
 Follow the connection until the flow reaches `SUCCESS`, then create the browser or continue the task. If the flow reaches `AWAITING_INPUT`, `AWAITING_EXTERNAL_ACTION`, or `AWAITING_HUMAN_INTERVENTION`, stop the pre-task helper and send the user to the `hosted_url` returned by this `.login()` call. Continue that login flow; don't call `.login()` again, because a new call cancels the flow already in progress.
 
+If the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled, a CAPTCHA during this check pauses the flow at `AWAITING_HUMAN_INTERVENTION`. In an unattended job, send the `hosted_url` to a person right away: the pause waits up to 10 minutes, and the next run's `.login()` cancels it. If nobody can act on the link in that time, leave `hitl` off for connections used only by unattended jobs.
+
 Use this pattern whether periodic health checks are enabled or disabled:
 
 <CodeGroup>
