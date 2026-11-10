@@ -109,6 +109,14 @@ rendering the component for the initial login doesn't provide ongoing automatic 
 
 call `auth.connections.login()` on the existing connection from your backend, then bring the user back to your login route. pass the new login response's `id` as `sessionId` and its fresh `handoff_code` as `handoffCode`. don't reuse the previous handoff code: it is single-use. wait for successful authentication before resuming work that requires the account. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
 
+## Human verification
+
+When the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the login hits a CAPTCHA the browser can't solve, the component embeds the login browser's live view so the person can complete the check, then click **Continue**. If the site asks for another check, the component shows a note explaining why the person is back.
+
+If your page sets a Content-Security-Policy, allow the origin of the connection's `live_view_url` in `frame-src`. Otherwise the browser blocks the embedded live view and the person can't complete the check.
+
+This requires `@onkernel/managed-auth-react` 0.6.0 or later.
+
 ## Backend connectivity
 
 By default the component talks directly to `https://api.onkernel.com`. That works out of the box; nothing else to configure.
@@ -262,6 +270,7 @@ import {
   StepExpired,
   LoadingState,
   ExternalActionWaiting,
+  HumanInterventionStep,
   UnifiedAuthForm,
   AppearanceProvider,
   LocalizationProvider,

@@ -237,6 +237,7 @@ All selectable auth routes use the same shape. `choice.type` identifies the cate
 - `auth_method`
 - `identifier_method`
 - `account`
+- `human_intervention`, used only at [human verification](#human-verification) pauses
 - `other`
 
 Render the visible `label`, optional `description`, and optional `masked_destination`. Submit the exact `choice.id` returned by the event:
@@ -312,6 +313,73 @@ if (
 }
 ```
 
+## Human verification
+
+When the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the login browser hits a CAPTCHA it can't solve, `flow_step` becomes `AWAITING_HUMAN_INTERVENTION`. The event carries one choice with `type: 'human_intervention'` and id `human_intervention_done`.
+
+Show the person the event's `live_view_url`, either in a new tab or embedded in an iframe. After they complete the check in the live view, submit the choice with the current `interaction_id`. KERNEL resumes the login from the page they left.
+
+<CodeGroup>
+```typescript TypeScript
+if (state.flow_step === 'AWAITING_HUMAN_INTERVENTION' && state.interaction_id) {
+  const done = state.choices?.find(choice => choice.type === 'human_intervention');
+  if (done) {
+    await showLiveViewUntilConfirmed(state.live_view_url, done.description);
+
+    await kernel.auth.connections.submit(auth.id, {
+      interaction_id: state.interaction_id,
+      selected_choice_id: done.id,
+    });
+  }
+}
+```
+
+```python Python
+if state.flow_step == "AWAITING_HUMAN_INTERVENTION" and state.interaction_id:
+    done = next(
+        (choice for choice in (state.choices or []) if choice.type == "human_intervention"),
+        None,
+    )
+    if done:
+        await show_live_view_until_confirmed(state.live_view_url, done.description)
+
+        await kernel.auth.connections.submit(
+            auth.id,
+            interaction_id=state.interaction_id,
+            selected_choice_id=done.id,
+        )
+```
+
+```go Go
+if state.FlowStep == "AWAITING_HUMAN_INTERVENTION" && state.InteractionID != "" {
+	for _, choice := range state.Choices {
+		if choice.Type != "human_intervention" {
+			continue
+		}
+		showLiveViewUntilConfirmed(state.LiveViewURL, choice.Description)
+
+		_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+			SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+				InteractionID:    kernel.String(state.InteractionID),
+				SelectedChoiceID: kernel.String(choice.ID),
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+		break
+	}
+}
+```
+</CodeGroup>
+
+`showLiveViewUntilConfirmed` represents your application's ui: it shows the live view and a button the person clicks when they're done.
+
+- At this step the submit endpoint accepts only the `human_intervention` choice. Field values and other choices return a 400.
+- KERNEL can't tell whether a submit came after the check was solved. If the site still shows a challenge, or asks again, the login pauses again with a new `interaction_id`. From the second pause on, the choice's `description` says the site is asking to verify again; show it so the person knows why they're back.
+- Each pause waits up to 10 minutes, or until the login session expires if that's sooner. If nobody submits in time, the flow fails with `captcha_blocked`.
+- If your page sets a Content-Security-Policy, allow the origin of `live_view_url` in `frame-src`, or the browser blocks the embedded live view.
+
 ## Step reference
 
 | Step | Description |
@@ -319,6 +387,7 @@ if (
 | `DISCOVERING` | Finding and inspecting the login surface. |
 | `AWAITING_INPUT` | Waiting for canonical fields or choices. |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for an out-of-browser action; canonical fallbacks may also be present. |
+| `AWAITING_HUMAN_INTERVENTION` | Waiting for a person to complete a CAPTCHA in the live view and submit the `human_intervention` choice. Only on connections with `hitl` enabled. |
 | `SUBMITTING` | Processing the submitted interaction. |
 | `COMPLETED` | The flow has finished. |
 
