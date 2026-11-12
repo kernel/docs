@@ -641,9 +641,7 @@ Browser placement and proxy location are independent. `browser.region` chooses w
 
 ## Browser locale
 
-Managed Auth signs in to the site with browsers it creates for the connection. By default, those browsers use English, such as `en-US` for a browser in `us-east`. Set `browser.location.locale` on the connection to use another language, such as `sv-SE` for Swedish. Sites that choose their language from the browser then show their login page, field labels, MFA prompts, and error messages in that language.
-
-This is the [browser location](/browsers/location) locale, set on the connection instead of on each browser. KERNEL applies it to every browser the connection uses: the first login, health checks, and automatic reauthentication. That page covers the accepted values and what the locale changes in the browser.
+By default, the browsers Managed Auth uses for a connection report an English locale to websites, such as `en-US` in `us-east`. If your users sign in to sites in another language, set `browser.location.locale` on the connection, for example `sv-SE` for Swedish. Sites that choose their language from the browser then show their login page, field labels, and MFA prompts in your user's language.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -681,53 +679,9 @@ _ = auth
 ```
 </CodeGroup>
 
-Update the connection to change the locale, or set it to `null` to go back to the region default:
+The locale applies to every browser the connection uses: the first login, health checks, and automatic reauthentication. Change it with `auth.connections.update`, or set it to `null` to go back to the default.
 
-<CodeGroup>
-```typescript TypeScript
-await kernel.auth.connections.update(auth.id, {
-  browser: { location: { locale: 'fi-FI' } },
-});
-
-await kernel.auth.connections.update(auth.id, {
-  browser: { location: { locale: null } },
-});
-```
-
-```python Python
-await kernel.auth.connections.update(
-    auth.id,
-    browser={"location": {"locale": "fi-FI"}},
-)
-
-await kernel.auth.connections.update(
-    auth.id,
-    browser={"location": {"locale": None}},
-)
-```
-
-```go Go
-// import "github.com/kernel/kernel-go-sdk/packages/param"
-_, err := client.Auth.Connections.Update(ctx, auth.ID, kernel.AuthConnectionUpdateParams{
-	ManagedAuthUpdateRequest: kernel.ManagedAuthUpdateRequestParam{
-		Browser: kernel.ManagedAuthBrowserConfigParam{
-			Location: kernel.ManagedAuthBrowserLocationParam{
-				Locale: param.Null[string](),
-			},
-		},
-	},
-})
-if err != nil {
-	panic(err)
-}
-```
-</CodeGroup>
-
-- The new value applies to the next browser the connection creates, not to one that's already running.
-- The locale belongs to the connection, so passing `browser.location` to `auth.connections.login` returns a `400`.
-- Connections set the locale only; the timezone follows the browser's region.
-- KERNEL's own text on the hosted login page stays in English. To translate the embedded login component, use its [`localization`](/auth/react#localization) prop.
-- If a later browser version stops supporting a stored locale, the connection's browsers use the region default and the stored value stays unchanged.
+This is the same `locale` as [browser location](/browsers/location), applied to the connection's browsers. See that page for supported values and how the locale affects the browser.
 
 ## SSO/OAuth support
 
