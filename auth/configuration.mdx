@@ -641,9 +641,9 @@ Browser placement and proxy location are independent. `browser.region` chooses w
 
 ## Browser locale
 
-Set `browser.location.locale` to choose the language the connection's browsers report to websites. It's the same locale setting as [browser location](/browsers/location): it applies to `Intl`, `navigator.language`, `navigator.languages`, and `Accept-Language` headers. The initial login, health checks, and automatic reauthentication all use it. Without it, browsers use the default for their [region](#browser-region), such as `en-US` for `us-east`.
+Managed Auth signs in to the site with browsers it creates for the connection. By default, those browsers use English, such as `en-US` for a browser in `us-east`. Set `browser.location.locale` on the connection to use another language, such as `sv-SE` for Swedish. Sites that choose their language from the browser then show their login page, field labels, MFA prompts, and error messages in that language.
 
-Use it when the site picks its language from the browser, so the field labels, MFA prompts, and site error messages your users see during login are in their language. It doesn't change sites that choose a language by domain or IP address. Like browser location, it doesn't set geolocation or guarantee a bot-detection outcome, and it doesn't translate KERNEL's hosted login page. To translate the text of the embedded login component, use its [`localization`](/auth/react#localization) prop.
+This is the [browser location](/browsers/location) locale, set on the connection instead of on each browser. KERNEL applies it to every browser the connection uses: the first login, health checks, and automatic reauthentication. That page covers the accepted values and what the locale changes in the browser.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -681,11 +681,7 @@ _ = auth
 ```
 </CodeGroup>
 
-`locale` accepts the same BCP 47 tags as browser location. KERNEL normalizes spelling and deprecated codes, so `sv-se` is stored and returned as `sv-SE`. An unsupported value such as `en-QQ` returns a `400` with code `invalid_browser_location`. Connections set the locale only; the timezone follows the browser's region.
-
-The locale is independent of `browser.region` and the connection's proxy. Choose the locale that matches your user, not the browser's region or exit IP.
-
-To change the locale, update the connection. Leave `location` out to keep the current value, or set `locale` to `null` to go back to the region default:
+Update the connection to change the locale, or set it to `null` to go back to the region default:
 
 <CodeGroup>
 ```typescript TypeScript
@@ -727,9 +723,11 @@ if err != nil {
 ```
 </CodeGroup>
 
-The new value applies to the next browser the connection creates. It doesn't change a login, health check, or reauthentication that's already running. The locale belongs to the connection, so passing `browser.location` to `auth.connections.login` returns a `400`.
-
-If a later browser version stops supporting a stored locale, the connection's browsers use the region default instead and the stored value stays unchanged.
+- The new value applies to the next browser the connection creates, not to one that's already running.
+- The locale belongs to the connection, so passing `browser.location` to `auth.connections.login` returns a `400`.
+- Connections set the locale only; the timezone follows the browser's region.
+- KERNEL's own text on the hosted login page stays in English. To translate the embedded login component, use its [`localization`](/auth/react#localization) prop.
+- If a later browser version stops supporting a stored locale, the connection's browsers use the region default and the stored value stays unchanged.
 
 ## SSO/OAuth support
 
@@ -1011,7 +1009,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
-| `browser.location.locale` | Locale for login, health-check, and reauth browsers. Set to `null` to use the region default. Takes effect on the next browser created for the connection |
+| `browser.location.locale` | Language for login, health-check, and reauth browsers, such as `sv-SE`. Set to `null` to go back to the region default. Takes effect on the next browser created for the connection |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
