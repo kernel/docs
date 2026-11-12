@@ -790,7 +790,7 @@ terminal and never pass its output to an agent.
 
 | field              | interpretation                                                                                                                                                                                                                  |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `amount_authority` | where the approved amount came from: `processor` (the processor request or payment), `agent` (the item's declared `amount`), `page` (the checkout page total), or `none`. `display_only` marks an authorization recovered without a provider read |
+| `amount_authority` | where the approved amount came from: `processor` (the processor request or payment), `agent` (the item's declared `amount`), `page` (the checkout page total), or `none`. `display_only` is a legacy provider value; <span className="kernel-brand-name">KERNEL</span> also sets it when recovering an authorization before the provider reports an authority |
 | `amount_verified`  | whether the processor charged the approved amount. absent when there was no charge to compare                                                                                                                                  |
 | `charged_amount_cents`, `charged_currency` | what the processor reported collecting. absent when agentcard didn't observe a charge                                                                                                               |
 | `charged_kind`     | `captured`, `authorized`, or `none` (the checkout returned a token the merchant charges later). absent when agentcard reported nothing                                                                                         |
@@ -808,8 +808,10 @@ for that result.
 
 ### Checkout item events
 
-the card's item events record what happened to the held request and, for
-stripe, the payment that follows it:
+the card's item events record the processor's response to the held request and,
+for stripe, the payment that follows it. this table lists only these processor
+events; the item also records `checkout_authorization_*` and
+`checkout_preparation_*` lifecycle events:
 
 | event                                                                                  | meaning                                                                                                                                       |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -820,9 +822,12 @@ stripe, the payment that follows it:
 | `credential_tokenized`                                                                 | the processor accepted the card as a token; this isn't a charge                                                                               |
 | `payment_unknown`                                                                      | <span className="kernel-brand-name">KERNEL</span> couldn't classify the response. treat the attempt as indeterminate and don't retry           |
 
-payment events are recorded when the checkout page confirms a stripe payment
-intent, checkout session, or payment method that uses the replayed token. other
-processors only record `checkout_response_replayed`. event `data` can include:
+every processor records an event for the held request's response, such as
+`credential_tokenized` or `payment_unknown`, alongside `checkout_response_replayed`.
+for stripe, payment events are also recorded when the checkout page confirms a
+payment intent, checkout session, or payment method that uses the replayed
+token. for other processors, events cover only the held request's response; the
+follow-up payment isn't observed. event `data` can include:
 
 - `processor` and `request_kind`, such as `checkout_confirm` or `payment_intent_confirm`
 - `provider_status`, the stripe payment intent status, such as `succeeded`
