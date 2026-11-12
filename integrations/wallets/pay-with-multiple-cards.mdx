@@ -60,7 +60,9 @@ a wallet created before cards were payment methods keeps its first card as the d
 
 ## Add a card
 
-`add_payment_method` creates a payment method in `pending_enrollment` and returns it with a single-use `card_enrollment` action and an `expires_at` 30 minutes later. each call creates a separate link for one card.
+`add_payment_method` creates a payment method in `pending_enrollment` with a single-use action. hosted enrollment is the default: it returns a `card_enrollment` action with an `expires_at` 30 minutes later. each call creates a separate action for one card.
+
+if your organization is configured for server enrollment, set `enrollment` to `server`. the returned `card_ingest` action expires after 5 minutes and is for the card issuer to use from its backend, not for a cardholder. the operation returns `409` when server enrollment isn't configured.
 
 <CodeGroup>
 
@@ -94,11 +96,11 @@ print(payment_method.id, payment_method.status, payment_method.expires_at)
 
 </CodeGroup>
 
-share `action.url` privately with the cardholder, for example on an authenticated page in your application. the url is a capability for this one enrollment: don't send it to the agent, log it, or share it with anyone else. to collect the card on your own page instead, pass `action.capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture).
+for a `card_enrollment` action, share `action.url` privately with the cardholder, for example on an authenticated page in your application. the url is a capability for this one enrollment: don't send it to the agent, log it, or share it with anyone else. to collect the card on your own page instead, pass `action.capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture).
 
-the card goes directly to the card vault; KERNEL never accepts card details through this api. if enrollment fails, the link accepts another card until it expires. an expired link doesn't affect the wallet's other cards; call `add_payment_method` again for a new link.
+the card goes directly to the card vault; KERNEL never accepts card details through this api. during hosted enrollment, a failed attempt leaves the link available for another card until it expires. a failed or expired enrollment doesn't affect the wallet's other cards; call `add_payment_method` again for a fresh action.
 
-a wallet holds at most 10 payment methods, including pending ones, and at most 3 open enrollment links. at either limit, the wallet stops advertising `add_payment_method`, and invoking it returns `409` with the reason. remove a card or let an open link expire before adding another.
+a wallet holds at most 10 payment methods, including pending ones, and at most 3 open enrollment actions. at either limit, the wallet stops advertising `add_payment_method`, and invoking it returns `409` with the reason. remove a card or let an open action expire before adding another.
 
 ## List payment methods
 
@@ -150,7 +152,7 @@ for method in methods:
 
 | status | meaning | what to do |
 | --- | --- | --- |
-| `pending_enrollment` | an enrollment link is open | wait for the cardholder, or let the link expire |
+| `pending_enrollment` | an enrollment action is open | complete the enrollment before it expires, or let it expire |
 | `active` | the card is stored | pay with it when `capabilities.single_use_card.eligible` is `true` |
 | `removal_pending` | removal started but its outcome is unknown | retry `remove_payment_method` later |
 | `recovery_required` | the enrollment outcome is unknown, or the stored card can't be read | check `status_reason`: remove a method with an unknown enrollment outcome; [contact support](/info/support) for a card that can't be read, since removal returns `409` |
@@ -309,7 +311,7 @@ the wallet's [item events](/vaults/overview#api-behavior) record each card's lif
 
 | event | recorded when |
 | --- | --- |
-| `payment_method_enrollment_started` | `add_payment_method` opens an enrollment link |
+| `payment_method_enrollment_started` | `add_payment_method` starts an enrollment |
 | `payment_method_enrolled` | a card added with `add_payment_method` is stored |
 | `payment_method_removed` | removal finishes |
 | `payment_method_recovery_required` | the card needs recovery |

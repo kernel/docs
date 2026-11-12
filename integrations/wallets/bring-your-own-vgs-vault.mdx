@@ -3,27 +3,27 @@ title: "Bring Your Own VGS Vault"
 description: "Pay with cards stored in your own VGS vault without copying them to KERNEL"
 ---
 
-use `provider: "vgs"` when your cards already live in your own [VGS](https://www.verygoodsecurity.com) vault and you want KERNEL browsers to pay with them. your vault stays the source of truth: you give KERNEL a read-only VGS service account, and each purchase carries the card's aliases from your vault.
+use `provider: "vgs"` when your cards already live in your own [VGS](https://www.verygoodsecurity.com) vault and you want KERNEL browsers to pay with them. your vault stays the source of truth: you give KERNEL a read-only VGS service account, and each purchase supplies either a full card's aliases or a fresh CVC alias for a card the merchant already holds on file.
 
-neither your application, KERNEL's api, the agent, nor the browser receives the card number or security code. at authorization, KERNEL reads your aliases through its own VGS outbound proxy, which replaces the revealed values with aliases in KERNEL's VGS vault before they reach KERNEL. at checkout, KERNEL's VGS proxy reveals the card to the merchant.
+neither your application, KERNEL's api, the agent, nor the browser receives the card number or security code. at authorization, KERNEL reads the supplied alias or aliases through its own VGS outbound proxy, which replaces the revealed values with aliases in KERNEL's VGS vault before they reach KERNEL. at checkout, KERNEL's VGS proxy reveals those values to the merchant.
 
 <Note>
-  `provider: "vgs"` requires `@onkernel/sdk` 0.141.0 or later, or `kernel` 0.141.0 or later for Python. the CLI doesn't support VGS provider configurations or cards yet.
+  `provider: "vgs"` requires `@onkernel/sdk` 0.141.0 or later, or `kernel` 0.141.0 or later for Python. `card_mode: "cvc_only"` requires SDK version 0.143.0 or later. the CLI doesn't support VGS provider configurations or cards yet.
 </Note>
 
 ## How it works
 
 1. **register your service account once.** create a provider configuration with a VGS service account that can read aliases from your vault.
 2. **create a wallet.** the wallet binds that configuration and connects immediately. it holds no cards.
-3. **create a card for each purchase.** send the card's PAN alias, a freshly collected CVC alias, the expiry, and the last four digits.
-4. **authorize.** KERNEL reveals both aliases from your vault through its VGS proxy and stores KERNEL-vault aliases. the card becomes `ready` with no further cardholder approval.
-5. **fill and submit.** `fill` types KERNEL's aliases into the checkout. when the browser submits, KERNEL's VGS proxy replaces them with the real card details on the way to the merchant.
+3. **create a card for each purchase.** for a full-card checkout, send the PAN alias, a freshly collected CVC alias, the expiry, and the last four digits. if the merchant already holds the card and asks only for its security code, set `card_mode: "cvc_only"` and send only the fresh CVC alias.
+4. **authorize.** KERNEL reveals the supplied alias or aliases from your vault through its VGS proxy and stores KERNEL-vault aliases. the card becomes `ready` with no further cardholder approval.
+5. **fill and submit.** `fill` types the full card fields or only the CVC into the checkout. when the browser submits, KERNEL's VGS proxy replaces the aliases with the real values on the way to the merchant.
 
 ## Before you start
 
 - **enable alias reveal on your vault.** ask VGS to enable the `aliases:read` capability and alias reveal on your vault. it's off by default.
 - **create a read-only service account.** in your VGS dashboard, create a service account with only the `aliases:read` scope. KERNEL uses it to reveal aliases; it doesn't need write or card management scopes. you can revoke or rotate it at any time; once you do, KERNEL can't authorize new cards from your vault.
-- **store cards as aliases.** store the card number as a persistent alias. any alias format works; KERNEL chooses the format of its own aliases.
+- **store card numbers as aliases for full-card purchases.** store the card number as a persistent alias. any alias format works; KERNEL chooses the format of its own aliases. a `cvc_only` purchase doesn't send the card number because the merchant already holds it.
 - **collect a fresh CVC for each purchase.** card networks don't allow storing a security code after authorization, so collect it again for each purchase, for example with a VGS Collect CVC field. store it as a volatile alias and create the card item right after collection. the alias must still exist when you authorize.
 
 create a project-scoped client and vault. the examples below use these `kernel` and `vault` variables.
@@ -133,11 +133,11 @@ the wallet's `state.status` is `connected` on creation. it has no enrollment act
 
 1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
 2. collect a fresh CVC from the cardholder and store it as a volatile alias in your vault.
-3. create a `card` item with the wallet, the merchant, amount, and currency, and the card's aliases in `spec.card`.
+3. create a `card` item with the wallet, merchant, amount, currency, and the required `spec.card` fields. use the default `full` mode for the whole card, or `cvc_only` when the merchant already holds the card and its checkout asks only for the security code.
 4. invoke `authorize`. it takes no parameters and returns the card `ready`, with no action for the cardholder.
 5. [fill the checkout](/vaults/fill) before `expires_at`, submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
 
-the examples create and authorize a card for 452.10 usd.
+the examples create and authorize a full card for 452.10 usd. `full` is the default when you omit `card_mode`.
 
 <CodeGroup>
 
@@ -210,16 +210,39 @@ if card.state.status != "ready":
 
 </CodeGroup>
 
-| `spec.card` field | description |
-| --- | --- |
-| `pan_alias` | a persistent alias of the card number in your vault |
-| `cvc_alias` | a volatile alias of a freshly collected security code. it must still exist when `authorize` runs |
-| `exp_month`, `exp_year` | the card's expiry. an alias doesn't carry it |
-| `last4` | the card number's last four digits. KERNEL checks it against the revealed card |
+when the merchant already stores the card and the checkout asks only for its security code, replace the full-card fields inside `spec` with the `cvc_only` shape below. then authorize it with the same operation shown above.
+
+<CodeGroup>
+
+```typescript TypeScript
+card_mode: 'cvc_only',
+card: {
+  cvc_alias: collectedCvcAlias,
+},
+```
+
+```python Python
+"card_mode": "cvc_only",
+"card": {
+    "cvc_alias": collected_cvc_alias,
+},
+```
+
+</CodeGroup>
+
+| `spec` field | `full` mode | `cvc_only` mode |
+| --- | --- | --- |
+| `card_mode` | omit it or set `full`; reads omit it | set `cvc_only`; reads return it |
+| `card.pan_alias` | required: a persistent alias of the card number | rejected |
+| `card.cvc_alias` | required: a volatile alias of a freshly collected security code | required: the only card field you send |
+| `card.exp_month`, `card.exp_year` | required: the card's expiry | rejected |
+| `card.last4` | required: KERNEL checks it against the revealed card | rejected |
 
 `spec.card` is write-only. KERNEL stores it encrypted and never returns it in the item, its events, or logs. a repeated `PUT` with the same key must send the same `card`, and card updates return `409`; to change anything, delete the item and create a new one.
 
-once `ready`, the card supports `fill` on `merchant_url`'s origin until `expires_at`, five minutes after authorization by default. it then becomes `expired`, and you need a new card item with a freshly collected CVC. supported fill fields are `number`, `cvc`, `exp_month`, `exp_year`, and `expiration`; billing fields aren't available for VGS cards. the item's `masks.last4` shows the card's last four digits; the card brand isn't reported.
+once `ready`, either mode supports `fill` on `merchant_url`'s origin until `expires_at`, five minutes after authorization by default. it then becomes `expired`, and you need a new card item with a freshly collected CVC. a full card supports `number`, `cvc`, `exp_month`, `exp_year`, and `expiration`; its `masks.last4` shows the card's last four digits. a `cvc_only` card supports only `cvc` and reports no masks. billing fields aren't available for VGS cards, and the card brand isn't reported.
+
+`fill` stays restricted to `merchant_url`'s origin, but `cvc_only` doesn't narrow the payment window's network scope. during either mode's payment window, KERNEL routes all browser egress through its VGS outbound proxy. the proxy can reveal any supplied alias to any destination the browser sends it to, not only the CVC field or the merchant origin.
 
 the recorded amount and merchant don't restrict the payment requests the browser sends. `expires_at` isn't a single-use guarantee.
 
@@ -236,8 +259,8 @@ if `authorize` fails, KERNEL stores nothing from your vault. the card's `state.s
 
 ## What KERNEL stores
 
-- **card number:** KERNEL keeps an alias of the card number in its own VGS vault. it remains there after the card item expires or is deleted.
-- **security code:** KERNEL keeps a volatile alias of the security code, which VGS deletes automatically within an hour.
+- **card number:** for a full card, KERNEL keeps an alias of the card number in its own VGS vault. it remains there after the card item expires or is deleted. a `cvc_only` card stores no card-number alias in KERNEL's vault.
+- **security code:** in either mode, KERNEL keeps a volatile alias of the security code, which VGS deletes automatically within an hour.
 - **your aliases and credentials:** your aliases and service account secret are encrypted at rest and never returned.
 
 KERNEL never receives the card number or security code itself. to stop KERNEL from reading your vault, revoke the service account in VGS and delete the provider configuration. deletion returns `409` while any item still references it.

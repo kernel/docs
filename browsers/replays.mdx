@@ -7,7 +7,9 @@ Replays capture browser sessions as video recordings that you can view or downlo
 
 ## Starting and stopping recordings
 
-To start recording a browser session, use the replays API on an active browser:
+To record from the beginning of a session, set `start_replay: true` when you create the browser. For a browser pool, set `start_replay` when you create or update the pool to control the default for future acquisitions, or pass it to `acquire()` to override the pool default for one acquisition. Browser and pool creation default to `false`; an acquisition that omits the setting uses the pool default.
+
+To start recording after a browser is active, use the replays API:
 
 <CodeGroup>
 ```typescript Typescript/Javascript

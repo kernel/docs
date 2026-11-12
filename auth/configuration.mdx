@@ -572,12 +572,17 @@ _ = auth
 
 Set `browser.region` to choose where Managed Auth runs the connection's initial login, health checks, and automatic reauthentication. Choose from `us-east`, `eu-west`, and `ap-southeast`. Region selection is available on [Start-Up and Enterprise plans](/info/pricing); omitted values default to `us-east`.
 
+Set `browser.location.locale` to a supported canonical BCP 47 locale, such as `sv-SE`, for the browser language and `Accept-Language` header in login, health-check, and reauthentication sessions. Omit it when creating a connection to use the browser region's default locale.
+
 <CodeGroup>
 ```typescript TypeScript
 const auth = await kernel.auth.connections.create({
   domain: 'example.com',
   profile_name: 'my-profile',
-  browser: { region: 'eu-west' },
+  browser: {
+    region: 'eu-west',
+    location: { locale: 'sv-SE' },
+  },
 });
 ```
 
@@ -585,7 +590,10 @@ const auth = await kernel.auth.connections.create({
 auth = await kernel.auth.connections.create(
     domain="example.com",
     profile_name="my-profile",
-    browser={"region": "eu-west"},
+    browser={
+        "region": "eu-west",
+        "location": {"locale": "sv-SE"},
+    },
 )
 ```
 
@@ -596,6 +604,9 @@ auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
 		ProfileName: "my-profile",
 		Browser: kernel.ManagedAuthBrowserConfigParam{
 			Region: kernel.ManagedAuthBrowserConfigRegionEuWest,
+			Location: kernel.ManagedAuthBrowserLocationParam{
+				Locale: kernel.String("sv-SE"),
+			},
 		},
 	},
 })
@@ -606,7 +617,7 @@ _ = auth
 ```
 </CodeGroup>
 
-Updating `browser.region` changes the connection default for browsers created afterward. It doesn't move or restart an active login, health check, or reauthentication browser.
+Updating `browser.region` or `browser.location.locale` changes the connection default for browsers created afterward. It doesn't move or restart an active login, health check, or reauthentication browser. When you update the locale, omit `locale` to keep its current value or set it to `null` to clear the override and return to the region's default. You can't override the locale on `.login()`.
 
 You can override the connection region for one login without changing its default:
 
@@ -685,7 +696,7 @@ Pin the auth flow to a specific [proxy](/proxies/overview) so logins, health che
 
 How stable the exit IP is depends on the proxy type:
 
-- **[ISP](/proxies/isp)** proxies provide a static exit IP that persists across sessions, so the initial login, health checks, and reauths all exit through the same IP. The IP only changes in rare ISP-initiated replacement events or a temporary [failover to a backup endpoint](/proxies/isp#backup-endpoint-failover).
+- **[ISP](/proxies/isp)** proxies provide a static exit IP that persists across sessions, so the initial login, health checks, and reauths all exit through the same IP. The primary IP stays fixed unless you move a proxy backed by a reserved ISP allocation or an ISP initiates a replacement; traffic can temporarily use a different IP during a [failover to a backup endpoint](/proxies/isp#backup-endpoint-failover).
 - **[Residential](/proxies/residential)** proxies rotate IPs per connection — use them when you need legitimacy from a real ISP pool but can tolerate IP changes.
 - **[Custom (BYO)](/proxies/custom)** proxies route through whatever you point them at, so pick one if the static IP must be infrastructure you control (e.g. an allowlisted egress your security team owns).
 
@@ -919,6 +930,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
+| `browser.location.locale` | Canonical BCP 47 locale for login, health-check, and reauth browsers. Omit it on update to keep the current value, or set it to `null` to use the region's default |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.

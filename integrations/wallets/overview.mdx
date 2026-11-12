@@ -48,9 +48,11 @@ not an end user's wallet grant. credentials are encrypted at rest; secrets are
 never returned.
 
 with your own client, you can connect users in your backend before creating
-wallets in KERNEL. link imports the user's oauth access and refresh tokens;
-agentcard imports the connected user's `user_id` after validating provider
-access under your configuration, without another hosted enrollment action.
+wallets in KERNEL. link imports the user's oauth grant: KERNEL rotates its
+refresh token by default, or your backend can retain rotation and replace the
+stored access token. agentcard imports the connected user's `user_id` after
+validating provider access under your configuration, without another hosted
+enrollment action.
 
 configurations are organization-scoped and shared across projects, unlike
 project-scoped vaults. create, update, and delete require organization-scoped
@@ -84,7 +86,7 @@ for behavior specific to each payment source, see [pay with card](/integrations/
 
 ## Payment actions and recovery
 
-`action.name` can be `link_oauth`, `shop_pay_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, or `card_enrollment`. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
+`action.name` can be `link_oauth`, `shop_pay_oauth`, `spend_approval`, `push_approval`, `collect`, `mfa`, `embedded_ceremony`, `card_enrollment`, or `card_ingest`. a `card_ingest` action is for the card issuer's backend, not a user-facing hosted interaction. actions that require a hosted interaction include a `url`. don't send action urls or provider authorization material to the agent.
 
 `recovery_required` means a card's provider outcome is unresolved. it stops
 item wait loops and blocks new authorization, checkout, and deletion of the

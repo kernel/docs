@@ -8,7 +8,7 @@ use `provider: "kernel"` to collect a user's existing card for browser purchases
 ## Connect a card
 
 1. create a [vault](/vaults/overview) and a `wallet` item with `spec.provider: "kernel"`. the wallet is `connected` right away, with no cards and no `action`. `connected` means the wallet exists, not that it can pay.
-2. invoke the wallet's `add_payment_method` operation. it returns a payment method in `pending_enrollment` with a single-use `card_enrollment` action that expires after 30 minutes.
+2. invoke the wallet's `add_payment_method` operation without setting `enrollment`, which uses hosted enrollment by default. it returns a payment method in `pending_enrollment` with a single-use `card_enrollment` action that expires after 30 minutes.
 3. open the action's `url` for the cardholder in your trusted ui. the hosted page collects their card and email. for card entry on your own domain, pass the action's `capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture) instead.
 4. retrieve the wallet with the `payment_methods` expansion. the card is ready to pay when its method is `active` and `capabilities.single_use_card.eligible` is `true`.
 
