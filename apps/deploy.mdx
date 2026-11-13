@@ -45,6 +45,20 @@ kernel deploy github \
 - The CLI automatically downloads and extracts the GitHub source code and uploads your app for deployment.
 - For private repositories, provide a `--github-token` or set the `GITHUB_TOKEN` environment variable.
 
+## Use a scoped API key
+
+To deploy with a [policy-scoped API key](/info/api-keys#scope-a-key-to-specific-resources), grant these actions on the deployment's project or organization container:
+
+- `deployments:create` to deploy the app.
+- `deployments:delete` to replace older deployments of the same app and version.
+- `invocations:write` so the runtime can report invocation results and attach browsers.
+
+The deployment's injected runtime key inherits your project-limited policy and expiry. Add the browser, profile, vault, or other permissions your app needs. To invoke it with a scoped key, also grant `invocations:create` and ensure the invoking key covers the runtime key's full policy and expiry. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
+
+<Note>
+Scoped deployment creation requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.
+</Note>
+
 ## Environment variables
 
 You can set environment variables for your app using the `--env` flag. For example:
