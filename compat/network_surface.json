@@ -1,0 +1,82 @@
+{
+  "destinations": [
+    {
+      "feature": "API, SDKs, and authenticated CLI requests",
+      "hosts": [
+        "api.onkernel.com"
+      ],
+      "ports": [
+        443
+      ],
+      "protocol": "HTTPS"
+    },
+    {
+      "feature": "CLI authentication (`kernel login`)",
+      "hosts": [
+        "auth.onkernel.com",
+        "dashboard.onkernel.com"
+      ],
+      "ports": [
+        443
+      ],
+      "protocol": "HTTPS"
+    },
+    {
+      "feature": "CDP, WebDriver BiDi, Live View, replays, and app connections",
+      "hosts": [
+        "*.onkernel.com",
+        "*.kernel.sh"
+      ],
+      "ports": [
+        443,
+        8443
+      ],
+      "protocol": "HTTPS and secure WebSocket (WSS)",
+      "session_facing": true,
+      "transition": {
+        "adding": [
+          443
+        ],
+        "retiring": [
+          8443
+        ],
+        "retire_by": null
+      }
+    },
+    {
+      "feature": "Live View media negotiation",
+      "hosts": [
+        "stun.relay.metered.ca"
+      ],
+      "ports": [
+        80
+      ],
+      "protocol": "STUN over UDP"
+    },
+    {
+      "feature": "Live View media relay",
+      "hosts": [
+        "global.relay.metered.ca"
+      ],
+      "ports": [
+        443
+      ],
+      "protocol": "TURN over UDP or TLS/TCP"
+    },
+    {
+      "feature": "Replay files",
+      "hosts": [
+        "kernel-api-prod.s3.us-east-1.amazonaws.com"
+      ],
+      "ports": [
+        443
+      ],
+      "protocol": "HTTPS"
+    }
+  ],
+  "not_covered": [
+    "The specific hostname inside a wildcard, as returned in `cdp_ws_url`, `webdriver_ws_url` or `browser_live_view_url`. It changes between sessions.",
+    "Which metro or host serves a given session.",
+    "Egress IP addresses, including residential, ISP and datacenter proxy exit IPs."
+  ]
+}
