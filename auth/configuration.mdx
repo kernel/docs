@@ -799,6 +799,50 @@ _ = login
 ```
 </CodeGroup>
 
+## Human verification for CAPTCHAs
+
+Set `hitl: true` to let a person finish a CAPTCHA that the login browser can't solve on its own. Without it, the login fails with `captcha_blocked`. With it, the login pauses at `AWAITING_HUMAN_INTERVENTION` so the person can complete the check in the login browser's live view, then confirm. KERNEL resumes the login from the page they left.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'my-profile',
+  hitl: true,
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="my-profile",
+    hitl=True,
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "my-profile",
+		Hitl:        kernel.Bool(true),
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+The [Hosted UI](/auth/hosted-ui) and the [React component](/auth/react) embed the live view and show a **Continue** button, so you don't need extra code. In a [programmatic flow](/auth/programmatic#human-verification), you show the live view and submit the confirmation yourself.
+
+How the pause behaves:
+
+- It applies to every login you start with `.login()`, including a [pre-task check](/auth/connection-lifecycle#verify-authentication-before-starting-work) and CAPTCHAs that appear before the login form. Automatic reauthentication after a health check never pauses, because nobody is there to solve the challenge; it still fails with `captcha_blocked`.
+- Each pause waits up to 10 minutes, or until the login session expires if that's sooner. If nobody confirms in time, the login fails with `captcha_blocked` and an `error_message` saying a person was asked and didn't finish in time.
+- If the site asks for another check after the person continues, the login pauses again. From the second pause on, the confirmation choice's `description` says the site is asking to verify again.
+
 ## Record sessions for debugging
 
 Set `record_session: true` to capture a [replay](/browsers/replays) of every browser session tied to the connection — initial logins, background health checks, and automatic re-authentications. The entire browser session is recorded.
@@ -918,6 +962,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `auto_reauth` | Whether a scheduled health check that confirms a logged-out session may trigger an eligible automatic reauthentication attempt |
 | `save_credentials` | Whether to save credentials on successful login |
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
+| `hitl` | Pause interactive logins on an unsolvable CAPTCHA so a person can complete it. See [human verification for CAPTCHAs](#human-verification-for-captchas) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
