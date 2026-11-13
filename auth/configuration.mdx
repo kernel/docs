@@ -639,6 +639,50 @@ _ = login
 
 Browser placement and proxy location are independent. `browser.region` chooses where the browser runs; the connection's [proxy](/proxies/overview) controls the exit IP that websites see. Regional browsers don't provide a data residency guarantee. See [Regional Browsers](/browsers/regions) for storage and processing details.
 
+## Browser locale
+
+By default, the browsers Managed Auth uses for a connection report an English locale to websites, such as `en-US` in `us-east`. If your users sign in to sites in another language, set `browser.location.locale` on the connection, for example `sv-SE` for Swedish. Sites that choose their language from the browser then show their login page, field labels, and MFA prompts in your user's language.
+
+<CodeGroup>
+```typescript TypeScript
+const auth = await kernel.auth.connections.create({
+  domain: 'example.com',
+  profile_name: 'user-123',
+  browser: { location: { locale: 'sv-SE' } },
+});
+```
+
+```python Python
+auth = await kernel.auth.connections.create(
+    domain="example.com",
+    profile_name="user-123",
+    browser={"location": {"locale": "sv-SE"}},
+)
+```
+
+```go Go
+auth, err := client.Auth.Connections.New(ctx, kernel.AuthConnectionNewParams{
+	ManagedAuthCreateRequest: kernel.ManagedAuthCreateRequestParam{
+		Domain:      "example.com",
+		ProfileName: "user-123",
+		Browser: kernel.ManagedAuthBrowserConfigParam{
+			Location: kernel.ManagedAuthBrowserLocationParam{
+				Locale: kernel.String("sv-SE"),
+			},
+		},
+	},
+})
+if err != nil {
+	panic(err)
+}
+_ = auth
+```
+</CodeGroup>
+
+The locale applies to every browser the connection uses: the first login, health checks, and automatic reauthentication. Change it with `auth.connections.update`, or set it to `null` to go back to the default.
+
+This is the same `locale` as [browser location](/browsers/location), applied to the connection's browsers. See that page for supported values and how the locale affects the browser.
+
 ## SSO/OAuth support
 
 Managed Auth supports common "Sign in with Google/GitHub/Microsoft" flows. The user completes the OAuth flow with the provider, and Kernel saves the authenticated session to the profile. Automatic reauthentication depends on the provider's login requirements. See [Can this connection auto-reauth?](/auth/connection-lifecycle#can-this-connection-auto-reauth) for how Kernel determines eligibility.
@@ -964,6 +1008,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `record_session` | Record a [replay](/browsers/replays) of every auth browser session for this connection (logins, health checks, and reauths) |
 | `hitl` | Pause interactive logins on an unsolvable CAPTCHA so a person can complete it. See [human verification for CAPTCHAs](#human-verification-for-captchas) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
+| `browser.location.locale` | Language for login, health-check, and reauth browsers, such as `sv-SE`. Set to `null` to go back to the region default. Takes effect on the next browser created for the connection |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
