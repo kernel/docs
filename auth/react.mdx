@@ -3,7 +3,7 @@ title: "React Component"
 description: "Embed the Kernel managed auth login flow in your own app with a drop-in React component"
 ---
 
-[`@onkernel/managed-auth-react`](https://www.npmjs.com/package/@onkernel/managed-auth-react) is a React component library that renders the entire managed auth login flow inside your own app. It calls the same APIs as the [Hosted UI](/auth/hosted-ui), but renders on your origin so it inherits your styling, domain, and CSP.
+[`@onkernel/managed-auth-react`](https://www.npmjs.com/package/@onkernel/managed-auth-react) is a React component library that renders the entire managed auth login flow inside your own app. It calls the same APIs as the [Hosted UI](/auth/hosted-ui), but renders on your origin so it inherits your styling, domain, and CSP. The one exception is [human verification](#human-verification), which embeds the login browser's live view from a KERNEL domain.
 
 Use the React component when:
 - You want the [Hosted UI](/auth/hosted-ui) experience but rendered inside your own app
@@ -108,6 +108,25 @@ The component is client-only — `"use client"` is required in any RSC framework
 rendering the component for the initial login doesn't provide ongoing automatic recovery. your application must handle a connection that returns to `NEEDS_AUTH`, such as when the site requires a new email or sms code or an approval.
 
 call `auth.connections.login()` on the existing connection from your backend, then bring the user back to your login route. pass the new login response's `id` as `sessionId` and its fresh `handoff_code` as `handoffCode`. don't reuse the previous handoff code: it is single-use. wait for successful authentication before resuming work that requires the account. see [connection recovery](/auth/connection-lifecycle#flows-that-need-input-a-choice-or-approval).
+
+## Human verification
+
+When the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the login hits a CAPTCHA the browser can't solve, the component embeds the login browser's live view so the person can complete the check, then click **Continue**. If the site asks for another check, the component shows a note explaining why the person is back.
+
+If nobody continues in time, `onError` fires with `code: 'captcha_blocked'` and a message saying a person was asked and didn't finish in time.
+
+If your page sets a Content-Security-Policy, allow live view frames from both KERNEL domains. Otherwise the browser blocks the embedded live view and the person can't complete the check. Don't copy the hostname from a single `live_view_url`, because it can change between sessions:
+
+```text
+frame-src https://*.onkernel.com
+          https://*.kernel.sh
+          https://*.onkernel.com:8443
+          https://*.kernel.sh:8443;
+```
+
+See [content security policy](/info/network-access#content-security-policy) for the full requirements.
+
+This requires `@onkernel/managed-auth-react` 0.6.0 or later.
 
 ## Backend connectivity
 
@@ -262,6 +281,7 @@ import {
   StepExpired,
   LoadingState,
   ExternalActionWaiting,
+  HumanInterventionStep,
   UnifiedAuthForm,
   AppearanceProvider,
   LocalizationProvider,

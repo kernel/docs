@@ -18,7 +18,7 @@ use the programmatic flow when:
     Create a managed auth connection, then call `.login()`.
   </Step>
   <Step title="Stream the session state">
-    Follow the connection's sse stream. When `flow_step` becomes `AWAITING_INPUT`, render `fields` and `choices` from the event.
+    Follow the connection's sse stream. When `flow_step` becomes `AWAITING_INPUT`, render `fields` and `choices` from the event. When it becomes `AWAITING_HUMAN_INTERVENTION`, show the login browser's [live view](#human-verification).
   </Step>
   <Step title="Submit one interaction">
     Send the event's `interaction_id` with either `field_values` or `selected_choice_id`. Keep listening because the next page may produce another interaction.
@@ -94,17 +94,45 @@ a successful interactive login can save durable credentials for eligible automat
 
 ### 3. Stream and submit
 
-Listen for `AWAITING_INPUT`. Submit fields or a selected choice, then keep listening for the next interaction.
+Listen for `AWAITING_INPUT` and `AWAITING_HUMAN_INTERVENTION`. Submit fields, a selected choice, or the human verification choice, then keep listening for the next interaction.
 
 ```typescript TypeScript
 const events = await kernel.auth.connections.follow(auth.id);
 
 for await (const event of events) {
-  if (
-    event.event !== 'managed_auth_state' ||
-    event.flow_step !== 'AWAITING_INPUT' ||
-    !event.interaction_id
-  ) {
+  if (event.event !== 'managed_auth_state') {
+    continue;
+  }
+
+  if (event.flow_step !== 'AWAITING_HUMAN_INTERVENTION') {
+    closeLiveView();
+  }
+
+  if (!event.interaction_id) {
+    continue;
+  }
+
+  if (event.flow_step === 'AWAITING_HUMAN_INTERVENTION') {
+    const done = event.choices?.find(choice => choice.type === 'human_intervention');
+    if (!done) {
+      continue;
+    }
+
+    const interactionId = event.interaction_id;
+    const liveViewUrl =
+      event.live_view_url ?? (await kernel.auth.connections.retrieve(auth.id)).live_view_url;
+
+    // Don't await the person here, so the loop still sees a timeout.
+    showLiveView(liveViewUrl, done.description, () =>
+      kernel.auth.connections.submit(auth.id, {
+        interaction_id: interactionId,
+        selected_choice_id: done.id,
+      }),
+    );
+    continue;
+  }
+
+  if (event.flow_step !== 'AWAITING_INPUT') {
     continue;
   }
 
@@ -130,7 +158,7 @@ for await (const event of events) {
 }
 ```
 
-`promptUser` and `promptUserToChoose` represent your application's ui. The submission examples below show the same requests in each sdk.
+`promptUser`, `promptUserToChoose`, `showLiveView`, and `closeLiveView` represent your application's ui. The submission examples below show the same requests in each sdk.
 
 <Tip>
 every programmatic login session also has a `hosted_url`. redirect the user there if you want the hosted ui to finish an unexpected state.
@@ -237,6 +265,7 @@ All selectable auth routes use the same shape. `choice.type` identifies the cate
 - `auth_method`
 - `identifier_method`
 - `account`
+- `human_intervention`, used only at [human verification](#human-verification) pauses
 - `other`
 
 Render the visible `label`, optional `description`, and optional `masked_destination`. Submit the exact `choice.id` returned by the event:
@@ -312,6 +341,93 @@ if (
 }
 ```
 
+## Human verification
+
+When the connection has [`hitl`](/auth/configuration#human-verification-for-captchas) enabled and the login browser hits a CAPTCHA it can't solve, `flow_step` becomes `AWAITING_HUMAN_INTERVENTION`. The event carries one choice with `type: 'human_intervention'` and id `human_intervention_done`.
+
+Show the person the login browser's live view, in a new tab or embedded in an iframe, with a button to click when they've finished the check. When they click it, submit the choice with the event's `interaction_id`. KERNEL resumes the login from the page they left.
+
+Keep reading the stream while the live view is open, as the [stream and submit](#3-stream-and-submit) loop does. If nobody submits in time, the next event is `FAILED` with `error_code: 'captcha_blocked'`, and your ui must close the live view.
+
+The event's `live_view_url` can be missing. When it is, read `live_view_url` from the connection:
+
+<CodeGroup>
+```typescript TypeScript
+const done = state.choices?.find(choice => choice.type === 'human_intervention');
+const liveViewUrl =
+  state.live_view_url ?? (await kernel.auth.connections.retrieve(auth.id)).live_view_url;
+
+// After the person clicks your button:
+if (done && state.interaction_id) {
+  await kernel.auth.connections.submit(auth.id, {
+    interaction_id: state.interaction_id,
+    selected_choice_id: done.id,
+  });
+}
+```
+
+```python Python
+done = next(
+    (choice for choice in (state.choices or []) if choice.type == "human_intervention"),
+    None,
+)
+live_view_url = state.live_view_url or (
+    await kernel.auth.connections.retrieve(auth.id)
+).live_view_url
+
+# After the person clicks your button:
+if done and state.interaction_id:
+    await kernel.auth.connections.submit(
+        auth.id,
+        interaction_id=state.interaction_id,
+        selected_choice_id=done.id,
+    )
+```
+
+```go Go
+liveViewURL := state.LiveViewURL
+if liveViewURL == "" {
+	connection, err := client.Auth.Connections.Get(ctx, auth.ID)
+	if err != nil {
+		panic(err)
+	}
+	liveViewURL = connection.LiveViewURL
+}
+
+// After the person clicks your button:
+for _, choice := range state.Choices {
+	if choice.Type != "human_intervention" {
+		continue
+	}
+	_, err := client.Auth.Connections.Submit(ctx, auth.ID, kernel.AuthConnectionSubmitParams{
+		SubmitFieldsRequest: kernel.SubmitFieldsRequestParam{
+			InteractionID:    kernel.String(state.InteractionID),
+			SelectedChoiceID: kernel.String(choice.ID),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+
+- At this step the submit endpoint accepts only the `human_intervention` choice. Field values and other choices return a 400.
+- KERNEL can't tell whether the person solved the check before submitting. If the site still shows a challenge, or asks again, the login pauses again with a new `interaction_id`. From the second pause on, the choice's `description` says the site is asking to verify again. Show it so the person knows why they're back. On the first pause, `description` is empty.
+- Each pause waits up to 10 minutes, or until the login session expires if that's sooner.
+- The live view gives full control of the login browser. Show it only to the person signing in, and don't log the url.
+
+If your page sets a Content-Security-Policy, allow live view frames from both KERNEL domains. Don't copy the hostname from a single `live_view_url`, because it can change between sessions:
+
+```text
+frame-src https://*.onkernel.com
+          https://*.kernel.sh
+          https://*.onkernel.com:8443
+          https://*.kernel.sh:8443;
+```
+
+See [content security policy](/info/network-access#content-security-policy) for the full requirements.
+
 ## Step reference
 
 | Step | Description |
@@ -319,6 +435,7 @@ if (
 | `DISCOVERING` | Finding and inspecting the login surface. |
 | `AWAITING_INPUT` | Waiting for canonical fields or choices. |
 | `AWAITING_EXTERNAL_ACTION` | Waiting for an out-of-browser action; canonical fallbacks may also be present. |
+| `AWAITING_HUMAN_INTERVENTION` | Waiting for a person to complete a CAPTCHA in the live view and submit the `human_intervention` choice. Only on connections with `hitl` enabled. |
 | `SUBMITTING` | Processing the submitted interaction. |
 | `COMPLETED` | The flow has finished. |
 

@@ -107,5 +107,5 @@ Browser responses include the timezone and locale the browser is using, and whet
 - Date and number formatters a page already created keep their original settings. Create a new one, such as `new Intl.DateTimeFormat()`, to use the new values.
 - Requests already in progress keep their original language. Later requests use the new one.
 - A timezone or locale you set yourself through Playwright or Puppeteer, such as Playwright's `timezoneId`, takes precedence on the pages it applies to.
-- The location lasts for the browser session. Profiles don't save it.
+- The location lasts for the browser session. Profiles don't save it. [Managed Auth](/auth/configuration#browser-locale) browsers take their locale from the connection instead.
 - A pooled browser you release with `reuse: true` keeps its location for the next acquirer, just as it keeps cookies and open tabs. Release it with `reuse: false` to get a fresh browser instead.

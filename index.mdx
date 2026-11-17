@@ -15,7 +15,7 @@ a unikernel carries the browser and nothing else, so there's little to boot or k
 
 - **lifecycle actions are fast.** a browser is created in about 30ms at p50 and 105ms at p99 ([benchmarks](https://www.kernel.sh/benchmarks)), so you can create one per task instead of keeping a warm pool alive to hide start-up time.
 - **code on the vm is safe to hand an agent.** every browser is its own vm, isolated at the hypervisor rather than sharing a host kernel with other tenants, so the [browser repl](/browsers/repl), [process execution](/browsers/process-execution), and root access over [ssh](/browsers/ssh) stay contained to that session.
-- **idle browsers go into standby.** five seconds after the last client disconnects, a browser enters [standby](/browsers/standby): it keeps its state and stops accruing usage cost until a client reconnects.
+- **idle browsers go into standby.** ten seconds after the last client disconnects, a browser starts entering [standby](/browsers/standby): it keeps its state and stops accruing usage cost until a client reconnects.
 
 ## open source
 
