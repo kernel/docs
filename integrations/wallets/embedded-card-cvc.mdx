@@ -18,11 +18,11 @@ The cardholder enters the code in a secure hosted field. Your page, your servers
 ## Install
 
 ```bash
-bun add @onkernel/vault-react@^0.4.0
-# or: npm install @onkernel/vault-react@^0.4.0
+bun add @onkernel/vault-react@^0.5.0
+# or: npm install @onkernel/vault-react@^0.5.0
 ```
 
-The package requires React 18 or later and ships no CSS.
+The package requires React 18 or later and ships no CSS. Use 0.5.0 or later if your organization stores KERNEL cards in Evervault; earlier versions can't render the Evervault CVC field.
 
 ## Deliver the capability from your backend
 
@@ -131,6 +131,7 @@ The server-derived merchant, amount, and card's last four digits remain visible.
 | `baseUrl`    | API origin; defaults to `https://api.onkernel.com`. HTTPS required; HTTP loopback is allowed for local development. Paths, query strings, fragments, and URL credentials aren't allowed. |
 | `className`  | Root class in both form and completion views                                                                                                                                             |
 | `fieldCss`   | CSS inside the secure CVC iframe; read at mount                                                                                                                                           |
+| `evervaultTheme` | Theme for the Evervault CVC field when cards are stored in Evervault; read at mount. See [embedded card capture](/integrations/wallets/embedded-card-capture#evervault-card-fields) |
 | `labels`     | Partial text overrides; see below                                                                                                                                                        |
 | `onComplete` | Runs once after a 2xx response with `status: "approved"` confirms collection, not payment                                                                                                |
 | `onError`    | Receives only a fixed error code                                                                                                                                                         |
@@ -180,6 +181,8 @@ Style the surrounding form through your `className`. Give the iframe container a
 
 Page CSS can't reach into the iframe. Use `fieldCss` for input styling, including nested selectors such as `&:focus`, `&.invalid.touched`, `&::placeholder`, media queries, and `@font-face`. Supply it before mounting; remount to change it.
 
+When your organization stores KERNEL cards in Evervault, the component renders Evervault's component for the CVC alone. Page CSS and `fieldCss` can't style it; pass `evervaultTheme`, which uses the same format as on [embedded card capture](/integrations/wallets/embedded-card-capture#evervault-card-fields). The `cvc` and `cvcPlaceholder` labels set its label and placeholder. The component posts the encrypted CVC to KERNEL with the same capability; neither your application nor KERNEL can decrypt it.
+
 Override these `labels` keys: `title`, `description`, `completeTitle`, `completeDescription`, `cvc`, `cvcPlaceholder`, `submit`, `submitting`, `loading`, `retry`, and `missingToken`. Set the title, descriptions, and completion copy to your application's wording; defaults use KERNEL's lowercase copy and mention KERNEL. Error messages are fixed.
 
 ## Allow the component in your CSP
@@ -190,6 +193,14 @@ Merge these directives into your existing policy:
 script-src 'self' 'nonce-<per-request-nonce>' https://js.verygoodvault.com;
 frame-src https://js.verygoodvault.com;
 connect-src 'self' https://api.onkernel.com;
+```
+
+If your organization stores cards in Evervault, also allow Evervault's origins:
+
+```text
+script-src ... https://js.evervault.com;
+frame-src ... https://ui-components.evervault.com;
+connect-src ... https://keys.evervault.com;
 ```
 
 Collect loads a pinned, integrity-checked script and submits from its iframe origin. You don't need the inbound proxy hostname or Collect analytics endpoints in your page's `connect-src`. If you use external fonts, allow their source in the appropriate context and test the iframe rendering. The hosted fallback cannot itself be framed.
@@ -224,4 +235,4 @@ The form is removed from use after `expired`, `unavailable`, `invalid_response`,
 - Treat the CVC capability as a secret. Never put it in a path, query string, cookie, browser storage, logs, traces, or analytics. If you deliver a link, use a fragment and clear it after completion or terminal invalidation.
 - Don't add native CVC inputs, raw-value callbacks, analytics, or session replay around the component. Control scripts and dependencies that can modify the surrounding page.
 - Raw CVC stays in the secure hosted field and the card vaulting provider's processing. Your page and KERNEL never receive it. This preserves the isolated-field boundary used by embedded card capture; it doesn't certify your PCI scope or SAQ eligibility. Confirm your integration's eligibility and script-security requirements with your acquirer or QSA.
-- The hosted field submission origin is `https://js.verygoodvault.com`; no provider credentials or callback secrets belong in your frontend.
+- For VGS cards, the hosted field submission origin is `https://js.verygoodvault.com`. For Evervault cards, the component posts only Evervault ciphertext to the KERNEL API. No provider credentials or callback secrets belong in your frontend.

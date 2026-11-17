@@ -27,11 +27,11 @@ use `action.url` instead when a hosted page is acceptable. it needs no frontend 
 ## Install
 
 ```bash
-bun add @onkernel/vault-react
-# or: npm install @onkernel/vault-react
+bun add @onkernel/vault-react@^0.5.0
+# or: npm install @onkernel/vault-react@^0.5.0
 ```
 
-the package requires react 18 or later and ships no styles.
+the package requires react 18 or later and ships no styles. use 0.5.0 or later: earlier versions can't render cards stored in Evervault and report those capture links as `unavailable`.
 
 ## Get a capture token on your backend
 
@@ -129,6 +129,7 @@ export function AddCard({ captureToken }: { captureToken: string }) {
 | `baseUrl`     | api origin; defaults to `https://api.onkernel.com`                                                           |
 | `className`   | added to the root element, in both the form and completion views                                             |
 | `fieldCss`    | css applied inside the card number, expiry, and cvc iframes                                                  |
+| `evervaultTheme` | theme for Evervault's card fields; see [Evervault card fields](#evervault-card-fields)                    |
 | `labels`      | partial override of the component's text                                                                     |
 | `email`       | prefills the email input; the cardholder can still change it                                                 |
 | `onComplete`  | runs once after KERNEL confirms the card was added                                                           |
@@ -218,6 +219,38 @@ css on your page can't reach inside the hosted fields. pass `fieldCss` instead; 
 
 `fieldCss` supports nested pseudo-classes, `@font-face`, media queries, and the state classes `&.invalid`, `&.valid`, `&.empty`, `&.dirty`, and `&.touched`. the component reads it once, when it mounts; remount the component to change it.
 
+### Evervault card fields
+
+when your organization stores KERNEL cards in Evervault, the component renders Evervault's card component (card number and expiry) instead of the fields above. `fieldCss` doesn't apply there: Evervault renders each field's label, input, and error inside its own iframe. pass `evervaultTheme` instead. its `styles` are css-in-js rules keyed by selector, which Evervault injects into its iframe:
+
+```tsx
+<KernelCardCapture
+  token={captureToken}
+  className="acme-card"
+  evervaultTheme={{
+    fonts: ["https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap"],
+    styles: {
+      body: { fontFamily: "Inter, system-ui, sans-serif", color: "#1f1147" },
+      "[ev-component=card]": { gap: 16 },
+      label: { display: "block", marginBottom: 6, fontSize: 13, fontWeight: 500 },
+      input: {
+        height: 46,
+        padding: "0 12px",
+        border: "1px solid #d9d0f5",
+        borderRadius: 10,
+        fontSize: 16,
+        "&::placeholder": { color: "#9a8fbf" },
+        "&:focus": { borderColor: "#7b4dff" },
+      },
+      ".field[ev-valid=false] input": { borderColor: "#d1243a" },
+      ".error": { marginTop: 6, fontSize: 12, color: "#d1243a" },
+    },
+  }}
+/>
+```
+
+without a theme, Evervault's inputs render unbordered. the `number`, `expiry`, and `expirationPlaceholder` labels set the Evervault field labels and expiry placeholder. the component reads the theme and labels once, when it mounts. you can pass both `fieldCss` and `evervaultTheme`; the component uses whichever matches the card vault.
+
 ### Text
 
 override any of these keys through `labels`: `title`, `description`, `completeTitle`, `completeDescription`, `number`, `expiry`, `expirationPlaceholder`, `cvc`, `email`, `emailHint`, `submit`, `submitting`, `retry`, `checkAgain`, and `missingToken`.
@@ -233,6 +266,16 @@ script-src 'self' 'nonce-<per-request-nonce>' https://js.verygoodvault.com;
 frame-src https://js.verygoodvault.com;
 connect-src 'self' https://api.onkernel.com;
 ```
+
+if your organization stores cards in Evervault, also allow Evervault's origins. Evervault requires its sdk to load from its cdn, so it can't be pinned with an integrity hash:
+
+```text
+script-src ... https://js.evervault.com;
+frame-src ... https://ui-components.evervault.com;
+connect-src ... https://keys.evervault.com;
+```
+
+if the Evervault sdk or component doesn't load within 30 seconds, for example because your CSP blocks its frame, the component reports `network` and shows a retry button.
 
 if `fieldCss` uses `@font-face`, also allow the font's source. you don't need to allow the hosted-fields analytics endpoint; blocking it doesn't affect card capture.
 
