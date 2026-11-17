@@ -25,6 +25,30 @@ Allow only the destinations used by your integration. Apply the Live View and re
 
 Browser URLs are moving to port `443`, which omits `:8443`. Allow both ports during the rollout and use URLs returned by the API without rewriting them.
 
+## SDK direct routing
+
+The Node, Python, and Go SDKs send some browser calls straight to the browser instead of through `api.onkernel.com`: `curl`, `computer`, `playwright`, `process`, `fs`, `logs/stream`, `telemetry/stream`, `repl`, and `webmcp`. These calls use the same domains and ports as `cdp_ws_url`, so a firewall that only allows the API host blocks them.
+
+### Change which calls route directly
+
+Set `KERNEL_BROWSER_ROUTING_SUBRESOURCES` before your program starts.
+
+| Value | Behavior |
+| --- | --- |
+| Not set | Route the default subresources directly. |
+| Empty, or only whitespace | Route nothing directly. Every call goes through the API. |
+| Comma-separated list | Route only the subresources you list. |
+
+```bash
+# Send every call through the API
+export KERNEL_BROWSER_ROUTING_SUBRESOURCES=""
+
+# Route only Playwright and REPL calls directly
+export KERNEL_BROWSER_ROUTING_SUBRESOURCES="playwright,repl"
+```
+
+Entries match whole path segments, so `fs` covers every `fs/...` endpoint.
+
 ## Content security policy
 
 A network allowlist permits traffic leaving your environment. A Content Security Policy (CSP) permits content loaded by your web application. If you embed Live View or replays, configure both.
@@ -67,3 +91,4 @@ frame-src https://*.onkernel.com
 - If browser creation succeeds but CDP, WebDriver BiDi, or Live View won't connect, verify access to both wildcard domains on ports `443` and `8443`.
 - If Live View loads but remains disconnected or doesn't show video, verify access to the STUN and TURN destinations.
 - If the replay player loads but a recording doesn't play, verify access to the replay file destination.
+- If `process`, `fs`, `playwright`, or `repl` calls time out but browser creation works, allow both wildcard domains on ports `443` and `8443`, or set `KERNEL_BROWSER_ROUTING_SUBRESOURCES=""`.
