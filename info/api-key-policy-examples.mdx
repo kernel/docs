@@ -160,7 +160,7 @@ policy = {
 ```
 </CodeGroup>
 
-Use connection `mconn_5k3m8q2r`, configured with profile `prof_7h2kq9x4m1` and credential `cred_4q8m2k6s`. Provider-backed connections additionally require `credential_providers:use` on the organization-owned provider.
+Use connection `mconn_5k3m8q2r`, configured with profile `prof_7h2kq9x4m1` and credential `cred_4q8m2k6s`. Provider-backed connections additionally require `credential_providers:use` on the organization-owned provider, so they need an organization-scoped key. If the connection must create a credential, grant container-wide `credentials:create`, `credentials:use`, and `credentials:write` instead of exact-ID credential grants.
 </Accordion>
 
 <Accordion title="Deploy and invoke an app">
@@ -194,7 +194,7 @@ policy = {
 ```
 </CodeGroup>
 
-Use a key with this policy to deploy and invoke the app. Deployment creation requires rollout enablement. Add permissions for the browser, profile, vault, or other operations your app performs. An invocation's caller must cover the runtime key's full policy and expire no earlier than that runtime key.
+Use a key with this policy to deploy and invoke the app. Deployment creation requires rollout enablement. Add permissions for the browser, profile, vault, or other operations your app performs. The runtime key inherits your project-limited policy and expiry, but never `api_keys:issue_beyond_expiry`. An invocation's caller must cover the runtime key's full policy and expire no earlier than that runtime key. The runtime key must still be valid, unrevoked, and unexpired.
 </Accordion>
 
 <Accordion title="Inspect keys and audit activity">

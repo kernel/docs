@@ -20,7 +20,7 @@ Choose `kind` from the following resource types:
 
 | Scope | Resource kinds |
 | --- | --- |
-| Project | `browsers`, `profiles`, `vaults`, `proxies`, `extensions`, `telemetry_destinations`, `browser_pools`, `deployments`, `invocations`, `credentials`, `auth_connections` |
+| Project | `browsers`, `profiles`, `vaults`, `proxies`, `extensions`, `telemetry_destinations`, `browser_pools`, `tasks`, `deployments`, `invocations`, `credentials`, `auth_connections` |
 | Organization | `credential_providers`, `vault_provider_configs`, `audit_log_export_destinations` |
 | Matches the target key | `api_keys`: a project key belongs to its project; a key without a project belongs to the organization, not the default project. |
 
@@ -114,6 +114,16 @@ Scoped keys resolve destinations within the request's project. Reading and selec
 | `browser_pools:use` | Acquire and release pooled browsers. |
 | `browser_pools:write` | Update pool configuration and flush idle browsers. |
 | `browser_pools:delete` | Delete pools and their browsers. |
+
+### Tasks and reports
+
+| Action | Allows |
+| --- | --- |
+| `tasks:create` | Create tasks. Grant on the project or organization container. |
+| `tasks:read` | List and read tasks, linked browser IDs, and reports; find report types for a task. |
+| `tasks:write` | Link browsers and submit reports. Also requires `tasks:read` on the task. |
+
+Reports use their parent task's permissions; they don't have separate policy selectors or actions. Linking a browser, including through a report, requires `browsers:use` on that browser, but not permissions on its attachments: linking doesn't control it. Reading a linked browser ID doesn't grant browser access. Retrieving a report type or version by name requires no additional policy action.
 
 ### Apps, deployments, and invocations
 
@@ -210,17 +220,19 @@ Policy-mode OAuth tokens, which are tokens that request specific actions, machin
 | Create a browser | Container-wide `browsers:create` and `browsers:use`, because the response includes connection URLs. Add `profiles:use` on its profile, `profiles:write` if it saves changes, `vaults:use` on each linked vault, `extensions:use` on saved extensions, `proxies:use` on selected saved proxies, and `telemetry_destinations:use` on an export destination. |
 | Access an existing browser | The browser action, plus `profiles:use` on its attached profile, `vaults:use` on linked vaults, and `extensions:use` on saved extensions. If the browser saves profile changes, also grant `profiles:write`. |
 | Update a browser | `browsers:write` and `browsers:use`, plus permissions on attached resources and newly selected resources. |
-| Create or update a pool | The pool's `create` or `write` action, plus `use` on the profiles, proxies, and extensions you select. |
+| Create or update a pool | The pool's `create` or `write` action, plus `profiles:use` and `proxies:use` on selected resources, including proxy routes. Selecting saved extensions isn't supported for scoped credentials yet. |
 | Acquire a pooled browser | `browser_pools:use`, container-wide `browsers:use`, and permissions on the pool's profile/extensions and the browser's actual attachments. An acquire-time profile also requires `profiles:write` when saving changes. |
 | Release a pooled browser | `browser_pools:use` and access to the leased browser, including its attachments. |
 | Force-delete a pool with leased browsers | `browser_pools:delete` and `browsers:delete` on every leased browser. |
 | Run a proxy health check | `proxies:use` and `proxies:read`. |
 
+Browsers used for managed auth logins, reauthentication, or health checks additionally require `auth_connections:use` and the current connection's profile, credential, and provider permissions. This applies to browser lists and direct access. If the source connection is unavailable, those browsers remain hidden and inaccessible to scoped keys.
+
 ### Auth connections and vaults
 
 | Operation | Requires |
 | --- | --- |
-| Create or update an auth connection, start a login, or submit login input | The connection's action, `profiles:use` and `profiles:write` on its profile, and `credentials:use` on a linked credential. Add `credentials:write` when saving values, `credentials:create` when creating a credential, `profiles:create` when creating a profile, and `credential_providers:use` for a provider-backed connection. |
+| Create or update an auth connection, start a login, or submit login input | The connection's action, `profiles:use` and `profiles:write` on its profile, and `credentials:use` on a linked credential. Add `credentials:write` when saving values into an existing credential, `profiles:create` when creating a profile, and `credential_providers:use` for a provider-backed connection. Creating a credential, including automatically during a later login, requires container-wide `credentials:create`, `credentials:use`, and `credentials:write`. |
 | Select a proxy or telemetry destination for an auth connection | `proxies:use` or `telemetry_destinations:use` on the selected resource, in addition to connection and login-resource permissions. Stored telemetry destinations are also checked when you start a login. |
 | Fill from a vault | `vaults:use` and browser access, including the browser's attachments. |
 | Create a vault item backed by an auth connection | `vaults:write` on the vault, `auth_connections:use` on the connection, and `credentials:use` on its saved credential. |
@@ -233,8 +245,8 @@ Connection updates check the resulting configuration. Turning off credential sav
 
 | Operation | Requires |
 | --- | --- |
-| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. The runtime key inherits your project-limited policy and expiry. Add permissions for the operations your app performs. |
-| Invoke an app action | Container-wide `invocations:create`. Your policy must cover the deployment runtime key's policy, and your key must expire no earlier than that runtime key. |
+| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. The runtime key inherits your project-limited policy and expiry, excluding `api_keys:issue_beyond_expiry`. Add permissions for the operations your app performs. |
+| Invoke an app action | Container-wide `invocations:create`. The runtime key must be valid, unrevoked, and unexpired. Your policy must cover its policy, and your key must expire no earlier than it. |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
 | Create or rotate an API key with a key that has a policy | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. If your key expires, the new or replacement key must expire no later than it unless you also hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. You can't issue or rotate a key carrying that permission. |

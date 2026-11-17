@@ -105,7 +105,7 @@ A policy is a list of **statements**. Each statement allows one **action** on on
 
 Some operations need more than one action. For example, creating a browser with a profile needs `browsers:create` and `browsers:use` on the project, plus `profiles:use` on that profile. See [API key permissions](/info/api-key-permissions) for every action and what each operation requires.
 
-Policies cover browsers, profiles, vaults, proxies, extensions, telemetry destinations, browser pools, apps, managed auth, credentials, organization/project administration, API keys, audit logs, search, and the configuration registry. Start with a [policy example](/info/api-key-policy-examples) for your workload.
+Policies cover browsers, profiles, vaults, proxies, extensions, telemetry destinations, browser pools, tasks and reports, apps, managed auth, credentials, organization/project administration, API keys, audit logs, search, and the configuration registry. Start with a [policy example](/info/api-key-policy-examples) for your workload.
 
 ### Create a scoped key
 
@@ -234,9 +234,9 @@ Grant this permission only to trusted issuers. Their child keys can remain valid
 
 When you deploy an app, Kernel mints a **deployment-scoped API key** for that deployment and injects it into the deployment (and every invocation it runs) as the `KERNEL_API_KEY` environment variable. Because the SDKs read `KERNEL_API_KEY` from the environment by default, your app can call the Kernel API as itself without you managing a key.
 
-When you deploy with a scoped key, the deployment key inherits your policy narrowed to the deployment's project, plus your expiry. Deploying requires container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. Add permissions for the operations your app performs, such as creating browsers or using profiles.
+When you deploy with a scoped key, the deployment key inherits your policy narrowed to the deployment's project, plus your expiry. It never inherits `api_keys:issue_beyond_expiry`; that permission doesn't extend the runtime key's lifetime. Deploying requires container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. Add permissions for the operations your app performs, such as creating browsers or using profiles.
 
-To invoke that deployment with a scoped key, grant `invocations:create` and every permission held by the deployment key. The invoking key must expire no earlier than the deployment key. Scoped callers run deployments with scoped runtime keys; deployments created with unrestricted keys require an unrestricted caller.
+To invoke that deployment with a scoped key, grant `invocations:create` and every permission held by the deployment key. The invoking key must expire no earlier than the deployment key. The deployment key must still exist, be unrevoked and unexpired, and have a valid, supported policy. Scoped callers run deployments with scoped runtime keys; deployments created with unrestricted keys require an unrestricted caller.
 
 <Note>
 Scoped deployment creation requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support. See the [app policy example](/info/api-key-policy-examples) for a deployment and invocation policy.
@@ -245,10 +245,11 @@ Scoped deployment creation requires rollout enablement. If the API reports that 
 Key points about deployment keys:
 
 - **One key per deployment.** Each deploy (including a redeploy of the same app) mints a fresh deployment key. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables) — a value you supply at deploy time is overridden by the injected key. To use your own long-lived key, pass it under a non-reserved name.
+- **Host moves preserve bounds.** When KERNEL moves a deployment to another host, the replacement key keeps the source key's policy and expiry. A missing, revoked, expired, or invalid source credential prevents the move; it isn't replaced with an unrestricted key. This differs from deploying new code, which uses the new deployer's permissions.
 - **Lifecycle tied to the deployment.** A deployment key is released when it's no longer needed. For scoped deployments, it also expires at the deployer's expiry. When you redeploy, the new deployment supersedes the old one, and the old deployment's key is released once it is no longer needed — that is, once the superseded deployment is stopped **and** no invocation is still running on it.
 - **Superseded deployments drain in-flight invocations.** If an invocation is still running on a deployment that gets superseded, its key is retained until that invocation completes; its expiry still applies, and the key is released afterward. An idle redeploy (nothing in flight) releases the old key immediately. In the rare case where an invocation's workflow terminates without releasing the key, a background sweep releases it after a grace period (~95 minutes). You do not need to manage any of this — it is automatic.
 
-Revoking the deploying key doesn't revoke the deployment's key or stop its invocations. Stop the deployment and let in-flight invocations drain, or revoke the deployment key to stop further API requests.
+Revoking the deploying key doesn't revoke the deployment's key or stop its invocations. Runtime-key expiry limits API access; it doesn't terminate the app process or in-flight code. Stop the deployment and let in-flight invocations drain, or revoke the deployment key to stop further API requests.
 
 If you need a credential whose lifetime you control (for CI, a persistent backend, or a resource that should outlive any single deployment), create an org- or project-scoped key as described above and pass it explicitly to the client. This only affects the calls your app makes — the platform still injects the deployment key and uses it to run the invocation and report its result, so you're choosing the credential for your own calls, not replacing the deployment key.
 
