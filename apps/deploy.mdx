@@ -53,7 +53,9 @@ To deploy with a [policy-scoped API key](/info/api-keys#scope-a-key-to-specific-
 - `deployments:delete` to replace older deployments of the same app and version.
 - `invocations:write` so the runtime can report invocation results and attach browsers.
 
-The deployment's injected runtime key inherits your project-limited policy and expiry, excluding `api_keys:issue_beyond_expiry`. That permission doesn't extend the runtime key's lifetime. Add the browser, profile, vault, or other permissions your app needs. To invoke it with a scoped key, also grant `invocations:create` and ensure the invoking key covers the runtime key's full policy and expiry. The runtime key must still be valid, unrevoked, and unexpired. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
+By default, the deployment's injected runtime key inherits your project-limited policy and expiry, excluding `api_keys:issue_beyond_expiry`. That permission doesn't extend the runtime key's lifetime. Add the browser, profile, vault, or other permissions your app needs. To invoke it with a scoped key, also grant `invocations:create` and ensure the invoking key covers the runtime key's full policy and expiry. The runtime key must still be valid, unrevoked, and unexpired. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
+
+To let another key invoke your app without deployment-management permissions, send an explicit `runtime_policy` JSON field in the `POST /deployments` multipart request. Include `invocations:write` on the project container and the permissions your app uses, but omit `deployments:create` and `deployments:delete`. Your deploying key must cover the requested permissions. The invoking key must cover this narrower runtime policy, plus `invocations:create`; expiry checks are unchanged. See [policy examples](/info/api-key-policy-examples).
 
 <Note>
 Scoped deployment creation requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.

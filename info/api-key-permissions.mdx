@@ -245,7 +245,7 @@ Connection updates check the resulting configuration. Turning off credential sav
 
 | Operation | Requires |
 | --- | --- |
-| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. The runtime key inherits your project-limited policy and expiry, excluding `api_keys:issue_beyond_expiry`. Add permissions for the operations your app performs. |
+| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. The runtime key inherits your project-limited policy by default. Supply `runtime_policy` to select a narrower policy; it must include container-wide `invocations:write` and exclude `api_keys:issue_beyond_expiry`. The runtime key keeps your expiry. |
 | Invoke an app action | Container-wide `invocations:create`. The runtime key must be valid, unrevoked, and unexpired. Your policy must cover its policy, and your key must expire no earlier than it. |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |

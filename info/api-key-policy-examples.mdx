@@ -197,6 +197,50 @@ policy = {
 Use a key with this policy to deploy and invoke the app. Deployment creation requires rollout enablement. Add permissions for the browser, profile, vault, or other operations your app performs. The runtime key inherits your project-limited policy and expiry, but never `api_keys:issue_beyond_expiry`. An invocation's caller must cover the runtime key's full policy and expire no earlier than that runtime key. The runtime key must still be valid, unrevoked, and unexpired.
 </Accordion>
 
+<Accordion title="Invoke without deployment-management permissions">
+Use an explicit runtime policy so invoking the app doesn't require permission to create or delete deployments. This app creates browsers without saved profiles or other attached resources.
+
+<CodeGroup>
+```typescript TypeScript
+const runtimePolicy = {
+  statements: [
+    { action: 'invocations:write', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+  ],
+};
+
+const invokerPolicy = {
+  statements: [
+    { action: 'invocations:create', resource: 'projects/proj_staging_9f3k/*' },
+    ...runtimePolicy.statements,
+  ],
+};
+```
+
+```python Python
+runtime_policy = {
+    "statements": [
+        {"action": "invocations:write", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+    ],
+}
+
+invoker_policy = {
+    "statements": [
+        {"action": "invocations:create", "resource": "projects/proj_staging_9f3k/*"},
+        *runtime_policy["statements"],
+    ],
+}
+```
+</CodeGroup>
+
+Send the runtime policy as JSON in the `runtime_policy` multipart field of `POST /deployments`. The deploying key needs every runtime permission plus `deployments:create` and `deployments:delete` on the project. Issue a separate key with the invoker policy to start actions without deployment-management access.
+
+A key with only `invocations:create` still fails: it doesn't cover the runtime's browser and callback permissions. The invoker must expire no earlier than the runtime key. Omitting `runtime_policy` keeps default inheritance, including the deployer's deployment-management permissions. Add `invocations:read` and `deployments:read` if the invoker also needs invocation results and event streams.
+</Accordion>
+
 <Accordion title="Inspect keys and audit activity">
 Read staging API-key metadata, read organization audit logs, and look up browser configuration recommendations. Issue this as an organization-scoped key by omitting `project_id`.
 
