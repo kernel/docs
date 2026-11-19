@@ -205,7 +205,7 @@ A GitHub identity token carries claims like these. Your rule is checked against 
 }
 ```
 
-Two details catch people out:
+Two details to make note of:
 
 - **`sub` now embeds numeric IDs.** GitHub's subject looks like `repo:owner@id/name@id:ref:...`. KERNEL rules match the `repository_id` and `repository_owner_id` claims, not `sub`, so you don't write subject patterns for GitHub.
 - **`repository_id` and `repository_owner_id` are strings.** If you create rules through the API, send them as strings of digits.

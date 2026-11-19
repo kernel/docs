@@ -3,9 +3,9 @@ title: "API Authentication"
 description: "Choose how your code authenticates to KERNEL: workload identity federation for workloads, API keys for local development"
 ---
 
-Every request to the KERNEL API carries a credential in the `Authorization: Bearer` header. Which credential you use decides how much damage a leak can do.
+Every request to the KERNEL API carries a credential in the `Authorization: Bearer` header.
 
-**Use [workload identity federation](/info/workload-identity/overview) for anything that isn't a person at a keyboard.** A CI job, a cloud service, or a Kubernetes pod already has an identity from its platform. Federation exchanges that identity for a KERNEL access token that lasts five minutes, so there's no long-lived secret to store, rotate, or leak.
+**Use [workload identity federation](/info/workload-identity/overview) for anything that isn't a person at a keyboard.** A CI job, a cloud service, or a Kubernetes pod already has an identity from its platform. Federation exchanges that identity for a short-lived KERNEL access token, so there's no long-lived secret to store, rotate, or leak. Each access token lasts five minutes by default, and the SDK requests a new one before it expires, so a workload of any length stays authenticated.
 
 ## Why federation instead of an API key
 
@@ -39,7 +39,7 @@ A static API key works from anywhere, for anyone who holds it, until someone not
 
 ## When an API key is still the right tool
 
-API keys aren't going away, and some jobs need one:
+For some jobs an API key is still a reasonable choice:
 
 - **Local development.** Your laptop has no workload identity. Sign in with `kernel login`, or create a personal key with a short expiry.
 - **Environments with no identity provider.** A VM at a host that issues no OIDC tokens, or a third-party tool that only accepts a key, can't federate. Give it a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys) so the key belongs to your organization, not to the person who created it.

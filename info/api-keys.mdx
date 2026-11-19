@@ -8,7 +8,7 @@ An API key is the credential your server, script, or CI job uses to call Kernel 
 Kernel only returns the plaintext key once, when you create it. Save the `key` value immediately. After that, Kernel only shows the masked value.
 
 <Tip>
-**For anything that isn't a person at a keyboard, use [workload identity federation](/info/workload-identity/overview) instead of an API key.** An API key works from anywhere until someone revokes it, so a leaked key is standing access. With federation, a CI job, cloud service, or Kubernetes pod exchanges a token from its own identity provider for a KERNEL access token that lasts five minutes, and there's no secret to store. API keys remain the right tool for local development and for environments with no identity provider. See [API authentication](/info/authentication) to choose.
+**For anything that isn't a person at a keyboard, use [workload identity federation](/info/workload-identity/overview) instead of an API key.** An API key works from anywhere until someone revokes it, so a leaked key is standing access. With federation, a CI job, cloud service, or Kubernetes pod exchanges a token from its own identity provider for a short-lived KERNEL access token, and there's no secret to store. API keys remain the right tool for local development and for environments with no identity provider. See [API authentication](/info/authentication) to choose.
 </Tip>
 
 ## Before you start

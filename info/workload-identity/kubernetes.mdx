@@ -203,7 +203,7 @@ func main() {
 }
 ```
 
-Three details catch people out:
+Three details to make note of:
 
 - **The audience must be exactly one value.** A token projected with more than one audience is refused.
 - **A pod rereads the same token.** The kubelet replaces a projected token only as it nears expiry, so between rotations every exchange presents the same one. A Kubernetes issuer allows that reuse by default.
