@@ -27,7 +27,7 @@ For a CI job, cloud service, or Kubernetes pod, put the policy on a federation r
 | `projects/{project_id}/*` | Everything in the project. |
 | `projects/{project_id}/{kind}/{id}` | One object. `kind` is `browsers`, `profiles`, `vaults`, or `proxies`. |
 
-Resources must be inside the new key's organization, or its project for a project-scoped key. Kernel checks that every object ID exists when you create the key.
+Resources must be inside the credential's boundary: the organization, or the one project for a project-scoped key, a federation rule, or a service account API key. Kernel checks that every object ID exists when you create or update the key or rule.
 
 ## Conditions
 
@@ -45,7 +45,7 @@ A statement can carry one condition that narrows it to matching requests:
 
 How conditions evaluate:
 
-- A condition only narrows its own statement. To restrict a whole key, add the same condition to every statement.
+- A condition only narrows its own statement. To restrict a whole credential, add the same condition to every statement.
 - Requests from outside every listed network get `403` with `insufficient_scope`, recorded in your [audit logs](/info/audit-logs) with the client IP.
 - A scoped key can't delegate a wider condition than it holds: a delegated key can narrow its parent's IP rules, never loosen them.
 - You can add or change IP rules on an existing key without rotating its credential. See [Limit a key to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges).
@@ -102,11 +102,11 @@ How conditions evaluate:
 | Add or remove a card in a Kernel wallet (`add_payment_method`, `remove_payment_method`) | `vaults:use` and `vaults:write` on the vault. Without `vaults:write`, the wallet doesn't list either operation in `available_operations`, and invoking one returns `403` with `insufficient_scope`. Other wallet and purchase operations need only `vaults:use`. |
 | Run a proxy health check | `proxies:use` and `proxies:read`. |
 
-List endpoints return only the objects the key can access, so a key without a matching grant gets an empty list.
+List endpoints return only the objects the credential can access, so a credential without a matching grant gets an empty list.
 
-## Not available to scoped keys
+## Not available to scoped credentials
 
-Scoped keys get `403` with `insufficient_scope` on:
+A credential with a policy gets `403` with `insufficient_scope` on:
 
 - API key management, including creating, listing, rotating, and deleting keys.
 - Browser pools.

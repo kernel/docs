@@ -15,7 +15,7 @@ By default, a static API key works from anywhere, for anyone who holds it, until
 | --- | --- | --- |
 | **What you store** | A secret, in a CI variable, a secret manager, or an environment file. | Nothing. The rule ID your workload sends isn't a secret. |
 | **Lifetime** | Until it expires or you delete it. Expiry is optional and can be up to 3,650 days. | 300 seconds by default, 600 at most. The SDK exchanges a fresh token before it expires. |
-| **If it leaks** | It works until you revoke it: from any machine, or from inside the [IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges) you limited it to. | The token stops working within minutes, and nobody can get a new one without your workload's own identity. |
+| **If it leaks** | It works until you revoke it, from any machine, or only from the [IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges) you limited it to if you set them. | The token stops working within minutes, and nobody can get a new one without your workload's own identity. |
 | **Who can use it** | Anyone who has the string. | Only the workload your federation rule names, such as one repository, workflow, and branch. |
 | **Scope** | Your whole organization or one project. A policy is optional. | Always one project and an explicit policy. |
 | **Rotation** | You rotate it and redeploy every consumer. | Nothing to rotate. |

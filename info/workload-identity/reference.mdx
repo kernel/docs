@@ -473,7 +473,7 @@ The call needs no permission in the policy.
 
 ## Management API
 
-The dashboard is the way to manage service accounts, issuers, and rules. The same operations are available over HTTP:
+Manage service accounts, issuers, and rules in the dashboard. These are the endpoints behind it, listed for reference. They aren't currently accessible with an API key or a federated token: a call with either returns `403`, including through the SDK methods for these endpoints.
 
 | Endpoint | Operations |
 | --- | --- |
@@ -486,16 +486,12 @@ The dashboard is the way to manage service accounts, issuers, and rules. The sam
 | `/org/workload_identity_federation_rules/{id}` | Get, update, archive |
 | `/org/workload_identity_authentication_events` | List |
 
-### Who can call it
+### Who can manage them
 
-These endpoints accept only a signed-in person: a dashboard session or a `kernel login` session.
-
-- **No API key can call them**, to read or to change, including an admin's unrestricted key. A key is held by software, and these settings decide what software can do.
-- **Federated tokens can't call them** either.
-- **Any organization member can read** service accounts, issuers, rules, and authentication events.
+- **Any organization member can view** service accounts, issuers, rules, and authentication events.
 - **Only an organization admin can change** them: create, update, archive, and verify.
 
-The same applies to service account API keys: only a signed-in admin can create, rotate, rename, change the permissions of, or delete one.
+The same applies to service account API keys: only an organization admin can create, rotate, rename, change the permissions of, or delete one, and only from the dashboard.
 
 ### Updates and versions
 
