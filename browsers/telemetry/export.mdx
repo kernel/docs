@@ -12,7 +12,7 @@ Events are exported as OTLP **logs**. Kernel appends `/v1/logs` to your endpoint
 
 ## How export works
 
-You create a **destination** - an OTLP/HTTP endpoint plus the headers your backend expects - and select it when you create a browser. Destinations belong to your organization, so a browser in any project can export to them.
+You create a **destination** - an OTLP/HTTP endpoint plus the headers your backend expects - and select it when you create a browser. Unrestricted keys can select destinations across the organization. With a policy-scoped key, create and select the destination in the project where the browser runs.
 
 Kernel's relay forwards the session's events to the destination and attaches your headers at export time. Headers are encrypted at rest and never reach the browser VM, so a session can export to your backend without ever holding your ingestion key.
 
@@ -61,6 +61,8 @@ kernel telemetry destinations create \
 You can also manage destinations in the dashboard under **Telemetry Destinations**.
 
 Creating, updating, and deleting a destination requires organization-scoped authentication, such as an organization-wide API key or the dashboard; a project-scoped API key gets a `403`. Project-scoped keys can still list and retrieve destinations, and select one when creating a browser.
+
+For a key with a policy, grant `telemetry_destinations:read` to inspect a destination and `telemetry_destinations:use` to select it for export. Management uses the separate `create`, `write`, and `delete` actions. See the [telemetry policy example](/info/api-key-policy-examples) and [permission reference](/info/api-key-permissions#telemetry-destinations).
 
 Header values are write-only. API, SDK, and CLI responses show each header name with an empty value, and the dashboard shows only header names: to change a stored value there, enter a replacement, or leave the field blank to keep the current value.
 
