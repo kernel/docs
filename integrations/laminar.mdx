@@ -91,7 +91,8 @@ const kernel = new Kernel();
 
 const main = async () => observe({ name: 'main' }, async () => {
   const kernelBrowser = await kernel.browsers.create({
-    stealth: true
+    captcha_solver: { enabled: true },
+    proxy: { mode: 'default' }
   });
 
   console.log("Live view url:", kernelBrowser.browser_live_view_url);
@@ -156,7 +157,10 @@ Laminar.initialize(project_api_key=os.environ["LMNR_PROJECT_API_KEY"])
 def run_automation():
     # Initialize Kernel
     client = Kernel()
-    kernel_browser = client.browsers.create(stealth=True)
+    kernel_browser = client.browsers.create(
+        captcha_solver={"enabled": True},
+        proxy={"mode": "default"},
+    )
 
     print(f"Live view url: {kernel_browser.browser_live_view_url}")
 
@@ -232,7 +236,11 @@ Laminar.initialize(project_api_key=os.environ["LMNR_PROJECT_API_KEY"])
 async def main():
     # Initialize Kernel and create a browser
     client = Kernel()
-    kernel_browser = client.browsers.create(stealth=True, viewport={'width': 1920, 'height': 1080})
+    kernel_browser = client.browsers.create(
+        captcha_solver={"enabled": True},
+        proxy={"mode": "default"},
+        viewport={"width": 1920, "height": 1080},
+    )
 
     print(f"Live view url: {kernel_browser.browser_live_view_url}")
 
@@ -301,7 +309,8 @@ const kernel = new Kernel();
 const main = async () => observe({ name: 'main' }, async () => {
   // Create browser
   const kernelBrowser = await kernel.browsers.create({
-    stealth: true,
+    captcha_solver: { enabled: true },
+    proxy: { mode: 'default' },
   });
 
   console.log("Live view url:", kernelBrowser.browser_live_view_url);
@@ -368,7 +377,10 @@ Laminar.initialize({
 const kernel = new Kernel();
 
 const main = async () => observe({ name: 'main' }, async () => {
-  const kernelBrowser = await kernel.browsers.create({ stealth: true });
+  const kernelBrowser = await kernel.browsers.create({
+    captcha_solver: { enabled: true },
+    proxy: { mode: 'default' },
+  });
   
   console.log("Live view url:", kernelBrowser.browser_live_view_url);
   

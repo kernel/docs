@@ -859,7 +859,9 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'agentcard'` | `provider_config`; `user_id` to import a connected user with customer-owned credentials, or reuse an organization-local user with KERNEL-managed credentials |
-| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`, `checkout_origin`                    |
+| card | `provider`, `wallet`, `merchant`, `amount`, `currency` | `card_id`, `checkout_origin`, `line_items`, `subtotal`, `shipping`, `tax`, `discount` |
+
+`line_items` adds the next checkout's cart to the cardholder's approval screen for checkouts that don't use a preparation. it accepts 1–20 entries. each entry requires `title` and a positive `quantity`, and can include `unit_amount`, `amount`, `brand`, `options`, and an HTTPS `image_url`. all amounts use minor currency units. `subtotal`, `shipping`, `tax`, and the positive discount amount require `line_items`. these fields are display-only: the cardholder still approves `amount` or the amount the processor charges. because card updates replace the complete `spec`, include the full cart again for each checkout where you want it shown.
 
 agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
 

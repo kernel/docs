@@ -498,29 +498,28 @@ If you swap the proxy on a browser acquired from a browser pool, the browser wil
 
 ### Bring your own proxy
 
-Attach a custom `proxy_id` to any browser — stealth or non-stealth — and Kernel's anti-detection config still applies. For full anti-detection without the managed proxy or CAPTCHA solver, launch a non-stealth browser with your own `proxy_id`:
+Select a custom proxy by `proxy.id` or `proxy.name`, and Kernel's anti-detection defaults still apply. The CAPTCHA solver is disabled unless you enable it separately.
 
 If your custom proxy performs TLS interception, provide its CA bundle when creating the proxy. See [MITM TLS](/proxies/custom#mitm-tls) for configuration details.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 const browser = await kernel.browsers.create({
-  stealth: false,
-  proxy_id: myProxy.id,
+  proxy: { id: myProxy.id },
 });
 ```
 
 ```python Python
 browser = kernel.browsers.create(
-    stealth=False,
-    proxy_id=my_proxy.id,
+    proxy={"id": my_proxy.id},
 )
 ```
 
 ```go Go
 browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
-	Stealth: kernel.Bool(false),
-	ProxyID: kernel.String(myProxy.ID),
+	Proxy: kernel.BrowserProxyConfigParam{
+		ID: kernel.String(myProxy.ID),
+	},
 })
 if err != nil {
 	panic(err)
@@ -529,27 +528,29 @@ _ = browser
 ```
 </CodeGroup>
 
-### Disable default proxy on stealth browsers
+### Route a browser directly
 
-[Stealth browsers](/browsers/bot-detection/stealth) are automatically assigned a proxy. To disable this on a running stealth browser and route traffic directly, set `disable_default_proxy` to `true`:
+To route a browser directly while keeping automatic CAPTCHA solving enabled, set `proxy.mode` to `direct`:
 
 <CodeGroup>
 ```typescript Typescript/Javascript
 await kernel.browsers.update(browser.session_id, {
-  disable_default_proxy: true,
+  proxy: { mode: 'direct' },
 });
 ```
 
 ```python Python
 kernel.browsers.update(
     browser.session_id,
-    disable_default_proxy=True,
+    proxy={"mode": "direct"},
 )
 ```
 
 ```go Go
 if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdateParams{
-	DisableDefaultProxy: kernel.Bool(true),
+	Proxy: kernel.BrowserProxyConfigParam{
+		Mode: kernel.BrowserProxyModeDirect,
+	},
 }); err != nil {
 	panic(err)
 }
@@ -557,7 +558,7 @@ if _, err := client.Browsers.Update(ctx, browser.SessionID, kernel.BrowserUpdate
 </CodeGroup>
 
 <Info>
-`disable_default_proxy` can only be used with stealth browsers and cannot be combined with `proxy_id`.
+Changing `proxy` only changes egress. It doesn't enable or disable the CAPTCHA solver.
 </Info>
 
 ## Delete a proxy

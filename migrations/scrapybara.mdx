@@ -12,7 +12,7 @@ title: "Scrapybara"
 | **Standby Mode** | `instance.pause()` / `instance.resume()` | Automatic standby mode |
 | **CDP URL** | `instance.get_cdp_url().cdp_url` | Returns `cdp_ws_url` in create response |
 | **Live View** | `instance.get_stream_url().stream_url` | Returns `browser_live_view_url` in create response |
-| **Stealth Mode** | ❌ Not available | Create browser with `stealth: true` |
+| **Stealth Mode** | ❌ Not available | Enable `captcha_solver` and set `proxy.mode` to `default` |
 | **Replays** | ❌ Not available | `kernel.browsers.replays.start()` and `kernel.browsers.replays.stop()` |
 | **Save Auth** | `instance.browser.save_auth(name="default")` | Create [Profile](/browsers/profiles). Then create browser with `kernel.browsers.create(profile={"name": "profile1", "save_changes": true})` |
 | **Click** | `instance.computer(action="click_mouse", button="left")` | `kernel.browsers.computer.click_mouse(id=session_id, x=100, y=200)` |
@@ -214,7 +214,7 @@ For a complete reference of all available Computer Controls methods in Kernel, s
 | **Pause/Resume** | `instance.pause()` / `instance.resume()` | Automatic standby mode |
 | **Screenshot** | `instance.screenshot()` | Use Playwright or Puppeteer |
 | **Timeout Config** | `timeout_hours` parameter | `timeout_seconds` parameter |
-| **Stealth Mode** | ❌ Not available | Create browser with `stealth: true` |
+| **Stealth Mode** | ❌ Not available | Enable `captcha_solver` and set `proxy.mode` to `default` |
 | **Headless Mode** | ❌ Not available | Create browser with `headless: true` |
 | **Session Persistence** | Auth state only | Full browser state via creating browser with extended timeout |
 | **Video Replays** | ❌ Not available | `kernel.browsers.replays.start()` and `kernel.browsers.replays.stop()` |

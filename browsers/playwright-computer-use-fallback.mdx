@@ -154,7 +154,10 @@ async function main(): Promise<void> {
 	requireLoopEnvApiKeyForModel(MODEL);
 
 	const client = new KERNEL({ apiKey: kernelApiKey });
-	const browser = await client.browsers.create({ stealth: true });
+	const browser = await client.browsers.create({
+		captcha_solver: { enabled: true },
+		proxy: { mode: "default" },
+	});
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });
@@ -300,7 +303,10 @@ async function main(): Promise<void> {
 	requireLoopEnvApiKeyForModel(MODEL);
 
 	const client = new KERNEL({ apiKey: kernelApiKey });
-	const browser = await client.browsers.create({ stealth: true });
+	const browser = await client.browsers.create({
+		captcha_solver: { enabled: true },
+		proxy: { mode: "default" },
+	});
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });
@@ -432,7 +438,10 @@ async function main(): Promise<void> {
 	requireLoopEnvApiKeyForModel(MODEL);
 
 	const client = new KERNEL({ apiKey: kernelApiKey });
-	const browser = await client.browsers.create({ stealth: true });
+	const browser = await client.browsers.create({
+		captcha_solver: { enabled: true },
+		proxy: { mode: "default" },
+	});
 	const replay = await client.browsers.replays.start(browser.session_id);
 	console.log(`recording started: ${replay.replay_view_url}`);
 	const kb = attach({ client, browser });

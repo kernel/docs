@@ -3,7 +3,7 @@ title: "Browser Pools"
 description: "Configure a pool of ready-to-use browsers for instant acquisition"
 ---
 
-A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — stealth, proxies, [private networking](/browsers/private-networking), [egress allowlists](/browsers/egress-allowlists#use-allowlists-with-browser-pools), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
+A browser pool is a fixed set of identical browsers that Kernel keeps running for you. Configure it once — CAPTCHA solving, proxies, [private networking](/browsers/private-networking), [egress allowlists](/browsers/egress-allowlists#use-allowlists-with-browser-pools), extensions, viewport, a [profile](#profiles-with-browser-pools) — then acquire a browser whenever a task needs one and release it when you're done.
 
 Acquiring is faster than creating an on-demand browser because the browser is already running: you skip start-up, including the [Chromium restart](/browsers/performance#troubleshooting-latency) that some settings trigger, and you aren't subject to the [rate limit](/browsers/concurrency-and-limits#rate-limits) on browser creation.
 
@@ -35,7 +35,7 @@ A few constraints to weigh before moving a workload onto a browser pool:
 
 ## Create a browser pool
 
-Create a browser pool with a size and the configuration every browser in it should use.
+Create a browser pool with a size and the configuration every browser in it should use. The example enables automatic CAPTCHA solving. To add proxy egress, set `proxy_id` to an existing proxy separately; `captcha_solver` doesn't select one.
 
 <CodeGroup>
 ```typescript Typescript/Javascript
@@ -46,7 +46,7 @@ const kernel = new Kernel();
 const pool = await kernel.browserPools.create({
   name: "my-pool",
   size: 10,
-  stealth: true,
+  captcha_solver: { enabled: true },
   headless: false,
   memory: "16GiB",
   timeout_seconds: 600,
@@ -68,7 +68,7 @@ kernel = Kernel()
 pool = kernel.browser_pools.create(
     name="my-pool",
     size=10,
-    stealth=True,
+    captcha_solver={"enabled": True},
     headless=False,
     memory="16GiB",
     timeout_seconds=600,
@@ -98,9 +98,11 @@ func main() {
 	client := kernel.NewClient()
 
 	pool, err := client.BrowserPools.New(ctx, kernel.BrowserPoolNewParams{
-		Name:           kernel.String("my-pool"),
-		Size:           10,
-		Stealth:        kernel.Bool(true),
+		Name: kernel.String("my-pool"),
+		Size: 10,
+		CaptchaSolver: kernel.BrowserCaptchaSolverParam{
+			Enabled: true,
+		},
 		Headless:       kernel.Bool(false),
 		Memory:         "16GiB",
 		TimeoutSeconds: kernel.Int(600),
@@ -211,7 +213,7 @@ A profile attached to the pool is loaded **read-only**. Every browser in the poo
 
 ### Per-user profiles with browser pools
 
-Because that profile is shared and read-only, it can't hold per-user login state for many users at once. To serve many users from one browser pool, create it with no profile — stealth, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it keeps that user's state from reaching the next acquirer.
+Because that profile is shared and read-only, it can't hold per-user login state for many users at once. To serve many users from one browser pool, create it with no profile — CAPTCHA solving, proxies, extensions, and viewport still live on the pool — then attach each user's profile to the browser *after* you acquire it, and release with `reuse: false` so the browser is destroyed. Destroying it keeps that user's state from reaching the next acquirer.
 
 The read-only rule covers the pool's own profile, not one attached after acquiring: that profile belongs to the browser, so `save_changes` applies as it does on any other browser. Pass `save_changes: true` when you attach it — it defaults to `false`, and without it the browser is destroyed on release without writing the user's session back.
 
@@ -310,7 +312,7 @@ Providing `network` replaces the whole object, not individual fields. Include ev
 ```typescript Typescript/Javascript
 const updatedPool = await kernel.browserPools.update("my-pool", {
   size: 20,
-  stealth: true,
+  captcha_solver: { enabled: true },
 });
 ```
 
@@ -318,14 +320,16 @@ const updatedPool = await kernel.browserPools.update("my-pool", {
 updated_pool = kernel.browser_pools.update(
     "my-pool",
     size=20,
-    stealth=True,
+    captcha_solver={"enabled": True},
 )
 ```
 
 ```go Go
 updatedPool, err := client.BrowserPools.Update(ctx, "my-pool", kernel.BrowserPoolUpdateParams{
-	Size:    kernel.Int(20),
-	Stealth: kernel.Bool(true),
+	Size: kernel.Int(20),
+	CaptchaSolver: kernel.BrowserCaptchaSolverParam{
+		Enabled: true,
+	},
 })
 if err != nil {
 	panic(err)
