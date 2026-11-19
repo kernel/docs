@@ -245,8 +245,8 @@ Connection updates check the resulting configuration. Turning off credential sav
 
 | Operation | Requires |
 | --- | --- |
-| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. By default, the runtime key gets only project-wide `invocations:write`. Supply `runtime_policy` for additional permissions; it must explicitly include that minimum and exclude `api_keys:issue_beyond_expiry`. The runtime key keeps your expiry. |
-| Invoke an app action | Container-wide `invocations:create`. The runtime key must be valid, unrevoked, and unexpired. Your policy must cover its policy, and your key must expire no earlier than it. |
+| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. By default, the runtime key gets only project-wide `invocations:write`. Supply `runtime_policy` for additional permissions; it must explicitly include that minimum and exclude `api_keys:issue_beyond_expiry`. Each invocation gets a fresh 65-minute key; the deployment policy doesn't expire with your credential. |
+| Invoke an app action | Container-wide `invocations:create`. Your policy must cover the runtime policy. Existing shared runtime keys must also be live and expire no later than yours. |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
 | Create or rotate an API key with a key that has a policy | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. If your key expires, the new or replacement key must expire no later than it unless you also hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. You can't issue or rotate a key carrying that permission. |

@@ -53,9 +53,9 @@ To deploy with a [policy-scoped API key](/info/api-keys#scope-a-key-to-specific-
 - `deployments:delete` to replace older deployments of the same app and version.
 - `invocations:write` so the runtime can report invocation results and attach browsers.
 
-By default, the deployment's injected runtime key gets only project-wide `invocations:write` so the runtime can report results. It inherits your expiry, but not your browser, profile, vault, or deployment-management permissions. This minimum permission applies to the whole project, not just this deployment's invocations. To invoke the app with a scoped key, grant `invocations:create` and cover the runtime key's policy and expiry. The runtime key must still be valid, unrevoked, and unexpired. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
+By default, each invocation's key gets only project-wide `invocations:write` so the runtime can report results. Each run gets a fresh key valid for 65 minutes. The deployment's policy doesn't expire with your deploying key. This minimum permission applies to the whole project, not just this deployment's invocations. To invoke the app with a scoped key, grant `invocations:create` and cover the runtime policy. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
 
-To give your app additional permissions, send an explicit `runtime_policy` JSON field in the `POST /deployments` multipart request. Include project-wide `invocations:write` and the permissions your app uses. A supplied policy missing that minimum is rejected; permissions aren't silently added. Your deploying key must cover the requested permissions, and `api_keys:issue_beyond_expiry` isn't allowed. The invoking key must cover this runtime policy, plus `invocations:create`; expiry checks are unchanged. See [policy examples](/info/api-key-policy-examples).
+To give your app additional permissions, send an explicit `runtime_policy` JSON field in the `POST /deployments` multipart request. Include project-wide `invocations:write` and the permissions your app uses. A supplied policy missing that minimum is rejected; permissions aren't silently added. Your deploying key must cover the requested permissions, and `api_keys:issue_beyond_expiry` isn't allowed. The invoking key must cover this runtime policy, plus `invocations:create`. See [policy examples](/info/api-key-policy-examples).
 
 <Note>
 Scoped deployment creation requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.
@@ -87,7 +87,7 @@ kernel deploy my_app.py --env-file .env
 
 Kernel injects a few environment variables into every deployment and its invocations. These names are **reserved** — if you set them via `--env` or `--env-file`, Kernel overrides your value, so setting them has no effect:
 
-- `KERNEL_API_KEY` — a per-deployment API key Kernel mints at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
+- `KERNEL_API_KEY` — the runtime key Kernel supplies to your app (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
 - `ENTRYPOINT_RELPATH` — set by the platform to locate your entrypoint.
 
 #### Using a different key for your app's calls
