@@ -1,12 +1,23 @@
 ---
-title: "API Key Permissions"
-description: "Actions and resources you can grant in a scoped API key policy"
+title: "Scoping Permissions"
+description: "Actions and resources you can grant in a policy for an API key, a federation rule, or a service account API key"
 ---
-<Tip>
-The same policy format sets the permissions of a [federation rule](/info/workload-identity/overview#federation-rules) and of a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys). For a CI job, cloud service, or Kubernetes pod, use [workload identity federation](/info/workload-identity/overview) instead of a scoped key: the credential expires in minutes and there's no secret to store.
-</Tip>
 
-This page lists everything you can grant in a scoped API key's `policy`. To create a scoped key, see [Scope a key to specific resources](/info/api-keys#scope-a-key-to-specific-resources).
+A **policy** limits what a credential can do. It's a list of allow statements, each pairing one action with one resource, and everything it doesn't list is denied. This page lists everything you can grant in a policy.
+
+## Where policies apply
+
+Three kinds of credential carry a policy, and all three use the same format:
+
+| Credential | Policy | Boundary |
+| --- | --- | --- |
+| [Scoped API key](/info/api-keys#scope-a-key-to-specific-resources) | Optional. A key without a policy is unrestricted inside its organization or project. | The key's organization, or its project for a project-scoped key. |
+| [Federation rule](/info/workload-identity/overview#federation-rules) | Required. | The rule's one project. |
+| [Service account API key](/info/workload-identity/service-accounts#service-account-api-keys) | Required. | The key's one project. |
+
+Every resource in a policy must be inside its credential's boundary. A few operations stay closed to federation rules and service account API keys whatever their policy grants. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
+
+For a CI job, cloud service, or Kubernetes pod, put the policy on a federation rule instead of a stored key. See [API authentication](/info/authentication) to choose.
 
 ## Resources
 
