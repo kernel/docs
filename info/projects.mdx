@@ -112,6 +112,10 @@ API keys can be **org-wide** or **project-scoped**.
 
 OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
 
+### Workload identity federation
+
+A [federation rule](/info/workload-identity/overview#federation-rules) names exactly one project, and the tokens it issues work only in that project. So does a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys). To give a workload access to two projects, such as `staging` and `production`, create one rule for each.
+
 ## Using projects from the CLI
 
 The Kernel [CLI](/reference/cli/projects) has first-class project support:

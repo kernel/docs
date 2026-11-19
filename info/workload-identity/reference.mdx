@@ -1,0 +1,520 @@
+---
+title: "Workload Identity Reference"
+sidebarTitle: "Reference"
+description: "The token exchange, SDK configuration, and every issuer, federation rule, and service account field"
+---
+
+This page is the reference for [workload identity federation](/info/workload-identity/overview). To set it up, start with the guide for your [provider](/info/workload-identity/overview#provider-guides).
+
+## Token exchange
+
+A workload gets a KERNEL access token by posting its identity token to the KERNEL authorization server. The SDKs make this request for you.
+
+### Request
+
+```bash
+curl -sS https://auth.onkernel.com/token \
+  -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer \
+  -d federation_rule_id=wifr_tz4a98xxat96iws9zmbrgj3a \
+  -d resource=https://api.onkernel.com \
+  --data-urlencode "assertion=$IDENTITY_TOKEN"
+```
+
+`POST https://auth.onkernel.com/token` takes a form-encoded body and no credential.
+
+| Parameter | Required | Value |
+| --- | --- | --- |
+| `grant_type` | Yes | `urn:ietf:params:oauth:grant-type:jwt-bearer` |
+| `assertion` | Yes | The identity token from your provider: a signed JWT of 16 KiB or less. |
+| `federation_rule_id` | Yes | The rule to check the token against (`wifr_...`). It selects a rule and grants nothing by itself. |
+| `resource` | No | The API the access token is for. It must equal the rule's token audience exactly: `https://api.onkernel.com`, with no trailing slash. |
+
+The endpoint is strict about what it accepts:
+
+- Any other parameter, including `client_id` and `client_secret`, is rejected.
+- A parameter sent twice is rejected.
+- A request with an `Authorization` header is rejected. The identity token is the only proof.
+
+### Response
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+  "token_type": "Bearer",
+  "expires_in": 298,
+  "scope": "browsers:create browsers:use browsers:delete",
+  "org_id": "org_8f3k9m2q",
+  "access_scope": "project",
+  "project_id": "proj_staging_9f3k",
+  "principal": { "type": "service_account", "id": "svc_p2m5k8w1q9z4c7x3v6b0n2ha" },
+  "federation_rule_id": "wifr_tz4a98xxat96iws9zmbrgj3a"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `access_token` | Send it as `Authorization: Bearer <access_token>` on API requests. |
+| `token_type` | Always `Bearer`. |
+| `expires_in` | Seconds until the access token expires. |
+| `scope` | The actions the rule's policy grants, separated by spaces. |
+| `org_id` | Your organization. |
+| `access_scope` | `project`. A federated token is always bound to one project. |
+| `project_id` | The rule's project. |
+| `principal` | The service account the token acts as. |
+| `federation_rule_id` | The rule that issued the token. |
+
+There's no refresh token. To get another access token, exchange a fresh identity token.
+
+### Access token lifetime
+
+The access token expires at the earliest of:
+
+- The rule's token lifetime (`max_token_ttl_seconds`): 300 seconds by default, 600 at most.
+- The identity token's own expiry.
+
+### Errors
+
+Errors use the OAuth error format, with an `error` code and an `error_description`.
+
+| Status | `error` | `error_description` | Meaning |
+| --- | --- | --- | --- |
+| `400` | `invalid_request` | `Missing required parameter: assertion` or `federation_rule_id` | A required parameter is missing. |
+| `400` | `invalid_request` | `Unsupported workload identity parameter` | The body has a parameter the endpoint doesn't accept. |
+| `400` | `invalid_request` | `Repeated workload identity parameter` | A parameter appears more than once. |
+| `400` | `invalid_request` | `Workload assertion exchange does not accept client authentication` | The request has an `Authorization` header. |
+| `400` | `invalid_target` | `Invalid resource parameter` | `resource` isn't the rule's token audience. Check for a trailing slash. |
+| `400` | `invalid_grant` | `Credential is invalid, expired, or revoked` | The token didn't verify, didn't match the rule, or the rule, issuer, or service account isn't active. |
+| `400` | `invalid_grant` | `Credential was already used` | The identity token was already exchanged, and its issuer is single-use. |
+| `503` | `temporarily_unavailable` | Varies | KERNEL couldn't complete the exchange, for example because it couldn't fetch the issuer's signing keys. Retry with a fresh identity token. |
+
+The endpoint doesn't say why a token was refused, so that a caller can't probe your configuration. See [Troubleshooting](/info/workload-identity/troubleshooting) to find the reason.
+
+### Discovery
+
+A client can find everything it needs from the API host:
+
+1. `GET https://api.onkernel.com/.well-known/oauth-protected-resource` returns `resource`, the exact value to send as the `resource` parameter, and `authorization_servers`, which names the authorization server.
+2. `GET https://auth.onkernel.com/.well-known/oauth-authorization-server` returns the `token_endpoint`, and lists `urn:ietf:params:oauth:grant-type:jwt-bearer` under `grant_types_supported`.
+
+## SDK configuration
+
+Federation support is in `@onkernel/sdk` for TypeScript, the `kernel` package for Python, and `github.com/kernel/kernel-go-sdk` for Go. The Go SDK needs Go 1.23 or later.
+
+### Environment variables
+
+| Variable | Description |
+| --- | --- |
+| `KERNEL_FEDERATION_RULE_ID` | The federation rule ID (`wifr_...`). Setting it turns federation on. |
+| `KERNEL_IDENTITY_TOKEN_SOURCE` | Where identity tokens come from: `github_actions`, `gcp_metadata`, `aws_sts`, `file`, or `env`. |
+| `KERNEL_IDENTITY_TOKEN_FILE` | Path of a file holding the identity token. The SDK reads it again for every exchange. |
+| `KERNEL_IDENTITY_TOKEN` | A literal identity token. It can be exchanged once. |
+| `KERNEL_IDENTITY_TOKEN_AUDIENCE` | The audience the built-in sources request. Defaults to the auth base URL, `https://auth.onkernel.com`. The rule's expected audience must be the same value. |
+| `KERNEL_AUTH_BASE_URL` | The KERNEL authorization server. Defaults to `https://auth.onkernel.com` when the API base URL is the default. |
+| `KERNEL_API_KEY` | An API key. When set, it's used instead of federation. |
+
+When `KERNEL_IDENTITY_TOKEN_SOURCE` isn't set, the SDK uses the first of these that applies:
+
+1. `KERNEL_IDENTITY_TOKEN_FILE`
+2. `KERNEL_IDENTITY_TOKEN`
+3. GitHub Actions, when the runner exposes `ACTIONS_ID_TOKEN_REQUEST_URL`
+
+AWS and Google Cloud are never detected. Set `KERNEL_IDENTITY_TOKEN_SOURCE` to `aws_sts` or `gcp_metadata`.
+
+### Credential precedence
+
+| Order | Source |
+| --- | --- |
+| 1 | An API key or federation credentials passed in code |
+| 2 | `KERNEL_API_KEY` |
+| 3 | `KERNEL_FEDERATION_RULE_ID` and an identity token source |
+
+When `KERNEL_API_KEY` and `KERNEL_FEDERATION_RULE_ID` are both set, the SDK uses the API key and logs one warning.
+
+The SDKs differ in two edge cases:
+
+| Case | TypeScript | Python | Go |
+| --- | --- | --- | --- |
+| Both an API key and federation credentials are passed in code | Throws | Raises `ValueError` | The last option wins |
+| `KERNEL_FEDERATION_RULE_ID` is set but no identity token source is found | The constructor throws the missing-key error | The constructor raises `WorkloadIdentityError` | Requests fail with `WorkloadIdentityError` |
+
+### Identity token sources
+
+| `KERNEL_IDENTITY_TOKEN_SOURCE` | TypeScript | Python | Go |
+| --- | --- | --- | --- |
+| `github_actions` | `identityTokenFromGitHubActions()` | `GitHubActionsIdentityToken()` | `credentials.GitHubActions(audience)` |
+| `gcp_metadata` | `identityTokenFromGCPMetadata()` | `GCPMetadataIdentityToken()` | `credentials.GCPMetadata(audience)` |
+| `aws_sts` | `identityTokenFromAWSSTS()` | `AWSSTSIdentityToken()` | `awssts.IdentityToken(audience)` |
+| `file` | `identityTokenFromFile(path)` | `IdentityTokenFile(path)` | `option.IdentityTokenFile(path)` |
+| `env` | `identityTokenFromValue(token)` | `StaticIdentityToken(token)` | `credentials.Static(token)` |
+| None: your own callback | A function that returns the token | A function that returns the token | An `option.IdentityTokenFunc` |
+
+Import the TypeScript names from `@onkernel/sdk/lib/credentials`, the Python names from `kernel`, and the Go names from `github.com/kernel/kernel-go-sdk/lib/credentials`, its `awssts` subpackage, and `github.com/kernel/kernel-go-sdk/option`.
+
+The built-in sources request a token for this audience: the source's own `audience` setting, then `KERNEL_IDENTITY_TOKEN_AUDIENCE`, then the auth base URL.
+
+### Federation options
+
+Pass these with the identity token source: to `oidcFederationProvider` in TypeScript, `WorkloadIdentityCredentials` in Python, and `option.FederationOptions` in Go.
+
+| TypeScript | Python | Go | Description |
+| --- | --- | --- | --- |
+| `federationRuleId` | `federation_rule_id` | `FederationRuleID` | The rule to authenticate against. Required. |
+| `identityTokenProvider` | `identity_token_provider` | First argument of `option.WithFederationTokenProvider` | Returns a fresh identity token for each exchange. Required. |
+| `resource` | `resource` | `Resource` | The API the token is for. Defaults to the origin of the client's base URL. |
+| `authBaseURL` | `auth_base_url` | `AuthBaseURL` | The authorization server. Defaults to `KERNEL_AUTH_BASE_URL`, then `https://auth.onkernel.com`. |
+
+If you point the client at a base URL other than `https://api.onkernel.com`, you must also set the auth base URL. The SDK refuses to pair a custom API with the default authorization server.
+
+### Exchange a token once
+
+To manage the access token yourself, call the exchange directly. It makes one request, caches nothing, and needs no KERNEL credential:
+
+<CodeGroup>
+```typescript TypeScript
+import { exchangeFederationAssertion } from '@onkernel/sdk/lib/credentials';
+
+const { accessToken, expiresAt, principal, projectId, scope } = await exchangeFederationAssertion({
+  assertion: identityToken,
+  federationRuleId: 'wifr_tz4a98xxat96iws9zmbrgj3a',
+});
+```
+
+```python Python
+from kernel import exchange_federation_assertion
+
+token = exchange_federation_assertion(
+    assertion=identity_token,
+    federation_rule_id="wifr_tz4a98xxat96iws9zmbrgj3a",
+    resource="https://api.onkernel.com",
+)
+print(token.token, token.expires_at, token.principal, token.project_id, token.scope)
+```
+
+```go Go
+token, err := credentials.ExchangeFederationAssertion(ctx, credentials.FederationExchangeParams{
+	Assertion:        identityToken,
+	FederationRuleID: "wifr_tz4a98xxat96iws9zmbrgj3a",
+	Resource:         "https://api.onkernel.com",
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println(token.AccessToken, token.ExpiresAt, token.Principal.ID, token.ProjectID, token.Scope)
+```
+</CodeGroup>
+
+`expiresAt` and `expires_at` are Unix seconds. In Go, `ExpiresAt` is a `time.Time`. Python also has `async_exchange_federation_assertion`.
+
+The call spends the identity token. Don't call it again with the same token, even after a timeout.
+
+### Refresh and retries
+
+- The SDK caches the access token and shares it between copies of a client that use the same base URL.
+- It refreshes in the background when less than 120 seconds, or 40% of the token's lifetime if that's shorter, remains.
+- It blocks requests on a refresh when less than 30 seconds, or 10% of the lifetime, remains.
+- Concurrent requests share one exchange. The identity token source is never called twice at once.
+- A `401` from the API drops the cached token and retries the request once with a token from a fresh exchange. A second `401` is returned to you. A request whose body can't be sent again isn't retried. In Python, a client with `max_retries=0` doesn't retry a `401` at all.
+
+### Errors
+
+A failed exchange or a misconfiguration surfaces as a `WorkloadIdentityError`.
+
+| | TypeScript | Python | Go |
+| --- | --- | --- | --- |
+| Type | `WorkloadIdentityError` | `WorkloadIdentityError` | `*credentials.WorkloadIdentityError` |
+| HTTP status | `statusCode` | `status_code` | `StatusCode` |
+| OAuth error code | `errorCode` | `error` | `Code` |
+| OAuth error description | `errorDescription` | `error_description` | `Description` |
+| Request ID | `requestId` | `request_id` | `RequestID` |
+
+For a token that was already exchanged, the message adds advice that depends on where the token came from: a file that wasn't rotated, a static value, or a callback that returned the same token.
+
+### Safeguards
+
+The SDKs protect the identity token in transit:
+
+- The token endpoint must be `https`. Plain `http` is allowed only for `localhost`, `127.0.0.1`, and `::1`.
+- An identity token over 16 KiB is refused before it's sent.
+- Token requests don't follow redirects.
+- Errors and logs never include the identity token or the access token.
+
+## Issuers
+
+An issuer (`wii_...`) registers one identity provider.
+
+| Field | Description |
+| --- | --- |
+| `name` | 1 to 128 letters, numbers, and hyphens, starting with a letter or number. |
+| `description` | Up to 4,096 characters. |
+| `issuer_url` | The exact `iss` value expected in tokens. An `https` URL with no query string. Optional for `github_actions` and `google_cloud`, which each have one fixed issuer. |
+| `preset_type` | The provider type. See the next table. Defaults to the type the issuer URL belongs to, or `custom_oidc`. |
+| `jwks` | Where the public signing keys come from. See [Key sources](#key-sources). |
+| `token_validation.max_lifetime_seconds` | The longest lifetime, `exp` minus `iat`, an incoming token can have. 1 to 86,400. Defaults to 3,600, or 7,500 for `microsoft_entra`. |
+| `token_validation.replay_protection` | `single_use` or `allow_reuse`. See the next table. |
+| `enabled` | Defaults to `false`. Enabling an issuer checks that its keys can be fetched. |
+
+### Provider types
+
+| `preset_type` | Issuer URL | Replay protection | Signing algorithms |
+| --- | --- | --- | --- |
+| `github_actions` | `https://token.actions.githubusercontent.com` | Always `single_use` | `RS256` |
+| `aws` | Your account's STS token issuer URL | Always `single_use` | Any supported |
+| `google_cloud` | `https://accounts.google.com` | Always `allow_reuse` | `RS256` |
+| `microsoft_entra` | `https://sts.windows.net/<tenant ID>/` or `https://login.microsoftonline.com/<tenant ID>/v2.0` | `single_use` by default; `allow_reuse` can be set | `RS256` |
+| `kubernetes` | Your cluster's issuer | `allow_reuse` by default; `single_use` can be set | Any supported |
+| `custom_oidc` | Any other issuer | `single_use` by default; `allow_reuse` can be set | Any supported |
+
+The supported algorithms are `RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512`, and `EdDSA`.
+
+GitHub Actions, Google Cloud, and Microsoft Entra issuers are recognized by their issuer URL and must use their own type. You can't register `https://accounts.google.com` as `custom_oidc` to skip Google's identity checks.
+
+### Key sources
+
+| `jwks.type` | Fields | Behavior |
+| --- | --- | --- |
+| `discovery` | `discovery_base_url` (optional), `ca_cert_pem` (optional) | Reads `/.well-known/openid-configuration` at the issuer URL, or at `discovery_base_url`, and fetches the key set it names. The default. |
+| `explicit_url` | `url`, `ca_cert_pem` (optional) | Fetches the key set from `url`. |
+| `inline` | `keys` | Uses the 1 to 16 public keys you provide. Nothing is fetched. |
+
+- Keys are fetched over `https` from public internet addresses only.
+- `ca_cert_pem` replaces the system root certificates for that fetch. It holds public CA certificates only.
+- A key set holds at most 16 keys, all public. RSA keys must be at least 2,048 bits.
+- Fetched keys are cached for five minutes. A token that names an unknown key ID triggers a new fetch, at most once a minute.
+- GitHub Actions issuers always use discovery.
+
+### How a token is verified
+
+KERNEL accepts an identity token only when:
+
+- It's a signed JWT of 16 KiB or less, and its signature verifies against one of the issuer's keys.
+- `iss` equals the issuer URL exactly.
+- `aud` holds exactly one value, equal to the rule's `expected_audience`.
+- `sub` is a non-empty string of 1,024 characters or less.
+- `exp` and `iat` are both present, the token hasn't expired, and `exp` minus `iat` is within `max_lifetime_seconds`. KERNEL allows 30 seconds of clock difference.
+- For a single-use issuer, the token has a token ID that hasn't been exchanged before. The token ID is `jti`, or `uti` for Microsoft Entra.
+- The rule's match conditions all hold.
+
+A single-use token is spent only when an access token is issued. A token refused for another reason isn't spent.
+
+## Federation rules
+
+A federation rule (`wifr_...`) maps tokens from one issuer to one service account, one project, and one policy.
+
+| Field | Description |
+| --- | --- |
+| `name` | 1 to 128 letters, numbers, and hyphens, starting with a letter or number. |
+| `description` | Up to 4,096 characters. |
+| `issuer_id` | The issuer whose tokens this rule accepts. |
+| `match` | The conditions a token must satisfy. See [Match fields](#match-fields). |
+| `expected_audience` | The `aud` value the token must carry. |
+| `target` | `{ "type": "service_account", "service_account_id": "svc_..." }` |
+| `authorization.project_id` | The one project the rule's tokens are limited to. |
+| `authorization.policy` | Allow statements in the shared [policy format](/info/api-key-permissions). Resources must be inside the rule's project, and API key actions aren't allowed. |
+| `authorization.token_audience` | The API the access token is for: `https://api.onkernel.com`. |
+| `authorization.max_token_ttl_seconds` | The access token lifetime. 1 to 600. Defaults to 300. |
+| `enabled` | Defaults to `false`. A rule can't be enabled while its issuer is disabled. |
+| `last_exchange_at` | Read-only. When the rule last issued a token. |
+
+```json
+{
+  "name": "browser-ci-staging",
+  "issuer_id": "wii_h7d3k9s2m4q8x1c5v0b6n3ja",
+  "match": {
+    "type": "github_actions",
+    "repository": "acme/widgets",
+    "repository_id": "738291456",
+    "repository_owner_id": "9182734",
+    "workflow": ".github/workflows/e2e.yml",
+    "ref": "refs/heads/main",
+    "event_names": ["push", "workflow_dispatch"]
+  },
+  "expected_audience": "https://auth.onkernel.com",
+  "target": {
+    "type": "service_account",
+    "service_account_id": "svc_p2m5k8w1q9z4c7x3v6b0n2ha"
+  },
+  "authorization": {
+    "project_id": "proj_staging_9f3k",
+    "policy": {
+      "statements": [
+        { "action": "browsers:create", "resource": "projects/proj_staging_9f3k/*" },
+        { "action": "browsers:use", "resource": "projects/proj_staging_9f3k/*" },
+        { "action": "browsers:delete", "resource": "projects/proj_staging_9f3k/*" }
+      ]
+    },
+    "token_audience": "https://api.onkernel.com",
+    "max_token_ttl_seconds": 300
+  }
+}
+```
+
+### Match fields
+
+`match.type` must equal the issuer's `preset_type`. Every condition a rule sets must hold.
+
+These fields are available for every type:
+
+| Field | Description |
+| --- | --- |
+| `subject` | Exact match on the `sub` claim. |
+| `subject_prefix` | The `sub` claim must start with this value. |
+| `claims` | Up to 32 exact string conditions, keyed by [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `"/email": "browser-worker@acme-prod.iam.gserviceaccount.com"`. A boolean or number claim is compared by its JSON text. Objects and arrays never match. |
+
+#### GitHub Actions
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `repository_id` | Yes | The repository's numeric ID, as a string. |
+| `repository_owner_id` | Yes | The owner's numeric ID, as a string. |
+| `repository` | No | `owner/name`, for display. The IDs define the repository. |
+| `workflow` | One of these three | A workflow file path that starts with `.github/workflows/`. The token's `workflow_ref` must be that file at the ref the job runs on. |
+| `workflow_ref` | One of these three | Exact match on the `workflow_ref` claim. |
+| `job_workflow_ref` | One of these three | Exact match on the `job_workflow_ref` claim, for reusable workflows. |
+| `ref` | `ref` or `environment` | Exact match on the `ref` claim, such as `refs/heads/main`. |
+| `environment` | `ref` or `environment` | Exact match on the `environment` claim. |
+| `event_names` | No | 1 to 20 allowed values of the `event_name` claim. Defaults to `push` and `workflow_dispatch`. |
+
+#### AWS and custom OIDC
+
+At least one of `subject`, `subject_prefix`, or `claims` is required. For AWS, `subject` is the IAM role ARN, including its path.
+
+#### Google Cloud
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `subject` | Yes | The service account's numeric unique ID. |
+
+#### Microsoft Entra
+
+At least one of these is required: `subject`, or a `claims` condition on `/oid`, `/appid`, or `/azp`.
+
+- KERNEL adds a `/tid` condition for the issuer's tenant. A rule that names a different tenant is rejected.
+- A rule with no `subject` and no `/oid` also requires `/idtyp` to be `app`.
+- A token with an `scp` claim never matches.
+
+#### Kubernetes
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `namespace` | Yes | The pod's namespace. |
+| `service_account` | Yes | The Kubernetes service account name. |
+
+The token's subject must be exactly `system:serviceaccount:<namespace>:<service_account>`.
+
+## Service accounts
+
+| Field | Description |
+| --- | --- |
+| `id` | `svc_...` |
+| `name` | 1 to 128 letters, numbers, and hyphens, starting with a letter or number. |
+| `description` | Up to 4,096 characters. |
+| `last_used_at` | When one of the account's API keys last authenticated or one of its rules last issued a token. Recorded at most once every 15 minutes. `null` if never used. |
+| `created_by_user_id` | The admin who created it. |
+| `archived_at` | Set when the account is archived. |
+
+See [Service accounts](/info/workload-identity/service-accounts).
+
+## Authentication events
+
+Each event records one exchange outcome. Events never hold tokens or claims.
+
+| Field | Description |
+| --- | --- |
+| `outcome` | `success` or `failure`. |
+| `reason` | See the next table. |
+| `issuer_id`, `federation_rule_id`, `service_account_id`, `project_id` | What the exchange resolved to. |
+| `credential_id` | The ID of the access token that was issued. `null` for a failure. |
+| `correlation_id` | An ID that identifies this exchange. |
+| `created_at` | When the exchange happened. |
+
+| `outcome` | `reason` | Meaning |
+| --- | --- | --- |
+| `success` | `issued` | KERNEL issued an access token. |
+| `failure` | `assertion_replayed` | The identity token was already exchanged, and its issuer is single-use. |
+| `failure` | `authority_inactive` | The issuer, rule, service account, or project stopped being active while the exchange was in progress. |
+| `failure` | `policy_rejected` | The rule's policy couldn't be granted. |
+| `failure` | `authority_unavailable` | KERNEL couldn't complete the exchange. Retry with a fresh identity token. |
+
+A failure is recorded only after the token has verified and matched an enabled rule. A token that fails signature, issuer, audience, expiry, or match checks leaves no event, because KERNEL can't yet tie it to your organization. Repeated failures for the same token and reason are recorded once.
+
+Events are kept for 30 days. Through the API, a query returns the last seven days by default and spans at most 30 days. You can filter by issuer, rule, service account, project, outcome, and time range.
+
+## Auth context
+
+`GET https://api.onkernel.com/auth/context` describes the credential that makes the request. For a federated token, it returns the service account, the project, the current policy, and which issuer and rule the token came from:
+
+```json
+{
+  "authentication": { "method": "jwt", "source": "oauth", "credential_id": null },
+  "principal": { "type": "service_account", "id": "svc_p2m5k8w1q9z4c7x3v6b0n2ha" },
+  "organization": { "id": "org_8f3k9m2q" },
+  "authorization": {
+    "credential_scope": { "project_id": "proj_staging_9f3k" },
+    "effective_scope": { "project_id": "proj_staging_9f3k" },
+    "effective_policy": {
+      "statements": [
+        { "action": "browsers:create", "resource": "projects/proj_staging_9f3k/*" },
+        { "action": "browsers:use", "resource": "projects/proj_staging_9f3k/*" },
+        { "action": "browsers:delete", "resource": "projects/proj_staging_9f3k/*" }
+      ]
+    }
+  },
+  "workload_identity": {
+    "issuer_id": "wii_h7d3k9s2m4q8x1c5v0b6n3ja",
+    "federation_rule_id": "wifr_tz4a98xxat96iws9zmbrgj3a",
+    "external_subject_digest": "Zq1V0m4k7yQ2m3H8v5c1x9b6n4p7r2t0s8w3e6u1i5o"
+  }
+}
+```
+
+`external_subject_digest` is a digest of the identity token's subject. The token and its claims are never returned. A service account API key gets the same response without `workload_identity`, and with `authentication.method` set to `api_key`.
+
+The call needs no permission in the policy.
+
+## Management API
+
+Manage service accounts, issuers, and rules in the dashboard. These are the endpoints behind it, listed for reference. They aren't currently accessible with an API key or a federated token: a call with either returns `403`, including through the SDK methods for these endpoints.
+
+| Endpoint | Operations |
+| --- | --- |
+| `/org/service_accounts` | Create, list |
+| `/org/service_accounts/{id}` | Get, update, archive |
+| `/org/workload_identity_issuers` | Create, list |
+| `/org/workload_identity_issuers/{id}` | Get, update, archive |
+| `/org/workload_identity_issuers/{id}/verify` | Check that the issuer's keys can be fetched. Returns the key IDs. Grants nothing. |
+| `/org/workload_identity_federation_rules` | Create, list |
+| `/org/workload_identity_federation_rules/{id}` | Get, update, archive |
+| `/org/workload_identity_authentication_events` | List |
+
+### Who can manage them
+
+- **Any organization member can view** service accounts, issuers, rules, and authentication events.
+- **Only an organization admin can change** them: create, update, archive, and verify.
+
+The same applies to service account API keys: only an organization admin can create, rotate, rename, change the permissions of, or delete one, and only from the dashboard.
+
+### Updates and versions
+
+Every resource has a `security_version` that increases when a change affects what it trusts or grants. An update (`PATCH`) must send the version it's based on as `expected_version`. If the resource changed in the meantime, the update returns `409 Conflict`. Read the resource again and retry.
+
+### Lists and archiving
+
+- Lists take `limit` (1 to 100, default 20) and `offset`, and return `X-Has-More` and `X-Next-Offset` headers. Service account, issuer, and rule lists also take `status`: `active` (the default), `archived`, or `all`.
+- `DELETE` archives. History stays, and the archived resource stops granting access. Creating a resource with the same name or issuer URL later creates a new ID.
+- A problem the admin can fix, such as a key endpoint that isn't public or a discovery document that names a different issuer, returns `400` with the reason. A `503` means a condition that may pass on retry, such as a timeout.
+
+## Limits
+
+| Limit | Value |
+| --- | --- |
+| Access token lifetime | 300 seconds by default; 1 to 600 |
+| Identity token size | 16 KiB |
+| Identity token lifetime (`exp` minus `iat`) | 3,600 seconds by default, 7,500 for Microsoft Entra; up to 86,400 |
+| Clock difference allowed | 30 seconds |
+| Projects per rule | 1 |
+| Policy statements per rule | 1 to 256 |
+| Claim conditions per rule | 32 |
+| Inline public keys per issuer | 16 |
+| Time for a disable or archive to stop issued tokens | About 10 seconds |
+| Authentication event retention | 30 days |
+| Service account `last_used_at` granularity | 15 minutes |

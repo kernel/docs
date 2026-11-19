@@ -1,0 +1,147 @@
+---
+title: "Move a Workload from an API Key"
+sidebarTitle: "Migrate from API Keys"
+description: "Switch an existing workload from a stored KERNEL_API_KEY to workload identity federation without downtime"
+---
+
+You can move a workload from an API key to [workload identity federation](/info/workload-identity/overview) without a gap. Set up federation next to the key, switch the workload over, confirm it, and only then delete the key.
+
+Move one workload at a time. Each workload gets its own rule, so a mistake in one doesn't touch the others.
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- The workload runs somewhere with an identity provider: GitHub Actions, AWS, Google Cloud, Microsoft Entra, Kubernetes, or another OIDC issuer. If it doesn't, see [If the workload can't federate](#if-the-workload-cant-federate).
+- The workload uses a KERNEL SDK release with federation support. Upgrade `@onkernel/sdk`, the `kernel` Python package, or `github.com/kernel/kernel-go-sdk` to the latest version first.
+
+## Migrate
+
+<Steps>
+<Step title="Find out what the key does">
+Open **Keys** > **API keys** in the [dashboard](https://dashboard.onkernel.com) and find the key the workload uses. Note two things:
+
+- **Its project.** A federation rule covers one project. If the key is org-wide, work out which project the workload really uses. A workload that uses two projects needs two rules.
+- **What it calls.** An unrestricted key can do anything, but your workload does a few things. List them, such as creating, using, and deleting browsers, so you can grant only those. Your [audit logs](/info/audit-logs) record every authenticated request, and you can filter them to API key authentication.
+
+Check that the workload doesn't depend on something [closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do): acquiring browsers from a pool, app deployments and invocations, or managing API keys.
+</Step>
+
+<Step title="Set up federation next to the key">
+Click **Connect workload** and follow the guide for your provider:
+
+- [GitHub Actions](/info/workload-identity/github-actions)
+- [AWS](/info/workload-identity/aws)
+- [Google Cloud](/info/workload-identity/google-cloud)
+- [Microsoft Entra](/info/workload-identity/microsoft-entra)
+- [Kubernetes](/info/workload-identity/kubernetes)
+- [Custom OIDC](/info/workload-identity/custom-oidc)
+
+Choose the project and permissions you noted. Enable the issuer and the rule. Leave the API key in place: nothing has changed for the workload yet.
+</Step>
+
+<Step title="Add the federation settings to the workload">
+Set `KERNEL_FEDERATION_RULE_ID` and, where your provider needs it, the identity token source. Deploy the change.
+
+The workload still uses the API key. `KERNEL_API_KEY` wins over the federation variables, and the SDK logs one warning that both are set. That warning tells you the new settings reached the workload.
+</Step>
+
+<Step title="Remove the API key from the workload">
+Stop supplying `KERNEL_API_KEY` to this workload: delete it from the workflow's `env`, the task definition, the pod spec, or the service's settings. Don't set it to an empty string in a place where another layer could still fill it in. Deploy the change.
+
+If your code passes the key explicitly, remove that too:
+
+<CodeGroup>
+```typescript TypeScript
+// Before
+const kernel = new Kernel({ apiKey: process.env.KERNEL_API_KEY });
+
+// After
+const kernel = new Kernel();
+```
+
+```python Python
+# Before
+client = Kernel(api_key=os.environ["KERNEL_API_KEY"])
+
+# After
+client = Kernel()
+```
+
+```go Go
+// Before
+client := kernel.NewClient(option.WithAPIKey(os.Getenv("KERNEL_API_KEY")))
+
+// After
+client := kernel.NewClient()
+```
+</CodeGroup>
+</Step>
+
+<Step title="Confirm the workload is federated">
+Check from both sides:
+
+- **In the dashboard.** The **Authentication events** tab shows a `success` event for your rule, and the rule's **Last exchange** time is current.
+- **In the workload.** Ask the API who it sees:
+
+<CodeGroup>
+```typescript TypeScript
+const context = await kernel.auth.context.retrieve();
+console.log(context.principal.type); // 'service_account'
+console.log(context.workload_identity?.federation_rule_id);
+```
+
+```python Python
+context = client.auth.context.retrieve()
+print(context.principal.type)  # service_account
+print(context.workload_identity.federation_rule_id if context.workload_identity else None)
+```
+
+```go Go
+authContext, err := client.Auth.Context.Get(ctx)
+if err != nil {
+	panic(err)
+}
+fmt.Println(authContext.Principal.Type) // service_account
+fmt.Println(authContext.WorkloadIdentity.FederationRuleID)
+```
+</CodeGroup>
+
+If a request fails with `403` and `insufficient_scope`, the rule's policy is missing a permission the workload uses. The message names the action and resource. Add it to the rule and try again.
+</Step>
+
+<Step title="Delete the API key">
+Once the workload has run on federation through a full cycle, delete the old key on the **API keys** page, and remove the stored copy from your CI secrets or secret manager.
+
+Check the key's **Last used** time first. If it's still moving, something else uses the key. Find that consumer before you delete it.
+
+<Warning>
+Deleting an API key ends the browsers associated with that key and discards their unsaved profile changes. Delete it when none of its browsers are doing work you need.
+</Warning>
+</Step>
+</Steps>
+
+## Roll back
+
+Until you delete the key, rolling back is one change: supply `KERNEL_API_KEY` to the workload again. The SDK uses it ahead of federation.
+
+To stop the federated path without touching the workload, disable the rule on the **Rules** tab.
+
+## If the workload can't federate
+
+A workload with no identity provider still benefits from leaving a personal key behind. Replace it with a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys):
+
+- It belongs to your organization, so it keeps working when the person who created it leaves.
+- It's limited to one project and an explicit policy.
+- Give it an expiry and rotate it on a schedule.
+
+Move that workload to federation when its platform gains an identity provider.
+
+## Common problems
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The workload still authenticates with the API key. | `KERNEL_API_KEY` is still in its environment. | Remove it everywhere the workload gets its environment, including inherited CI variables and shared config. |
+| The client fails with a missing-credentials error. | `KERNEL_FEDERATION_RULE_ID` is set but the SDK found no identity token source. | Set `KERNEL_IDENTITY_TOKEN_SOURCE` or `KERNEL_IDENTITY_TOKEN_FILE`. In GitHub Actions, add `id-token: write`. |
+| The exchange fails with `invalid_grant`. | The token doesn't satisfy the rule, or the issuer or rule isn't enabled. | See [Troubleshooting](/info/workload-identity/troubleshooting). |
+| Requests fail with `403` after the switch. | The rule grants less than the old key did. | Add the missing action to the rule's policy. |
+| Requests to another project fail. | A rule covers one project. | Create a second rule for the other project. |

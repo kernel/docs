@@ -1,0 +1,264 @@
+---
+title: "GitHub Actions"
+description: "Authenticate GitHub Actions workflows to KERNEL without storing a KERNEL_API_KEY secret"
+---
+
+Every GitHub Actions job can ask GitHub for a signed identity token that says which repository, workflow, and branch it's running. With [workload identity federation](/info/workload-identity/overview), your job exchanges that token for a KERNEL access token. You don't store a `KERNEL_API_KEY` secret in the repository, and a fork or another workflow can't use your access.
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- You can edit workflow files in the repository.
+- Your workflow uses the TypeScript, Python, or Go SDK. For anything else, see [Exchange the token yourself](#exchange-the-token-yourself).
+
+## Connect the workflow
+
+<Steps>
+<Step title="Register GitHub as an issuer">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **GitHub Actions** tile. GitHub has one fixed issuer, `https://token.actions.githubusercontent.com`, so there's nothing to enter except an optional **Name**. Click **Apply and continue**.
+
+Trusting GitHub's issuer accepts no workflow by itself. Each rule names the repository, workflow, and branch or environment it allows. If your organization already registered GitHub, select **Use a registered issuer** instead.
+</Step>
+
+<Step title="Describe the workflow in a rule">
+Fill in the **Match conditions**:
+
+| Field | What to enter |
+| --- | --- |
+| **Repository** | `owner/name`, such as `acme/widgets`. Click **Look up IDs** to fill in the next two fields. |
+| **Repository ID** and **Owner ID** | GitHub's numeric IDs. The rule matches these, not the name, so a renamed or recreated repository doesn't match. |
+| **Workflow** | The workflow file's path, such as `.github/workflows/e2e.yml`. |
+| **Branch** | The branch the job must run on, such as `main`. |
+| **Environment** | The [deployment environment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments) the job must use, such as `staging`. |
+| **Allowed events** | The events that can trigger the job. `push` and `workflow_dispatch` are selected by default. |
+
+Set a branch, an environment, or both. A job must match every value you set.
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**.
+</Step>
+
+<Step title="Pick a service account and enable">
+Choose or create a service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
+</Step>
+
+<Step title="Update the workflow">
+Give the job permission to request an identity token, and set the rule ID. The rule ID isn't a secret, so it can live in the workflow file:
+
+```yaml .github/workflows/e2e.yml
+name: e2e
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # lets the job request a GitHub identity token
+  contents: read
+
+jobs:
+  browsers:
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_FEDERATION_RULE_ID: wifr_tz4a98xxat96iws9zmbrgj3a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/run-browsers.mjs
+```
+
+Your script constructs the client with no arguments:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id);
+await kernel.browsers.deleteByID(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+client = Kernel()
+
+browser = client.browsers.create()
+print(browser.session_id)
+client.browsers.delete_by_id(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID)
+
+	if err := client.Browsers.DeleteByID(ctx, browser.SessionID); err != nil {
+		panic(err)
+	}
+}
+```
+</CodeGroup>
+</Step>
+
+<Step title="Run it and remove the old secret">
+Push to the branch or run the workflow by hand. The exchange appears in the wizard and on the **Authentication events** tab.
+
+If the repository has a `KERNEL_API_KEY` secret, stop passing it to this job. The SDK uses the API key whenever it's set. Then delete the secret and the key. See [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys).
+</Step>
+</Steps>
+
+## What the SDK does
+
+When `KERNEL_FEDERATION_RULE_ID` is set and the runner exposes `ACTIONS_ID_TOKEN_REQUEST_URL`, the SDK:
+
+1. Asks the runner for an identity token with the audience `https://auth.onkernel.com`.
+2. Exchanges it at `https://auth.onkernel.com/token`.
+3. Sends the access token on each API request, and requests a new identity token for each refresh.
+
+A job of any length stays authenticated, because each refresh uses a new GitHub token. GitHub tokens are always single-use in KERNEL: one token, one exchange.
+
+If the job doesn't have `id-token: write`, the runner sets no token endpoint, so the SDK finds no identity token source and the client fails with a missing-credentials error. Add the permission to the workflow or the job.
+
+To select GitHub explicitly instead of relying on detection, set `KERNEL_IDENTITY_TOKEN_SOURCE=github_actions`, or configure it in code:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+import { identityTokenFromGitHubActions, oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_tz4a98xxat96iws9zmbrgj3a',
+    identityTokenProvider: identityTokenFromGitHubActions(),
+  }),
+});
+```
+
+```python Python
+from kernel import GitHubActionsIdentityToken, Kernel, WorkloadIdentityCredentials
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=GitHubActionsIdentityToken(),
+        federation_rule_id="wifr_tz4a98xxat96iws9zmbrgj3a",
+    )
+)
+```
+
+```go Go
+package main
+
+import (
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/lib/credentials"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(
+			credentials.GitHubActions("https://auth.onkernel.com"),
+			option.FederationOptions{FederationRuleID: "wifr_tz4a98xxat96iws9zmbrgj3a"},
+		),
+	)
+	_ = client
+}
+```
+</CodeGroup>
+
+## What the token looks like
+
+A GitHub identity token carries claims like these. Your rule is checked against them:
+
+```json
+{
+  "iss": "https://token.actions.githubusercontent.com",
+  "aud": "https://auth.onkernel.com",
+  "sub": "repo:acme@9182734/widgets@738291456:ref:refs/heads/main",
+  "repository": "acme/widgets",
+  "repository_id": "738291456",
+  "repository_owner_id": "9182734",
+  "ref": "refs/heads/main",
+  "workflow_ref": "acme/widgets/.github/workflows/e2e.yml@refs/heads/main",
+  "event_name": "push",
+  "jti": "f1e7a9c2-0b61-4f0e-9a3e-2f2f6f9f3c11"
+}
+```
+
+Two details to make note of:
+
+- **`sub` now embeds numeric IDs.** GitHub's subject looks like `repo:owner@id/name@id:ref:...`. KERNEL rules match the `repository_id` and `repository_owner_id` claims, not `sub`, so you don't write subject patterns for GitHub.
+- **`repository_id` and `repository_owner_id` are strings.** If you create rules through the API, send them as strings of digits.
+
+## How a rule matches
+
+A GitHub Actions rule accepts a token only when all of these hold:
+
+- `repository_id` and `repository_owner_id` equal the rule's IDs.
+- `event_name` is one of the rule's allowed events.
+- If the rule sets a branch, `ref` equals it. The dashboard stores `main` as `refs/heads/main`.
+- If the rule sets an environment, `environment` equals it.
+- If the rule sets a workflow path, `workflow_ref` equals `<repository>/<workflow path>@<ref>`. The workflow file must come from the same ref the job runs on.
+
+Every GitHub rule needs the repository and owner IDs, a workflow restriction, and a branch or an environment. KERNEL rejects a rule without them, so you can't create a rule that trusts a whole GitHub organization by accident.
+
+<Tip>
+Use an environment when the job must be approved. A rule that requires `environment: production` only matches jobs that GitHub let into that environment, so your environment's protection rules and required reviewers gate KERNEL access too.
+</Tip>
+
+### Find the repository IDs yourself
+
+The dashboard's **Look up IDs** button does this for you. From a terminal:
+
+```bash
+gh api repos/acme/widgets --jq '{repository_id: .id, repository_owner_id: .owner.id}'
+```
+
+## Exchange the token yourself
+
+Without an SDK, request the token from the runner and post it to the token endpoint:
+
+```yaml
+- name: Get a KERNEL access token
+  run: |
+    IDENTITY_TOKEN=$(curl -sS \
+      -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://auth.onkernel.com" | jq -r .value)
+
+    ACCESS_TOKEN=$(curl -sS https://auth.onkernel.com/token \
+      -d grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer \
+      -d federation_rule_id=wifr_tz4a98xxat96iws9zmbrgj3a \
+      -d resource=https://api.onkernel.com \
+      --data-urlencode "assertion=$IDENTITY_TOKEN" | jq -r .access_token)
+
+    echo "::add-mask::$ACCESS_TOKEN"
+    echo "KERNEL_ACCESS_TOKEN=$ACCESS_TOKEN" >> "$GITHUB_ENV"
+```
+
+The access token lasts for the rule's token lifetime, 300 seconds by default. For a longer job, repeat both requests: each exchange needs a new GitHub token.
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference#github-actions): every GitHub Actions match field
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)
