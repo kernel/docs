@@ -1,0 +1,191 @@
+---
+title: "Microsoft Entra"
+description: "Authenticate Azure workloads to KERNEL with tokens from a managed identity or an app registration in your Entra tenant"
+---
+
+A workload on Azure can get a token from Microsoft Entra ID through a managed identity or an app registration. With [workload identity federation](/info/workload-identity/overview), your workload exchanges that token for a KERNEL access token, so there's no `KERNEL_API_KEY` in Key Vault or your app settings.
+
+Entra differs from the other providers in one way: the token's audience is an app registration in **your** tenant, not `https://auth.onkernel.com`. You create that app registration once, and your workloads request tokens for it.
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- You can create app registrations in your Entra tenant.
+- Your workload has a managed identity, or a service principal with its own credentials.
+
+## Configure Entra
+
+<Steps>
+<Step title="Create an app registration for the audience">
+In the Azure portal, create an app registration that stands for KERNEL in your tenant, and give it an Application ID URI of `api://<client ID>`. Note its **Application (client) ID** and your **Directory (tenant) ID**.
+</Step>
+
+<Step title="Find out which token version you get">
+Entra issues v1.0 or v2.0 tokens, and the two have different issuers and audiences:
+
+| | v1.0 | v2.0 |
+| --- | --- | --- |
+| Issuer | `https://sts.windows.net/<tenant ID>/` | `https://login.microsoftonline.com/<tenant ID>/v2.0` |
+| Audience | `api://<client ID>` | The bare client ID |
+
+Tokens are v1.0 unless the app registration sets `requestedAccessTokenVersion` to `2`. Managed identity tokens default to v1.0.
+</Step>
+
+<Step title="Find the workload's object ID">
+Note the **Object (principal) ID** of the managed identity or service principal your workload runs as. The rule pins this ID.
+</Step>
+</Steps>
+
+## Configure KERNEL
+
+<Steps>
+<Step title="Register your tenant as an issuer">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **Microsoft Entra** tile.
+
+- Enter your **Directory (tenant) ID**.
+- Under **Token issuer**, select **v1 (sts.windows.net)** or **v2.0 (login.microsoftonline.com)** to match your tokens.
+- Click **Apply and continue**.
+</Step>
+
+<Step title="Name the workload in a rule">
+Under **Match conditions**:
+
+| Field | What to enter |
+| --- | --- |
+| **Object (principal) ID** | The managed identity or service principal that requests the token. |
+| **Application (client) ID** | The app registration the token is issued for. KERNEL derives the expected audience from it: `api://<client ID>` for a v1 issuer, the bare client ID for a v2.0 issuer. |
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**.
+</Step>
+
+<Step title="Pick a service account and enable">
+Choose or create a service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
+</Step>
+
+<Step title="Allow token reuse if your workload caches tokens">
+Entra tokens are single-use in KERNEL by default. The Azure Identity libraries and managed identity endpoints cache a token and return the same one until it nears expiry, so a second exchange with it is refused.
+
+If your workload gets its token that way, open the **Issuers** tab, select **Edit** on the issuer, and turn off **Enforce single-use tokens (JTI replay protection)**. The token can then be exchanged until it expires.
+</Step>
+</Steps>
+
+## Configure your workload
+
+The SDKs have no built-in Entra source, because the audience is yours. Pass a callback that returns a token for your app registration. These examples use the Azure Identity library and a v1.0 audience:
+
+<CodeGroup>
+```typescript TypeScript
+import { DefaultAzureCredential } from '@azure/identity';
+import Kernel from '@onkernel/sdk';
+import { oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+const azure = new DefaultAzureCredential();
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_q5z1x8c3v6b9n2m4k7j0h3ga',
+    identityTokenProvider: async () =>
+      (await azure.getToken('api://4f6c1a52-9d0e-4b7a-8c3d-2e5f7a9b1c0d/.default')).token,
+  }),
+});
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id);
+```
+
+```python Python
+from azure.identity import DefaultAzureCredential
+from kernel import Kernel, WorkloadIdentityCredentials
+
+azure = DefaultAzureCredential()
+
+
+def entra_token() -> str:
+    return azure.get_token("api://4f6c1a52-9d0e-4b7a-8c3d-2e5f7a9b1c0d/.default").token
+
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=entra_token,
+        federation_rule_id="wifr_q5z1x8c3v6b9n2m4k7j0h3ga",
+    )
+)
+
+browser = client.browsers.create()
+print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	ctx := context.Background()
+
+	azure, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		panic(err)
+	}
+	entraToken := func(ctx context.Context) (string, error) {
+		token, err := azure.GetToken(ctx, policy.TokenRequestOptions{
+			Scopes: []string{"api://4f6c1a52-9d0e-4b7a-8c3d-2e5f7a9b1c0d/.default"},
+		})
+		if err != nil {
+			return "", err
+		}
+		return token.Token, nil
+	}
+
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(entraToken, option.FederationOptions{
+			FederationRuleID: "wifr_q5z1x8c3v6b9n2m4k7j0h3ga",
+		}),
+	)
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID)
+}
+```
+</CodeGroup>
+
+For a v2.0 audience, request the scope `<client ID>/.default` instead.
+
+## What KERNEL accepts
+
+An Entra rule accepts only an application's own token:
+
+- **A token with delegated scopes is refused.** If the token carries an `scp` claim, it was issued to a signed-in user, and it never matches.
+- **The tenant is pinned.** KERNEL adds the issuer's tenant ID to the rule's conditions, so a token from another tenant doesn't match.
+- **Pin the object ID where you can.** A rule that names the object ID (`oid`) needs no extra Entra configuration.
+- **A rule keyed only on a client ID needs `idtyp`.** If you create a rule through the API that names only `appid` or `azp`, KERNEL also requires the token's `idtyp` claim to be `app`. Entra doesn't emit `idtyp` unless you add it as an optional claim on the audience app registration:
+
+  ```bash
+  az ad app update --id 4f6c1a52-9d0e-4b7a-8c3d-2e5f7a9b1c0d \
+    --optional-claims '{"accessToken":[{"name":"idtyp"}]}'
+  ```
+
+  Until you do, that rule rejects every token.
+
+Two more details:
+
+- **Entra's token ID is `uti`.** KERNEL uses it, not `jti`, for single-use checks.
+- **Switching between v1.0 and v2.0 changes both `iss` and `aud`.** If you change the app registration's token version, change the issuer and the rule's expected audience together.
+- **Long-lived tokens need a higher limit.** By default, KERNEL accepts an Entra token only if its lifetime, `exp` minus `iat`, is 7,500 seconds or less. If your tokens live longer, raise **Maximum token lifetime (hours)** on the issuer, up to 24 hours.
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference#microsoft-entra): Microsoft Entra match fields
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)

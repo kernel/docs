@@ -7,6 +7,10 @@ An API key is the credential your server, script, or CI job uses to call Kernel 
 
 Kernel only returns the plaintext key once, when you create it. Save the `key` value immediately. After that, Kernel only shows the masked value.
 
+<Tip>
+**For anything that isn't a person at a keyboard, use [workload identity federation](/info/workload-identity/overview) instead of an API key.** An API key works from anywhere until someone revokes it, so a leaked key is standing access. With federation, a CI job, cloud service, or Kubernetes pod exchanges a token from its own identity provider for a KERNEL access token that lasts five minutes, and there's no secret to store. API keys remain the right tool for local development and for environments with no identity provider. See [API authentication](/info/authentication) to choose.
+</Tip>
+
 ## Before you start
 
 You need one existing Kernel credential to create another API key:
@@ -186,6 +190,18 @@ If you need a credential whose lifetime you control (for CI, a persistent backen
 ## List and inspect API keys
 
 List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key.
+
+The list returns `active` keys by default: keys that are neither deleted nor expired. Pass `status` to see the others, and combine these filters to narrow the list:
+
+| Query parameter | Returns |
+| --- | --- |
+| `status` | `active` (the default), `expired`, `deleted`, or `all`. Expired keys aren't part of `active`. |
+| `principal_type` | `user` for keys that act as a person, or `service_account` for keys that act as a [service account](/info/workload-identity/service-accounts). |
+| `service_account_id` | Keys that belong to one service account. |
+| `created_by` | Keys created by one user ID. |
+| `project_id` | Keys scoped to one project. Use `org` for keys that aren't scoped to a project. |
+
+In the dashboard, filter the list by **Created by**, **Linked account**, and **Project**, and switch between **Active**, **Expired**, and **Deleted**.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -384,6 +400,14 @@ After you rotate a key:
 3. Verify the workload can call Kernel before the grace window ends.
 
 To cut over immediately instead of using a grace window, pass `expire_in_days: 0`. The old key stops working, its associated browsers are ended asynchronously, and unsaved profile changes in those browsers are discarded. With a grace period, existing browsers keep running after the old key expires.
+
+## Service account API keys
+
+A key you create for yourself acts as you. For a workload that can't use [workload identity federation](/info/workload-identity/overview), an organization admin can link a key to a [service account](/info/workload-identity/service-accounts) instead, so the key belongs to the organization and keeps working when its creator leaves.
+
+A service account API key always has one project and an explicit policy, and it can't hold API key permissions. Create one from the dashboard: click **Create API Key**, choose **Continue with an API key**, and pick the service account under **Linked account**. See [Service account API keys](/info/workload-identity/service-accounts#service-account-api-keys).
+
+It's still a stored secret. Prefer federation wherever your workload has an identity provider, and [move existing workloads](/info/workload-identity/migrate-from-api-keys) when you can.
 
 ## Troubleshooting
 

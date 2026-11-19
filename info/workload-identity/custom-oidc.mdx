@@ -1,0 +1,196 @@
+---
+title: "Custom OIDC"
+description: "Federate any identity provider that signs OIDC tokens, including one you run yourself"
+---
+
+If your platform isn't GitHub Actions, AWS, Google Cloud, Microsoft Entra, or Kubernetes, it can still federate as long as it issues signed OIDC tokens. Register it as a custom issuer, tell KERNEL where its public keys are, and write rules against the token's subject and claims.
+
+<Warning>
+A custom issuer is trusted exactly as you configure it. KERNEL can't apply provider-specific checks to an issuer it doesn't know, so the rule you write is the whole boundary. Check the issuer URL and key source, and restrict every rule to specific subjects.
+</Warning>
+
+## What your tokens need
+
+KERNEL accepts a token from a custom issuer when it is:
+
+- A signed JWT, 16 KiB or smaller, using `RS256`, `RS384`, `RS512`, `PS256`, `PS384`, `PS512`, `ES256`, `ES384`, `ES512`, or `EdDSA`.
+- Issued by exactly the registered issuer URL, in the `iss` claim.
+- For exactly one audience, in the `aud` claim, equal to the rule's expected audience.
+- About a non-empty subject, in the `sub` claim.
+- Carrying both `iat` and `exp`, not expired, and with a lifetime no longer than the issuer's maximum.
+- Carrying a `jti` claim, when the issuer is single-use.
+
+## Register the issuer
+
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **Custom OIDC** tile. To register an issuer without creating a rule yet, use **Register issuer** on the **Issuers** tab; the fields are the same.
+
+| Field | What to enter |
+| --- | --- |
+| **Name** | A label, using letters, numbers, and hyphens. |
+| **Issuer URL (iss claim)** | The exact `iss` value in your tokens. It must be an `https` URL with no query string. |
+| **JWKS source** | How KERNEL gets the issuer's public signing keys. See the next table. |
+| **CA certificate** | Optional. PEM-encoded public CA certificates to trust instead of the system roots when fetching discovery and keys. |
+| **Enforce single-use tokens (JTI replay protection)** | On by default. Each token's `jti` can be exchanged once. Turn it off only if your workload must present the same token more than once. |
+| **Maximum token lifetime (hours)** | Tokens whose `exp` minus `iat` exceeds this are refused. The default is 1 hour and the maximum is 24. |
+
+### JWKS source
+
+| Option | Use it when | What KERNEL does |
+| --- | --- | --- |
+| **OIDC discovery** | The issuer serves `/.well-known/openid-configuration`. This is the default. | Reads the discovery document and fetches the key set it names. If discovery lives somewhere other than the issuer URL, set **Discovery base URL**. |
+| **JWKS URL** | The issuer publishes keys but no discovery document. | Fetches the key set from the **JWKS URL** you enter. |
+| **Inline keys** | The issuer isn't reachable from the public internet. | Uses the JSON Web Key Set you paste into **Public keys**. Update it whenever the issuer rotates keys. |
+
+KERNEL fetches keys only over `https` from public internet addresses, and never follows a URL inside a token. A key set holds at most 16 public keys. RSA keys must be at least 2,048 bits.
+
+KERNEL caches an issuer's keys for five minutes. When a token names a key ID that isn't in the cache, KERNEL fetches the key set again, at most once a minute. A rotated key is usually picked up on the first token that uses it.
+
+## Write a rule
+
+Under **Match conditions**, a custom rule needs a subject, a claim condition, or both:
+
+| Field | What to enter |
+| --- | --- |
+| **Subject pattern** | An exact match on the `sub` claim, or a prefix match if the value ends with a single `*`. `spiffe://acme.internal/ci/*` matches every subject that starts with `spiffe://acme.internal/ci/`. |
+| **Additional claim conditions** | Exact matches on other claims. Use a `/` path, such as `/resource_access/kernel/role`, for a nested claim. |
+| **Expected audience** | The `aud` value the token must carry. Leave it blank for `https://auth.onkernel.com`. |
+
+Every condition must hold. Claim conditions compare a claim by its JSON text, so a boolean matches `true` or `false` and a number matches its digits. A condition never matches an object or an array; address an array element by its index, such as `/groups/0`.
+
+Prefer an exact subject. A prefix widens the rule to every subject your issuer can produce under it, including ones created later.
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**. Then pick a service account, create the rule, and enable the issuer and the rule in the **Test** step.
+
+## Supply the token from your workload
+
+The SDK needs a fresh token from your issuer for every exchange. Pick the way that fits how your platform delivers it.
+
+### From a file
+
+If an agent writes the token to a file and keeps it current, set:
+
+```bash
+KERNEL_FEDERATION_RULE_ID=wifr_b4n7m1q8z5x2c9v3k6j0h7da
+KERNEL_IDENTITY_TOKEN_FILE=/run/identity/kernel-token
+```
+
+The SDK reads the file again for every exchange. With a single-use issuer, whatever writes the file must replace the token before each refresh. Otherwise turn off single use on the issuer.
+
+### From a callback
+
+When your code fetches the token itself, pass a callback. It runs once per exchange and must return a newly issued token each time:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+import { oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+async function fetchIdentityToken(audience: string): Promise<string> {
+  const response = await fetch('https://idp.acme.internal/token', {
+    method: 'POST',
+    body: new URLSearchParams({ audience }),
+  });
+  if (!response.ok) throw new Error(`identity provider responded ${response.status}`);
+  return (await response.text()).trim();
+}
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_b4n7m1q8z5x2c9v3k6j0h7da',
+    identityTokenProvider: ({ audience } = {}) =>
+      fetchIdentityToken(audience ?? 'https://auth.onkernel.com'),
+  }),
+});
+```
+
+```python Python
+import httpx
+from kernel import Kernel, WorkloadIdentityCredentials
+
+
+def fetch_identity_token() -> str:
+    response = httpx.post(
+        "https://idp.acme.internal/token",
+        data={"audience": "https://auth.onkernel.com"},
+    )
+    response.raise_for_status()
+    return response.text.strip()
+
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=fetch_identity_token,
+        federation_rule_id="wifr_b4n7m1q8z5x2c9v3k6j0h7da",
+    )
+)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/lib/credentials"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func fetchIdentityToken(ctx context.Context) (string, error) {
+	audience, err := credentials.ResolveAudience(ctx, "")
+	if err != nil {
+		return "", err
+	}
+	form := url.Values{"audience": {audience}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://idp.acme.internal/token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("identity provider responded %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(body)), nil
+}
+
+func main() {
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(fetchIdentityToken, option.FederationOptions{
+			FederationRuleID: "wifr_b4n7m1q8z5x2c9v3k6j0h7da",
+		}),
+	)
+	_ = client
+}
+```
+</CodeGroup>
+
+With `AsyncKernel` in Python, the callback can be an `async def` function.
+
+### From a single token
+
+For a short script, set `KERNEL_IDENTITY_TOKEN` to one token. It's good for exactly one exchange, so the client works until its first access token expires: 300 seconds by default. Use a file or a callback for anything longer.
+
+### Without an SDK
+
+Post the token to the token endpoint yourself. See [Exchange a token without an SDK](/info/workload-identity/overview#exchange-a-token-without-an-sdk).
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference): every issuer and rule field
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)

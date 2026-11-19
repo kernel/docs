@@ -1,0 +1,200 @@
+---
+title: "Google Cloud"
+description: "Authenticate GKE, Cloud Run, and Compute Engine workloads to KERNEL with Google-signed identity tokens"
+---
+
+A workload on Google Cloud runs as a service account, and the metadata server hands it a Google-signed identity token on request. With [workload identity federation](/info/workload-identity/overview), your workload exchanges that token for a KERNEL access token, so there's no `KERNEL_API_KEY` in Secret Manager or your service's environment.
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- Your workload runs with a Google service account attached, on GKE, Cloud Run, Cloud Functions, or Compute Engine.
+- Your workload uses the TypeScript, Python, or Go SDK.
+
+## Find the service account's unique ID
+
+Google's issuer, `https://accounts.google.com`, is shared by every Google Cloud customer. What tells your workload apart is the token's subject: the service account's numeric unique ID. Look it up:
+
+```bash
+gcloud iam service-accounts describe browser-worker@acme-prod.iam.gserviceaccount.com \
+  --format='value(uniqueId)'
+```
+
+The ID is a long number such as `104857600000000000000`. It's also on the service account's details page in the Google Cloud console.
+
+## Configure KERNEL
+
+<Steps>
+<Step title="Register Google as an issuer">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **Google Cloud** tile. Google has one fixed issuer, so there's nothing to enter except an optional **Name**. Click **Apply and continue**.
+
+Trusting Google's issuer accepts no workload by itself. Each rule names the service account it allows.
+</Step>
+
+<Step title="Name the service account in a rule">
+Under **Match conditions**:
+
+| Field | What to enter |
+| --- | --- |
+| **Service account unique ID** | The numeric ID from the previous section. Required. |
+| **Service account email** | Optional. Adds a check on the token's `email` claim. |
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**.
+</Step>
+
+<Step title="Pick a service account and enable">
+Choose or create a KERNEL service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
+</Step>
+</Steps>
+
+## Configure your workload
+
+Set two environment variables on the service, job, or instance:
+
+```bash
+KERNEL_FEDERATION_RULE_ID=wifr_m8c2x5v9b1n4q7z0k3j6h2fa
+KERNEL_IDENTITY_TOKEN_SOURCE=gcp_metadata
+```
+
+Then construct the client with no arguments:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+client = Kernel()
+
+browser = client.browsers.create()
+print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID)
+}
+```
+</CodeGroup>
+
+## What the SDK does
+
+For every exchange, the SDK asks the metadata server for an identity token for the attached service account, with the audience `https://auth.onkernel.com` and `format=full`, then exchanges it at `https://auth.onkernel.com/token`.
+
+To configure the source in code:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+import { identityTokenFromGCPMetadata, oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_m8c2x5v9b1n4q7z0k3j6h2fa',
+    identityTokenProvider: identityTokenFromGCPMetadata(),
+  }),
+});
+```
+
+```python Python
+from kernel import GCPMetadataIdentityToken, Kernel, WorkloadIdentityCredentials
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=GCPMetadataIdentityToken(),
+        federation_rule_id="wifr_m8c2x5v9b1n4q7z0k3j6h2fa",
+    )
+)
+```
+
+```go Go
+package main
+
+import (
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/lib/credentials"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(
+			credentials.GCPMetadata("https://auth.onkernel.com"),
+			option.FederationOptions{FederationRuleID: "wifr_m8c2x5v9b1n4q7z0k3j6h2fa"},
+		),
+	)
+	_ = client
+}
+```
+</CodeGroup>
+
+## What the token looks like
+
+```json
+{
+  "iss": "https://accounts.google.com",
+  "aud": "https://auth.onkernel.com",
+  "azp": "104857600000000000000",
+  "sub": "104857600000000000000",
+  "email": "browser-worker@acme-prod.iam.gserviceaccount.com",
+  "email_verified": true,
+  "iat": 1780000000,
+  "exp": 1780003600
+}
+```
+
+Two details catch people out:
+
+- **A Google identity token lasts 3,600 seconds.** You can't request a shorter one.
+- **It carries no token ID.** With no `jti` claim, KERNEL has nothing to mark as used, so a Google issuer always allows reuse: the same token can be exchanged again until it expires.
+
+<Warning>
+Because a Google identity token can be exchanged repeatedly for up to an hour, treat one like a credential for that hour. Don't log it or pass it between services. Each KERNEL access token it yields still expires after the rule's token lifetime, and disabling the rule stops new exchanges at once.
+</Warning>
+
+## Narrow the rule
+
+The numeric subject already pins one service account. To add more conditions, open **Advanced matching** in the rule and add an **Additional claim condition**.
+
+Claim conditions compare a claim by its JSON text, so a boolean matches the strings `true` and `false`:
+
+| Claim | Expected value | Meaning |
+| --- | --- | --- |
+| `email` | `browser-worker@acme-prod.iam.gserviceaccount.com` | The token names this service account email. |
+| `email_verified` | `true` | Google verified the email. |
+| `/google/compute_engine/project_id` | `acme-prod` | The token came from a Compute Engine instance in this project. This claim is present only on tokens requested with `format=full` from Compute Engine. |
+
+## Tokens from outside Google Cloud
+
+A workload that isn't on Google Cloud compute can still get a Google identity token by impersonating a service account. The `generateIdToken` method of the IAM Credentials API needs only the `roles/iam.serviceAccountOpenIdTokenCreator` role on that service account. `gcloud auth print-identity-token --impersonate-service-account` also needs `roles/iam.serviceAccountTokenCreator`.
+
+Pass the token to the SDK through a [file or a callback](/info/workload-identity/custom-oidc#supply-the-token-from-your-workload), requesting the audience `https://auth.onkernel.com`.
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference#google-cloud): Google Cloud match fields
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)

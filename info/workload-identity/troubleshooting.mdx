@@ -1,0 +1,133 @@
+---
+title: "Troubleshooting Workload Identity"
+sidebarTitle: "Troubleshooting"
+description: "Find out why a token exchange was refused and fix it"
+---
+
+The token endpoint doesn't say why it refused a token. That's deliberate: a caller without valid proof learns nothing about your configuration. This page shows how to find the reason from your side.
+
+## Start here
+
+<Steps>
+<Step title="Read the SDK error">
+The SDK raises a `WorkloadIdentityError` with the HTTP status, the OAuth error code, and a description. Match it against the [table below](#exchange-errors).
+</Step>
+
+<Step title="Check the authentication events">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity** > **Authentication events** and filter by **Rule**.
+
+- **A `failure` event exists.** The token verified and matched the rule, and the reason says what went wrong next.
+- **No event exists.** The token was refused before KERNEL could tie it to your organization: the signature, issuer, audience, expiry, or match conditions didn't hold, or the rule or issuer isn't enabled.
+</Step>
+
+<Step title="Decode the token">
+Print the identity token's claims from inside the workload and compare them with the rule:
+
+```bash
+echo "$IDENTITY_TOKEN" | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null | jq .
+```
+
+Check `iss` against the issuer URL, `aud` against the rule's expected audience, and `sub` and the other claims against the rule's match conditions. Don't paste a live token into a website or a chat.
+</Step>
+</Steps>
+
+## Exchange errors
+
+| Error | Likely cause | Fix |
+| --- | --- | --- |
+| `invalid_grant`: `Credential is invalid, expired, or revoked` | The issuer or the rule is disabled or archived. Both are created disabled. | Enable the issuer, then the rule. A rule can't be enabled while its issuer is disabled. |
+| | The token's `aud` isn't the rule's expected audience. | Request the audience `https://auth.onkernel.com`, or set `KERNEL_IDENTITY_TOKEN_AUDIENCE` to the rule's expected audience. For Microsoft Entra, the audience is your app registration. |
+| | The token's `iss` isn't the issuer URL, character for character. | Compare them, including a trailing slash. Entra v1.0 issuers end in `/`; v2.0 issuers end in `/v2.0`. |
+| | The token doesn't satisfy the rule's match conditions. | Decode the token and compare each condition. See the provider notes below. |
+| | The rule ID belongs to a rule on a different issuer. | Check `KERNEL_FEDERATION_RULE_ID`. |
+| | The token expired, or its lifetime is over the issuer's maximum. | Request a fresh token. If your provider issues long-lived tokens, raise **Maximum token lifetime (hours)** on the issuer. |
+| | The token has more than one audience. | Request a token for one audience. |
+| | The service account is archived. | Point the rule at an active service account. |
+| `invalid_grant`: `Credential was already used` | The identity token was exchanged before, and the issuer is single-use. | Give each exchange a fresh token. See [The same token was sent twice](#the-same-token-was-sent-twice). |
+| `invalid_target`: `Invalid resource parameter` | `resource` isn't `https://api.onkernel.com`. | Remove a trailing slash or a path. With an SDK, don't override `resource`. |
+| `invalid_request`: `Missing required parameter: federation_rule_id` | No rule ID was sent. | Set `KERNEL_FEDERATION_RULE_ID`. |
+| `invalid_request`: `Unsupported workload identity parameter` | The request has a parameter such as `client_id`. | Send only `grant_type`, `assertion`, `federation_rule_id`, and `resource`. |
+| `invalid_request`: `Workload assertion exchange does not accept client authentication` | The request has an `Authorization` header. | Remove it. A proxy or an HTTP client default may be adding one. |
+| `temporarily_unavailable` (`503`) | KERNEL couldn't fetch or use the issuer's signing keys, or had a temporary problem. | Run **Check signing keys** on the issuer. If it reports a problem, fix the key source. Otherwise retry with a fresh token. |
+
+## The same token was sent twice
+
+GitHub Actions and AWS tokens can be exchanged once. Microsoft Entra and custom OIDC tokens can be exchanged once unless you allow reuse. When a token is presented a second time, the SDK's message says where it came from:
+
+| The token came from | What happened | Fix |
+| --- | --- | --- |
+| `KERNEL_IDENTITY_TOKEN_FILE` | The file held the same token as a previous exchange. | Make whatever writes the file replace the token before each refresh. For tokens that are reread by design, such as Kubernetes projected tokens, allow reuse on the issuer. |
+| `KERNEL_IDENTITY_TOKEN` | A static token is good for one exchange. The SDK refuses to send it a second time. | Use a file, a built-in source, or a callback for anything that outlives one access token. |
+| A callback | The callback returned a token it had returned before. | Return a newly issued token on every call. If your identity library caches tokens, as the Azure Identity libraries do, allow reuse on the issuer. |
+| Your own retry loop | A failed request was retried with the same token. | After an ambiguous response such as a timeout, get a fresh token before you retry. |
+
+To allow reuse on a Microsoft Entra, Kubernetes, or custom OIDC issuer, select **Edit** on the issuer and turn off **Enforce single-use tokens (JTI replay protection)**. A reusable token can be exchanged until it expires, so allow reuse only when your token source needs it.
+
+## SDK configuration problems
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The workload authenticates as a person, not a service account. | `KERNEL_API_KEY` is set and wins. The SDK logs a warning that both are set. | Remove `KERNEL_API_KEY` from the workload's environment. |
+| The client reports missing credentials although `KERNEL_FEDERATION_RULE_ID` is set. | The SDK found no identity token source. | Set `KERNEL_IDENTITY_TOKEN_SOURCE`, `KERNEL_IDENTITY_TOKEN_FILE`, or `KERNEL_IDENTITY_TOKEN`. In GitHub Actions, add `permissions: id-token: write` to the workflow or the job. |
+| With `KERNEL_IDENTITY_TOKEN_SOURCE=github_actions`, the SDK says `ACTIONS_ID_TOKEN_REQUEST_URL` isn't set. | The job can't request an identity token. | Add `permissions: id-token: write` to the workflow or the job. |
+| The `aws_sts` source says a package or import is missing. | The AWS SDK is optional. | Install `@aws-sdk/client-sts` 3.935.0 or later, install `kernel[aws]`, or import `github.com/kernel/kernel-go-sdk/lib/credentials/awssts`. |
+| AWS reports access denied on `GetWebIdentityToken`. | The role can't request tokens, or outbound identity federation is off for the account. | Enable it and grant `sts:GetWebIdentityToken`. See [AWS](/info/workload-identity/aws#configure-aws). |
+| The SDK says it can't determine the auth base URL. | The client uses a custom API base URL. | Set `KERNEL_AUTH_BASE_URL` or the auth base URL option. |
+| The identity token file is empty or missing. | The volume isn't mounted, or its projection is wrong. | Check the mount path and the projected token's `audience`. |
+| The SDK says the identity token is too large. | The source points at something that isn't a token, such as a key or a certificate. | Point it at the token. Identity tokens are a few kilobytes. |
+
+## Requests fail after a successful exchange
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `403` with `insufficient_scope` | The rule's policy doesn't grant the action on that resource. | The message names the missing action and resource. Add it to the rule. Operations such as creating a browser need [more than one action](/info/api-key-permissions#operations-that-need-more-than-one-action). |
+| A pool acquire, a deployment, or an invocation is refused | These are [closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do). | Use a personal API key for that part of the workload. |
+| A request that names another project fails | The token is bound to the rule's project. | Create a rule for the other project. |
+| `401` shortly after it worked | The rule, issuer, or service account was disabled, archived, or changed. Issued tokens stop working within about 10 seconds. | Check the **Rules** and **Issuers** tabs. The SDK retries once with a fresh exchange, so a re-enabled rule recovers by itself. |
+| Lists come back empty | List endpoints return only what the policy can access. | Grant the matching read or use action. |
+
+## Provider notes
+
+**GitHub Actions**
+
+- A rule needs a branch or an environment. A job on another branch, or without that environment, doesn't match.
+- `pull_request`, `schedule`, and `release` events aren't allowed unless you add them to **Allowed events**.
+- A rule with a **Workflow** path matches only when the workflow file comes from the same ref the job runs on.
+- The rule pins numeric repository and owner IDs. A repository that was deleted and recreated under the same name has a new ID.
+
+**AWS**
+
+- The subject is the IAM role ARN with its path, such as `arn:aws:iam::123456789012:role/service/browser-worker`.
+- `GetWebIdentityToken` isn't served by the global STS endpoint. The SDKs call the regional endpoint for `AWS_REGION`.
+
+**Google Cloud**
+
+- The subject is the service account's numeric unique ID, not its email.
+- The metadata server returns a token for the service account attached to the workload. Check that it's the one your rule names.
+
+**Microsoft Entra**
+
+- A token with an `scp` claim was issued to a signed-in user and never matches. Use a managed identity or client credentials.
+- v1.0 and v2.0 tokens have different issuers and audiences. Register the issuer version your tokens carry.
+- A rule keyed only on a client ID needs the `idtyp` optional claim. See [Microsoft Entra](/info/workload-identity/microsoft-entra#what-kernel-accepts).
+
+**Kubernetes**
+
+- The default service account token has the wrong audience. Mount a projected token with the audience `https://auth.onkernel.com`.
+- A projected token with `expirationSeconds` over 3,600 exceeds the issuer's default maximum lifetime.
+- KERNEL must reach the cluster's discovery document and keys from the public internet. For a private cluster, [upload the keys](/info/workload-identity/kubernetes#private-clusters).
+
+## Issuer key problems
+
+**Check signing keys** on the **Issuers** tab fetches the issuer's keys and reports the result. When KERNEL can't use the keys for a reason you can fix, it tells you which:
+
+- The key endpoint's address isn't on the public internet.
+- The endpoint returned the wrong status or didn't return JSON.
+- The discovery document names a different issuer than the one you registered.
+- The key set isn't valid or holds an unsupported key.
+
+A timeout or other temporary condition is reported as unavailable. Try again.
+
+## Still stuck
+
+Contact [support](/info/support) with the rule ID, the time of the attempt, and the request ID from the SDK error if there is one. Don't send the identity token or the access token.

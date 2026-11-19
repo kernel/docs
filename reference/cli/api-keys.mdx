@@ -4,6 +4,10 @@ title: "API Keys"
 
 Manage [API keys](/info/api-keys) from the CLI.
 
+<Tip>
+For CI jobs, cloud services, and Kubernetes pods, use [workload identity federation](/info/workload-identity/overview) instead of an API key. There's no secret to store, and the credential expires in minutes. Service accounts, issuers, and federation rules are managed from the dashboard.
+</Tip>
+
 ## `kernel api-keys create`
 
 Create an API key. By default, the new key is org-wide. Pass `--project-id` to create a key whose own access is scoped to that project.
@@ -29,7 +33,7 @@ kernel api-keys create \
 
 ## `kernel api-keys list`
 
-List API keys in the authenticated organization. API keys are masked.
+List API keys in the authenticated organization. API keys are masked. The list shows active keys: keys that are neither deleted nor expired.
 
 ```bash
 kernel api-keys list --limit 20

@@ -1,0 +1,63 @@
+---
+title: "API Authentication"
+description: "Choose how your code authenticates to KERNEL: workload identity federation for workloads, API keys for local development"
+---
+
+Every request to the KERNEL API carries a credential in the `Authorization: Bearer` header. Which credential you use decides how much damage a leak can do.
+
+**Use [workload identity federation](/info/workload-identity/overview) for anything that isn't a person at a keyboard.** A CI job, a cloud service, or a Kubernetes pod already has an identity from its platform. Federation exchanges that identity for a KERNEL access token that lasts five minutes, so there's no long-lived secret to store, rotate, or leak.
+
+## Why federation instead of an API key
+
+A static API key works from anywhere, for anyone who holds it, until someone notices and revokes it. A federated credential doesn't have that failure mode.
+
+| | Static API key | Workload identity federation |
+| --- | --- | --- |
+| **What you store** | A secret, in a CI variable, a secret manager, or an environment file. | Nothing. The rule ID your workload sends isn't a secret. |
+| **Lifetime** | Until it expires or you delete it. Expiry is optional and can be up to 3,650 days. | 300 seconds by default, 600 at most. The SDK exchanges a fresh token before it expires. |
+| **If it leaks** | It works from any machine until you revoke it. | The token stops working within minutes, and nobody can get a new one without your workload's own identity. |
+| **Who can use it** | Anyone who has the string. | Only the workload your federation rule names, such as one repository, workflow, and branch. |
+| **Scope** | Your whole organization or one project. A policy is optional. | Always one project and an explicit policy. |
+| **Rotation** | You rotate it and redeploy every consumer. | Nothing to rotate. |
+| **Turning it off** | Delete the key. | Disable the rule, issuer, or service account. Issued tokens stop working within about 10 seconds. |
+| **Attribution** | The person who created the key, or a service account. | A named service account, with a record of each token it was issued. |
+
+## Which one to use
+
+| Your code runs in | Use |
+| --- | --- |
+| A GitHub Actions workflow | [Federation with GitHub Actions](/info/workload-identity/github-actions) |
+| AWS (ECS, Lambda, EC2) | [Federation with AWS](/info/workload-identity/aws) |
+| Google Cloud (GKE, Cloud Run, Compute Engine) | [Federation with Google Cloud](/info/workload-identity/google-cloud) |
+| Azure, with a managed identity or an app registration | [Federation with Microsoft Entra](/info/workload-identity/microsoft-entra) |
+| A Kubernetes cluster | [Federation with Kubernetes](/info/workload-identity/kubernetes) |
+| Any other platform that issues OIDC tokens | [Federation with a custom OIDC issuer](/info/workload-identity/custom-oidc) |
+| A server or tool with no identity provider | A [service account API key](/info/workload-identity/service-accounts#service-account-api-keys), limited to one project and an explicit policy |
+| Your laptop, while you develop | `kernel login` for the [CLI](/reference/cli/auth), or a personal [API key](/info/api-keys) with a short expiry for the SDKs |
+| A KERNEL app deployment | The [deployment key](/info/api-keys#deployment-api-keys) KERNEL injects for you |
+| An MCP client such as Claude or Cursor | [OAuth](/reference/mcp-server/authentication) |
+
+## When an API key is still the right tool
+
+API keys aren't going away, and some jobs need one:
+
+- **Local development.** Your laptop has no workload identity. Sign in with `kernel login`, or create a personal key with a short expiry.
+- **Environments with no identity provider.** A VM at a host that issues no OIDC tokens, or a third-party tool that only accepts a key, can't federate. Give it a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys) so the key belongs to your organization, not to the person who created it.
+- **Access across projects.** A federation rule covers one project. A task that needs every project in your organization at once needs an organization-scoped key.
+- **Features closed to service accounts.** Acquiring a browser from a [pool](/browsers/pools), deploying or invoking [apps](/apps/deploy), and managing API keys aren't available to federated credentials. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
+
+If you already run workloads on API keys, [move them to federation](/info/workload-identity/migrate-from-api-keys) one at a time. Both credentials work side by side while you switch.
+
+## Next steps
+
+<Columns className="responsive-columns" cols={3}>
+  <Card title="Workload identity federation" icon="fingerprint" href="/info/workload-identity/overview">
+    How the exchange works, and how to connect your first workload.
+  </Card>
+  <Card title="Move off API keys" icon="right-left" href="/info/workload-identity/migrate-from-api-keys">
+    Switch an existing workload without downtime.
+  </Card>
+  <Card title="API keys" icon="key" href="/info/api-keys">
+    Create, scope, rotate, and delete keys.
+  </Card>
+</Columns>
