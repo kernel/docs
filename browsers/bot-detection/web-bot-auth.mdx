@@ -35,6 +35,40 @@ WBA uses HTTP message signatures to identify the signer of a request. The extens
 
 Platforms like [Vercel](https://bots.fyi/) or other hosting providers can verify these signatures against your public key, confirming the signing identity before applying their access policies.
 
+## Transitive trust with the Forwarded header
+
+Cloudflare's WBA implementation also defines [transitive trust](https://developers.cloudflare.com/bots/reference/bot-verification/web-bot-auth/#transitive-trust-and-the-forwarded-header): the RFC 7239 `Forwarded` header carries the operator identity behind a request, for example:
+
+```
+Forwarded: for="openai";use="reference"
+```
+
+On WBA-signed requests, Kernel forwards a `Forwarded` header you set to the origin unchanged:
+
+- With **KERNEL's WBA token**, the header is included in the signature's covered components, so the identity it carries is cryptographically bound to the signed request.
+- With **your own keys**, add `forwarded` to your extension's covered components so your signature vouches for the value.
+
+Chrome never sends `Forwarded` on its own, so set it from your automation code with CDP extra headers to attach it to every request from the context:
+
+<CodeGroup>
+```typescript TypeScript
+const context = pw.contexts()[0];
+
+// Attach the operator identity to every request from this context
+await context.setExtraHTTPHeaders({ Forwarded: 'for="openai";use="reference"' });
+```
+
+```python Python
+context = pw.contexts[0]
+
+# Attach the operator identity to every request from this context
+context.set_extra_http_headers({"Forwarded": 'for="openai";use="reference"'})
+```
+
+</CodeGroup>
+
+On requests that aren't WBA-signed, Kernel strips `Forwarded` like other proxy-revealing headers, because real browsers never send it.
+
 ## Quick start with test key
 
 To try WBA signature verification, build an extension with the test key and visit the [test verification site](https://http-message-signatures-example.research.cloudflare.com/).
