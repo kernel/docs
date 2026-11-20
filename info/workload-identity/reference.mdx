@@ -249,7 +249,7 @@ An issuer (`wii_...`) registers one identity provider.
 | `issuer_url` | The exact `iss` value expected in tokens. An `https` URL with no query string. Optional for `github_actions` and `google_cloud`, which each have one fixed issuer. |
 | `preset_type` | The provider type. See the next table. Defaults to the type the issuer URL belongs to, or `custom_oidc`. |
 | `jwks` | Where the public signing keys come from. See [Key sources](#key-sources). |
-| `token_validation.max_lifetime_seconds` | The longest lifetime, `exp` minus `iat`, an incoming token can have. 1 to 86,400. Defaults to 3,600, or 7,500 for `microsoft_entra`. |
+| `token_validation.max_lifetime_seconds` | The longest lifetime, `exp` minus `iat`, an incoming token can have. 1 to 172,800 (48 hours). Defaults to 3,600, or 7,500 for `microsoft_entra`. Set 90,000 (25 hours) for Azure managed identity tokens. |
 | `token_validation.replay_protection` | `single_use` or `allow_reuse`. See the next table. |
 | `enabled` | Defaults to `false`. Enabling an issuer checks that its keys can be fetched. |
 
@@ -509,7 +509,7 @@ Every resource has a `security_version` that increases when a change affects wha
 | --- | --- |
 | Access token lifetime | 300 seconds by default; 1 to 600 |
 | Identity token size | 16 KiB |
-| Identity token lifetime (`exp` minus `iat`) | 3,600 seconds by default, 7,500 for Microsoft Entra; up to 86,400 |
+| Identity token lifetime (`exp` minus `iat`) | 3,600 seconds by default, 7,500 for Microsoft Entra; up to 172,800 |
 | Clock difference allowed | 30 seconds |
 | Projects per rule | 1 |
 | Policy statements per rule | 1 to 256 |
