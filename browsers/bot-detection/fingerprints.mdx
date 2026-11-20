@@ -1,0 +1,173 @@
+---
+title: "Browser Fingerprints"
+description: "Choose the operating system identity a browser session presents to websites"
+---
+
+The `fingerprint` option sets the operating system a browser session reports to websites. Kernel applies one consistent identity for that OS across the attributes sites commonly read, instead of leaving you to override them one by one.
+
+Use it when a target site behaves differently for macOS and Linux visitors, or when you want the browser's OS identity stated explicitly and kept stable for the whole session. If you omit `fingerprint`, the browser keeps Kernel's default behavior.
+
+<Warning>
+Browser fingerprints are in closed beta. To enable them for your organization, [contact support](mailto:support@kernel.sh) with your use case and the websites you want to access. Requests from organizations that aren't enabled return a `fingerprint_disabled` error.
+</Warning>
+
+## Set a fingerprint
+
+Pass `fingerprint.os` when you create the browser, together with the CAPTCHA solver:
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const kernelBrowser = await kernel.browsers.create({
+  fingerprint: { os: 'macos' },
+  captcha_solver: { enabled: true },
+});
+
+console.log(kernelBrowser.fingerprint?.os); // "macos"
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+kernel_browser = kernel.browsers.create(
+    fingerprint={"os": "macos"},
+    captcha_solver={"enabled": True},
+)
+
+print(kernel_browser.fingerprint.os if kernel_browser.fingerprint else None)  # "macos"
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	kernelBrowser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
+		Fingerprint:   kernel.BrowserFingerprintParam{Os: kernel.BrowserFingerprintOsMacos},
+		CaptchaSolver: kernel.BrowserCaptchaSolverParam{Enabled: true},
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(kernelBrowser.Fingerprint.Os) // "macos"
+}
+```
+
+```bash CLI
+kernel browsers create --captcha-solver --fingerprint-os macos
+```
+</CodeGroup>
+
+Both `os` values need SDK `0.150.0` or later and CLI `v0.53.0` or later.
+
+`captcha_solver` on its own doesn't select a proxy, so the browser uses direct egress unless you attach a [proxy](/proxies/overview). [`stealth: true`](/browsers/bot-detection/stealth) also satisfies the requirement: it enables the CAPTCHA solver and routes the session through Kernel's default stealth proxy.
+
+## Supported values
+
+| `os` | Identity the browser presents |
+|------|-------------------------------|
+| `linux` | The native Linux identity of Kernel's browsers, stated explicitly and kept stable for the session. |
+| `macos` | A Chrome on macOS (Apple silicon) identity. |
+
+`linux` is enabled separately from `macos` during the beta. If your organization has fingerprint access but a `linux` request returns `fingerprint.os linux is not enabled for this organization`, ask support to enable it.
+
+## What a fingerprint covers
+
+With `os: "macos"`, Kernel sets these attributes to match Chrome on macOS:
+
+- User agent and user agent client hints
+- `navigator.platform`
+- Hardware concurrency and device memory
+- WebGL vendor, renderer, and capabilities
+- System colors
+- The OS font set
+- Canvas output for common fingerprinting draws
+
+With `os: "linux"`, the browser keeps its native Linux values for these attributes.
+
+The browser reports the same identity in the page, in iframes, in workers, and in request headers. It persists across navigations and across browser restarts within the session.
+
+## Requirements
+
+A browser created with `fingerprint` must:
+
+- Be headful (`headless: false`, the default)
+- Not use [GPU acceleration](/browsers/gpu-acceleration)
+- Use the default `memory`
+- Have the CAPTCHA solver enabled, with `captcha_solver: { enabled: true }` or `stealth: true`
+
+You can combine `fingerprint` with a [proxy](/proxies/overview) and with a [profile](/browsers/profiles).
+
+## Read the fingerprint back
+
+The browser object returned by the API includes the session's `fingerprint`, for example when you create, retrieve, or list browsers. Treat the field as optional: it's omitted for sessions created without a fingerprint, and during the beta some `macos` sessions don't report it yet.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+const session = await kernel.browsers.retrieve(kernelBrowser.session_id);
+
+console.log(session.fingerprint?.os); // "macos"
+```
+
+```python Python
+session = kernel.browsers.retrieve(kernel_browser.session_id)
+
+print(session.fingerprint.os if session.fingerprint else None)  # "macos"
+```
+
+```go Go
+session, err := client.Browsers.Get(ctx, kernelBrowser.SessionID, kernel.BrowserGetParams{})
+if err != nil {
+	panic(err)
+}
+fmt.Println(session.Fingerprint.Os) // "macos"
+```
+
+```bash CLI
+kernel browsers get <session-id> -o json
+```
+</CodeGroup>
+
+```json
+{
+  "fingerprint": {
+    "os": "macos"
+  }
+}
+```
+
+## Limitations
+
+- **Closed beta.** Your organization must be enabled before the API accepts `fingerprint`.
+- **Fixed for the session.** You set the fingerprint at creation. You can't add, change, or remove it on a running browser; create a new session instead.
+- **`macos` is an emulated identity.** Kernel browsers run on Linux infrastructure, and some sites can still tell the difference, so results vary by site. Test against your target site and compare with a browser created without `fingerprint` before you adopt it.
+- **Not available on browser pools.** [Browser pools](/browsers/pools) don't support `fingerprint`, and browsers acquired from a pool don't have one. Create the browser directly instead.
+- **Profiles don't carry a fingerprint.** A [profile](/browsers/profiles) saved from a fingerprint session loads normally in later sessions, but those sessions only get a fingerprint if you request one again.
+
+## Errors
+
+Requests that can't be served with a fingerprint fail instead of falling back to the default browser.
+
+| Status | Code | Message | What to do |
+|--------|------|---------|------------|
+| 400 | `fingerprint_disabled` | `fingerprint configuration is in closed beta; contact Kernel to enable it for your organization` | Contact support to join the beta. |
+| 400 | `invalid_fingerprint` | `fingerprint.os linux is not enabled for this organization` | Ask support to enable `linux`, or use `macos`. |
+| 400 | `invalid_fingerprint` | `fingerprint.os must be macos or linux` | Send `macos` or `linux`. Values are case-sensitive. |
+| 400 | `invalid_fingerprint` | `fingerprint requires captcha_solver.enabled=true during the closed beta` | Enable the CAPTCHA solver or `stealth`. |
+| 400 | `invalid_fingerprint` | `fingerprint requires a headful, non-GPU browser with default memory` | Omit `headless` and `gpu` or set them to `false`, and omit `memory`. |
+| 500 | `fingerprint_apply_failed` | `failed to apply the requested fingerprint to the browser` | Retry the request. If it keeps failing, contact support. |
+| 529 | `capacity_exhausted` | Varies | No browser that supports the fingerprint is available right now. Retry later. |
