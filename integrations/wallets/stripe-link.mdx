@@ -485,7 +485,7 @@ kernel vaults items get user-12345 notebook-order --wait 60 -o json
 
 </CodeGroup>
 
-`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 500000, but a virtual card allows at most 50000. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
+`amount` uses minor currency units, so `2306` means 23.06 usd. link accepts values from 1 to 50000, whichever credential it issues. creating or updating a card with a larger amount returns `400`. `context` must contain at least 100 characters. card creation is live-only, and `spec.test` is not supported.
 
 until you authorize the card at a checkout, you can change its spec with an update. after that, updates return `409`: delete the card and create a new one with the updated details.
 
@@ -496,7 +496,6 @@ authorization fixes how link delivers the credential:
 | | link pay token | virtual card |
 | --- | --- | --- |
 | when KERNEL chooses it | the checkout is a stripe checkout that exposes link's agent payment tools | any other checkout |
-| amount limit | 500000 minor units | 50000 minor units |
 | what `fill` does | passes a short-lived token to the checkout's link tools; the checkout shows link as the payment method | writes the card number, cvc, expiry, and requested billing fields into the inputs you select |
 | where `fill` works | pages on the origin of the checkout you authorized at, for the stripe account the user approved | pages on the origin of the checkout you authorized at |
 
@@ -515,7 +514,6 @@ these errors happen before any payment request is created, so the card stays `re
 | `page_not_found` | open the checkout in the browser at exactly `page_url`, then authorize again |
 | `ambiguous_page` | close extra tabs so exactly one is at `page_url`, then authorize again |
 | `browser_not_found`, `browser_unavailable`, `destination_denied`, `timeout`, `browser_error` | make sure the browser exists in this project, is leased, has the vault attached, and isn't busy with another fill, and that the checkout is open in exactly one tab, then authorize again |
-| `invalid_request` for the amount | the checkout needs a virtual card and the amount exceeds 50000. delete the card and tell the user this checkout can't be paid with a link virtual card; don't lower the amount of a confirmed purchase |
 
 if the user declines or the request expires, delete the card and create a new one. once approval has been requested, `{"type":"authorize"}` only re-checks the request and never creates another payment request.
 
@@ -691,7 +689,7 @@ the default link client is `{type: 'kernel_managed'}`. for your own client, set
 `authorization.client` to `{type: 'customer_managed', provider_config: {name: 'checkout-link'}}`
 and supply `authorization.tokens` with `access_token` and `refresh_token`.
 
-`amount` uses minor currency units. link accepts 1–500000, and a virtual card allows at most 50000. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. the card item's `expires_at` comes from link: the spend request's expiry, or the issued virtual card's validity. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
+`amount` uses minor currency units. link accepts 1–50000 for both link pay tokens and virtual cards. link requires a three-letter `currency`, limits `merchant_name` to 255 characters, requires an absolute http or https `merchant_url`, and requires at least 100 characters in `context`. the card item's `expires_at` comes from link: the spend request's expiry, or the issued virtual card's validity. when link reports no expiry for a link pay token request, `fill` stays available for 30 minutes after authorization, including the time the user takes to approve.
 
 link `line_items` support `name`, `quantity`, `unit_amount`, `description`, `sku`, `url`, `image_url`, `product_url`, and `totals`. each `totals` entry supports `type`, `display_text`, and `amount`. link `metadata` accepts string values.
 
