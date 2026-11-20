@@ -249,7 +249,7 @@ An issuer (`wii_...`) registers one identity provider.
 | `issuer_url` | The exact `iss` value expected in tokens. An `https` URL with no query string. Optional for `github_actions` and `google_cloud`, which each have one fixed issuer. |
 | `preset_type` | The provider type. See the next table. Defaults to the type the issuer URL belongs to, or `custom_oidc`. |
 | `jwks` | Where the public signing keys come from. See [Key sources](#key-sources). |
-| `token_validation.max_lifetime_seconds` | The longest lifetime, `exp` minus `iat`, an incoming token can have. 1 to 172,800 (48 hours). Defaults to 3,600, or 7,500 for `microsoft_entra`. Azure managed identity tokens need at least 86,700. |
+| `token_validation.max_lifetime_seconds` | The longest lifetime, `exp` minus `iat`, an incoming token can have. 1 to 172,800 (48 hours). Defaults to 3,600, or 7,500 for `microsoft_entra`. Set 90,000 (25 hours) for Azure managed identity tokens. |
 | `token_validation.replay_protection` | `single_use` or `allow_reuse`. See the next table. |
 | `enabled` | Defaults to `false`. Enabling an issuer checks that its keys can be fetched. |
 

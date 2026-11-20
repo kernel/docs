@@ -62,7 +62,7 @@ Under **Authorization**, choose the **Project**, the **Permissions**, and the **
 Choose or create a service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
 </Step>
 
-<Step title="Allow token reuse if your workload caches tokens">
+<Step title="Adjust the issuer for cached or long-lived tokens">
 Entra tokens are single-use in KERNEL by default. The Azure Identity libraries and managed identity endpoints cache a token and return the same one until it nears expiry, so a second exchange with it is refused.
 
 If your workload gets its token that way, open the **Issuers** tab, select **Edit** on the issuer, and turn off **Enforce single-use tokens (JTI replay protection)**. The token can then be exchanged until it expires.
