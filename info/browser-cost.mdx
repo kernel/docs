@@ -1,0 +1,82 @@
+---
+title: "Browser Cost Estimates"
+sidebarTitle: "Browser Cost Estimates"
+description: "Get a provisional estimate of what a browser session has cost so far"
+---
+
+You can ask Kernel what a single browser session has cost so far, priced at your organization's current contract rate. Use it to attribute usage to your own customers or jobs, or to show a running total in your product, without calculating it from uptime and published rates yourself.
+
+The estimate is provisional. It covers the session's browser usage at your current rate before credits, commitments, subscription fees, tax, and other invoice adjustments, so it can differ from what appears on your invoice. Use your invoice for billing reconciliation.
+
+## Request a cost estimate
+
+Cost isn't included by default. Pass `include_cost` when you retrieve a browser. To get the cost of a browser you've already deleted, also pass `include_deleted`.
+
+<CodeGroup>
+```typescript Typescript/Javascript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.retrieve('htzv5orfit78e1m2biiifpbv', {
+  include_cost: true,
+  include_deleted: true,
+});
+
+if (browser.cost?.status === 'provisional') {
+  console.log(`Estimated cost: $${browser.cost.estimated_usage_spend_usd} as of ${browser.cost.as_of}`);
+} else {
+  console.log(`Cost is ${browser.cost?.status}`);
+}
+```
+
+```python Python
+from kernel import Kernel
+
+kernel = Kernel()
+
+browser = kernel.browsers.retrieve(
+    "htzv5orfit78e1m2biiifpbv",
+    include_cost=True,
+    include_deleted=True,
+)
+
+if browser.cost and browser.cost.status == "provisional":
+    print(f"Estimated cost: ${browser.cost.estimated_usage_spend_usd} as of {browser.cost.as_of}")
+else:
+    print(f"Cost is {browser.cost.status if browser.cost else 'not included'}")
+```
+</CodeGroup>
+
+`include_cost` is only available when you retrieve a single browser. List responses and other browser responses don't include `cost`. Retrieving a browser without `include_cost` returns no `cost` object and skips the extra work, so only request it when you need it.
+
+## The `cost` object
+
+| Field | Description |
+| --- | --- |
+| `status` | `provisional`, `pending`, or `unavailable`. See [Statuses](#statuses). |
+| `estimated_usage_spend_usd` | The estimate in US dollars, as a decimal string such as `"0.48"`. Only present when `status` is `provisional`. A session with no billable usage returns `"0"`. |
+| `as_of` | When the usage behind the estimate was measured. A running session keeps adding usage after this time. |
+
+The amount is a decimal string so small amounts keep their precision. Parse it with a decimal type if you add amounts together.
+
+### Statuses
+
+| Status | Meaning | What to do |
+| --- | --- | --- |
+| `provisional` | The estimate is ready. | Read `estimated_usage_spend_usd` and `as_of`. |
+| `pending` | Usage or rates aren't ready yet. For example, a deleted browser whose final usage hasn't been recorded, or a running browser whose uptime couldn't be read just now. | Retrieve the browser again after a few seconds. |
+| `unavailable` | The session can't be priced. Your contract's browser rate isn't a flat per-unit rate, or Kernel couldn't load it. | Use your invoice and usage reports for this session's cost. |
+
+## How the estimate is calculated
+
+Kernel prices browser usage per GB-second: the time the browser is running, multiplied by its memory allocation, at your contract's browser usage rate. The allocation is the browser's `memory` field, for example `1GiB` for a default headless browser or `8GiB` for a default headful one. Time in [standby](/browsers/standby) isn't billed, so it isn't included. [GPU browsers](/browsers/gpu-acceleration) are billed for the session's full lifetime.
+
+A headful browser that runs for one hour at the published rate of $0.0000166667 per GB-second is estimated at about $0.48 (8 GB × 3,600 seconds). See [Pricing](/info/pricing) for published rates.
+
+The estimate uses your organization's current contract rate, including any discount negotiated in your contract. If your contract's browser rate is anything other than a flat per-unit rate, such as tiered or percentage pricing, the status is `unavailable` instead of an estimate that might be wrong.
+
+## Running and deleted browsers
+
+- **Running browsers:** the estimate reflects uptime up to `as_of`, which is at most 15 seconds old. Retrieving the browser again returns a newer amount. If Kernel can't read the browser's current uptime, the status is `pending`.
+- **Deleted browsers:** right after you delete a browser, the status is `pending` until its final usage is recorded, usually within a few seconds. After that, the estimate covers the session's whole lifetime and doesn't change unless your contract rate does.
