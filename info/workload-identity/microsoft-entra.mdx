@@ -66,6 +66,8 @@ Choose or create a service account, click **Create rule**, then turn on the issu
 Entra tokens are single-use in KERNEL by default. The Azure Identity libraries and managed identity endpoints cache a token and return the same one until it nears expiry, so a second exchange with it is refused.
 
 If your workload gets its token that way, open the **Issuers** tab, select **Edit** on the issuer, and turn off **Enforce single-use tokens (JTI replay protection)**. The token can then be exchanged until it expires.
+
+A managed identity token lives a little over 24 hours: `exp` minus `iat` is about 86,700 seconds. On the same issuer, set **Maximum token lifetime (hours)** to 25. Without it, KERNEL refuses every managed identity token, because the default limit for Entra is 7,500 seconds.
 </Step>
 </Steps>
 
@@ -182,7 +184,7 @@ Two more details:
 
 - **Entra's token ID is `uti`.** KERNEL uses it, not `jti`, for single-use checks.
 - **Switching between v1.0 and v2.0 changes both `iss` and `aud`.** If you change the app registration's token version, change the issuer and the rule's expected audience together.
-- **Long-lived tokens need a higher limit.** By default, KERNEL accepts an Entra token only if its lifetime, `exp` minus `iat`, is 7,500 seconds or less. If your tokens live longer, raise **Maximum token lifetime (hours)** on the issuer, up to 24 hours.
+- **Long-lived tokens need a higher limit.** By default, KERNEL accepts an Entra token only if its lifetime, `exp` minus `iat`, is 7,500 seconds or less. If your tokens live longer, raise **Maximum token lifetime (hours)** on the issuer, up to 48 hours. Managed identity tokens need 25 hours.
 
 ## Next steps
 
