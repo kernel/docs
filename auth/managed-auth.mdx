@@ -131,7 +131,8 @@ if authenticated {
 ```typescript TypeScript
 const browser = await kernel.browsers.create({
   profile: { name: 'netflix-user-123' },
-  stealth: true,
+  captcha_solver: { enabled: true },
+  proxy: { mode: 'default' },
 });
 
 // Navigate with the saved authentication state
@@ -141,7 +142,8 @@ await page.goto('https://netflix.com');
 ```python Python
 browser = await kernel.browsers.create(
     profile={"name": "netflix-user-123"},
-    stealth=True,
+    captcha_solver={"enabled": True},
+    proxy={"mode": "default"},
 )
 
 # Navigate with the saved authentication state
@@ -153,7 +155,12 @@ browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
 	Profile: shared.BrowserProfileParam{
 		Name: kernel.String("netflix-user-123"),
 	},
-	Stealth: kernel.Bool(true),
+	CaptchaSolver: kernel.BrowserCaptchaSolverParam{
+		Enabled: true,
+	},
+	Proxy: kernel.BrowserProxyConfigParam{
+		Mode: kernel.BrowserProxyModeDefault,
+	},
 })
 if err != nil {
 	panic(err)

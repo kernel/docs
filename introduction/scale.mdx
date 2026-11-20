@@ -82,7 +82,8 @@ const kernel = new Kernel();
 async function processTask(taskData: any) {
   // Create browser with extended timeout for long tasks
   const session = await kernel.browsers.create({
-    stealth: true,
+    captcha_solver: { enabled: true },
+    proxy: { mode: 'default' },
     timeout_seconds: 3600, // Destroy browser after 1 hour of inactivity
   });
 
@@ -131,7 +132,8 @@ async function initializePool() {
     name: POOL_NAME,
     size: 25, // Balance cost and availability
     timeout_seconds: 300, // Destroy browsers after 5 minutes of inactivity
-    stealth: true,
+    captcha_solver: { enabled: true },
+    // Add proxy_id for proxy egress; CAPTCHA solving doesn't select one.
     headless: false, // headless: true for cost savings if no live view needed
   });
 }

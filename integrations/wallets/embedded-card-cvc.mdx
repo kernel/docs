@@ -7,6 +7,8 @@ Alias-mode purchases with a KERNEL wallet (`provider: "kernel"`) require a fresh
 
 The cardholder enters the code in a secure hosted field. Your page, your servers, and KERNEL never receive the raw CVC. KERNEL receives a temporary alias bound to this purchase. The component doesn't collect a card number, enroll a wallet, or submit merchant checkout.
 
+Authorize the purchase with the paying browser's `browser_id` before that browser opens the payment step; don't send `page_url`. The browser must have the purchase's vault attached. After CVC collection, retrieve the purchase until `fill` is advertised before opening the payment step. This lets an Evervault-backed card route the browser through the card vault's proxy as soon as collection finishes instead of waiting for the first fill.
+
 <Note>
   Use this component only for the CVC action whose URL points to `/card-cvc` on
   your configured KERNEL vault origin. Other spend approvals, including Visa

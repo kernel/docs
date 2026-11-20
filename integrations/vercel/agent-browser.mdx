@@ -74,7 +74,10 @@ import Kernel from '@onkernel/sdk';
 import { execSync } from 'child_process';
 
 const kernel = new Kernel();
-const browser = await kernel.browsers.create({ stealth: true });
+const browser = await kernel.browsers.create({
+  captcha_solver: { enabled: true },
+  proxy: { mode: 'default' },
+});
 
 console.log("Live view url:", browser.browser_live_view_url);
 
@@ -94,7 +97,10 @@ import subprocess
 from kernel import Kernel
 
 kernel = Kernel()
-browser = kernel.browsers.create(stealth=True)
+browser = kernel.browsers.create(
+    captcha_solver={"enabled": True},
+    proxy={"mode": "default"},
+)
 
 print(f"Live view url: {browser.browser_live_view_url}")
 

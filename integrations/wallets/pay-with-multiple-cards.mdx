@@ -165,6 +165,8 @@ on a `card` item, omitting `payment_method_id` selects the default card `card` a
 
 a KERNEL purchase can also be a `payment_request` item where they're enabled for your organization; [contact support](/info/support) to enable them. a `payment_request` takes the same spec as a `card` item with `provider: "kernel"` and supports the same operations, including `authorize`, `fill`, and `confirm_transaction`. its `payment_method_id` is required and must name an `active` method that's eligible to pay. neither type is deprecated. updates to a `payment_request` item must set `type: "payment_request"`.
 
+the example assumes `kernelBrowser` / `kernel_browser` has this vault attached. pass its session id to `authorize` without `page_url`, using the timing described in [make a purchase](/integrations/wallets/pay-with-card#make-a-purchase).
+
 <CodeGroup>
 
 ```typescript TypeScript
@@ -195,6 +197,7 @@ let purchase = await kernel.vaults.items.upsert("notebook-order", {
 const authorized = await kernel.vaults.items.performOperation(purchase.key, {
   id_or_name: vault.id,
   type: "authorize",
+  browser_id: kernelBrowser.session_id,
 });
 if (authorized.type !== "card") {
   throw new Error("unexpected operation response");
@@ -240,6 +243,7 @@ authorized = kernel.vaults.items.perform_operation(
     purchase.key,
     id_or_name=vault.id,
     type="authorize",
+    browser_id=kernel_browser.session_id,
 )
 # visa: show authorized.action.url (spend_approval) to the cardholder, then wait for ready
 purchase = kernel.vaults.items.retrieve(purchase.key, id_or_name=vault.id, wait=60)

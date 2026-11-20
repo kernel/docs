@@ -221,12 +221,16 @@ step 2, a connected wallet in the same vault, and this browser session.
 
 #### Create and authorize the purchase
 
-a purchase using the user's own card is approved before checkout, so `authorize` takes no
-browser or page parameters. authorize once the agent reaches the final checkout
-page: the one-time security code expires shortly after it's issued.
+a purchase using the user's own card is approved before checkout. call `authorize`
+with the paying browser's `browser_id`, but don't send `page_url`; the browser must
+have this vault attached. authorize after verifying the purchase and shortly before
+payment input because a one-time security code expires soon after issuance. for an
+alias-mode card that collects a fresh CVC, authorize before the browser opens the
+payment step, then wait for `fill` before opening it so KERNEL can route that browser
+through the card vault's proxy as soon as collection finishes.
 
 1. [create a `card` item](/integrations/wallets/pay-with-card#make-a-purchase) named `notebook-order` from the verified purchase. set `payment_method_id` to the `id` of an `active`, eligible card from the wallet's [`payment_methods` expansion](/integrations/wallets/pay-with-multiple-cards#list-payment-methods). set `merchant_url` to the top-level checkout page's url. `fill` writes only on that url's exact origin, so a checkout hosted on another domain needs that domain's url. visa cards also require `merchant_country`. `card` items with `provider: "kernel"` can't be updated; to change the purchase, delete the item and create a new one.
-2. require `authorize` in `available_operations` and invoke it, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/pay-with-card#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
+2. require `authorize` in `available_operations` and invoke it with `browser_id`, then present any returned `spend_approval` action through your controller. visa cards use it for the cardholder's approval, and [cards without network tokens](/integrations/wallets/pay-with-card#make-a-purchase) use it to collect a fresh security code. supported mastercard cards return no action.
 3. wait for the card to become `ready`. a `wait` read holds for at most 60 seconds, so keep retrieving while it's `pending_authorization`; the cardholder has up to 30 minutes to use the approval link.
 
 <CodeGroup>
@@ -253,6 +257,7 @@ if (!created.available_operations.some(({ type }) => type === "authorize")) {
 const authorized = await kernel.vaults.items.performOperation(created.key, {
   id_or_name: vault.id,
   type: "authorize",
+  browser_id: browser.session_id,
 });
 if (authorized.type !== "card") throw new Error("unexpected operation response");
 if (authorized.action && "url" in authorized.action) {
@@ -301,6 +306,7 @@ authorized = kernel.vaults.items.perform_operation(
     created.key,
     id_or_name=vault.id,
     type="authorize",
+    browser_id=browser.session_id,
 )
 if authorized.type != "card":
     raise RuntimeError("unexpected operation response")
@@ -330,7 +336,9 @@ kernel vaults cards create user-12345 notebook-order \
     "merchant_url": "https://shop.example.com/checkout",
     "merchant_country": "US"
   }'
-kernel vaults items invoke user-12345 notebook-order authorize --open
+# BROWSER_ID is the attached browser's session ID.
+kernel vaults items invoke user-12345 notebook-order authorize \
+  --browser-id "$BROWSER_ID" --open
 kernel vaults items get user-12345 notebook-order --wait 60 -o json
 ```
 
@@ -1009,19 +1017,20 @@ card.
    wait for my explicit confirmation, then freeze that verified purchase object.
 7. list the wallet's payment methods and ask me which `active` card with
    `eligible` set to true to use. if none is eligible, stop and ask me to add a
-   card outside this agent. with the browser on the final checkout page, create
-   a `card` item named `checkout-card` from that same verified, confirmed object,
-   with the selected card's id as `payment_method_id`. use the exact
-   current top-level checkout url as `merchant_url` and include
-   `merchant_country`. `card` items with `provider: "kernel"` can't be updated; if a value is wrong,
-   stop and ask me.
+   card outside this agent. once the exact current top-level checkout url is
+   known, but before opening the payment step, create a `card` item named
+   `checkout-card` from that same verified, confirmed object, with the selected
+   card's id as `payment_method_id`. use that checkout url as `merchant_url` and
+   include `merchant_country`. `card` items with `provider: "kernel"` can't be
+   updated; if a value is wrong, stop and ask me.
 8. retrieve the card item and confirm that `authorize` appears in
-   `available_operations`. give me the exact cli command to invoke
-   authorization, but do not run it. ask me to invoke it and complete any
-   approval from a trusted terminal or application outside this agent. after i
-   confirm completion, retrieve the item again with `--wait 60`, repeating
-   while its status is `pending_authorization`, and require its status to be
-   `ready`. do not print, return, or open an action url.
+   `available_operations`. give me the exact cli command with `--browser-id`
+   set to the attached session id and no `--page-url`, but do not run it. ask me
+   to invoke it and complete any approval from a trusted terminal or application
+   outside this agent. after i confirm completion, retrieve the item again with
+   `--wait 60`, repeating while its status is `pending_authorization`, and
+   require its status to be `ready` with `fill` advertised before opening the
+   payment step. do not print, return, or open an action url.
 9. require `fill` in the card's `available_operations` and follow its
    description. invoke `kernel vaults items invoke user-12345 checkout-card fill`
    with `--params` or `--spec-file`: browser_id is the attached session id and

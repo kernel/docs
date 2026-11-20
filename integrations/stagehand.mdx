@@ -89,7 +89,10 @@ import Kernel from "@onkernel/sdk";
 
 const kernel = new Kernel();
 
-const kernelBrowser = await kernel.browsers.create({ stealth: true });
+const kernelBrowser = await kernel.browsers.create({
+  captcha_solver: { enabled: true },
+  proxy: { mode: "default" },
+});
 console.log("Live view url:", kernelBrowser.browser_live_view_url);
 
 await loadStagehandExtension(kernel, kernelBrowser.session_id);
@@ -164,7 +167,10 @@ import { z } from "zod";
 
 const kernel = new Kernel();
 
-const kernelBrowser = await kernel.browsers.create({ stealth: true });
+const kernelBrowser = await kernel.browsers.create({
+  captcha_solver: { enabled: true },
+  proxy: { mode: "default" },
+});
 
 console.log("Live view url: ", kernelBrowser.browser_live_view_url);
 ```

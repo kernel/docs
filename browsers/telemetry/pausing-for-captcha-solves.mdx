@@ -308,7 +308,8 @@ async function main(): Promise<void> {
 
 	const kernel = new KERNEL();
 	const browser = await kernel.browsers.create({
-		stealth: true,
+		captcha_solver: { enabled: true },
+		proxy: { mode: "default" },
 		telemetry: { browser: { captcha: { enabled: true } } },
 	});
 	const kb = attach({ client: kernel, browser });
@@ -581,7 +582,8 @@ async function main(): Promise<void> {
 
 	const kernel = new KERNEL();
 	const browser = await kernel.browsers.create({
-		stealth: true,
+		captcha_solver: { enabled: true },
+		proxy: { mode: "default" },
 		telemetry: { browser: { captcha: { enabled: true } } },
 	});
 	const kb = attach({ client: kernel, browser });
