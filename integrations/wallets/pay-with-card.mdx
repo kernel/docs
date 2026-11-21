@@ -184,6 +184,28 @@ there's no general standing approval or spending-limit setting across these path
   the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
 </Accordion>
 
+### Approve a Visa purchase
+
+your controller opens the returned `spend_approval` URL for the cardholder. the KERNEL-hosted page shows the merchant, amount, and card being used. the cardholder completes any verification Visa requests, then clicks **approve this purchase**. verification can use a passkey or a one-time code; the steps vary by card and session.
+
+these screenshots show the actual hosted interface with test purchase data and simulated one-time-code verification. they don't show Visa's passkey window or a real network authorization.
+
+<Frame caption="complete the verification requested for this purchase. this example uses a simulated one-time code.">
+  <img src="/images/visa-purchase-approval/verification.png" alt="KERNEL hosted approval showing the merchant, amount, card ending, and a field for the Visa verification code" />
+</Frame>
+
+<Frame caption="review the merchant, amount, and card, then explicitly approve the purchase.">
+  <img src="/images/visa-purchase-approval/consent.png" alt="KERNEL hosted approval with an approve this purchase button below the purchase summary" />
+</Frame>
+
+<Frame caption="approval lets your agent continue checkout. it does not submit the order or confirm a charge.">
+  <img src="/images/visa-purchase-approval/approved.png" alt="KERNEL hosted page confirming purchase approval" />
+</Frame>
+
+try the [hosted Visa approval sample app](https://github.com/kernel/cookbooks/tree/main/features/visa-purchase-approval). it keeps the API key on the server, creates one purchase, opens its returned approval link, and polls that purchase until it is ready to fill. you need an enrolled, eligible Visa payment method; the sample stops before merchant checkout submission.
+
+keep the approval URL outside the agent's context and deliver it only to the intended cardholder. after approval, retrieve the purchase and require `state.status === "ready"`, available funding, an unexpired `expires_at`, and an advertised `fill` operation before resuming checkout. the hosted Visa flow is separate from [embedded CVC collection](/integrations/wallets/embedded-card-cvc).
+
 ## Reference
 
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the controller, agent, fill, and checkout walkthrough.
