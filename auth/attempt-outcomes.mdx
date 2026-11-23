@@ -1,12 +1,12 @@
 ---
-title: "Attempt Outcomes"
-sidebarTitle: "Outcomes"
-description: "Find out how each login, reauth, and health check ended, which phase stopped, and what to do next"
+title: "attempt outcomes"
+sidebarTitle: "outcomes"
+description: "find out how each login, reauth, and health check ended, which phase stopped, and what to do next"
 ---
 
 every login, automatic reauth, and health check ends with an outcome: the result, the phase that stopped, a specific code, a developer message, and, when the attempt was recorded, the point in the replay where it ended. the same outcome object appears in three places:
 
-| Where | Field | Includes `type` and `at` |
+| where | field | includes `type` and `at` |
 |---|---|---|
 | `GET /auth/connections/{id}` | `last_attempt` | yes |
 | `GET /auth/connections/{id}/timeline` | `outcome` on each event | no; the event has `type` and `timestamp` |
@@ -14,7 +14,7 @@ every login, automatic reauth, and health check ends with an outcome: the result
 
 these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning. when there's nothing to report, `last_attempt` and `outcome` are absent. inside an outcome, every field is always present and is `null` when it doesn't apply.
 
-## The outcome object
+## the outcome object
 
 ```json
 {
@@ -29,7 +29,7 @@ these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, a
 }
 ```
 
-| Field | Type | When it's set |
+| field | type | when it's set |
 |---|---|---|
 | `type` | `login`, `reauth`, or `health_check` | always. only on `last_attempt`. the values match the timeline `type`. |
 | `result` | `SUCCEEDED`, `NEEDS_INPUT`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED` | always. branch on this field. |
@@ -42,9 +42,9 @@ these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, a
 
 an outcome never contains credential values or the login agent's own reasoning.
 
-### Result
+### result
 
-| `result` | Meaning |
+| `result` | meaning |
 |---|---|
 | `SUCCEEDED` | the login or reauth finished signed in, or a health check confirmed the session. |
 | `NEEDS_INPUT` | the attempt can't finish without something from a person. it's paused now, or it ended because nobody supplied a code, field, choice, or approval. |
@@ -54,33 +54,33 @@ an outcome never contains credential values or the login agent's own reasoning.
 
 treat `result` as an open set and handle values you don't recognize, so a value added later doesn't break your client.
 
-### Phase
+### phase
 
 `phase` names the part of the login that stopped:
 
-| `phase` | Covers |
+| `phase` | covers |
 |---|---|
 | `navigate_to_login` | getting from the start page to a sign-in form. |
-| `log_in` | everything after reaching the sign-in form: credentials, MFA, account choices, and approvals. |
+| `log_in` | everything after reaching the sign-in form: credentials, mfa, account choices, and approvals. |
 | `check_logged_in` | confirming the browser is signed in, including every health check. |
 
 `phase` is separate from `flow_step` and the timeline `step`, which still show `COMPLETED` once an attempt ends.
 
-### Debug message
+### debug message
 
 `debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, followed by ` Phase: <phase>.`, for example `... Make sure login_url opens the login page. Phase: navigate_to_login.`; the phase suffix is left out when the phase isn't known, as on attempts recorded before `phase` existed. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
 
-### Replay offset
+### replay offset
 
 when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. the start is the moment the recording began, as reported by the browser's recorder. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start.
 
-`offset_ms` is `null` on a successful attempt and whenever the recording's start time isn't known, which includes every attempt recorded before offsets existed. KERNEL doesn't estimate it. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
+`offset_ms` is `null` on a successful attempt and whenever the recording's start time isn't known, which includes every attempt recorded before offsets existed. we don't estimate it. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
 
-### Health check evidence
+### health check evidence
 
 a health check opens the connection's saved profile in a browser and judges the page it lands on. every `SUCCEEDED`, `SIGNED_OUT`, or `INCONCLUSIVE` check reports the strongest evidence it saw:
 
-| `health_check_evidence` | What the health check saw |
+| `health_check_evidence` | what the health check saw |
 |---|---|
 | `private_user_content` | content only a signed-in user can see. |
 | `signed_in_identity` | the signed-in user's name, email, or avatar. |
@@ -91,7 +91,7 @@ a health check opens the connection's saved profile in a browser and judges the 
 
 use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, `login_form` means the health check saw a sign-in form on the page it opened. if a signed-in user would also see a sign-in form there, the check page is the problem, not the session.
 
-## Read the latest attempt
+## read the latest attempt
 
 `last_attempt` on the connection is the attempt that explains the connection's current state. it's absent until the first attempt that qualifies. when the connection is read with the key the hosted login page uses, `last_attempt` shows only that login session's attempt.
 
@@ -116,15 +116,15 @@ if attempt and attempt.code:
 ```
 </CodeGroup>
 
-### When `last_attempt` changes
+### when `last_attempt` changes
 
-health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connections. if every check replaced `last_attempt`, a failed login would be hidden behind "signed out" within one check interval. so KERNEL replaces `last_attempt` only when the new attempt changes what you need to know:
+health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connections. if every check replaced `last_attempt`, a failed login would be hidden behind "signed out" within one check interval. so we replace `last_attempt` only when the new attempt changes what you need to know:
 
 - **a login or reauth** replaces it when the attempt ends or pauses. once it pauses, it stays `last_attempt` until it ends, even after the person answers and the login continues. a canceled attempt, including one canceled because you started a newer login, counts only if it paused first; `last_attempt` then shows that pause.
 - **a health check** replaces it when the check changes the connection `status`, compared with the status before the check, whatever its result. it also replaces it when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection. a check recorded before results existed counts as `SIGNED_OUT` or `SUCCEEDED` when it changed the status.
 - **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that happens when the check can't run, or when an older version of the health check reports an error. a check that can't run records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
 
-  | Cause | `code` |
+  | cause | `code` |
   |---|---|
   | the connection's proxy was deleted | `browser_create_failed` |
   | the connection's key is missing | `internal_error` |
@@ -134,7 +134,7 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 
   every other `FAILED` check keeps the status it had, never replaces it, and appears only on the timeline.
 
-| Health check result | Status before: `AUTHENTICATED` | Status before: `NEEDS_AUTH` |
+| health check result | status before: `AUTHENTICATED` | status before: `NEEDS_AUTH` |
 |---|---|---|
 | `SUCCEEDED` | no change | replaces (status changes to `AUTHENTICATED`) |
 | `SIGNED_OUT` | replaces (status changes to `NEEDS_AUTH`) | no change |
@@ -145,7 +145,7 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 
 for example, on a connection with automatic reauth on:
 
-| Time | Attempt | `status` after | `last_attempt` |
+| time | attempt | `status` after | `last_attempt` |
 |---|---|---|---|
 | 09:00 | login: `FAILED`, `navigate_to_login`, `login_form_not_found` | `NEEDS_AUTH` | replaced by the login |
 | 10:00 | health check: `SIGNED_OUT`, evidence `login_form` | `NEEDS_AUTH` | unchanged; still the 09:00 login |
@@ -154,13 +154,13 @@ for example, on a connection with automatic reauth on:
 | 15:00 | health check: `SIGNED_OUT`, evidence `sign_in_control` | `NEEDS_AUTH` | replaced by the health check |
 | 15:01 | reauth: `NEEDS_INPUT`, `log_in`, `totp_required` | `NEEDS_AUTH` | replaced by the reauth |
 
-### Paused logins
+### paused logins
 
 while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract). `at` is when the latest pause began and `phase` is the phase it paused in; both stay that way after the login continues, until the attempt ends.
 
-if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. one exception: if the site rejected the username or password and the login times out while asking for it again, the attempt ends `FAILED` in `log_in` with `credentials_invalid`, because the stored credential is the thing to fix. a first request for a password, or a one-time code asked for again, still ends with `awaiting_input_timeout`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a CAPTCHA is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
+if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. one exception: if the site rejected the username or password and the login times out while asking for it again, the attempt ends `FAILED` in `log_in` with `credentials_invalid`, because the stored credential is the thing to fix. a first request for a password, or a one-time code asked for again, still ends with `awaiting_input_timeout`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a captcha is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
 
-## Read outcomes on the timeline
+## read outcomes on the timeline
 
 each timeline event has an `outcome` without `type` and `at`. it's absent while a login or reauth is running and not paused, for canceled attempts, and for health checks recorded before outcomes existed that didn't change the connection's status. older logins and reauths have an outcome, but their `phase` can be `null`.
 
@@ -182,7 +182,7 @@ async for event in kernel.auth.connections.timeline(auth.id, type="health_check"
 ```
 </CodeGroup>
 
-## Read outcomes on the event stream
+## read outcomes on the event stream
 
 on the sse stream, `outcome` is set on every `managed_auth_state` event for a flow that has ended (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) or is paused, including the first event after you connect. a client that connects after the flow ended still gets its outcome. `outcome` is absent while the flow is running and on canceled flows.
 
@@ -227,7 +227,7 @@ async for event in events:
 ```
 </CodeGroup>
 
-## When a health check signs out or can't tell
+## when a health check signs out or can't tell
 
 `SIGNED_OUT` and `INCONCLUSIVE` health checks have `code: null` and `debug_message: null`. the health check knows only what it saw on the page, not why: a real expiry, the site ending the session, a false sign-out, a lost profile, or a bot page all look the same to it. `result` and `health_check_evidence` carry what's known.
 
@@ -244,64 +244,64 @@ async for event in events:
 
 a health check that ends with an error is `FAILED`, never `SIGNED_OUT`, even when the page looked signed out, and has no `health_check_evidence`. besides the [causes that stop a check from running](#when-last_attempt-changes), the code says what went wrong:
 
-| What happened | `code` |
+| what happened | `code` |
 |---|---|
 | the check's browser couldn't be started | `browser_create_failed` |
 | the check's browser failed while checking the page | `browser_error` |
 | the model provider was unavailable | `provider_unavailable` |
-| the check stopped without a result, or any other KERNEL error | `internal_error` |
+| the check stopped without a result, or any other error on our side | `internal_error` |
 
 it appears on the timeline, and replaces `last_attempt` only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`.
 
-## Outcome codes
+## outcome codes
 
 `code` uses the `ManagedAuthOutcomeCode` set: lowercase snake case, with a fixed meaning and action for each value. new values can be added, so handle codes you don't recognize as you would `flow_failed`.
 
-### Needs input
+### needs input
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `customer_input_required` | the site asked for a field the credential doesn't hold. | add the field to the credential, or start a login and answer it. |
 | `account_choice_required` | the site asked which account, company, or provider to use. | start a login and choose it. |
-| `totp_required` | an authenticator code was needed and no TOTP secret is stored. | add the TOTP secret to the credential. |
+| `totp_required` | an authenticator code was needed and no totp secret is stored. | add the totp secret to the credential. |
 | `sms_code_required` | a text-message code was needed. | start a login and enter the code. a reauth can't receive it. |
 | `email_code_required` | an emailed code was needed. | start a login and enter the code. a reauth can't receive it. |
 | `external_action_required` | the site wanted approval elsewhere, such as a push notification or email link. | start a login and approve it. |
 | `awaiting_input_timeout` | a login paused for input, a choice, or a person and nobody answered before it expired. | start a new login and answer the prompt before `flow_expires_at`. |
 | `external_action_timeout` | the login expired while waiting for an approval outside the browser. | start a new login and approve sooner. |
 
-### Failed: credentials
+### failed: credentials
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `credentials_invalid` | the site rejected the username or password, or the account doesn't exist there. | fix the credential. |
-| `totp_code_rejected` | the site rejected codes generated from the stored TOTP secret. | if codes from a new window also fail, replace the TOTP secret. |
+| `totp_code_rejected` | the site rejected codes generated from the stored totp secret. | if codes from a new window also fail, replace the totp secret. |
 | `credential_provider_unavailable` | the external credential couldn't be loaded. | check the provider connection and the item path. |
 
-### Failed: account
+### failed: account
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `account_locked` | the site locked or suspended the account. | unlock it on the site. more attempts can extend the lock. |
-| `account_action_required` | the site requires the account owner to do something first: change an expired password, set up MFA, verify identity, or get access granted. | sign in to the site yourself and complete it, then retry. update the credential if the password changed. |
+| `account_action_required` | the site requires the account owner to do something first: change an expired password, set up mfa, verify identity, or get access granted. | sign in to the site yourself and complete it, then retry. update the credential if the password changed. |
 
-### Failed: site
+### failed: site
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `login_form_not_found` | KERNEL found no way to sign in from the start page. | set [`login_url`](/auth/configuration#custom-login-url) to the page that shows the sign-in form. |
 | `website_error` | the site showed an error or maintenance page. | retry later. if it repeats, check that `login_url` opens a working login page. |
-| `captcha_blocked` | a CAPTCHA or bot check never cleared. | retry later, or turn on [`hitl`](/auth/configuration#human-verification-for-captchas) so a person can solve it. |
+| `captcha_blocked` | a captcha or bot check never cleared. | retry later, or turn on [`hitl`](/auth/configuration#human-verification-for-captchas) so a person can solve it. |
 | `rate_limited` | the site throttled sign-in. | wait for the site's retry window, then retry. |
 | `unsupported_auth_method` | the site offered only a passkey or security key. | enable another sign-in method on the account, such as password and authenticator app. |
 | `domain_not_allowed` | sign-in moved to a domain that isn't in `allowed_domains`, so KERNEL didn't type the credential. | add that domain to `allowed_domains` if you trust it. |
 
-### Failed: KERNEL
+### failed: KERNEL
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
-| `unhandled_page` | the login agent couldn't read or use a control on the page, or the page stopped responding to it. | KERNEL tracks these failures. start a new login, and report the connection id if it repeats. |
-| `internal_error` | a KERNEL failure, including the agent ending without a result. | retry. KERNEL is alerted. |
+| `unhandled_page` | the login agent couldn't read or use a control on the page, or the page stopped responding to it. | we track these failures. start a new login, and report the connection id if it repeats. |
+| `internal_error` | a failure on our side, including the agent ending without a result. | retry. we're alerted. |
 | `provider_unavailable` | the model provider was unavailable. | retry later. a reauth tries again at the next health check. |
 | `browser_error` | the browser crashed or disconnected. | retry. |
 | `browser_create_failed` | no browser could be started. | retry. check the connection's region, proxy, and plan limits. |
@@ -309,27 +309,27 @@ it appears on the timeline, and replaces `last_attempt` only when it moved the c
 | `stuck_in_loop` | the agent repeated itself without progress. | retry, and report the connection id if it repeats. |
 | `max_steps_exceeded` | the login used too many steps. | retry, and report the connection id if it repeats. |
 
-### Failed: account limits
+### failed: account limits
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `org_limit_exceeded` | your organization hit a concurrency or usage limit. | end an active session or raise the limit, then retry. |
 | `insufficient_plan` | the connection uses a setting your plan doesn't include. | change the setting or upgrade the plan. |
 
-### Failed: other
+### failed: other
 
-| `code` | Meaning | What to do |
+| `code` | meaning | what to do |
 |---|---|---|
 | `flow_failed` | none of the above. | retry, and report the connection id if it repeats. |
 
-### How `code` relates to `error_code`
+### how `code` relates to `error_code`
 
 `error_code` keeps the values it returns today, and most codes above have the same value in both fields. they differ in these cases:
 
-| Attempt | `error_code` | `code` |
+| attempt | `error_code` | `code` |
 |---|---|---|
 | failures with a new code | `flow_failed` | `account_action_required` or `unhandled_page` |
-| failures that used to fall back to `flow_failed`, such as no sign-in entry point, a site error, an unsolved CAPTCHA, a model provider outage, the agent ending without a result, or the attempt running past its time limit | `flow_failed` | `login_form_not_found`, `website_error`, `captcha_blocked`, `provider_unavailable`, `internal_error`, or `flow_timeout` |
+| failures that used to fall back to `flow_failed`, such as no sign-in entry point, a site error, an unsolved captcha, a model provider outage, the agent ending without a result, or the attempt running past its time limit | `flow_failed` | `login_form_not_found`, `website_error`, `captcha_blocked`, `provider_unavailable`, `internal_error`, or `flow_timeout` |
 | a login that timed out while asking again for a username or password the site rejected | `awaiting_input_timeout` | `credentials_invalid` |
 | expired attempts (`flow_status: EXPIRED`) | absent | `awaiting_input_timeout` if it was waiting for input, a choice, or a person; `external_action_timeout` if it was waiting for an approval; otherwise `flow_timeout` |
 | older error codes | `mfa_required` or `unsatisfiable_challenge` | `customer_input_required` |
@@ -342,8 +342,8 @@ canceled attempts have no outcome, so they have no `code`.
 
 use `code` for new integrations. if you already branch on `error_code`, your client keeps working unchanged.
 
-## See also
+## see also
 
-- [Connection Lifecycle](/auth/connection-lifecycle): health checks, automatic reauth, and recovery
-- [Record sessions for debugging](/auth/configuration#record-sessions-for-debugging): turn on replays for logins, health checks, and reauths
-- [Programmatic Flow](/auth/programmatic): handle paused logins in your own ui
+- [connection lifecycle](/auth/connection-lifecycle): health checks, automatic reauth, and recovery
+- [record sessions for debugging](/auth/configuration#record-sessions-for-debugging): turn on replays for logins, health checks, and reauths
+- [programmatic flow](/auth/programmatic): handle paused logins in your own ui
