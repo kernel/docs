@@ -2,7 +2,11 @@
 title: "API Keys"
 ---
 
-Manage [API keys](/info/api-keys) from the CLI.
+Manage [API keys](/info/api-keys) from the CLI. Native OAuth sessions can’t manage keys. Set `KERNEL_API_KEY` to a personal API key with the permissions you need, or use the dashboard.
+
+<Tip>
+For CI jobs, cloud services, and Kubernetes pods, use [workload identity federation](/info/workload-identity/overview) instead of an API key. There's no secret to store, and the credential expires in minutes. Service accounts, issuers, and federation rules are managed from the dashboard.
+</Tip>
 
 ## `kernel api-keys create`
 
@@ -29,7 +33,7 @@ kernel api-keys create \
 
 ## `kernel api-keys list`
 
-List API keys in the authenticated organization. API keys are masked.
+List API keys in the authenticated organization. API keys are masked. The list shows active keys: keys that are neither deleted nor expired.
 
 ```bash
 kernel api-keys list --limit 20

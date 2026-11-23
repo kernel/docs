@@ -7,6 +7,10 @@ An API key is the credential your server, script, or CI job uses to call Kernel 
 
 Kernel only returns the plaintext key once, when you create it. Save the `key` value immediately. After that, Kernel only shows the masked value.
 
+<Tip>
+**For anything that isn't a person at a keyboard, use [workload identity federation](/info/workload-identity/overview) instead of an API key.** An API key is a stored secret that works until someone revokes it. With federation, a CI job, cloud service, or Kubernetes pod exchanges a token from its own identity provider for a short-lived KERNEL access token, and there's no secret to store. API keys remain the right tool for local development and for environments with no identity provider. See [API authentication](/info/authentication) to choose.
+</Tip>
+
 ## Before you start
 
 You need one existing Kernel credential to create another API key:
@@ -92,7 +96,7 @@ func main() {
 
 ## Scope a key to specific resources
 
-By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
+A personal API key without a policy is unrestricted within its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
 
 Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent or a short-lived job.
 
@@ -102,6 +106,8 @@ A policy is a list of **statements**. Each statement allows one **action** on on
 
 - A **resource** selects one project-owned object, such as `projects/{project_id}/extensions/{extension_id}`, an organization-owned object, such as `credential_providers/{provider_id}`, or a container such as `projects/{project_id}/*` or `organizations/{org_id}/*`.
 - An **action** is an exact name such as `browsers:use`, `extensions:read`, or `api_keys:create`. A container wildcard grants that action throughout the container, not every action.
+
+A statement can also carry a **condition** that narrows it to matching requests. A condition names a request attribute, a comparison operator, and that operator's values. See [Limit a key to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges).
 
 Some operations need more than one action. For example, creating a browser with a profile needs `browsers:create` and `browsers:use` on the project, plus `profiles:use` on that profile. See [API key permissions](/info/api-key-permissions) for every action and what each operation requires.
 
@@ -230,6 +236,80 @@ The child must have a finite expiry of at most 3650 days. Scoped callers cannot 
 Grant this permission only to trusted issuers. Their child keys can remain valid after the issuer expires or is revoked.
 </Warning>
 
+## Limit a key to your IP ranges
+
+Add a `condition` to a statement to restrict where requests can come from. The `source_ip` condition allows the statement only when the request's client address is inside one of its CIDR networks:
+
+```json
+{
+  "statements": [
+    {
+      "action": "browsers:use",
+      "resource": "projects/proj_staging_9f3k/*",
+      "condition": {
+        "key": "source_ip",
+        "operator": "in",
+        "values": ["203.0.113.0/24", "2001:db8::/32"]
+      }
+    }
+  ]
+}
+```
+
+Use this when a key is pinned to a fixed egress: if the key leaks into a log, a repository, or a third-party tool, requests from anywhere else get `403` before they touch your data.
+
+How conditions evaluate:
+
+- Each entry in `values` must be a CIDR network (`203.0.113.0/24`). A bare address without a mask, an entry with host bits set, and an IPv4 network written in IPv6 notation are rejected with `400` at creation—so a mistyped mask can't silently grant a whole block.
+- Requests from outside every listed network get `403` with `insufficient_scope`, and the denial is recorded in your [audit logs](/info/audit-logs) with the client IP, so you can widen the list from evidence.
+- A condition only narrows its own statement. If you want a key that only works from your network, add the same condition to every statement in its policy.
+- Kernel evaluates the address the trusted edge proxy reports, not a client-supplied header value, so a request can't spoof its way in.
+
+### Add an IP allowlist to an existing key
+
+You don't need to rotate a key to add, change, or remove IP rules. Update the key with a `policy`, and the credential, name, project, and expiry stay the same—your consumers keep the same secret:
+
+<CodeGroup>
+```typescript TypeScript
+await kernel.apiKeys.update('key_01jwv4tn5m8k3q2v7x9p0a1bc2', {
+  policy: {
+    statements: [
+      {
+        action: 'browsers:use',
+        resource: 'projects/proj_staging_9f3k/*',
+        condition: { key: 'source_ip', operator: 'in', values: ['203.0.113.0/24'] },
+      },
+    ],
+  },
+});
+```
+
+```python Python
+client.api_keys.update(
+    "key_01jwv4tn5m8k3q2v7x9p0a1bc2",
+    policy={
+        "statements": [
+            {
+                "action": "browsers:use",
+                "resource": "projects/proj_staging_9f3k/*",
+                "condition": {"key": "source_ip", "operator": "in", "values": ["203.0.113.0/24"]},
+            }
+        ],
+    },
+)
+```
+</CodeGroup>
+
+To change permissions with a scoped key, you need `api_keys:set_policy` on the target key. You must cover both its current and replacement policies; you can’t convert an unrestricted key this way. To change its name in the same request, you also need `api_keys:write`.
+
+Updating `policy` **fully replaces** the key's permissions, so send the complete policy, not just the statements you're changing. The new policy takes effect within the authorization cache (~10 seconds) and applies only to new requests—already-open browser connections keep running.
+
+Attaching a policy to a key that doesn't have one makes the key scoped: every action and resource the policy doesn't list is denied. There's no way to remove a policy from a key and go back to unrestricted—if you no longer need a scoped key, delete it.
+
+<Note>
+A key used through a hosted MCP server is evaluated against the MCP server's egress address, so an IP-restricted key is denied everywhere until MCP support ships. If you route keys through a hosted MCP server, leave `source_ip` conditions off those keys for now.
+</Note>
+
 ## Deployment API keys
 
 Kernel injects `KERNEL_API_KEY` into each invocation. The SDK reads it automatically. For new deployments with a runtime policy, Kernel stores the policy on the deployment and issues a fresh project-scoped key when each invocation starts. Each key expires 65 minutes after issuance, even if the run finishes earlier. The policy doesn't expire with the deploying key, so you don't need to redeploy when that key expires or is revoked.
@@ -239,7 +319,7 @@ Deploying with a scoped key requires container-wide `deployments:create`, `deplo
 Moving a deployment to another host preserves the policy. Stopping it prevents new runs; it doesn't revoke keys already issued. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables). To supply a credential for your own API calls, pass it under another name.
 
 <Note>
-Scoped deployment creation requires rollout enablement. See the [app policy example](/info/api-key-policy-examples) for deployment and invocation policies.
+Until scoped deployments are enabled, creating a deployment with a scoped credential or sending `runtime_policy` with any credential returns `403`. Deploying with an unrestricted credential and no `runtime_policy` is unchanged. See the [app policy example](/info/api-key-policy-examples).
 </Note>
 
 **Existing deployments and unscoped defaults:** Existing shared keys aren't migrated. Deploying with an unrestricted credential and omitting `runtime_policy` still creates one shared runtime key; supplying the field opts into per-invocation keys. Scoped callers cannot invoke an unrestricted runtime. For an existing shared key with a policy, the key must be live, its permissions covered, and its expiry no later than the invoker's. Host moves preserve these bounds, and superseded deployments keep their shared key until in-flight runs drain.
@@ -247,6 +327,18 @@ Scoped deployment creation requires rollout enablement. See the [app policy exam
 ## List and inspect API keys
 
 List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key.
+
+The list returns `active` keys by default: keys that are neither deleted nor expired. Pass `status` to see the others, and combine these filters to narrow the list:
+
+| Query parameter | Returns |
+| --- | --- |
+| `status` | `active` (the default), `expired`, `deleted`, or `all`. Expired keys aren't part of `active`. |
+| `principal_type` | `user` for keys that act as a person, or `service_account` for keys that act as a [service account](/info/workload-identity/service-accounts). |
+| `service_account_id` | Keys that belong to one service account. |
+| `created_by` | Keys created by one user ID. |
+| `project_id` | Keys scoped to one project. Use `org` for keys that aren't scoped to a project. |
+
+In the dashboard, filter the list by **Created by**, **Linked account**, and **Project**, and switch between **Active**, **Expired**, and **Deleted**.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -306,9 +398,9 @@ func main() {
 ```
 </CodeGroup>
 
-## Rename or delete an API key
+## Rename, update permissions, or delete an API key
 
-Rename a key when the owner or purpose changes. Delete a key when the workload no longer needs access.
+Rename a key when the owner or purpose changes. Update its `policy` to add, change, or remove IP rules and permissions without rotating the credential. Delete a key when the workload no longer needs access.
 
 <Warning>
 An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
@@ -450,13 +542,22 @@ After you rotate a key:
 
 To cut over immediately instead of using a grace window, pass `expire_in_days: 0`. The old key stops working, its associated browsers are ended asynchronously, and unsaved profile changes in those browsers are discarded. With a grace period, existing browsers keep running after the old key expires.
 
+## Service account API keys
+
+A key you create for yourself acts as you. For a workload that can't use [workload identity federation](/info/workload-identity/overview), an organization admin can link a key to a [service account](/info/workload-identity/service-accounts) instead, so the key belongs to the organization and keeps working when its creator leaves.
+
+A service account API key always has one project and an explicit policy, and it can't hold API key permissions. Create one from the dashboard: click **Create API Key**, choose **Continue with an API key**, and pick the service account under **Linked account**. See [Service account API keys](/info/workload-identity/service-accounts#service-account-api-keys).
+
+It's still a stored secret. Prefer federation wherever your workload has an identity provider, and [move existing workloads](/info/workload-identity/migrate-from-api-keys) when you can.
+
 ## Troubleshooting
 
 | Error | What it means | What to do |
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project. Or the requested expiry exceeds the calling key's expiry without `api_keys:issue_beyond_expiry`, when you create a key with a policy or rotate using a key with a policy. | Check [API key permissions](/info/api-key-permissions). Request an allowed expiry, or have an unscoped issuer grant `api_keys:issue_beyond_expiry`; its exception requires a finite expiry within 3650 days. Rotating with a key that has no policy doesn't apply this limit. |
+| `400 Bad Request` (policy) | The action, resource, or condition is invalid, or the update sets `policy: null`. | Check the [permission reference](/info/api-key-permissions) and send the complete replacement policy. |
+| `400 Bad Request` (issuer expiry) | The requested lifetime exceeds the issuer’s when creating a key with a policy or rotating with a scoped caller. | Request a shorter lifetime or check the [longer-lived key exception](#allow-longer-lived-child-keys). |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |

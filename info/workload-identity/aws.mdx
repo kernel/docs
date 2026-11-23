@@ -1,0 +1,260 @@
+---
+title: "AWS"
+description: "Authenticate ECS tasks, Lambda functions, and EC2 instances to KERNEL with AWS STS web identity tokens"
+---
+
+A workload on AWS already has an IAM role. With AWS [outbound identity federation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_outbound.html), that role can ask the AWS Security Token Service (STS) for a signed token that names it. With [workload identity federation](/info/workload-identity/overview), your workload exchanges that token for a KERNEL access token, so you don't put a `KERNEL_API_KEY` in Secrets Manager, a task definition, or a Lambda environment.
+
+<Note>
+Running on EKS? You can use this guide with the pod's IAM role, or use the cluster's own service account tokens with the [Kubernetes](/info/workload-identity/kubernetes) provider.
+</Note>
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- You can change IAM account settings and role policies in the AWS account.
+- Your workload uses the TypeScript, Python, or Go SDK.
+
+## Configure AWS
+
+<Steps>
+<Step title="Enable outbound identity federation">
+In the AWS console, open **IAM** > **Account settings** and enable outbound identity federation. Or run:
+
+```bash
+aws iam enable-outbound-web-identity-federation
+```
+
+Note the account's token issuer URL. Each AWS account has its own, and it looks like `https://a1b2c3d4-0000-4111-8222-333344445555.tokens.sts.global.api.aws`.
+</Step>
+
+<Step title="Let the role request tokens">
+Attach a policy to the role your workload runs as. This one allows tokens for KERNEL only, and caps their lifetime at five minutes:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:GetWebIdentityToken",
+      "Resource": "*",
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "sts:IdentityTokenAudience": "https://auth.onkernel.com"
+        },
+        "Null": {
+          "sts:IdentityTokenAudience": "false"
+        },
+        "NumericLessThanEquals": {
+          "sts:DurationSeconds": 300
+        }
+      }
+    }
+  ]
+}
+```
+</Step>
+</Steps>
+
+## Configure KERNEL
+
+<Steps>
+<Step title="Register your AWS account as an issuer">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **AWS** tile.
+
+- Paste the issuer URL into **STS token issuer URL**.
+- Check **Outbound web identity federation is enabled for this AWS account.**
+- Click **Apply and continue**.
+
+Register one issuer per AWS account.
+</Step>
+
+<Step title="Name the role in a rule">
+Under **Match conditions**, enter the **IAM role ARN** your workload runs as, such as `arn:aws:iam::123456789012:role/service/browser-worker`.
+
+The token's subject is the full role ARN, including its path. A role created with the path `/service/` has `role/service/browser-worker` in its ARN, and the rule must include it.
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**.
+</Step>
+
+<Step title="Pick a service account and enable">
+Choose or create a service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
+</Step>
+</Steps>
+
+## Configure your workload
+
+The AWS source needs the AWS SDK for your language, which each KERNEL SDK keeps optional:
+
+<CodeGroup>
+```bash TypeScript
+npm install @onkernel/sdk @aws-sdk/client-sts
+```
+
+```bash Python
+pip install "kernel[aws]"
+```
+
+```bash Go
+go get github.com/kernel/kernel-go-sdk
+```
+</CodeGroup>
+
+Set two environment variables on the task, function, or instance:
+
+```bash
+KERNEL_FEDERATION_RULE_ID=wifr_k3v8q1m6z2x9c4b7n0h5j2da
+KERNEL_IDENTITY_TOKEN_SOURCE=aws_sts
+```
+
+Then construct the client with no arguments:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+client = Kernel()
+
+browser = client.browsers.create()
+print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+	// Registers the aws_sts identity token source.
+	_ "github.com/kernel/kernel-go-sdk/lib/credentials/awssts"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID)
+}
+```
+</CodeGroup>
+
+In Go, the blank import is what turns the AWS source on. Programs that don't import it don't depend on the AWS SDK.
+
+| SDK | Requirement | Without it |
+| --- | --- | --- |
+| TypeScript | `@aws-sdk/client-sts` version 3.935.0 or later | The first request fails with an error that names the package. |
+| Python | `boto3` 1.41.0 or later, installed by `kernel[aws]` | The first request raises an error that names the extra. |
+| Go | The `awssts` import | Requests fail with an error that names the import. |
+
+## What the SDK does
+
+For every exchange, the SDK calls STS [`GetWebIdentityToken`](https://docs.aws.amazon.com/STS/latest/APIReference/API_GetWebIdentityToken.html) with your workload's own AWS credentials:
+
+- **Audience:** `https://auth.onkernel.com`
+- **Signing algorithm:** `RS256`
+- **Duration:** 300 seconds
+- **Region:** `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `us-east-1`. The call goes to that region's STS endpoint.
+
+It then exchanges the token at `https://auth.onkernel.com/token`. AWS tokens are always single-use in KERNEL, and the SDK requests a new one for each refresh.
+
+To configure the source in code, for example to set the region:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+import { identityTokenFromAWSSTS, oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_k3v8q1m6z2x9c4b7n0h5j2da',
+    identityTokenProvider: identityTokenFromAWSSTS({ region: 'us-west-2' }),
+  }),
+});
+```
+
+```python Python
+from kernel import AWSSTSIdentityToken, Kernel, WorkloadIdentityCredentials
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=AWSSTSIdentityToken(region="us-west-2"),
+        federation_rule_id="wifr_k3v8q1m6z2x9c4b7n0h5j2da",
+    )
+)
+```
+
+```go Go
+package main
+
+import (
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/lib/credentials/awssts"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(
+			awssts.IdentityToken("https://auth.onkernel.com", config.WithRegion("us-west-2")),
+			option.FederationOptions{FederationRuleID: "wifr_k3v8q1m6z2x9c4b7n0h5j2da"},
+		),
+	)
+	_ = client
+}
+```
+</CodeGroup>
+
+## What the token looks like
+
+```json
+{
+  "iss": "https://a1b2c3d4-0000-4111-8222-333344445555.tokens.sts.global.api.aws",
+  "aud": "https://auth.onkernel.com",
+  "sub": "arn:aws:iam::123456789012:role/service/browser-worker",
+  "jti": "6f2b1d3e-7c4a-4d55-9d6a-0a1b2c3d4e5f",
+  "https://sts.amazonaws.com/": {
+    "aws_account": "123456789012",
+    "source_region": "us-east-1",
+    "principal_id": "arn:aws:iam::123456789012:role/service/browser-worker"
+  }
+}
+```
+
+Two details to make note of:
+
+- **`sub` is the role ARN, not the assumed-role session ARN.** Match `arn:aws:iam::<account>:role/<path>/<name>`.
+- **AWS's own claims are nested** under the key `https://sts.amazonaws.com/`. They aren't top-level claims.
+
+## Narrow the rule
+
+A rule that names one role ARN is already specific. To add a condition on a nested claim, open **Advanced matching** in the rule and add an **Additional claim condition**. Claim paths are [JSON Pointers](https://datatracker.ietf.org/doc/html/rfc6901), so each `/` inside the AWS key is written `~1`:
+
+| Claim | Expected value | Meaning |
+| --- | --- | --- |
+| `/https:~1~1sts.amazonaws.com~1/aws_account` | `123456789012` | The token came from this AWS account. |
+| `/https:~1~1sts.amazonaws.com~1/source_region` | `us-east-1` | The token was requested in this region. |
+
+Conditions are exact matches, and every condition must hold.
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference#aws-and-custom-oidc): AWS match fields
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)

@@ -17,11 +17,11 @@ Kernel supports four types of proxies:
 ISP balances speed, stability, and bot detection avoidance, with country targeting in the United States (`US`), Singapore (`SG`), the United Kingdom (`GB`), France (`FR`), and Germany (`DE`). Kernel recommends using the first option in the list that works for your use case.
 
 <Note>
-Kernel-provided proxies are unmetered and not billed, subject to the fair use rules and restricted destinations in our [Acceptable Use Policy](/acceptable-use#proxy-fair-use). Upstream providers restrict some destinations. Residential proxies can [route through a compatible alternative](/proxies/residential#routing-and-ip-behavior), but access isn't guaranteed and our acceptable-use restrictions still apply.
+Kernel-provided proxies are metered and limited to 5GB on Hobbyist plans and 20GB on Start-Up [plans](/info/pricing). On Enterprise, your order form sets proxy pricing. On every plan, proxy use is subject to the fair use rules and restricted destinations in our [Acceptable Use Policy](/acceptable-use#proxy-fair-use). Upstream providers restrict some destinations. Residential proxies can [route through a compatible alternative](/proxies/residential#routing-and-ip-behavior), but access isn't guaranteed and our acceptable-use restrictions still apply.
 </Note>
 
 <Info>
-ISP proxies provide a **static exit IP that persists across sessions** — every browser session attached to the proxy exits through the same IP, and it only changes in rare ISP-initiated replacement events or a temporary [failover to a backup endpoint](/proxies/isp#backup-endpoint-failover). This makes them suitable for IP allowlists or [managed auth](/auth/managed-auth) health checks that must egress from a single IP.
+ISP proxies normally reuse the same **primary exit IP** across browser sessions, which is useful for [managed auth](/auth/managed-auth) health checks. A connection can use a different IP during [backup endpoint failover](/proxies/isp#backup-endpoint-failover). If every request to a site must come from an allowlisted IP, use a [custom proxy](/proxies/custom) with known egress IPs instead.
 
 Residential and mobile proxy exit IPs may change per connection — see [Residential routing and IP behavior](/proxies/residential#routing-and-ip-behavior) and [Mobile Proxies](/proxies/mobile) for details.
 </Info>
@@ -244,7 +244,9 @@ client.Proxies.Check(ctx, proxy.ID, kernel.ProxyCheckParams{
 </CodeGroup>
 
 <Info>
-For ISP proxies the exit IP is stable, so a successful check against a `url` reliably indicates that subsequent sessions will reach the same target from the same IP. For residential and mobile proxies the exit node changes between requests, so the check validates credentials and connectivity but not site-specific reachability. When `url` is provided, the result does not update the proxy's stored health status.
+For ISP proxies, a successful check against `url` means the **primary endpoint** reached that URL at the time of the check. It doesn't test the [backup endpoint](/proxies/isp#backup-endpoint-failover) or tell you which IP a later browser connection will use. If the primary check fails, a browser may still reach the URL through a healthy backup.
+
+For residential and mobile proxies, the exit IP can change between connections, so a successful check doesn't guarantee a later connection will reach the same site. When you provide `url`, the result doesn't update the proxy's stored health status.
 </Info>
 
 ## Bypass hosts

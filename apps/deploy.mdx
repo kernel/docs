@@ -47,6 +47,10 @@ kernel deploy github \
 
 ## Use a scoped API key
 
+<Note>
+Scoped deployments aren’t generally available yet. Until they’re enabled, the API returns `403` if you deploy with a scoped key or supply `runtime_policy`, even with an unrestricted key. Existing deployments are unchanged.
+</Note>
+
 To deploy with a [policy-scoped API key](/info/api-keys#scope-a-key-to-specific-resources), grant these actions on the deployment's project or organization container:
 
 - `deployments:create` to deploy the app.
@@ -55,11 +59,7 @@ To deploy with a [policy-scoped API key](/info/api-keys#scope-a-key-to-specific-
 
 By default, each invocation's key gets only project-wide `invocations:write` so the runtime can report results. Each run gets a fresh key valid for 65 minutes. The deployment's policy doesn't expire with your deploying key. This minimum permission applies to the whole project, not just this deployment's invocations. To invoke the app with a scoped key, grant `invocations:create` and cover the runtime policy. See the [app policy example](/info/api-key-policy-examples) and [deployment key lifecycle](/info/api-keys#deployment-api-keys).
 
-To give your app additional permissions, send an explicit `runtime_policy` JSON field in the `POST /deployments` multipart request. Include project-wide `invocations:write` and the permissions your app uses. A supplied policy missing that minimum is rejected; permissions aren't silently added. Your deploying key must cover the requested permissions, and `api_keys:issue_beyond_expiry` isn't allowed. The invoking key must cover this runtime policy, plus `invocations:create`. See [policy examples](/info/api-key-policy-examples).
-
-<Note>
-Scoped deployment creation requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.
-</Note>
+To give your app additional permissions, send an explicit `runtime_policy` JSON field in the `POST /deployments` multipart request. Include an unconditional `invocations:write` grant on `projects/{project_id}/*` for callbacks, plus the permissions your app uses. A supplied policy missing that minimum is rejected; permissions aren't silently added. Your deploying key must cover the requested permissions, and `api_keys:issue_beyond_expiry` isn't allowed.
 
 ## Environment variables
 

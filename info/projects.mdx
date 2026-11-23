@@ -110,7 +110,11 @@ API keys can be **org-wide** or **project-scoped**.
 
 ### OAuth
 
-OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
+At native OAuth consent, you choose which actions the client can take and whether it can use one project or all projects. With one project selected, requests use that project automatically. With all projects selected, use `X-Kernel-Project-Id` or the CLI’s `--project` flag to target a project other than the default. Selecting a project for a request never grants access to it.
+
+### Workload identity federation
+
+A [federation rule](/info/workload-identity/overview#federation-rules) names exactly one project, and the tokens it issues work only in that project. So does a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys). To give a workload access to two projects, such as `staging` and `production`, create one rule for each.
 
 ## Using projects from the CLI
 
@@ -134,7 +138,7 @@ kernel projects create staging
 kernel projects limits set staging --max-concurrent-sessions 5
 ```
 
-Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. It's the recommended way to target a specific project when you're logged in with OAuth (`kernel login`), since OAuth itself is always org-wide.
+Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. The project must be covered by your credential.
 
 ## Managing projects
 

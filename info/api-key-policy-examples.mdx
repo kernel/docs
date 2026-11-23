@@ -194,11 +194,11 @@ policy = {
 ```
 </CodeGroup>
 
-Use a key with this policy to deploy and invoke the app. Deployment creation requires rollout enablement. With `runtime_policy` omitted, the runtime key gets only project-wide `invocations:write`, not the rest of the deploying key's permissions. For browser, profile, vault, or other operations, grant the deploying key those permissions and include them in an explicit runtime policy as shown below. An invocation's caller must cover the runtime key's full policy. Each invocation gets a new key valid for 65 minutes, independent of the deploying key's expiry.
+Use a key with this policy to deploy and invoke the app. This example requires scoped deployments to be enabled; until then the deploy request returns `403`. With `runtime_policy` omitted, the runtime key gets only project-wide `invocations:write`, not the rest of the deploying key's permissions. For browser, profile, vault, or other operations, grant the deploying key those permissions and include them in an explicit runtime policy as shown below. An invocation's caller must cover the runtime key's full policy. Each invocation gets a new key valid for 65 minutes, independent of the deploying key's expiry.
 </Accordion>
 
 <Accordion title="Invoke without deployment-management permissions">
-Omitting `runtime_policy` gives the app only project-wide `invocations:write`. Use an explicit runtime policy to add browser access without deployment-management permissions. This app creates browsers without saved profiles or other attached resources.
+When you deploy with a scoped key and omit `runtime_policy`, the app gets only project-wide `invocations:write`. Use an explicit runtime policy to add browser access without deployment-management permissions. This app creates browsers without saved profiles or other attached resources.
 
 <CodeGroup>
 ```typescript TypeScript

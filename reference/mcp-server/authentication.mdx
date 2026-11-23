@@ -35,3 +35,7 @@ API key authentication is useful for:
 - Environments where OAuth flows are not practical
 
 <Note>API keys bypass the OAuth flow but still require valid Kernel credentials. Keep your API key secure and don't expose it in client-side code.</Note>
+
+<Tip>
+If your automation calls the KERNEL API through an SDK instead of the MCP server, it doesn't need an API key. Use [workload identity federation](/info/workload-identity/overview): a CI job or cloud service authenticates with its own identity and gets a credential that expires in minutes. When an MCP client does need a key, scope the key to one project and give it a short expiry.
+</Tip>

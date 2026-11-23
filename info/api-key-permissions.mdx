@@ -1,9 +1,23 @@
 ---
-title: "API Key Permissions"
-description: "Choose the actions and resources a scoped API key can access"
+title: "Scoping Permissions"
+description: "Actions and resources you can grant in a policy for an API key, a federation rule, or a service account API key"
 ---
 
-Use a scoped API key's `policy` to grant only the actions your automation needs. Each statement pairs one action with one resource. See [Create a scoped key](/info/api-keys#create-a-scoped-key) to issue a key, or start with a [policy example](/info/api-key-policy-examples).
+A **policy** limits what a credential can do. It's a list of allow statements, each pairing one action with one resource, and everything it doesn't list is denied. Start with a [policy example](/info/api-key-policy-examples) or use the action tables below to build your own.
+
+## Where policies apply
+
+API keys and workload identity rules use the same statement format:
+
+| Credential | Policy | Boundary |
+| --- | --- | --- |
+| [Scoped API key](/info/api-keys#scope-a-key-to-specific-resources) | Optional. A key without a policy is unrestricted inside its organization or project. | The key's organization, or its project for a project-scoped key. |
+| [Federation rule](/info/workload-identity/overview#federation-rules) | Required. | The rule's one project. |
+| [Service account API key](/info/workload-identity/service-accounts#service-account-api-keys) | Required. | The key's one project. |
+
+Every resource in a policy must be inside its credential's boundary. A few operations stay closed to federation rules and service account API keys whatever their policy grants. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
+
+For a CI job, cloud service, or Kubernetes pod, put the policy on a federation rule instead of a stored key. See [API authentication](/info/authentication) to choose.
 
 ## Resources
 
@@ -24,13 +38,34 @@ Choose `kind` from the following resource types:
 | Organization | `credential_providers`, `vault_provider_configs`, `audit_log_export_destinations` |
 | Matches the target key | `api_keys`: a project key belongs to its project; a key without a project belongs to the organization, not the default project. |
 
-All selectors must fit inside the new key's organization and, for a project-scoped key, its project. KERNEL validates exact resource IDs when you create the key. Existing project-owned resources without a project are treated as belonging to the default project.
+Kernel checks that each object ID exists within the credential's boundary when you create or update a key or rule. Existing project-owned resources without a project are treated as belonging to the default project.
 
 Creation actions need a container selector ending in `/*`, rather than an existing object's ID. Project creation and creation of organization-owned resources need `organizations/{org_id}/*`. Audit log access also uses an organization container. Search and configuration registry actions use a project or organization container rather than individual search or analysis IDs.
 
 <Note>
 A policy narrows your key's access; it doesn't change its organization or project boundary. Use an organization-scoped key for organization administration, credential providers, wallet provider configurations, audit logs, and telemetry destination management. A project-scoped key can rename its own project, but project creation, deletion, status changes, and limit changes require an organization-scoped credential.
 </Note>
+
+## Conditions
+
+A statement can carry one condition that narrows it to matching requests:
+
+```json
+"condition": { "key": "source_ip", "operator": "in", "values": ["203.0.113.0/24"] }
+```
+
+| Field | Value |
+| --- | --- |
+| `key` | `source_ip` — the request's client address. |
+| `operator` | `in` — the statement matches when the address is inside one of `values`. |
+| `values` | 1-16 CIDR networks, such as `203.0.113.0/24` or `2001:db8::/32`. A bare address without a mask and an entry with host bits set are rejected, as is an IPv4 network written in IPv6 notation. |
+
+How conditions evaluate:
+
+- A condition only narrows its own statement. To restrict a whole credential, add the same condition to every statement.
+- Requests from outside every listed network get `403` with `insufficient_scope`, recorded in your [audit logs](/info/audit-logs) with the client IP.
+- A scoped key can't delegate a wider condition than it holds: a delegated key can narrow its parent's IP rules, never loosen them.
+- You can add or change IP rules on an existing key without rotating its credential. See [Limit a key to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges).
 
 ## Actions
 
@@ -139,7 +174,7 @@ Reports use their parent task's permissions; they don't have separate policy sel
 Apps are authorized through their deployments. An invocation belongs to its deployment's project. See [Deployment API keys](/info/api-keys#deployment-api-keys) for runtime permissions and expiry.
 
 <Note>
-Scoped app deployment requires rollout enablement. If the API reports that scoped deployments aren't enabled, contact support.
+Deploying with a scoped credential or supplying `runtime_policy` requires scoped deployments to be enabled. Otherwise, `POST /deployments` returns `403`. Machine OAuth clients and [service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do) can’t deploy or invoke apps, even with these actions.
 </Note>
 
 ### Credentials and auth connections
@@ -182,12 +217,13 @@ A read grant returns connection metadata. To receive hosted login or live view U
 | `api_keys:issue_beyond_expiry` | Allow a scoped key's finite expiry to exceed the caller's, up to 3650 days. Grant it on the new key's container for creation, or the existing key for rotation. Scoped callers cannot pass this permission to another key. |
 | `api_keys:read` | List keys and read metadata and policies, without plaintext keys. |
 | `api_keys:write` | Rename keys. |
+| `api_keys:set_policy` | Replace a key’s entire policy without rotating its secret. A scoped caller must cover both the existing and replacement policies and can’t convert an unrestricted key. Renaming the key in the same request also requires `api_keys:write`. |
 | `api_keys:rotate` | Replace keys whose policies the caller covers, returning the new plaintext key. |
 | `api_keys:delete` | Revoke keys. |
 
 A new key with a policy must expire no later than the credential that creates it unless that credential holds `api_keys:issue_beyond_expiry` on the target container. The same limit applies when a caller with a policy rotates a key, checked on the existing key. Rotation by a caller without a policy keeps its existing replacement-lifetime behavior. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
 
-Policy-mode OAuth tokens, which are tokens that request specific actions, machine-to-machine tokens, and exchanged tokens, never receive `api_keys:` permissions, so they can't read, create, rename, rotate, or delete API keys. OAuth requests for API-key scopes or permissions are rejected. Use an API key with these permissions instead. An OAuth token that requests only identity scopes and is used directly doesn't run in policy mode, so it keeps its existing organization or project access, including API key management.
+Native OAuth tokens can’t manage API keys. This applies to human sign-ins (including requests for identity scopes only), machine tokens, and exchanged tokens. OAuth rejects requests for `api_keys:` permissions. Use a personal API key with the required permissions instead.
 
 ### Audit logs and export destinations
 

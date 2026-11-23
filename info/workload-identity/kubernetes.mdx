@@ -1,0 +1,241 @@
+---
+title: "Kubernetes"
+description: "Authenticate pods to KERNEL with projected service account tokens signed by your cluster"
+---
+
+Every Kubernetes cluster signs tokens for its service accounts. With [workload identity federation](/info/workload-identity/overview), a pod mounts one of those tokens, and the KERNEL SDK exchanges it for a KERNEL access token. You don't create a Kubernetes `Secret` holding a `KERNEL_API_KEY`.
+
+This guide works for any cluster whose OIDC discovery document and signing keys are reachable from the public internet. Managed services such as EKS publish them for you. For a private cluster, see [Private clusters](#private-clusters).
+
+## Before you start
+
+- You're an organization admin in KERNEL.
+- You can deploy pods and create service accounts in the cluster.
+- Your workload uses the TypeScript, Python, or Go SDK.
+
+## Find the cluster's issuer
+
+```bash
+kubectl get --raw /.well-known/openid-configuration
+```
+
+The `issuer` field is the URL to register, such as `https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E`. Each cluster has its own.
+
+## Configure KERNEL
+
+<Steps>
+<Step title="Register the cluster as an issuer">
+In the [dashboard](https://dashboard.onkernel.com), open **Keys** > **Workload identity**, click **Connect workload**, and select the **Kubernetes** tile.
+
+- Paste the issuer into **Cluster issuer URL**.
+- Check the box confirming the cluster's discovery document and JWKS are reachable from the public internet.
+- Click **Apply and continue**.
+
+Register one issuer per cluster.
+</Step>
+
+<Step title="Name the service account in a rule">
+Under **Match conditions**, enter the **Namespace** and the Kubernetes **Service account** your pods run as, such as `ci` and `browser-runner`. The rule accepts tokens whose subject is exactly `system:serviceaccount:ci:browser-runner`.
+
+Under **Authorization**, choose the **Project**, the **Permissions**, and the **Token lifetime**.
+</Step>
+
+<Step title="Pick a service account and enable">
+Choose or create a KERNEL service account, click **Create rule**, then turn on the issuer and the rule in the **Test** step. Copy the rule ID (`wifr_...`).
+</Step>
+</Steps>
+
+## Configure your pod
+
+Mount a [projected service account token](https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection) with the audience `https://auth.onkernel.com`, and point the SDK at it:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: browser-runner
+  namespace: ci
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: browser-runner
+  template:
+    metadata:
+      labels:
+        app: browser-runner
+    spec:
+      serviceAccountName: browser-runner
+      containers:
+        - name: app
+          image: ghcr.io/acme/browser-runner:1.8.2
+          env:
+            - name: KERNEL_FEDERATION_RULE_ID
+              value: wifr_x9c4v7b2n5m8q1z3k6j0h4ea
+            - name: KERNEL_IDENTITY_TOKEN_FILE
+              value: /var/run/secrets/kernel/token
+          volumeMounts:
+            - name: kernel-token
+              mountPath: /var/run/secrets/kernel
+              readOnly: true
+      volumes:
+        - name: kernel-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: https://auth.onkernel.com
+                  expirationSeconds: 3600
+```
+
+<Warning>
+Don't use the token Kubernetes mounts by default at `/var/run/secrets/kubernetes.io/serviceaccount/token`. Its audience is your cluster's API server, so KERNEL refuses it. The projected volume above issues a separate token for KERNEL only.
+</Warning>
+
+Your code constructs the client with no arguments:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+
+const kernel = new Kernel();
+
+const browser = await kernel.browsers.create();
+console.log(browser.session_id);
+```
+
+```python Python
+from kernel import Kernel
+
+client = Kernel()
+
+browser = client.browsers.create()
+print(browser.session_id)
+```
+
+```go Go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/kernel/kernel-go-sdk"
+)
+
+func main() {
+	ctx := context.Background()
+	client := kernel.NewClient()
+
+	browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(browser.SessionID)
+}
+```
+</CodeGroup>
+
+## What the SDK does
+
+The SDK reads the token file again for every exchange, so it picks up the token the kubelet rotates. It then exchanges the token at `https://auth.onkernel.com/token`. An empty or missing file is an error that names the path.
+
+To configure the file in code instead of `KERNEL_IDENTITY_TOKEN_FILE`:
+
+<CodeGroup>
+```typescript TypeScript
+import Kernel from '@onkernel/sdk';
+import { identityTokenFromFile, oidcFederationProvider } from '@onkernel/sdk/lib/credentials';
+
+const kernel = new Kernel({
+  credentials: oidcFederationProvider({
+    federationRuleId: 'wifr_x9c4v7b2n5m8q1z3k6j0h4ea',
+    identityTokenProvider: identityTokenFromFile('/var/run/secrets/kernel/token'),
+  }),
+});
+```
+
+```python Python
+from kernel import IdentityTokenFile, Kernel, WorkloadIdentityCredentials
+
+client = Kernel(
+    credentials=WorkloadIdentityCredentials(
+        identity_token_provider=IdentityTokenFile("/var/run/secrets/kernel/token"),
+        federation_rule_id="wifr_x9c4v7b2n5m8q1z3k6j0h4ea",
+    )
+)
+```
+
+```go Go
+package main
+
+import (
+	"github.com/kernel/kernel-go-sdk"
+	"github.com/kernel/kernel-go-sdk/option"
+)
+
+func main() {
+	client := kernel.NewClient(
+		option.WithFederationTokenProvider(
+			option.IdentityTokenFile("/var/run/secrets/kernel/token"),
+			option.FederationOptions{FederationRuleID: "wifr_x9c4v7b2n5m8q1z3k6j0h4ea"},
+		),
+	)
+	_ = client
+}
+```
+</CodeGroup>
+
+## What the token looks like
+
+```json
+{
+  "iss": "https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E",
+  "aud": ["https://auth.onkernel.com"],
+  "sub": "system:serviceaccount:ci:browser-runner",
+  "jti": "0d9c8b7a-6f5e-4d3c-2b1a-0f9e8d7c6b5a",
+  "iat": 1780000000,
+  "exp": 1780003600,
+  "kubernetes.io": {
+    "namespace": "ci",
+    "serviceaccount": { "name": "browser-runner", "uid": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }
+  }
+}
+```
+
+Three details to make note of:
+
+- **The audience must be exactly one value.** A token projected with more than one audience is refused.
+- **A pod rereads the same token.** The kubelet replaces a projected token only as it nears expiry, so between rotations every exchange presents the same one. A Kubernetes issuer allows that reuse by default.
+- **Token lifetime is capped at one hour by default.** KERNEL refuses a token whose lifetime, `exp` minus `iat`, is over the issuer's maximum of 3,600 seconds. Keep `expirationSeconds` at `3600` or less, or raise **Maximum token lifetime (hours)** on the issuer.
+
+### Require single use
+
+If every exchange fetches a new token, for example a job that runs `kubectl create token` each time, you can make the issuer single-use. On the **Issuers** tab, select **Edit** on the issuer and turn on **Enforce single-use tokens (JTI replay protection)**.
+
+Don't turn this on for pods that read a projected token file. The second exchange with the same file contents is refused.
+
+## Private clusters
+
+KERNEL fetches signing keys only from public internet addresses. If your cluster's discovery endpoint is private, upload its public keys instead:
+
+1. Export the keys:
+
+   ```bash
+   kubectl get --raw /openid/v1/jwks
+   ```
+
+2. On the **Issuers** tab, click **Register issuer**.
+3. Enter the cluster's issuer URL in **Issuer URL (iss claim)**.
+4. Set **JWKS source** to **Inline keys** and paste the key set into **Public keys**.
+5. Turn off **Enforce single-use tokens (JTI replay protection)**, because pods reread their token.
+
+An issuer registered this way is a [custom OIDC](/info/workload-identity/custom-oidc) issuer. Its rules match on **Subject pattern**: enter `system:serviceaccount:ci:browser-runner`.
+
+Update the inline keys whenever the cluster rotates its signing keys. KERNEL can't fetch new ones for you.
+
+## Next steps
+
+- [Reference](/info/workload-identity/reference#kubernetes): Kubernetes match fields
+- [Troubleshooting](/info/workload-identity/troubleshooting): what a refused exchange means
+- [Move a workload from an API key](/info/workload-identity/migrate-from-api-keys)

@@ -17,7 +17,7 @@ export KERNEL_PROJECT=proj_abc123
 kernel apps list
 ```
 
-Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenticated API request. OAuth-based logins (`kernel login`) remain org-wide by default, so this is the recommended way to target a single project when logged in with OAuth.
+Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenticated API request. With a [single-project OAuth grant](/info/projects#oauth), requests use that project automatically. With an all-projects grant, use the flag to target a project other than the default.
 
 <Info>
   Project-scoped API keys are already bound to a project server-side, so you don't need `--project` when using them — but if you do pass it, it must match the key's project or the request is rejected.
