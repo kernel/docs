@@ -1,0 +1,305 @@
+---
+title: "Attempt Outcomes"
+sidebarTitle: "Outcomes"
+description: "Find out how each login, reauth, and health check ended, which phase stopped, and what to do next"
+---
+
+every login, automatic reauth, and health check ends with an outcome: the result, the phase that stopped, a specific code, a developer message, and, when the attempt was recorded, the point in the replay where it ended. the same outcome object appears in three places:
+
+| Where | Field | Includes `type` and `at` |
+|---|---|---|
+| `GET /auth/connections/{id}` | `last_attempt` | yes |
+| `GET /auth/connections/{id}/timeline` | `outcome` on each event | no; the event has `type` and `timestamp` |
+| `GET /auth/connections/{id}/events` (sse) | `outcome` on `managed_auth_state` events | no; the event has `flow_type` and `timestamp` |
+
+these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning.
+
+## The outcome object
+
+```json
+{
+  "type": "login",
+  "result": "FAILED",
+  "phase": "log_in",
+  "code": "credentials_invalid",
+  "debug_message": "The site rejected the stored username or password in the log_in phase. Update the credential, then start a new login. Phase: log_in.",
+  "at": "2026-11-22T16:48:09Z",
+  "replay": { "replay_id": "rpl_c71e", "offset_ms": 22400 },
+  "health_check_evidence": null
+}
+```
+
+| Field | Type | When it's set |
+|---|---|---|
+| `type` | `login`, `reauth`, or `health_check` | always. only on `last_attempt`. the values match the timeline `type`. |
+| `result` | `SUCCEEDED`, `NEEDS_INPUT`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED` | always. branch on this field. |
+| `phase` | `navigate_to_login`, `log_in`, or `check_logged_in`; nullable | set unless `result` is `SUCCEEDED`. a health check that doesn't succeed uses `check_logged_in`. |
+| `code` | [`ManagedAuthOutcomeCode`](#outcome-codes); nullable | set when `result` is `NEEDS_INPUT` (after the attempt ended) or `FAILED`. `null` on `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, and while a login is paused for input. |
+| `debug_message` | string; nullable | set whenever `code` is set. |
+| `at` | date-time | always. only on `last_attempt`. when the attempt ended, or when the current pause began. |
+| `replay` | `{ replay_id, offset_ms }`; nullable | set only when the attempt was [recorded](/auth/configuration#record-sessions-for-debugging). |
+| `health_check_evidence` | string; nullable | set on every health check, including successful ones. `null` for logins and reauths. |
+
+an outcome never contains credential values or the login agent's own reasoning.
+
+### Result
+
+| `result` | Meaning |
+|---|---|
+| `SUCCEEDED` | the login or reauth finished signed in, or a health check confirmed the session. |
+| `NEEDS_INPUT` | the attempt can't finish without something from a person. it's paused now, or it ended because nobody supplied a code, field, choice, or approval. |
+| `SIGNED_OUT` | a health check found the session signed out. health checks only. |
+| `INCONCLUSIVE` | a health check couldn't tell whether the session is signed in. the connection `status` doesn't change. health checks only. |
+| `FAILED` | anything else that ended without signing in. |
+
+treat `result` as an open set and handle values you don't recognize, so a value added later doesn't break your client.
+
+### Phase
+
+`phase` names the part of the login that stopped:
+
+| `phase` | Covers |
+|---|---|
+| `navigate_to_login` | getting from the start page to a sign-in form. |
+| `log_in` | everything after reaching the sign-in form: credentials, MFA, account choices, and approvals. |
+| `check_logged_in` | confirming the browser is signed in, including every health check. |
+
+`phase` is separate from `flow_step` and the timeline `step`, which still show `COMPLETED` once an attempt ends.
+
+### Debug message
+
+`debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, and it names the phase. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
+
+### Replay offset
+
+when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start.
+
+`offset_ms` is `null` on a successful attempt and when the end time isn't known. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
+
+### Health check evidence
+
+every health check reports the strongest evidence the verifier saw on the page:
+
+| `health_check_evidence` | What the verifier saw |
+|---|---|
+| `private_user_content` | content only a signed-in user can see. |
+| `signed_in_identity` | the signed-in user's name, email, or avatar. |
+| `logout_control` | a sign-out control. |
+| `login_form` | a sign-in form. |
+| `sign_in_control` | a sign-in button or link. |
+| `none` | nothing that proves either state. |
+
+use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, `login_form` means the verifier saw a sign-in form on the page the health check opened. if a signed-in user would also see a sign-in form there, the check page is the problem, not the session.
+
+## Read the latest attempt
+
+`last_attempt` on the connection is the attempt that explains the connection's current state. it's `null` until the first attempt that qualifies.
+
+<CodeGroup>
+```typescript TypeScript
+const connection = await kernel.auth.connections.retrieve(auth.id);
+const attempt = connection.last_attempt;
+
+if (attempt?.result === 'FAILED' || attempt?.result === 'NEEDS_INPUT') {
+  console.log(`${attempt.type} stopped in ${attempt.phase}: ${attempt.code}`);
+  console.log(attempt.debug_message);
+}
+```
+
+```python Python
+connection = await kernel.auth.connections.retrieve(auth.id)
+attempt = connection.last_attempt
+
+if attempt and attempt.result in ("FAILED", "NEEDS_INPUT"):
+    print(f"{attempt.type} stopped in {attempt.phase}: {attempt.code}")
+    print(attempt.debug_message)
+```
+</CodeGroup>
+
+### When `last_attempt` changes
+
+health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connections. if every check replaced `last_attempt`, a failed login would be hidden behind "signed out" within one check interval. so KERNEL replaces `last_attempt` only when the new attempt changes what you need to know:
+
+- **a login or reauth** replaces it when the attempt ends or pauses. canceled and superseded attempts don't.
+- **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
+- **a health check that ends with an error** (`FAILED`) never replaces it. it appears only on the timeline.
+
+| Health check result | Status before: `AUTHENTICATED` | Status before: `NEEDS_AUTH` |
+|---|---|---|
+| `SUCCEEDED` | no change | replaces (status changes to `AUTHENTICATED`) |
+| `SIGNED_OUT` | replaces (status changes to `NEEDS_AUTH`) | no change |
+| `INCONCLUSIVE` | replaces | no change; the earlier failure stays visible |
+| `FAILED` | no change; timeline only | no change; timeline only |
+
+`last_auth_check_at` always shows the time of the latest health check, whether or not it replaced `last_attempt`. the timeline keeps every attempt with its own outcome.
+
+for example, on a connection with automatic reauth on:
+
+| Time | Attempt | `status` after | `last_attempt` |
+|---|---|---|---|
+| 09:00 | login: `FAILED`, `navigate_to_login`, `login_form_not_found` | `NEEDS_AUTH` | replaced by the login |
+| 10:00 | health check: `SIGNED_OUT`, evidence `login_form` | `NEEDS_AUTH` | unchanged; still the 09:00 login |
+| 11:20 | login: `SUCCEEDED` | `AUTHENTICATED` | replaced by the login |
+| 12:00 | health check: `SUCCEEDED`, evidence `signed_in_identity` | `AUTHENTICATED` | unchanged; still the 11:20 login |
+| 15:00 | health check: `SIGNED_OUT`, evidence `sign_in_control` | `NEEDS_AUTH` | replaced by the health check |
+| 15:01 | reauth: `NEEDS_INPUT`, `log_in`, `totp_required` | `NEEDS_AUTH` | replaced by the reauth |
+
+### Paused logins
+
+while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract).
+
+if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`.
+
+## Read outcomes on the timeline
+
+each timeline event has an `outcome` without `type` and `at`. it's `null` while the attempt is running and not paused. events recorded before these fields existed can have `null` fields.
+
+<CodeGroup>
+```typescript TypeScript
+for await (const event of kernel.auth.connections.timeline(auth.id, { type: 'health_check' })) {
+  if (event.outcome?.result === 'SIGNED_OUT') {
+    console.log(event.timestamp, event.outcome.health_check_evidence);
+  }
+}
+```
+
+```python Python
+async for event in kernel.auth.connections.timeline(auth.id, type="health_check"):
+    if event.outcome and event.outcome.result == "SIGNED_OUT":
+        print(event.timestamp, event.outcome.health_check_evidence)
+```
+</CodeGroup>
+
+## Read outcomes on the event stream
+
+on the sse stream, `outcome` is set on the final `managed_auth_state` event of a login or reauth (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) and on each event that starts a pause. it's `null` on every other state event.
+
+<CodeGroup>
+```typescript TypeScript
+const events = await kernel.auth.connections.follow(auth.id);
+
+for await (const event of events) {
+  if (event.event !== 'managed_auth_state' || !event.outcome) continue;
+
+  if (event.outcome.result === 'NEEDS_INPUT' && event.outcome.code === null) {
+    continue; // paused: render fields and choices from this event
+  }
+  if (event.outcome.result !== 'SUCCEEDED') {
+    console.log(event.outcome.code, event.outcome.debug_message);
+  }
+}
+```
+
+```python Python
+events = await kernel.auth.connections.follow(auth.id)
+
+async for event in events:
+    if event.event != "managed_auth_state" or not event.outcome:
+        continue
+
+    if event.outcome.result == "NEEDS_INPUT" and event.outcome.code is None:
+        continue  # paused: render fields and choices from this event
+    if event.outcome.result != "SUCCEEDED":
+        print(event.outcome.code, event.outcome.debug_message)
+```
+</CodeGroup>
+
+## When a health check signs out or can't tell
+
+`SIGNED_OUT` and `INCONCLUSIVE` health checks have `code: null` and `debug_message: null`. the verifier knows only what it saw on the page, not why: a real expiry, the site ending the session, a false sign-out, a lost profile, or a bot page all look the same to it. `result` and `health_check_evidence` carry what's known.
+
+**`SIGNED_OUT`**
+
+- if `auto_reauth` is on, you don't need to do anything. KERNEL starts a reauth when `can_reauth` is `true`, and the reauth becomes the next `last_attempt`.
+- if `auto_reauth` is off, start a login.
+- if it happens again soon after each login, check the page that health checks open. turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) and watch a health check's replay to see it.
+
+**`INCONCLUSIVE`**
+
+- the connection `status` doesn't change, and KERNEL doesn't start a reauth. the next check runs on schedule.
+- if it happens on every check, look at the page that health checks open: it needs to be a page only a signed-in user can open. a recorded health check's replay shows it.
+
+a health check that ends with an error is `FAILED` with a code, for example `browser_error`. it appears only on the timeline.
+
+## Outcome codes
+
+`code` uses the `ManagedAuthOutcomeCode` set: lowercase snake case, with a fixed meaning and action for each value. new values can be added, so handle codes you don't recognize as you would `flow_failed`.
+
+### Needs input
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `customer_input_required` | the site asked for a field the credential doesn't hold. | add the field to the credential, or start a login and answer it. |
+| `account_choice_required` | the site asked which account, company, or provider to use. | start a login and choose it. |
+| `totp_required` | an authenticator code was needed and no TOTP secret is stored. | add the TOTP secret to the credential. |
+| `sms_code_required` | a text-message code was needed. | start a login and enter the code. a reauth can't receive it. |
+| `email_code_required` | an emailed code was needed. | start a login and enter the code. a reauth can't receive it. |
+| `external_action_required` | the site wanted approval elsewhere, such as a push notification or email link. | start a login and approve it. |
+| `awaiting_input_timeout` | a login paused for input and nobody answered. | start a new login and answer the prompt before `flow_expires_at`. |
+| `external_action_timeout` | the approval never arrived. | start a new login and approve sooner. |
+
+### Failed: credentials
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `credentials_invalid` | the site rejected the username or password, or the account doesn't exist there. | fix the credential. |
+| `totp_code_rejected` | the site rejected codes generated from the stored TOTP secret. | if codes from a new window also fail, replace the TOTP secret. |
+| `credential_provider_unavailable` | the external credential couldn't be loaded. | check the provider connection and the item path. |
+
+### Failed: account
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `account_locked` | the site locked or suspended the account. | unlock it on the site. more attempts can extend the lock. |
+| `account_action_required` | the site requires the account owner to do something first: change an expired password, set up MFA, verify identity, or get access granted. | sign in to the site yourself and complete it, then retry. update the credential if the password changed. |
+
+### Failed: site
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `login_form_not_found` | KERNEL found no way to sign in from the start page. | set [`login_url`](/auth/configuration#custom-login-url) to the page that shows the sign-in form. |
+| `website_error` | the site showed an error or maintenance page. | retry later. if it repeats, check that `login_url` opens a working login page. |
+| `captcha_blocked` | a CAPTCHA or bot check never cleared. | retry later, or turn on [`hitl`](/auth/configuration#human-verification-for-captchas) so a person can solve it. |
+| `rate_limited` | the site throttled sign-in. | wait for the site's retry window, then retry. |
+| `unsupported_auth_method` | the site offered only a passkey or security key. | enable another sign-in method on the account, such as password and authenticator app. |
+| `domain_not_allowed` | sign-in moved to a domain that isn't in `allowed_domains`, so KERNEL didn't type the credential. | add that domain to `allowed_domains` if you trust it. |
+
+### Failed: KERNEL
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `unhandled_page` | the login agent couldn't read or use a control on the page, or the page stopped responding to it. | nothing is required; KERNEL tracks these failures. |
+| `internal_error` | a KERNEL failure, including the agent ending without a result. | retry. KERNEL is alerted. |
+| `provider_unavailable` | the model provider was unavailable. | retry later. a reauth tries again at the next health check. |
+| `browser_error` | the browser crashed or disconnected. | retry. |
+| `browser_create_failed` | no browser could be started. | retry. check the connection's region, proxy, and plan limits. |
+| `flow_timeout` | the attempt ran out of time. | retry, and report the connection id if it repeats. |
+| `stuck_in_loop` | the agent repeated itself without progress. | retry, and report the connection id if it repeats. |
+
+### Failed: account limits
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `org_limit_exceeded` | your organization hit a concurrency or usage limit. | end an active session or raise the limit, then retry. |
+| `insufficient_plan` | the connection uses a setting your plan doesn't include. | change the setting or upgrade the plan. |
+
+### Failed: other
+
+| `code` | Meaning | What to do |
+|---|---|---|
+| `flow_failed` | none of the above. | retry, and report the connection id if it repeats. |
+
+### How `code` relates to `error_code`
+
+`error_code` keeps the values it returns today. most codes above have the same value in both fields. where the two differ, `error_code` shows `flow_failed`:
+
+- `account_action_required` and `unhandled_page` are new and appear only in `code`.
+- some failures that used to fall back to `flow_failed`, such as a missing sign-in entry point, a site error, a CAPTCHA, or a model provider outage, now get a specific `code`, while `error_code` stays `flow_failed`.
+
+use `code` for new integrations. if you already branch on `error_code`, your client keeps working unchanged.
+
+## See also
+
+- [Connection Lifecycle](/auth/connection-lifecycle): health checks, automatic reauth, and recovery
+- [Record sessions for debugging](/auth/configuration#record-sessions-for-debugging): turn on replays for logins, health checks, and reauths
+- [Programmatic Flow](/auth/programmatic): handle paused logins in your own ui
