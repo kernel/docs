@@ -12,7 +12,7 @@ every login, automatic reauth, and health check ends with an outcome: the result
 | `GET /auth/connections/{id}/timeline` | `outcome` on each event | no; the event has `type` and `timestamp` |
 | `GET /auth/connections/{id}/events` (sse) | `outcome` on `managed_auth_state` events | no; the event has `flow_type` and `timestamp` |
 
-these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning. when there's no outcome, `last_attempt` and `outcome` are absent or `null`; check for both. inside an outcome, every field is always present and is `null` when it doesn't apply.
+these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning. when there's nothing to report, `last_attempt` and `outcome` are absent. inside an outcome, every field is always present and is `null` when it doesn't apply.
 
 ## The outcome object
 
@@ -93,7 +93,7 @@ use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, 
 
 ## Read the latest attempt
 
-`last_attempt` on the connection is the attempt that explains the connection's current state. it's `null` until the first attempt that qualifies.
+`last_attempt` on the connection is the attempt that explains the connection's current state. it's absent until the first attempt that qualifies. when the connection is read with the key the hosted login page uses, `last_attempt` shows only that login session's attempt.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -120,9 +120,9 @@ if attempt and attempt.code:
 
 health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connections. if every check replaced `last_attempt`, a failed login would be hidden behind "signed out" within one check interval. so KERNEL replaces `last_attempt` only when the new attempt changes what you need to know:
 
-- **a login or reauth** replaces it when the attempt ends or pauses. a canceled attempt, including one canceled because you started a newer login, doesn't.
-- **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
-- **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that happens in two cases: the check can't run, or an older version of the health check reports an error. a check that can't run records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
+- **a login or reauth** replaces it when the attempt ends or pauses. once it pauses, it stays `last_attempt` until it ends, even after the person answers and the login continues. a canceled attempt, including one canceled because you started a newer login, counts only if it paused first; `last_attempt` then shows that pause.
+- **a health check** replaces it when the check changes the connection `status`, compared with the status before the check, whatever its result. it also replaces it when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection. a check recorded before results existed counts as `SIGNED_OUT` or `SUCCEEDED` when it changed the status.
+- **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that happens when the check can't run, or when an older version of the health check reports an error. a check that can't run records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
 
   | Cause | `code` |
   |---|---|
@@ -141,7 +141,7 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 | `INCONCLUSIVE` | replaces | no change; the earlier failure stays visible |
 | `FAILED` | replaces only when the check moves the connection to `NEEDS_AUTH` (see above); otherwise no change, timeline only | no change; timeline only |
 
-`last_auth_check_at` always shows the time of the latest health check, whether or not it replaced `last_attempt`. the timeline keeps every attempt with its own outcome.
+`last_attempt` is the newer of the latest login or reauth that ended or paused and the latest health check that qualifies, so it never moves back to an older attempt. `last_auth_check_at` always shows the time of the latest health check, whether or not it replaced `last_attempt`. the timeline keeps every attempt with its own outcome.
 
 for example, on a connection with automatic reauth on:
 
@@ -156,13 +156,13 @@ for example, on a connection with automatic reauth on:
 
 ### Paused logins
 
-while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract).
+while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract). `at` is when the latest pause began, and it stays that way after the login continues, until the attempt ends.
 
 if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a CAPTCHA is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
 
 ## Read outcomes on the timeline
 
-each timeline event has an `outcome` without `type` and `at`. it's absent or `null` while a login or reauth is running and not paused, for canceled attempts, and for health checks recorded before outcomes existed. older logins and reauths have an outcome, but their `phase` can be `null`.
+each timeline event has an `outcome` without `type` and `at`. it's absent while a login or reauth is running and not paused, for canceled attempts, and for health checks recorded before outcomes existed that didn't change the connection's status. older logins and reauths have an outcome, but their `phase` can be `null`.
 
 the timeline also lists health checks that end `FAILED` or `INCONCLUSIVE`. their `status` is the connection's status before the check (or `NEEDS_AUTH` for a check that couldn't run), so an `AUTHENTICATED` status on a health check event doesn't mean the check passed. use `outcome.result` to tell a passing check (`SUCCEEDED`) from the others.
 
@@ -184,7 +184,7 @@ async for event in kernel.auth.connections.timeline(auth.id, type="health_check"
 
 ## Read outcomes on the event stream
 
-on the sse stream, `outcome` is set on every `managed_auth_state` event for a flow that has ended (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) or is paused, including the first event after you connect. a client that connects after the flow ended still gets its outcome. `outcome` is absent or `null` while the flow is running and on canceled flows.
+on the sse stream, `outcome` is set on every `managed_auth_state` event for a flow that has ended (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) or is paused, including the first event after you connect. a client that connects after the flow ended still gets its outcome. `outcome` is absent while the flow is running and on canceled flows.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -247,9 +247,9 @@ a health check that ends with an error is `FAILED`, never `SIGNED_OUT`, even whe
 | What happened | `code` |
 |---|---|
 | the check's browser couldn't be started | `browser_create_failed` |
-| the check stopped without a result | `internal_error` |
+| the check's browser failed while checking the page | `browser_error` |
 | the model provider was unavailable | `provider_unavailable` |
-| any other error while checking the page | `browser_error` |
+| the check stopped without a result, or any other KERNEL error | `internal_error` |
 
 it appears on the timeline, and replaces `last_attempt` only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`.
 
