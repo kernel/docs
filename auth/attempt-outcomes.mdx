@@ -12,7 +12,7 @@ every login, automatic reauth, and health check ends with an outcome: the result
 | `GET /auth/connections/{id}/timeline` | `outcome` on each event | no; the event has `type` and `timestamp` |
 | `GET /auth/connections/{id}/events` (sse) | `outcome` on `managed_auth_state` events | no; the event has `flow_type` and `timestamp` |
 
-these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning.
+these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, and `error_message` keep their current values and meaning. when there's no outcome, `last_attempt` and `outcome` are absent or `null`; check for both. inside an outcome, every field is always present and is `null` when it doesn't apply.
 
 ## The outcome object
 
@@ -33,12 +33,12 @@ these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, a
 |---|---|---|
 | `type` | `login`, `reauth`, or `health_check` | always. only on `last_attempt`. the values match the timeline `type`. |
 | `result` | `SUCCEEDED`, `NEEDS_INPUT`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED` | always. branch on this field. |
-| `phase` | `navigate_to_login`, `log_in`, or `check_logged_in`; nullable | set unless `result` is `SUCCEEDED`. a health check that doesn't succeed uses `check_logged_in`. |
+| `phase` | `navigate_to_login`, `log_in`, or `check_logged_in`; nullable | set unless `result` is `SUCCEEDED`. a health check that doesn't succeed uses `check_logged_in`. `null` on logins and reauths recorded before this field existed. |
 | `code` | [`ManagedAuthOutcomeCode`](#outcome-codes); nullable | set when `result` is `NEEDS_INPUT` (after the attempt ended) or `FAILED`. `null` on `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, and while a login is paused for input. |
 | `debug_message` | string; nullable | set whenever `code` is set. |
 | `at` | date-time | always. only on `last_attempt`. when the attempt ended, or when the current pause began. |
 | `replay` | `{ replay_id, offset_ms }`; nullable | set only when the attempt was [recorded](/auth/configuration#record-sessions-for-debugging). |
-| `health_check_evidence` | string; nullable | set on every health check, including successful ones. `null` for logins and reauths. |
+| `health_check_evidence` | string; nullable | set on `SUCCEEDED`, `SIGNED_OUT`, and `INCONCLUSIVE` health checks. `null` on `FAILED` health checks, where no page was judged, and on logins and reauths. |
 
 an outcome never contains credential values or the login agent's own reasoning.
 
@@ -68,19 +68,19 @@ treat `result` as an open set and handle values you don't recognize, so a value 
 
 ### Debug message
 
-`debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, and it names the phase. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
+`debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, followed by ` Phase: <phase>.`, for example `... make sure login_url opens the login page. Phase: navigate_to_login.`; the phase suffix is left out when the phase isn't known, as on attempts recorded before `phase` existed. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
 
 ### Replay offset
 
-when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start.
+when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start. the offset is approximate and can run a second or two late, so start a few seconds earlier.
 
 `offset_ms` is `null` on a successful attempt and when the end time isn't known. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
 
 ### Health check evidence
 
-every health check reports the strongest evidence the verifier saw on the page:
+a health check opens the connection's saved profile in a browser and judges the page it lands on. every `SUCCEEDED`, `SIGNED_OUT`, or `INCONCLUSIVE` check reports the strongest evidence it saw:
 
-| `health_check_evidence` | What the verifier saw |
+| `health_check_evidence` | What the health check saw |
 |---|---|
 | `private_user_content` | content only a signed-in user can see. |
 | `signed_in_identity` | the signed-in user's name, email, or avatar. |
@@ -89,7 +89,7 @@ every health check reports the strongest evidence the verifier saw on the page:
 | `sign_in_control` | a sign-in button or link. |
 | `none` | nothing that proves either state. |
 
-use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, `login_form` means the verifier saw a sign-in form on the page the health check opened. if a signed-in user would also see a sign-in form there, the check page is the problem, not the session.
+use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, `login_form` means the health check saw a sign-in form on the page it opened. if a signed-in user would also see a sign-in form there, the check page is the problem, not the session.
 
 ## Read the latest attempt
 
@@ -100,8 +100,8 @@ use it to judge whether a `SIGNED_OUT` result was a real sign-out. for example, 
 const connection = await kernel.auth.connections.retrieve(auth.id);
 const attempt = connection.last_attempt;
 
-if (attempt?.result === 'FAILED' || attempt?.result === 'NEEDS_INPUT') {
-  console.log(`${attempt.type} stopped in ${attempt.phase}: ${attempt.code}`);
+if (attempt?.code) {
+  console.log(`${attempt.type} ended ${attempt.result} in ${attempt.phase}: ${attempt.code}`);
   console.log(attempt.debug_message);
 }
 ```
@@ -110,8 +110,8 @@ if (attempt?.result === 'FAILED' || attempt?.result === 'NEEDS_INPUT') {
 connection = await kernel.auth.connections.retrieve(auth.id)
 attempt = connection.last_attempt
 
-if attempt and attempt.result in ("FAILED", "NEEDS_INPUT"):
-    print(f"{attempt.type} stopped in {attempt.phase}: {attempt.code}")
+if attempt and attempt.code:
+    print(f"{attempt.type} ended {attempt.result} in {attempt.phase}: {attempt.code}")
     print(attempt.debug_message)
 ```
 </CodeGroup>
@@ -120,16 +120,16 @@ if attempt and attempt.result in ("FAILED", "NEEDS_INPUT"):
 
 health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connections. if every check replaced `last_attempt`, a failed login would be hidden behind "signed out" within one check interval. so KERNEL replaces `last_attempt` only when the new attempt changes what you need to know:
 
-- **a login or reauth** replaces it when the attempt ends or pauses. canceled and superseded attempts don't.
+- **a login or reauth** replaces it when the attempt ends or pauses. a canceled attempt, including one canceled because you started a newer login, doesn't.
 - **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
-- **a health check that ends with an error** (`FAILED`) never replaces it. it appears only on the timeline.
+- **a health check that ends with an error** (`FAILED`) never replaces it. it appears only on the timeline. most leave the connection `status` as it was. a check that can't run because of the connection's configuration (a deleted proxy, a region or setting your plan doesn't include, or a missing connection key) moves the connection to `NEEDS_AUTH` without starting a reauth; `last_attempt` still doesn't change, so read the timeline to find that check and its `code`.
 
 | Health check result | Status before: `AUTHENTICATED` | Status before: `NEEDS_AUTH` |
 |---|---|---|
 | `SUCCEEDED` | no change | replaces (status changes to `AUTHENTICATED`) |
 | `SIGNED_OUT` | replaces (status changes to `NEEDS_AUTH`) | no change |
 | `INCONCLUSIVE` | replaces | no change; the earlier failure stays visible |
-| `FAILED` | no change; timeline only | no change; timeline only |
+| `FAILED` | no change; timeline only. `status` can still move to `NEEDS_AUTH` (see above) | no change; timeline only |
 
 `last_auth_check_at` always shows the time of the latest health check, whether or not it replaced `last_attempt`. the timeline keeps every attempt with its own outcome.
 
@@ -148,49 +148,61 @@ for example, on a connection with automatic reauth on:
 
 while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract).
 
-if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`.
+if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a CAPTCHA is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
 
 ## Read outcomes on the timeline
 
-each timeline event has an `outcome` without `type` and `at`. it's `null` while the attempt is running and not paused. events recorded before these fields existed can have `null` fields.
+each timeline event has an `outcome` without `type` and `at`. it's absent or `null` while a login or reauth is running and not paused, for canceled attempts, and for health checks recorded before outcomes existed. older logins and reauths have an outcome, but their `phase` can be `null`.
+
+the timeline also lists health checks that end `FAILED` or `INCONCLUSIVE`. their `status` is the connection's status before the check (or `NEEDS_AUTH` for a check that couldn't run because of the connection's configuration), so an `AUTHENTICATED` status on a health check event doesn't mean the check passed. use `outcome.result` to tell a passing check (`SUCCEEDED`) from the others.
 
 <CodeGroup>
 ```typescript TypeScript
 for await (const event of kernel.auth.connections.timeline(auth.id, { type: 'health_check' })) {
-  if (event.outcome?.result === 'SIGNED_OUT') {
-    console.log(event.timestamp, event.outcome.health_check_evidence);
+  if (event.outcome && event.outcome.result !== 'SUCCEEDED') {
+    console.log(event.timestamp, event.outcome.result, event.outcome.code ?? event.outcome.health_check_evidence);
   }
 }
 ```
 
 ```python Python
 async for event in kernel.auth.connections.timeline(auth.id, type="health_check"):
-    if event.outcome and event.outcome.result == "SIGNED_OUT":
-        print(event.timestamp, event.outcome.health_check_evidence)
+    if event.outcome and event.outcome.result != "SUCCEEDED":
+        print(event.timestamp, event.outcome.result, event.outcome.code or event.outcome.health_check_evidence)
 ```
 </CodeGroup>
 
 ## Read outcomes on the event stream
 
-on the sse stream, `outcome` is set on the final `managed_auth_state` event of a login or reauth (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) and on each event that starts a pause. it's `null` on every other state event.
+on the sse stream, `outcome` is set on every `managed_auth_state` event for a flow that has ended (`flow_status` of `SUCCESS`, `FAILED`, or `EXPIRED`) or is paused, including the first event after you connect. a client that connects after the flow ended still gets its outcome. `outcome` is absent or `null` while the flow is running and on canceled flows.
 
 <CodeGroup>
 ```typescript TypeScript
+function renderPause(event: unknown) {
+  // show fields, choices, or the live view, then submit the interaction
+}
+
 const events = await kernel.auth.connections.follow(auth.id);
 
 for await (const event of events) {
   if (event.event !== 'managed_auth_state' || !event.outcome) continue;
 
-  if (event.outcome.result === 'NEEDS_INPUT' && event.outcome.code === null) {
-    continue; // paused: render fields and choices from this event
+  if (event.outcome.result === 'NEEDS_INPUT' && !event.outcome.code) {
+    renderPause(event);
+    continue;
   }
-  if (event.outcome.result !== 'SUCCEEDED') {
+  if (event.outcome.code) {
     console.log(event.outcome.code, event.outcome.debug_message);
   }
 }
 ```
 
 ```python Python
+def render_pause(event):
+    # show fields, choices, or the live view, then submit the interaction
+    pass
+
+
 events = await kernel.auth.connections.follow(auth.id)
 
 async for event in events:
@@ -198,15 +210,16 @@ async for event in events:
         continue
 
     if event.outcome.result == "NEEDS_INPUT" and event.outcome.code is None:
-        continue  # paused: render fields and choices from this event
-    if event.outcome.result != "SUCCEEDED":
+        render_pause(event)
+        continue
+    if event.outcome.code:
         print(event.outcome.code, event.outcome.debug_message)
 ```
 </CodeGroup>
 
 ## When a health check signs out or can't tell
 
-`SIGNED_OUT` and `INCONCLUSIVE` health checks have `code: null` and `debug_message: null`. the verifier knows only what it saw on the page, not why: a real expiry, the site ending the session, a false sign-out, a lost profile, or a bot page all look the same to it. `result` and `health_check_evidence` carry what's known.
+`SIGNED_OUT` and `INCONCLUSIVE` health checks have `code: null` and `debug_message: null`. the health check knows only what it saw on the page, not why: a real expiry, the site ending the session, a false sign-out, a lost profile, or a bot page all look the same to it. `result` and `health_check_evidence` carry what's known.
 
 **`SIGNED_OUT`**
 
@@ -219,7 +232,7 @@ async for event in events:
 - the connection `status` doesn't change, and KERNEL doesn't start a reauth. the next check runs on schedule.
 - if it happens on every check, look at the page that health checks open: it needs to be a page only a signed-in user can open. a recorded health check's replay shows it.
 
-a health check that ends with an error is `FAILED` with a code, for example `browser_error`. it appears only on the timeline.
+a health check that ends with an error is `FAILED` with a code, for example `browser_error`, and has no `health_check_evidence`. it appears only on the timeline.
 
 ## Outcome codes
 
@@ -235,8 +248,8 @@ a health check that ends with an error is `FAILED` with a code, for example `bro
 | `sms_code_required` | a text-message code was needed. | start a login and enter the code. a reauth can't receive it. |
 | `email_code_required` | an emailed code was needed. | start a login and enter the code. a reauth can't receive it. |
 | `external_action_required` | the site wanted approval elsewhere, such as a push notification or email link. | start a login and approve it. |
-| `awaiting_input_timeout` | a login paused for input and nobody answered. | start a new login and answer the prompt before `flow_expires_at`. |
-| `external_action_timeout` | the approval never arrived. | start a new login and approve sooner. |
+| `awaiting_input_timeout` | a login paused for input, a choice, or a person and nobody answered before it expired. | start a new login and answer the prompt before `flow_expires_at`. |
+| `external_action_timeout` | the login expired while waiting for an approval outside the browser. | start a new login and approve sooner. |
 
 ### Failed: credentials
 
@@ -273,8 +286,9 @@ a health check that ends with an error is `FAILED` with a code, for example `bro
 | `provider_unavailable` | the model provider was unavailable. | retry later. a reauth tries again at the next health check. |
 | `browser_error` | the browser crashed or disconnected. | retry. |
 | `browser_create_failed` | no browser could be started. | retry. check the connection's region, proxy, and plan limits. |
-| `flow_timeout` | the attempt ran out of time. | retry, and report the connection id if it repeats. |
+| `flow_timeout` | the attempt ran out of time, or expired while it wasn't waiting on a person. | retry, and report the connection id if it repeats. |
 | `stuck_in_loop` | the agent repeated itself without progress. | retry, and report the connection id if it repeats. |
+| `max_steps_exceeded` | the login used too many steps. | retry, and report the connection id if it repeats. |
 
 ### Failed: account limits
 
@@ -291,10 +305,20 @@ a health check that ends with an error is `FAILED` with a code, for example `bro
 
 ### How `code` relates to `error_code`
 
-`error_code` keeps the values it returns today. most codes above have the same value in both fields. where the two differ, `error_code` shows `flow_failed`:
+`error_code` keeps the values it returns today, and most codes above have the same value in both fields. they differ in these cases:
 
-- `account_action_required` and `unhandled_page` are new and appear only in `code`.
-- some failures that used to fall back to `flow_failed`, such as a missing sign-in entry point, a site error, a CAPTCHA, or a model provider outage, now get a specific `code`, while `error_code` stays `flow_failed`.
+| Attempt | `error_code` | `code` |
+|---|---|---|
+| failures with a new code | `flow_failed` | `account_action_required` or `unhandled_page` |
+| failures that used to fall back to `flow_failed`, such as no sign-in entry point, a site error, an unsolved CAPTCHA, a model provider outage, the agent ending without a result, or the attempt running past its time limit | `flow_failed` | `login_form_not_found`, `website_error`, `captcha_blocked`, `provider_unavailable`, `internal_error`, or `flow_timeout` |
+| expired attempts (`flow_status: EXPIRED`) | absent | `awaiting_input_timeout` if it was waiting for input, a choice, or a person; `external_action_timeout` if it was waiting for an approval; otherwise `flow_timeout` |
+| older error codes | `mfa_required` or `unsatisfiable_challenge` | `customer_input_required` |
+| older error codes | `region_not_enabled` | `insufficient_plan` |
+| older error codes | `network_error` | `website_error` |
+| older error codes | `bot_detected` | `captcha_blocked` |
+| any other `error_code` outside the outcome code set | that value | `flow_failed` |
+
+canceled attempts have no outcome, so they have no `code`.
 
 use `code` for new integrations. if you already branch on `error_code`, your client keeps working unchanged.
 

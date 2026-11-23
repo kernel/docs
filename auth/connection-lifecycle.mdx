@@ -16,7 +16,7 @@ After the initial login, every connection moves through this loop:
 
     A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
 
-    each check is recorded on the timeline with an [outcome](/auth/attempt-outcomes): `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED`, plus the `health_check_evidence` the verifier saw.
+    each check that runs is recorded on the timeline with an [outcome](/auth/attempt-outcomes): `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED`. all but `FAILED` also report the `health_check_evidence` the check saw on the page.
   </Step>
   <Step title="Auto-reauth (if eligible)">
     If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. A successful login resets the loop.
