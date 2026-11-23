@@ -37,7 +37,7 @@ these fields are additive. `status`, `flow_status`, `flow_step`, `error_code`, a
 | `code` | [`ManagedAuthOutcomeCode`](#outcome-codes); nullable | set when `result` is `NEEDS_INPUT` (after the attempt ended) or `FAILED`. `null` on `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, and while a login is paused for input. |
 | `debug_message` | string; nullable | set whenever `code` is set. |
 | `at` | date-time | always. only on `last_attempt`. when the attempt ended, or when the current pause began. |
-| `replay` | `{ replay_id, offset_ms }`; nullable | set only when the attempt was [recorded](/auth/configuration#record-sessions-for-debugging). |
+| `replay` | `{ replay_id, offset_ms }`; nullable | set only when the attempt was [recorded](/auth/configuration#record-sessions-for-debugging). `offset_ms` inside it can be `null`. |
 | `health_check_evidence` | string; nullable | set on `SUCCEEDED`, `SIGNED_OUT`, and `INCONCLUSIVE` health checks. `null` on `FAILED` health checks, where no page was judged, and on logins and reauths. |
 
 an outcome never contains credential values or the login agent's own reasoning.
@@ -72,9 +72,9 @@ treat `result` as an open set and handle values you don't recognize, so a value 
 
 ### Replay offset
 
-when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start. the offset is approximate and can run a second or two late, so start a few seconds earlier.
+when the attempt was recorded, `replay.replay_id` identifies the [replay](/browsers/replays) and `replay.offset_ms` is the number of milliseconds from the start of the recording to the moment the attempt ended. the start is the moment the recording began, as reported by the browser's recorder. skip to that point in the replay to see the page where the attempt stopped instead of watching from the start.
 
-`offset_ms` is `null` on a successful attempt and when the end time isn't known. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
+`offset_ms` is `null` on a successful attempt and whenever the recording's start time isn't known, which includes every attempt recorded before offsets existed. KERNEL doesn't estimate it. `replay` is `null` when the attempt wasn't recorded. recording is off by default; turn on [`record_session`](/auth/configuration#record-sessions-for-debugging) for the connection or for a single `.login()`.
 
 ### Health check evidence
 
@@ -122,7 +122,7 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 
 - **a login or reauth** replaces it when the attempt ends or pauses. a canceled attempt, including one canceled because you started a newer login, doesn't.
 - **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
-- **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that happens when the check can't run at all. it records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
+- **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that mainly happens when the check can't run at all. such a check records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
 
   | Cause | `code` |
   |---|---|
@@ -242,7 +242,16 @@ async for event in events:
 - the connection `status` doesn't change, and KERNEL doesn't start a reauth. the next check runs on schedule.
 - if it happens on every check, look at the page that health checks open: it needs to be a page only a signed-in user can open. a recorded health check's replay shows it.
 
-a health check that ends with an error is `FAILED` with a code, for example `browser_error`, and has no `health_check_evidence`. it appears on the timeline, and replaces `last_attempt` only when it moves the connection to `NEEDS_AUTH`.
+a health check that ends with an error is `FAILED`, never `SIGNED_OUT`, even when the page looked signed out, and has no `health_check_evidence`. besides the [causes that stop a check from running](#when-last_attempt-changes), the code says what went wrong:
+
+| What happened | `code` |
+|---|---|
+| the check's browser couldn't be started | `browser_create_failed` |
+| the check stopped without a result | `internal_error` |
+| the model provider was unavailable | `provider_unavailable` |
+| any other error while checking the page | `browser_error` |
+
+it appears on the timeline, and replaces `last_attempt` only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`.
 
 ## Outcome codes
 
