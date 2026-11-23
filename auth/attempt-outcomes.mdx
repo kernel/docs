@@ -122,7 +122,17 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 
 - **a login or reauth** replaces it when the attempt ends or pauses. a canceled attempt, including one canceled because you started a newer login, doesn't.
 - **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
-- **a health check that ends with an error** (`FAILED`) usually leaves the connection `status` as it was and doesn't replace it; it appears only on the timeline. the exception is a check that can't run because of the connection's configuration on an `AUTHENTICATED` connection. it moves the connection to `NEEDS_AUTH` without starting a reauth and replaces `last_attempt`, with `phase: check_logged_in` and a code that names the cause: `browser_create_failed` when the connection's proxy was deleted; `insufficient_plan` when browser telemetry is restricted for your organization, your plan doesn't allow the connection's browser settings, or the connection's region isn't enabled for your organization; or `internal_error` when the connection's key is missing.
+- **a health check that ends with `FAILED`** replaces it only when it moved the connection from `AUTHENTICATED` to `NEEDS_AUTH`. that happens when the check can't run at all. it records a `FAILED` check with `phase: check_logged_in` and no evidence or replay, and KERNEL sets the connection to `NEEDS_AUTH` without starting a reauth. the code names the cause:
+
+  | Cause | `code` |
+  |---|---|
+  | the connection's proxy was deleted | `browser_create_failed` |
+  | the connection's key is missing | `internal_error` |
+  | browser telemetry is restricted for your organization | `insufficient_plan` |
+  | your plan doesn't allow the connection's browser settings | `insufficient_plan` |
+  | the connection's region isn't enabled for your organization | `insufficient_plan` |
+
+  every other `FAILED` check never replaces it and appears only on the timeline: a check that ran into an error (a browser or verification error, for example) keeps the status it had, and a check that can't run on a connection already in `NEEDS_AUTH` doesn't change the status.
 
 | Health check result | Status before: `AUTHENTICATED` | Status before: `NEEDS_AUTH` |
 |---|---|---|
@@ -154,7 +164,7 @@ if the pause ends without an answer, or a reauth needs input it can't get becaus
 
 each timeline event has an `outcome` without `type` and `at`. it's absent or `null` while a login or reauth is running and not paused, for canceled attempts, and for health checks recorded before outcomes existed. older logins and reauths have an outcome, but their `phase` can be `null`.
 
-the timeline also lists health checks that end `FAILED` or `INCONCLUSIVE`. their `status` is the connection's status before the check (or `NEEDS_AUTH` for a check that couldn't run because of the connection's configuration), so an `AUTHENTICATED` status on a health check event doesn't mean the check passed. use `outcome.result` to tell a passing check (`SUCCEEDED`) from the others.
+the timeline also lists health checks that end `FAILED` or `INCONCLUSIVE`. their `status` is the connection's status before the check (or `NEEDS_AUTH` for a check that couldn't run), so an `AUTHENTICATED` status on a health check event doesn't mean the check passed. use `outcome.result` to tell a passing check (`SUCCEEDED`) from the others.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -281,7 +291,7 @@ a health check that ends with an error is `FAILED` with a code, for example `bro
 
 | `code` | Meaning | What to do |
 |---|---|---|
-| `unhandled_page` | the login agent couldn't read or use a control on the page, or the page stopped responding to it. | nothing is required; KERNEL tracks these failures. |
+| `unhandled_page` | the login agent couldn't read or use a control on the page, or the page stopped responding to it. | KERNEL tracks these failures. start a new login, and report the connection id if it repeats. |
 | `internal_error` | a KERNEL failure, including the agent ending without a result. | retry. KERNEL is alerted. |
 | `provider_unavailable` | the model provider was unavailable. | retry later. a reauth tries again at the next health check. |
 | `browser_error` | the browser crashed or disconnected. | retry. |
