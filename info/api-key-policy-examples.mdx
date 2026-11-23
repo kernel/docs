@@ -270,38 +270,4 @@ policy = {
 
 API-key reads return metadata and policies. Creating delegated keys requires `api_keys:create` on their container plus the permissions you intend to delegate; rotating keys requires `api_keys:rotate` and coverage of their policy.
 </Accordion>
-
-<Accordion title="Search and retrieve page content">
-Run searches in staging, inspect their results, and retrieve page content with automatically created browsers.
-
-<CodeGroup>
-```typescript TypeScript
-const policy = {
-  statements: [
-    { action: 'searches:create', resource: 'projects/proj_staging_9f3k/*' },
-    { action: 'searches:read', resource: 'projects/proj_staging_9f3k/*' },
-    { action: 'searches:use', resource: 'projects/proj_staging_9f3k/*' },
-    { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
-    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
-    { action: 'browsers:delete', resource: 'projects/proj_staging_9f3k/*' },
-  ],
-};
-```
-
-```python Python
-policy = {
-    "statements": [
-        {"action": "searches:create", "resource": "projects/proj_staging_9f3k/*"},
-        {"action": "searches:read", "resource": "projects/proj_staging_9f3k/*"},
-        {"action": "searches:use", "resource": "projects/proj_staging_9f3k/*"},
-        {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
-        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
-        {"action": "browsers:delete", "resource": "projects/proj_staging_9f3k/*"},
-    ],
-}
-```
-</CodeGroup>
-
-The browser grants allow retrieval to create, control, and clean up its browser. To retrieve with an existing browser instead, grant access to that browser and its attached resources.
-</Accordion>
 </AccordionGroup>

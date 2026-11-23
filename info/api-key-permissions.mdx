@@ -40,7 +40,7 @@ Choose `kind` from the following resource types:
 
 Kernel checks that each object ID exists within the credential's boundary when you create or update a key or rule. Existing project-owned resources without a project are treated as belonging to the default project.
 
-Creation actions need a container selector ending in `/*`, rather than an existing object's ID. Project creation and creation of organization-owned resources need `organizations/{org_id}/*`. Audit log access also uses an organization container. Search and configuration registry actions use a project or organization container rather than individual search or analysis IDs.
+Creation actions need a container selector ending in `/*`, rather than an existing object's ID. Project creation and creation of organization-owned resources need `organizations/{org_id}/*`. Audit log access also uses an organization container. Configuration registry actions use a project or organization container rather than individual analysis IDs.
 
 <Note>
 A policy narrows your key's access; it doesn't change its organization or project boundary. Use an organization-scoped key for organization administration, credential providers, wallet provider configurations, audit logs, and telemetry destination management. A project-scoped key can rename its own project, but project creation, deletion, status changes, and limit changes require an organization-scoped credential.
@@ -236,13 +236,10 @@ Native OAuth tokens can’t manage API keys. This applies to human sign-ins (inc
 | `audit_log_export_destinations:write` | Reconfigure, pause, or activate destinations. Also requires `audit_logs:read`. |
 | `audit_log_export_destinations:delete` | Delete destinations. |
 
-### Search and configuration registry
+### Configuration registry
 
 | Action | Allows |
 | --- | --- |
-| `searches:create` | Run web searches. |
-| `searches:read` | Read stored search results and configured search providers. |
-| `searches:use` | Retrieve page content for search results. |
 | `config_registry:read` | Look up recommended browser configurations and read analyses. |
 | `config_registry:create` | Start or resolve configuration analyses. Also requires `config_registry:read`. |
 | `config_registry:write` | Cancel configuration analyses. |
@@ -287,12 +284,11 @@ Connection updates check the resulting configuration. Turning off credential sav
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
 | Create or rotate an API key with a key that has a policy | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. If your key expires, the new or replacement key must expire no later than it unless you also hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. You can't issue or rotate a key carrying that permission. |
 | Update an audit export destination | `audit_log_export_destinations:write` and organization-wide `audit_logs:read`. |
-| Retrieve search content with an automatically created browser | `searches:use` plus container-wide `browsers:create`, `browsers:use`, and `browsers:delete`. With an existing browser, grant access to that browser and its attachments instead. |
 | Resolve a browser configuration | `config_registry:create` and `config_registry:read`. |
 
 ## Lists and authentication
 
-Resource lists, such as browsers, profiles, pools, and API keys, filter permissions before pagination. A key with no grant for those resources receives an empty list. Service-wide listings, such as search providers, require the service's read action.
+Resource lists, such as browsers, profiles, pools, and API keys, filter permissions before pagination. A key with no grant for those resources receives an empty list.
 
 `GET /auth/context` describes the calling credential and needs no additional policy action; the key must still be valid and unexpired.
 
