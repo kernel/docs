@@ -4,7 +4,7 @@ sidebarTitle: "Push cards from your backend"
 description: "Add a card to a KERNEL wallet server to server, from a card issuer or from your own card vault"
 ---
 
-you can add a card to a [KERNEL wallet](/integrations/wallets/pay-with-multiple-cards) from a backend instead of having the cardholder type it in. you start a server enrollment, KERNEL returns a single-use `card_ingest` url, and the card is posted to that url.
+you can add a card to a [KERNEL wallet](/integrations/wallets/pay-with-card) from a backend instead of having the cardholder type it in. you start a server enrollment, KERNEL returns a single-use `card_ingest` url, and the card is posted to that url.
 
 the `card_ingest` url is served by KERNEL's PCI-compliant card vault, not by KERNEL's API. the card vault replaces the card number and CVC with aliases before the request reaches KERNEL, so KERNEL never handles raw card data. the agent's browser only ever sees aliases, which are swapped for the real values on the way to the merchant.
 
@@ -13,7 +13,7 @@ the request carries the raw card number and CVC, so it must come from an environ
 - **from a card issuer.** a bank, card program, or payment provider creates a single-use card for one checkout and posts it from its own PCI-compliant backend. use this for virtual cards issued per purchase.
 - **from your own card vault.** your cards already live in a third-party vault, such as VGS, Basis Theory, Skyflow, or Evervault. your backend sends the request with your vault's aliases through the vault's outbound proxy, which swaps in the real values on the way out. the raw card only exists between the two vaults, so your servers never handle it. see [push from your own card vault](#push-from-your-own-card-vault).
 
-for a card the cardholder enters themselves, use [hosted enrollment](/integrations/wallets/pay-with-multiple-cards#add-a-card) instead. if your cards are in your own VGS vault, you can also [let KERNEL read them from your vault](/integrations/wallets/bring-your-own-vgs-vault) instead of pushing each card.
+for a card the cardholder enters themselves, use [hosted enrollment](/integrations/wallets/pay-with-card#connect-a-card) instead. if your cards are in your own VGS vault, you can also [let KERNEL read them from your vault](/integrations/wallets/bring-your-own-vgs-vault) instead of pushing each card.
 
 <Warning>
 never post raw card data from servers that aren't allowed to handle it. if your backend isn't PCI-compliant, send the card through a card vault's proxy, as described below.
@@ -291,7 +291,7 @@ once the card's CVC has been used by a purchase or has expired, a retry returns 
 
 ## Pay with the pushed card
 
-create a purchase with the pushed card's `id` as `spec.payment_method_id`, as in [choose a card for a purchase](/integrations/wallets/pay-with-multiple-cards#choose-a-card-for-a-purchase). because the CVC came with the card, `authorize` makes the purchase `ready` right away, with no cardholder approval page. the agent then [fills](/vaults/fill) the checkout as usual.
+create a purchase with the pushed card's `id` as `spec.payment_method_id`, as in [choose a card for a purchase](/integrations/wallets/pay-with-card#choose-a-card-for-a-purchase). because the CVC came with the card, `authorize` makes the purchase `ready` right away, with no cardholder approval page. the agent then [fills](/vaults/fill) the checkout as usual.
 
 <CodeGroup>
 
