@@ -5,7 +5,7 @@ description: "save a user's card once, then let your browser agent pay with it a
 
 managed payments let your agent pay on a website with a card your user saved in KERNEL. you add the card once through a hosted page, and for each purchase you authorize it, fill the checkout, and submit. your application and your agent never see the card number or security code.
 
-this cookbook walks one path end to end with `provider: "kernel"`. for every wallet option and the full controller pattern, see [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
+this cookbook walks the whole flow end to end with `provider: "kernel"`.
 
 <Note>
   managed payments are in preview. email [support@kernel.sh](mailto:support@kernel.sh) to turn them on for your organization. paying with a user's card is live-only, so test with a low-value checkout you control.
@@ -21,14 +21,15 @@ with managed payments, KERNEL picks how each purchase is paid. where the card ne
 
 it also keeps the payment on the same browser identity. where it can, KERNEL sends payment traffic back through the session's configured proxy, so the checkout doesn't switch to a different IP halfway through. a sudden IP change is a common reason bot protection blocks a payment step.
 
-compared with the other wallet options:
-
-| option | pick it when | trade-off |
+| | managed payments | build it yourself on a card vault |
 | --- | --- | --- |
-| managed payments | your users have an ordinary credit or debit card and you want one flow for every merchant | some cards ask for the security code at each purchase |
-| [link by stripe](/integrations/wallets/stripe-link) | your users already use link | requires a link account and a US phone number; each purchase is approved in link, with per-request and daily limits |
-| [agentcard](/integrations/wallets/agentcard) | your users already keep cards in agentcard | only works on checkouts with a [recognized processor request](/integrations/wallets/agentcard#checkout-and-processor-coverage) |
-| [bring your own vgs vault](/integrations/wallets/bring-your-own-vgs-vault) | cards already live in your own VGS vault and must stay there | coverage is limited to what that vault's routes support |
+| card collection | hosted or embedded KERNEL page | your vendor's forms, embedded and maintained by you |
+| which hosts can receive the card | handled by KERNEL | a host allowlist you keep per merchant and processor |
+| checkouts that encrypt the card in the page | covered wherever any supported path covers them | covered only if your vendor supports that processor |
+| browser proxy and fingerprint during payment | kept where possible | you chain the vendor's proxy with your own |
+| security code | some cards ask for it at each purchase | the same PCI limits on storing it apply to you |
+
+if your cards already live in your own VGS vault and must stay there, see [bring your own vgs vault](/integrations/wallets/bring-your-own-vgs-vault). coverage is then limited to what that vault supports.
 
 ## Before you start
 
@@ -393,4 +394,3 @@ don't retry the payment while you wait. the first attempt might still have charg
 - [pay with card](/integrations/wallets/pay-with-card): the reference for KERNEL wallets and purchases.
 - [embedded card capture](/integrations/wallets/embedded-card-capture): collect cards on your own domain.
 - [fill browser fields](/vaults/fill): selectors, frames, and the outcome contract.
-- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the full controller pattern, including purchase verification and hosted action handling.
