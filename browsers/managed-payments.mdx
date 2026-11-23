@@ -362,15 +362,14 @@ if any(operation.type == "confirm_transaction" for operation in settled.availabl
 
 {/* TODO(hiro): replace this section with results from our own test runs. everything below comes from partner reports and spot checks. */}
 
-`fill` works with any checkout that takes card details in ordinary inputs, either on the merchant's page or inside a processor's payment iframe. the main gap is checkouts that encrypt the card in the browser before sending it.
+most checkouts work as long as the page sends the card number as typed, whether the card form is on the merchant's page or inside a processor's payment iframe. Mercado Pago is one example.
 
-| checkout type | status |
+the gap is checkouts that encrypt the card in the browser before sending it. each of those processors needs specific support:
+
+| checkout that encrypts the card in the browser | status |
 | --- | --- |
-| card form on the merchant's page | supported |
-| card fields inside a processor iframe that posts the card over https | supported |
-| Adyen client-side encryption, including custom merchant flows built on Adyen | supported |
+| Adyen, including custom merchant flows built on Adyen | supported |
 | Apple Store | supported |
-| Mercado Pago | supported |
 | Toast | in testing |
 | VTEX | in progress |
 | legacy Braintree.js client-side encryption | not supported yet |
