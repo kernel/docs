@@ -1,0 +1,396 @@
+---
+title: "Managed Payments"
+description: "save a user's card once, then let your browser agent pay with it at checkout"
+---
+
+managed payments let your agent pay on a website with a card your user saved in KERNEL. you add the card once through a hosted page, and for each purchase you authorize it, fill the checkout, and submit. your application and your agent never see the card number or security code.
+
+this cookbook walks one path end to end with `provider: "kernel"`. for every wallet option and the full controller pattern, see [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent).
+
+<Note>
+  managed payments are in preview. email [support@kernel.sh](mailto:support@kernel.sh) to turn them on for your organization. paying with a user's card is live-only, so test with a low-value checkout you control.
+</Note>
+
+## Why managed payments
+
+{/* TODO(hiro): this section is drafted from your notes. rewrite it in your own words before merge. */}
+
+you can build agentic checkout yourself: contract with a card vault such as VGS or Evervault, embed their collection forms, run their outbound proxy in front of your browsers, and keep a list of merchant and processor hosts where the proxy may reveal the card. we built managed payments because that last part doesn't scale. every new merchant can bring a new processor, a new host, or a checkout that encrypts the card in the page before it leaves the browser. one vault vendor's proxy covers what that vendor covers.
+
+with managed payments, KERNEL picks how each purchase is paid. where the card network issues an agentic network token for the card, checkout gets that token and a one-time security code. otherwise KERNEL substitutes the stored card at the network edge, through whichever supported path covers that checkout. you write the same `authorize`, `fill`, submit code either way. when coverage improves, your integration gets it without a change.
+
+it also keeps the payment on the same browser identity. where it can, KERNEL sends payment traffic back through the session's configured proxy, so the checkout doesn't switch to a different IP halfway through. a sudden IP change is a common reason bot protection blocks a payment step.
+
+compared with the other wallet options:
+
+| option | pick it when | trade-off |
+| --- | --- | --- |
+| managed payments | your users have an ordinary credit or debit card and you want one flow for every merchant | some cards ask for the security code at each purchase |
+| [link by stripe](/integrations/wallets/stripe-link) | your users already use link | requires a link account and a US phone number; each purchase is approved in link, with per-request and daily limits |
+| [agentcard](/integrations/wallets/agentcard) | your users already keep cards in agentcard | only works on checkouts with a [recognized processor request](/integrations/wallets/agentcard#checkout-and-processor-coverage) |
+| [bring your own vgs vault](/integrations/wallets/bring-your-own-vgs-vault) | cards already live in your own VGS vault and must stay there | coverage is limited to what that vault's routes support |
+
+## Before you start
+
+- set `KERNEL_API_KEY` and `KERNEL_PROJECT_ID` in your backend, and install a KERNEL sdk.
+- have a browser agent that can reach the final checkout page. this cookbook adds payment, not navigation.
+- know the top-level url of the checkout page where the card fields are. `fill` only writes on that url's origin.
+
+the examples use one vault per end user. keep everything below in your backend, never in the agent's prompt or tools.
+
+## 1. Add a card
+
+create the user's vault and a KERNEL wallet, then request a card enrollment link. send the cardholder to that link from your own authenticated ui. the hosted page collects the card and sends it straight to KERNEL's card vault.
+
+<CodeGroup>
+
+```typescript TypeScript
+import Kernel from "@onkernel/sdk";
+
+const kernel = new Kernel({
+  projectID: process.env.KERNEL_PROJECT_ID!,
+  maxRetries: 0,
+});
+const vault = await kernel.vaults.upsert({ name: "user-12345" });
+
+await kernel.vaults.items.upsert("card-wallet", {
+  id_or_name: vault.id,
+  type: "wallet",
+  spec: { provider: "kernel" },
+});
+
+const added = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "add_payment_method",
+});
+if (added.type !== "add_payment_method") {
+  throw new Error("unexpected operation response");
+}
+// send added.payment_method.action.url to the cardholder, not to the agent
+```
+
+```python Python
+import os
+
+from kernel import Kernel
+
+kernel = Kernel(project_id=os.environ["KERNEL_PROJECT_ID"], max_retries=0)
+vault = kernel.vaults.upsert(name="user-12345")
+
+kernel.vaults.items.upsert(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="wallet",
+    spec={"provider": "kernel"},
+)
+
+added = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="add_payment_method",
+)
+if added.type != "add_payment_method":
+    raise RuntimeError("unexpected operation response")
+# send added.payment_method.action.url to the cardholder, not to the agent
+```
+
+</CodeGroup>
+
+the link is single-use and expires after 30 minutes. to collect the card on your own domain instead, pass the action's `capture_token` to [embedded card capture](/integrations/wallets/embedded-card-capture).
+
+after the cardholder submits, list the wallet's cards. a card can pay when its `status` is `active` and `capabilities.single_use_card.eligible` is `true`. keep its `id` for purchases.
+
+<CodeGroup>
+
+```typescript TypeScript
+const wallet = await kernel.vaults.items.retrieve("card-wallet", {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+if (wallet.type !== "wallet") throw new Error("unexpected item type");
+const payingCard = (wallet.expanded?.payment_methods ?? []).find(
+  (method) =>
+    method.status === "active" && method.capabilities.single_use_card?.eligible,
+);
+if (!payingCard) throw new Error("no card can pay yet");
+```
+
+```python Python
+wallet = kernel.vaults.items.retrieve(
+    "card-wallet",
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+if wallet.type != "wallet":
+    raise RuntimeError("unexpected item type")
+methods = (wallet.expanded.payment_methods or []) if wallet.expanded else []
+paying_card = next(
+    (
+        method
+        for method in methods
+        if method.status == "active"
+        and method.capabilities.single_use_card
+        and method.capabilities.single_use_card.eligible
+    ),
+    None,
+)
+if paying_card is None:
+    raise RuntimeError("no card can pay yet")
+```
+
+</CodeGroup>
+
+a wallet holds up to 10 cards. see [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards) to add, list, and remove them.
+
+## 2. Open a browser with the vault
+
+attach the vault when you create the browser. you can't attach it later.
+
+<CodeGroup>
+
+```typescript TypeScript
+const browser = await kernel.browsers.create({
+  vaults: [{ id: vault.id }],
+  headless: false,
+  timeout_seconds: 1800,
+});
+```
+
+```python Python
+browser = kernel.browsers.create(
+    vaults=[{"id": vault.id}],
+    headless=False,
+    timeout_seconds=1800,
+)
+```
+
+</CodeGroup>
+
+connect your agent to `browser.cdp_ws_url` and let it shop until it reaches the final checkout page.
+
+## 3. Authorize the purchase
+
+create a `card` item for this purchase from values your backend verified, not values the agent proposed. then invoke `authorize`.
+
+authorize only once the agent is on the final checkout page. the credential it unlocks expires within minutes.
+
+<CodeGroup>
+
+```typescript TypeScript
+const purchase = await kernel.vaults.items.upsert("order-1001", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "kernel",
+    wallet: "card-wallet",
+    payment_method_id: payingCard.id,
+    amount: 2306,
+    currency: "usd",
+    merchant_name: "example shop",
+    merchant_url: "https://shop.example.com/checkout",
+    merchant_country: "US",
+  },
+});
+
+const authorized = await kernel.vaults.items.performOperation(purchase.key, {
+  id_or_name: vault.id,
+  type: "authorize",
+});
+if (authorized.type !== "card") throw new Error("unexpected operation response");
+if (authorized.action && "url" in authorized.action) {
+  // send authorized.action.url to the cardholder, not to the agent
+}
+
+let card = await kernel.vaults.items.retrieve(purchase.key, {
+  id_or_name: vault.id,
+  wait: 60,
+});
+while (card.type === "card" && card.state.status === "pending_authorization") {
+  card = await kernel.vaults.items.retrieve(purchase.key, {
+    id_or_name: vault.id,
+    wait: 60,
+  });
+}
+if (card.type !== "card" || card.state.status !== "ready") {
+  throw new Error(`purchase is ${card.state.status}`);
+}
+```
+
+```python Python
+purchase = kernel.vaults.items.upsert(
+    "order-1001",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "kernel",
+        "wallet": "card-wallet",
+        "payment_method_id": paying_card.id,
+        "amount": 2306,
+        "currency": "usd",
+        "merchant_name": "example shop",
+        "merchant_url": "https://shop.example.com/checkout",
+        "merchant_country": "US",
+    },
+)
+
+authorized = kernel.vaults.items.perform_operation(
+    purchase.key,
+    id_or_name=vault.id,
+    type="authorize",
+)
+if authorized.type != "card":
+    raise RuntimeError("unexpected operation response")
+if authorized.action is not None and hasattr(authorized.action, "url"):
+    pass  # send authorized.action.url to the cardholder, not to the agent
+
+card = kernel.vaults.items.retrieve(purchase.key, id_or_name=vault.id, wait=60)
+while card.type == "card" and card.state.status == "pending_authorization":
+    card = kernel.vaults.items.retrieve(purchase.key, id_or_name=vault.id, wait=60)
+if card.type != "card" or card.state.status != "ready":
+    raise RuntimeError(f"purchase is {card.state.status}")
+```
+
+</CodeGroup>
+
+`authorize` might return a `spend_approval` action. depending on the card, the cardholder either approves the purchase or re-enters the card's security code on that page. treat both the same way: show the link to the cardholder and wait for `ready`. some cards return no action and are ready right away.
+
+## 4. Fill the checkout and submit once
+
+pass the browser's exact current checkout url and one selector per card input. KERNEL writes the values, including into processor iframes, and returns per-field outcomes without the values.
+
+<CodeGroup>
+
+```typescript TypeScript
+const result = await kernel.vaults.items.performOperation(card.key, {
+  id_or_name: vault.id,
+  type: "fill",
+  browser_id: browser.session_id,
+  page_url: "https://shop.example.com/checkout",
+  fields: [
+    { field: "number", selector: "#card-number" },
+    { field: "expiration", selector: "#expiry", format: "MM/YY" },
+    { field: "cvc", selector: "#security-code" },
+  ],
+});
+if (result.type !== "fill" || result.status !== "completed") {
+  throw new Error("fill did not complete; inspect result.fields");
+}
+```
+
+```python Python
+result = kernel.vaults.items.perform_operation(
+    card.key,
+    id_or_name=vault.id,
+    type="fill",
+    browser_id=browser.session_id,
+    page_url="https://shop.example.com/checkout",
+    fields=[
+        {"field": "number", "selector": "#card-number"},
+        {"field": "expiration", "selector": "#expiry", "format": "MM/YY"},
+        {"field": "cvc", "selector": "#security-code"},
+    ],
+)
+if result.type != "fill" or result.status != "completed":
+    raise RuntimeError("fill did not complete; inspect result.fields")
+```
+
+</CodeGroup>
+
+then let the agent complete the remaining fields and submit the form once. confirm the result from the merchant's order record, such as an order confirmation page or email, before you tell the user the purchase succeeded.
+
+## 5. Report the outcome
+
+when the purchase advertises `confirm_transaction`, report what the merchant showed, once. use the same operation to report a failure: set `status` to the outcome and `failure_code` to what stopped it.
+
+<CodeGroup>
+
+```typescript TypeScript
+const settled = await kernel.vaults.items.retrieve(card.key, { id_or_name: vault.id });
+if (settled.available_operations.some(({ type }) => type === "confirm_transaction")) {
+  await kernel.vaults.items.performOperation(settled.key, {
+    id_or_name: vault.id,
+    type: "confirm_transaction",
+    status: "APPROVED",
+    transaction_type: "PURCHASE",
+    amount: 2306,
+    currency: "USD",
+    occurred_at: new Date().toISOString(),
+    order_id: "1001",
+    order_url: "https://shop.example.com/orders/1001",
+  });
+}
+```
+
+```python Python
+from datetime import datetime, timezone
+
+settled = kernel.vaults.items.retrieve(card.key, id_or_name=vault.id)
+if any(operation.type == "confirm_transaction" for operation in settled.available_operations):
+    kernel.vaults.items.perform_operation(
+        settled.key,
+        id_or_name=vault.id,
+        type="confirm_transaction",
+        status="APPROVED",
+        transaction_type="PURCHASE",
+        amount=2306,
+        currency="USD",
+        occurred_at=datetime.now(timezone.utc).isoformat(),
+        order_id="1001",
+        order_url="https://shop.example.com/orders/1001",
+    )
+```
+
+</CodeGroup>
+
+## Common pitfalls
+
+| symptom | cause | fix |
+| --- | --- | --- |
+| `fill` returns `403` with `destination_denied` | the page isn't on the origin of `merchant_url`. `www.shop.example.com` and `checkout.shop.example.com` are different origins | set `merchant_url` to the top-level page where the card fields are, then create a new purchase |
+| the purchase is `expired` before you fill | you authorized too early. the security code or one-time code only lasts a few minutes | authorize on the final checkout page and fill right after the purchase becomes `ready` |
+| the cardholder never sees a security code prompt, and the purchase stays `pending_authorization` | the `spend_approval` link wasn't shown, or it expired after 30 minutes | show `action.url` to the cardholder as soon as `authorize` returns |
+| a field reports `field_unavailable` | you asked for billing fields. cards added through KERNEL don't store billing details | fill name and billing address from your own user data |
+| a field reports `failed` with no match | the selector matches zero or several inputs across the page and its frames | use a selector that matches exactly one input. for separate month and year inputs, bind `exp_month` and `exp_year` instead of `expiration` |
+| a new card field appears after `fill` | the checkout reveals the field only after an earlier one is filled | make a second `fill` with only the new field |
+| the order shows as paid twice, or not at all | the agent retried submission after a timeout or error | submit once. a completed `fill`, a timeout, or a closed browser doesn't tell you whether the merchant charged the card. check the merchant's order record first |
+| the agent can't change the amount after authorizing | `card` items with `provider: "kernel"` can't be updated | delete the purchase and create a new one |
+| the issuer declines or asks for 3-D Secure | the bank is checking the transaction | have the cardholder complete the challenge in the [live view](/browsers/live-view), or ask them to approve the charge with their bank |
+| a headless browser stops responding during `fill` | heavy checkout pages can exhaust a 1GiB headless browser | create headless checkout browsers with at least `memory: "2GiB"` |
+
+## Coverage
+
+{/* TODO(hiro): replace this section with results from our own test runs. everything below comes from partner reports and spot checks. */}
+
+`fill` works with any checkout that takes card details in ordinary inputs, either on the merchant's page or inside a processor's payment iframe. the main gap is checkouts that encrypt the card in the browser before sending it.
+
+| checkout type | status |
+| --- | --- |
+| card form on the merchant's page | supported |
+| card fields inside a processor iframe that posts the card over https | supported |
+| Adyen client-side encryption, including custom merchant flows built on Adyen | supported |
+| Apple Store | supported |
+| Mercado Pago | supported |
+| Toast | in testing |
+| VTEX | in progress |
+| legacy Braintree.js client-side encryption | not supported yet |
+| PagBank / PagSeguro, Getnet hosted checkout, legacy Pagar.me (`pagarme.js` v4) | not supported yet |
+
+{/* TODO(hiro): confirm that cards paying with a network token aren't affected by the client-side encryption gaps above, and say so here if true. */}
+
+if a checkout you need isn't listed, or is listed as unsupported, [flag it](#flag-a-payment-that-failed-wrong). we prioritize processors by what customers report.
+
+## Flag a payment that failed wrong
+
+if a payment fails and you don't think it should have, such as a checkout that's listed as supported, a field that didn't fill, or a decline the cardholder says is wrong, tell us so we can fix the path for everyone.
+
+1. if the purchase advertises `confirm_transaction`, report the outcome you saw with a `failure_code`, such as `payment_declined` (only with `DECLINED`), `3ds_challenge`, `captcha`, `login_required`, `timeout`, or `site_error`.
+2. email [support@kernel.sh](mailto:support@kernel.sh) with the browser's `session_id`, the vault name and purchase item key, the checkout url, the time of the attempt, the `fill` result's per-field statuses, and what the merchant showed. don't send card details or screenshots that show them.
+
+don't retry the payment while you wait. the first attempt might still have charged the card.
+
+## Next steps
+
+- [pay with card](/integrations/wallets/pay-with-card): the reference for KERNEL wallets and purchases.
+- [embedded card capture](/integrations/wallets/embedded-card-capture): collect cards on your own domain.
+- [fill browser fields](/vaults/fill): selectors, frames, and the outcome contract.
+- [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the full controller pattern, including purchase verification and hosted action handling.
