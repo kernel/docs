@@ -277,6 +277,16 @@ for eligible cards, checkout receives a network token number, expiry, and one-ti
 | visa | requires `spec.merchant_country`; complete the returned `spend_approval` action, including any required verification |
 | supported mastercard | no hosted purchase approval |
 
+there's no general standing approval or spending-limit setting across these paths. your application must verify purchase details before authorization. complete any returned user action and fill before the purchase's `expires_at`.
+
+<Accordion title="Cards without network tokens">
+  fallback availability depends on the card and checkout. [contact support](/info/support) before building on this path.
+
+  where supported, the cardholder enters a fresh security code through a hosted action for each purchase. fill writes aliases that KERNEL resolves to the stored card details at browser egress. this path doesn't issue a one-time network security code.
+
+  the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
+</Accordion>
+
 ### Choose a card for a purchase
 
 pass the chosen method's `id` as `spec.payment_method_id` when you create a purchase. the purchase is bound to that card when it's created: later operations can't switch it to another card or wallet, and an update that changes either returns `409`. to pay with a different card, create a new purchase.
@@ -296,16 +306,6 @@ a KERNEL purchase reports the card it's bound to as `state.payment_method_id` an
 | `removed` | the card was removed from its wallet. this purchase can't be paid; create a new purchase with another card. |
 
 `funding_status` never changes the purchase's `status`, which still reports what already happened to the purchase. purchases created before cards could be selected report the default card `card`.
-
-there's no general standing approval or spending-limit setting across these paths. your application must verify purchase details before authorization. complete any returned user action and fill before the purchase's `expires_at`.
-
-<Accordion title="Cards without network tokens">
-  fallback availability depends on the card and checkout. [contact support](/info/support) before building on this path.
-
-  where supported, the cardholder enters a fresh security code through a hosted action for each purchase. fill writes aliases that KERNEL resolves to the stored card details at browser egress. this path doesn't issue a one-time network security code.
-
-  the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
-</Accordion>
 
 ## Permissions
 
