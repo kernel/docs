@@ -68,7 +68,7 @@ treat `result` as an open set and handle values you don't recognize, so a value 
 
 ### Debug message
 
-`debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, followed by ` Phase: <phase>.`, for example `... make sure login_url opens the login page. Phase: navigate_to_login.`; the phase suffix is left out when the phase isn't known, as on attempts recorded before `phase` existed. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
+`debug_message` is fixed text for each `code`, written for the developer reading the api or the timeline. it says what happened and what you can change, followed by ` Phase: <phase>.`, for example `... Make sure login_url opens the login page. Phase: navigate_to_login.`; the phase suffix is left out when the phase isn't known, as on attempts recorded before `phase` existed. don't show it to the people who sign in; `error_message` is still the text meant for them. don't parse `debug_message` either, because its wording can change. branch on `result` and `code` instead.
 
 ### Replay offset
 
@@ -122,14 +122,14 @@ health checks run on a schedule, on `AUTHENTICATED` and on `NEEDS_AUTH` connecti
 
 - **a login or reauth** replaces it when the attempt ends or pauses. a canceled attempt, including one canceled because you started a newer login, doesn't.
 - **a health check** replaces it only when the check changes the connection `status`, compared with the status before the check, or when the check is `INCONCLUSIVE` on an `AUTHENTICATED` connection.
-- **a health check that ends with an error** (`FAILED`) never replaces it. it appears only on the timeline. most leave the connection `status` as it was. a check that can't run because of the connection's configuration (a deleted proxy, a region or setting your plan doesn't include, or a missing connection key) moves the connection to `NEEDS_AUTH` without starting a reauth; `last_attempt` still doesn't change, so read the timeline to find that check and its `code`.
+- **a health check that ends with an error** (`FAILED`) usually leaves the connection `status` as it was and doesn't replace it; it appears only on the timeline. the exception is a check that can't run because of the connection's configuration on an `AUTHENTICATED` connection. it moves the connection to `NEEDS_AUTH` without starting a reauth and replaces `last_attempt`, with `phase: check_logged_in` and a code that names the cause: `browser_create_failed` for a deleted proxy, `insufficient_plan` for a region or setting your plan doesn't include, or `internal_error` for a missing connection key.
 
 | Health check result | Status before: `AUTHENTICATED` | Status before: `NEEDS_AUTH` |
 |---|---|---|
 | `SUCCEEDED` | no change | replaces (status changes to `AUTHENTICATED`) |
 | `SIGNED_OUT` | replaces (status changes to `NEEDS_AUTH`) | no change |
 | `INCONCLUSIVE` | replaces | no change; the earlier failure stays visible |
-| `FAILED` | no change; timeline only. `status` can still move to `NEEDS_AUTH` (see above) | no change; timeline only |
+| `FAILED` | replaces only when the check moves the connection to `NEEDS_AUTH` (see above); otherwise no change, timeline only | no change; timeline only |
 
 `last_auth_check_at` always shows the time of the latest health check, whether or not it replaced `last_attempt`. the timeline keeps every attempt with its own outcome.
 
@@ -232,7 +232,7 @@ async for event in events:
 - the connection `status` doesn't change, and KERNEL doesn't start a reauth. the next check runs on schedule.
 - if it happens on every check, look at the page that health checks open: it needs to be a page only a signed-in user can open. a recorded health check's replay shows it.
 
-a health check that ends with an error is `FAILED` with a code, for example `browser_error`, and has no `health_check_evidence`. it appears only on the timeline.
+a health check that ends with an error is `FAILED` with a code, for example `browser_error`, and has no `health_check_evidence`. it appears on the timeline, and replaces `last_attempt` only when it moves the connection to `NEEDS_AUTH`.
 
 ## Outcome codes
 
