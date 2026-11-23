@@ -156,9 +156,9 @@ for example, on a connection with automatic reauth on:
 
 ### Paused logins
 
-while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract). `at` is when the latest pause began, and it stays that way after the login continues, until the attempt ends.
+while a login waits for input, a choice, approval, or a person to solve a challenge, `last_attempt` has `result: "NEEDS_INPUT"`, the current `phase`, and `code: null`. the pause fields on the connection (`interaction_id`, `fields`, `choices`, `external_action_message`, `hosted_url`, `live_view_url`) still say exactly what's needed, and you still answer through `POST /auth/connections/{id}/submit`. see the [programmatic flow](/auth/programmatic#interaction-contract). `at` is when the latest pause began and `phase` is the phase it paused in; both stay that way after the login continues, until the attempt ends.
 
-if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a CAPTCHA is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
+if the pause ends without an answer, or a reauth needs input it can't get because nobody is present, the attempt ends with `NEEDS_INPUT` and a code such as `awaiting_input_timeout` or `totp_required`. one exception: if the site rejected the username or password and the login times out while asking for it again, the attempt ends `FAILED` in `log_in` with `credentials_invalid`, because the stored credential is the thing to fix. a first request for a password, or a one-time code asked for again, still ends with `awaiting_input_timeout`. a [`hitl`](/auth/configuration#human-verification-for-captchas) pause for a CAPTCHA is different: if nobody solves it in time, the login ends `FAILED` with `captcha_blocked`.
 
 ## Read outcomes on the timeline
 
@@ -330,6 +330,7 @@ it appears on the timeline, and replaces `last_attempt` only when it moved the c
 |---|---|---|
 | failures with a new code | `flow_failed` | `account_action_required` or `unhandled_page` |
 | failures that used to fall back to `flow_failed`, such as no sign-in entry point, a site error, an unsolved CAPTCHA, a model provider outage, the agent ending without a result, or the attempt running past its time limit | `flow_failed` | `login_form_not_found`, `website_error`, `captcha_blocked`, `provider_unavailable`, `internal_error`, or `flow_timeout` |
+| a login that timed out while asking again for a username or password the site rejected | `awaiting_input_timeout` | `credentials_invalid` |
 | expired attempts (`flow_status: EXPIRED`) | absent | `awaiting_input_timeout` if it was waiting for input, a choice, or a person; `external_action_timeout` if it was waiting for an approval; otherwise `flow_timeout` |
 | older error codes | `mfa_required` or `unsatisfiable_challenge` | `customer_input_required` |
 | older error codes | `region_not_enabled` | `insufficient_plan` |
