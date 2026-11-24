@@ -37,7 +37,7 @@ the package requires react 18 or later and ships no styles. use 0.5.0 or later: 
 
 read `capture_token` from a `card_enrollment` action in your authenticated backend. the token is a secret capability for one card enrollment, not an api key.
 
-a new KERNEL wallet is `connected` with no card and no action. invoke [`add_payment_method`](/integrations/wallets/pay-with-multiple-cards#add-a-card) for each card, then read `payment_method.action.capture_token` from the result.
+a new KERNEL wallet is `connected` with no card and no action. invoke [`add_payment_method`](/integrations/wallets/pay-with-card#connect-a-card) for each card, then read `payment_method.action.capture_token` from the result.
 
 <CodeGroup>
 
@@ -88,7 +88,7 @@ if added.type == "add_payment_method" and added.payment_method.action is not Non
 
 the new payment method starts in `pending_enrollment`. after the cardholder adds a card, it becomes `active`.
 
-a wallet created before cards were payment methods might still have a default card, `card`, waiting for enrollment. its `card_enrollment` action, with its `capture_token`, is on that method in the wallet's [`payment_methods` expansion](/integrations/wallets/pay-with-multiple-cards#list-payment-methods), not on the wallet.
+a wallet created before cards were payment methods might still have a default card, `card`, waiting for enrollment. its `card_enrollment` action, with its `capture_token`, is on that method in the wallet's [`payment_methods` expansion](/integrations/wallets/pay-with-card#list-payment-methods), not on the wallet.
 
 ## Render the component
 

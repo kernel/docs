@@ -75,14 +75,119 @@ kernel vaults wallets payment-methods user-12345 card-wallet
 
 </CodeGroup>
 
-a wallet can hold several cards. to add more, list them, or remove one, see [pay with multiple cards](/integrations/wallets/pay-with-multiple-cards).
+a connected wallet advertises `add_payment_method` and, once it holds a card, `remove_payment_method` in `available_operations`. invoke them only when they're advertised.
+
+share `action.url` privately with the cardholder, for example on an authenticated page in your application. the url is a capability for this one enrollment: don't send it to the agent, log it, or share it with anyone else. if enrollment fails, the link accepts another card until it expires. an expired link doesn't affect the wallet's other cards; call `add_payment_method` again for a new link.
 
 card details go directly to KERNEL's card vaulting provider through secure hosted fields. KERNEL receives a card reference and metadata rather than the original card number. request security and compliance artifacts through [KERNEL's trust center](/info/trust-center).
+
+## Manage cards
+
+a wallet can hold several cards. each card is a payment method scoped to its wallet: call `add_payment_method` once per card, as in [connect a card](#connect-a-card). each call creates a separate enrollment link for one card.
+
+a wallet holds at most 10 payment methods, including pending ones, and at most 3 open enrollment links. at either limit, the wallet stops advertising `add_payment_method`, and invoking it returns `409` with the reason. remove a card or let an open link expire before adding another.
+
+### List payment methods
+
+retrieve the wallet with the `payment_methods` expansion to list its cards in creation order. each method includes `id`, `status`, `is_default`, `display`, and `capabilities.single_use_card`, with `eligible` and `reasons`. a pending method also includes its `action` and `expires_at`.
+
+<CodeGroup>
+
+```typescript TypeScript
+const current = await kernel.vaults.items.retrieve("card-wallet", {
+  id_or_name: vault.id,
+  expand: ["payment_methods"],
+});
+if (current.type !== "wallet") {
+  throw new Error("unexpected item type");
+}
+
+const methods = current.expanded?.payment_methods ?? [];
+for (const method of methods) {
+  console.log(
+    method.id,
+    method.status,
+    method.display.last4,
+    method.capabilities.single_use_card?.eligible,
+  );
+}
+```
+
+```python Python
+current = kernel.vaults.items.retrieve(
+    "card-wallet",
+    id_or_name=vault.id,
+    expand=["payment_methods"],
+)
+if current.type != "wallet":
+    raise RuntimeError("unexpected item type")
+
+methods = (current.expanded.payment_methods or []) if current.expanded else []
+for method in methods:
+    single_use_card = method.capabilities.single_use_card
+    print(
+        method.id,
+        method.status,
+        method.display.last4,
+        single_use_card.eligible if single_use_card else None,
+    )
+```
+
+</CodeGroup>
+
+| status | meaning | what to do |
+| --- | --- | --- |
+| `pending_enrollment` | an enrollment link is open | wait for the cardholder, or let the link expire |
+| `active` | the card is stored | pay with it when `capabilities.single_use_card.eligible` is `true` |
+| `removal_pending` | removal started but its outcome is unknown | retry `remove_payment_method` later |
+| `recovery_required` | the enrollment outcome is unknown, or the stored card can't be read | check `status_reason`: remove a method with an unknown enrollment outcome; [contact support](/info/support) for a card that can't be read, since removal returns `409` |
+
+a method that isn't `active` is never eligible to pay. `is_default` is `true` only for the default card `card`; new wallets have no default card.
+
+a wallet created before cards were payment methods keeps its first card as the default payment method, with the id `card`, and can add more cards. if that card's enrollment is still pending, its `card_enrollment` action is on the method in the `payment_methods` expansion, not on the wallet.
+
+### Remove a card
+
+`remove_payment_method` deletes the stored card and blocks new purchases, fills, and confirmations funded by it. the wallet's other cards aren't affected, and the wallet stays `connected` even with no cards left.
+
+<CodeGroup>
+
+```typescript TypeScript
+const removed = await kernel.vaults.items.performOperation("card-wallet", {
+  id_or_name: vault.id,
+  type: "remove_payment_method",
+  payment_method_id: "zk3o8w2h0a5n4e9q1x7c6v2b",
+});
+if (removed.type === "remove_payment_method") {
+  console.log(removed.payment_method_id, removed.status); // "removed"
+}
+```
+
+```python Python
+removed = kernel.vaults.items.perform_operation(
+    "card-wallet",
+    id_or_name=vault.id,
+    type="remove_payment_method",
+    payment_method_id="zk3o8w2h0a5n4e9q1x7c6v2b",
+)
+if removed.type == "remove_payment_method":
+    print(removed.payment_method_id, removed.status)  # "removed"
+```
+
+</CodeGroup>
+
+| response | meaning | what to do |
+| --- | --- | --- |
+| `409` `purchase_unresolved` | a purchase funded by this card has an unresolved outcome | reconcile that purchase before removing the card |
+| `409` `provider_revocation_pending` | the card vault's deletion outcome is uncertain. the method stays `removal_pending` and refuses payments. | retry the removal later |
+| `429` `provider_rate_limited` | the payment provider is rate limiting requests | wait, then retry |
+
+removal isn't proof that a payment didn't happen. reconcile any purchase with the merchant's order record before treating it as unpaid.
 
 ## Make a purchase
 
 1. attach the vault when you [create the browser](/vaults/overview#scope-and-attachment).
-2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency, and set `spec.payment_method_id` to the `id` of the card that pays. visa cards also require `merchant_country`, the merchant's two-letter country code. the purchase is bound to that card; see [choose a card for a purchase](/integrations/wallets/pay-with-multiple-cards#choose-a-card-for-a-purchase).
+2. create a `card` item for the purchase, referencing the wallet and the merchant, amount, and currency, and set `spec.payment_method_id` to the `id` of the card that pays. visa cards also require `merchant_country`, the merchant's two-letter country code. the purchase is bound to that card; see [choose a card for a purchase](#choose-a-card-for-a-purchase).
 3. invoke the advertised `authorize` operation and complete any returned user action. keep action urls in your trusted user interface, outside the agent's context.
 4. when `fill` appears in `available_operations`, [fill the checkout](/vaults/fill), submit once, and verify the merchant's order record. a completed fill isn't proof of payment.
 
@@ -172,8 +277,6 @@ for eligible cards, checkout receives a network token number, expiry, and one-ti
 | visa | requires `spec.merchant_country`; complete the returned `spend_approval` action, including any required verification |
 | supported mastercard | no hosted purchase approval |
 
-the purchase's `state.payment_method_id` names the card it's bound to, and `state.funding_status` reports whether that card can still pay. see [check the card funding a purchase](/integrations/wallets/pay-with-multiple-cards#check-the-card-funding-a-purchase).
-
 there's no general standing approval or spending-limit setting across these paths. your application must verify purchase details before authorization. complete any returned user action and fill before the purchase's `expires_at`.
 
 <Accordion title="Cards without network tokens">
@@ -184,9 +287,47 @@ there's no general standing approval or spending-limit setting across these path
   the recorded amount and merchant details don't restrict outgoing payment requests. an expiry or payment window isn't a single-use guarantee. follow the returned actions and expiry; don't treat this path as a standing spending authorization.
 </Accordion>
 
+### Choose a card for a purchase
+
+pass the chosen method's `id` as `spec.payment_method_id` when you create a purchase. the purchase is bound to that card when it's created: later operations can't switch it to another card or wallet, and an update that changes either returns `409`. to pay with a different card, create a new purchase.
+
+on a `card` item, omitting `payment_method_id` selects the default card `card` and never falls back to another card. new wallets have no default card, so creation without the id returns `400`.
+
+a KERNEL purchase can also be a `payment_request` item where they're enabled for your organization; [contact support](/info/support) to enable them. a `payment_request` takes the same spec as a `card` item with `provider: "kernel"` and supports the same operations, including `authorize`, `fill`, and `confirm_transaction`. its `payment_method_id` is required and must name an `active` method that's eligible to pay. neither type is deprecated. updates to a `payment_request` item must set `type: "payment_request"`.
+
+### Check the card funding a purchase
+
+a KERNEL purchase reports the card it's bound to as `state.payment_method_id` and whether that card can still pay as `state.funding_status`:
+
+| `funding_status` | meaning |
+| --- | --- |
+| `available` | the card can fund this purchase |
+| `unavailable` | the card is being removed or awaits recovery. authorization, fill, and confirmation are refused until it recovers. |
+| `removed` | the card was removed from its wallet. this purchase can't be paid; create a new purchase with another card. |
+
+`funding_status` never changes the purchase's `status`, which still reports what already happened to the purchase. purchases created before cards could be selected report the default card `card`.
+
+## Permissions
+
+`add_payment_method` and `remove_payment_method` create and delete stored cards, so a [scoped api key](/info/api-key-permissions) needs `vaults:write` in addition to `vaults:use` on the vault. a key without `vaults:write` doesn't see either operation in `available_operations`, and invoking one returns `403` with `insufficient_scope`. other wallet and purchase operations need only `vaults:use`.
+
+## Events
+
+the wallet's [item events](/vaults/overview#api-behavior) record each card's lifecycle, with the card's id in `data.payment_method_id`:
+
+| event | recorded when |
+| --- | --- |
+| `payment_method_enrollment_started` | `add_payment_method` opens an enrollment link |
+| `payment_method_enrolled` | a card added with `add_payment_method` is stored |
+| `payment_method_removed` | removal finishes |
+| `payment_method_recovery_required` | the card needs recovery |
+
+each new purchase records `purchase_created` with `item_type`, `provider`, and `payment_method_id_present`.
+
 ## Reference
 
 - [enable payments in a browser agent](/browsers/enable-payments-in-browser-agent): the controller, agent, fill, and checkout walkthrough.
 - [vault items api](https://kernel.sh/docs/api-reference/vaults/create-or-retrieve-an-identical-vault-item-by-immutable-key): request fields, eligibility, operations, and expiry.
+- [embedded card capture](/integrations/wallets/embedded-card-capture): collect a card on your own page.
 - [fill single-use cards](/integrations/wallets/single-use-cards): fill a card your backend or card issuer already has.
 - [pricing](/info/pricing): vault limits and payment charges.
