@@ -17,7 +17,9 @@ Profiles capture the browser's user-data directory, including:
 - Open tabs and browsing state
 - Browser preferences stored by Chromium
 
-Profile data is encrypted end to end using a per-organization key. A profile's `name` must be unique within its [project](/info/projects), but you can reuse the same name in another project.
+Kernel encrypts stored profile data at rest with AES-256 envelope encryption. Each profile's data key is wrapped by a key in Kernel's cloud provider key management service and bound to your organization, so a stored profile can only be decrypted for the organization that owns it. Organizations on paid plans get a dedicated key; organizations on the Developer plan share one. Kernel holds these keys and decrypts a profile when it loads it into a browser, so this isn't end-to-end encryption with a key only you hold. See [Security](/security) for more on how Kernel protects your data.
+
+A profile's `name` must be unique within its [project](/info/projects), but you can reuse the same name in another project.
 
 ## How profiles work
 
