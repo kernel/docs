@@ -341,7 +341,7 @@ See the [app policy example](/info/api-key-policy-examples) for separate deploye
 
 ## List and inspect API keys
 
-List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key. If `policy` is absent, the key is unrestricted within its project or organization.
+Use `GET /org/api_keys` to list keys and `GET /org/api_keys/{id}` to inspect one. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key. If `policy` is absent, the key is unrestricted within its project or organization.
 
 The list returns `active` keys by default: keys that are neither deleted nor expired. Pass `status` to see the others, and combine these filters to narrow the list:
 
