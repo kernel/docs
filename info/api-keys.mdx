@@ -318,9 +318,7 @@ Deploying with a scoped key requires container-wide `deployments:create`, `deplo
 
 Moving a deployment to another host preserves the policy. Stopping it prevents new runs; it doesn't revoke keys already issued. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables). To supply a credential for your own API calls, pass it under another name.
 
-<Note>
-Until scoped deployments are enabled, creating a deployment with a scoped credential or sending `runtime_policy` with any credential returns `403`. Deploying with an unrestricted credential and no `runtime_policy` is unchanged. See the [app policy example](/info/api-key-policy-examples).
-</Note>
+See the [app policy example](/info/api-key-policy-examples) for separate deployer, runtime, and invoker permissions.
 
 **Existing deployments and unscoped defaults:** Existing shared keys aren't migrated. Deploying with an unrestricted credential and omitting `runtime_policy` still creates one shared runtime key; supplying the field opts into per-invocation keys. Scoped callers cannot invoke an unrestricted runtime. For an existing shared key with a policy, the key must be live, its permissions covered, and its expiry no later than the invoker's. Host moves preserve these bounds, and superseded deployments keep their shared key until in-flight runs drain.
 
