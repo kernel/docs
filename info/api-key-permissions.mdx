@@ -46,6 +46,22 @@ Creation actions need a container selector ending in `/*`, rather than an existi
 A policy narrows your key's access; it doesn't change its organization or project boundary. Use an organization-scoped key for organization administration, credential providers, wallet provider configurations, audit logs, and telemetry destination management. A project-scoped key can rename its own project, but project creation, deletion, status changes, and limit changes require an organization-scoped credential.
 </Note>
 
+## Action wildcards
+
+When you create an API key or replace its policy, you can write `*` in place of a whole part of an action:
+
+| Action | Expands to |
+| --- | --- |
+| `browsers:*` | Every `browsers` action. |
+| `*:delete` | Every `delete` action that applies to the statement's resource. |
+| `*:*` | Every action that applies to the statement's resource. |
+
+Kernel expands the wildcard when it saves the policy, keeping the statement's resource and condition, and stores only the matching actions. The key doesn't gain actions Kernel adds later, and a scoped issuer must hold every expanded action. On a project container, a wildcard skips organization actions; on one object, it keeps only that object's actions.
+
+- A wildcard never includes `api_keys:issue_beyond_expiry`. List it explicitly.
+- Partial wildcards such as `brow*:use`, a bare `*`, unknown names, and wildcards matching nothing on their resource return `400`.
+- Federation rules and app runtime policies accept only exact actions.
+
 ## Conditions
 
 A statement can carry one condition that narrows it to matching requests:

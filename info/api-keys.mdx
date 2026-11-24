@@ -105,7 +105,7 @@ Use scoped keys when you hand a credential to code you trust less than your back
 A policy is a list of **statements**. Each statement allows one **action** on one **resource**, and the key is denied everything no statement allows.
 
 - A **resource** selects one project-owned object, such as `projects/{project_id}/extensions/{extension_id}`, an organization-owned object, such as `credential_providers/{provider_id}`, or a container such as `projects/{project_id}/*` or `organizations/{org_id}/*`.
-- An **action** is an exact name such as `browsers:use`, `extensions:read`, or `api_keys:create`. A container wildcard grants that action throughout the container, not every action.
+- An **action** is an exact name such as `browsers:use`, `extensions:read`, or `api_keys:create`. A container wildcard grants that action throughout the container, not every action. To grant several actions at once, see [action wildcards](/info/api-key-permissions#action-wildcards).
 
 A statement can also carry a **condition** that narrows it to matching requests. A condition names a request attribute, a comparison operator, and that operator's values. See [Limit a key to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges).
 
