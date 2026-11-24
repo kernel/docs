@@ -310,13 +310,17 @@ Attaching a policy to a key that doesn't have one makes the key scoped: every ac
 A key used through a hosted MCP server is evaluated against the MCP server's egress address, so an IP-restricted key is denied everywhere until MCP support ships. If you route keys through a hosted MCP server, leave `source_ip` conditions off those keys for now.
 </Note>
 
-## Deployment API keys
+## App runtime policy
 
-Kernel injects `KERNEL_API_KEY` into each invocation. The SDK reads it automatically. For new deployments with a runtime policy, Kernel stores the policy on the deployment and issues a fresh project-scoped key when each invocation starts. Each key expires 65 minutes after issuance, even if the run finishes earlier. The policy doesn't expire with the deploying key, so you don't need to redeploy when that key expires or is revoked.
+An app’s runtime policy controls which Kernel API calls that version can make. Set it when you deploy. Your app keeps those permissions if the key you used to deploy expires or is revoked; you don’t need to redeploy or store a key for the app.
 
-Deploying with a scoped key requires container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. If you omit `runtime_policy`, the runtime gets only project-wide `invocations:write` for reporting results. This permission applies to all invocations in the project, not just that deployment’s runs. To grant more, send the policy as a JSON multipart field on `POST /deployments`. It must explicitly include the callback permission, stay within the deployer’s project and permissions, name existing resources, and exclude `api_keys:issue_beyond_expiry`. A scoped invoker needs `invocations:create` and every permission in the runtime policy.
+**Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant applies to all invocations in the project, not just this app’s runs.
 
-Moving a deployment to another host preserves the policy. Stopping it prevents new runs; it doesn't revoke keys already issued. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables). To supply a credential for your own API calls, pass it under another name.
+**To grant more access**, send your policy as JSON in the `runtime_policy` multipart field of `POST /deployments`. Include the unconditional project-wide `invocations:write` grant and any additional permissions your app needs. The policy must fit within the app’s project and your own permissions, reference existing resources, and exclude `api_keys:issue_beyond_expiry`.
+
+To deploy with a scoped key, grant it container-wide `deployments:create`, `deployments:delete`, and `invocations:write`, plus any additional permissions in the app’s policy. To run the app with a scoped key, grant it `invocations:create` on the container and every permission in the app’s policy.
+
+Kernel supplies a short-lived `KERNEL_API_KEY` with the app’s permissions for each run. Moving a deployment to another host preserves the policy. Stopping it prevents new runs; it doesn't revoke keys already issued. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables). To supply a credential for your own API calls, pass it under another name.
 
 See the [app policy example](/info/api-key-policy-examples) for separate deployer, runtime, and invoker permissions.
 

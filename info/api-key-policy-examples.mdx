@@ -194,7 +194,7 @@ policy = {
 ```
 </CodeGroup>
 
-Use a key with this policy to deploy and invoke the app. With `runtime_policy` omitted, the runtime key gets only project-wide `invocations:write`, not the rest of the deploying key's permissions. For browser, profile, vault, or other operations, grant the deploying key those permissions and include them in an explicit runtime policy as shown below. An invocation's caller must cover the runtime key's full policy. Each invocation gets a new key valid for 65 minutes, independent of the deploying key's expiry.
+Use this key to deploy and invoke the app. If you omit `runtime_policy`, the [app runtime policy](/info/api-keys#app-runtime-policy) grants only project-wide `invocations:write`, not the rest of the deploying key’s permissions. The next example adds browser access.
 </Accordion>
 
 <Accordion title="Invoke without deployment-management permissions">

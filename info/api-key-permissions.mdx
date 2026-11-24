@@ -171,7 +171,7 @@ Reports use their parent task's permissions; they don't have separate policy sel
 | `invocations:read` | List invocations and read payloads, outputs, events, and logs. |
 | `invocations:write` | Update invocation status and output, and attach new browsers to invocations. |
 
-Apps are authorized through their deployments. An invocation belongs to its deployment's project. See [Deployment API keys](/info/api-keys#deployment-api-keys) for runtime permissions and expiry.
+Apps are authorized through their deployments. An invocation belongs to its deployment's project. See [app runtime policy](/info/api-keys#app-runtime-policy) for the permissions your app uses when it runs.
 
 <Note>
 Machine OAuth clients and [service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do) can’t deploy or invoke apps, even with these actions.
@@ -278,7 +278,7 @@ Connection updates check the resulting configuration. Turning off credential sav
 
 | Operation | Requires |
 | --- | --- |
-| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`. By default, the runtime key gets only project-wide `invocations:write`. Supply `runtime_policy` for additional permissions; it must explicitly include that minimum and exclude `api_keys:issue_beyond_expiry`. Each invocation gets a fresh 65-minute key; the deployment policy doesn't expire with your credential. |
+| Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`, plus any additional permissions in the [app runtime policy](/info/api-keys#app-runtime-policy). |
 | Invoke an app action | Container-wide `invocations:create`. Your policy must cover the runtime policy. Existing shared runtime keys must also be live and expire no later than yours. |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |

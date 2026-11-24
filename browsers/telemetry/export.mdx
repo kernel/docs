@@ -12,7 +12,7 @@ Events are exported as OTLP **logs**. Kernel appends `/v1/logs` to your endpoint
 
 ## How export works
 
-You create a **destination** - an OTLP/HTTP endpoint plus the headers your backend expects - and select it when you create a browser. Unrestricted keys can select destinations across the organization. With a policy-scoped key, create and select the destination in the project where the browser runs.
+You create a **destination** - an OTLP/HTTP endpoint plus the headers your backend expects - and select it when you create a browser. With a policy-scoped key, create and select the destination in the project where the browser runs.
 
 Kernel's relay forwards the session's events to the destination and attaches your headers at export time. Headers are encrypted at rest and never reach the browser VM, so a session can export to your backend without ever holding your ingestion key.
 
