@@ -515,6 +515,113 @@ application must derive or validate the origin from a trusted checkout context
 and must not treat it as proof of the page's identity. Continue to verify the
 merchant and purchase independently before checkout submission.
 
+### Show the cart on the approval screen
+
+Without a cart, the cardholder's approval screen shows only the merchant and
+the amount. Add `line_items` and, optionally, `subtotal`, `shipping`, `tax`, and
+`discount` to the card `spec` so the cardholder can see what they're paying for
+before they approve:
+
+<CodeGroup>
+
+```typescript TypeScript
+const card = await kernel.vaults.items.upsert("notebook-order", {
+  id_or_name: vault.id,
+  type: "card",
+  spec: {
+    provider: "agentcard",
+    wallet: wallet.key,
+    merchant: "example shop",
+    amount: 2306,
+    currency: "usd",
+    checkout_origin: "https://shop.example.com",
+    line_items: [
+      {
+        title: "Dot grid notebook, A5",
+        quantity: 2,
+        unit_amount: 950,
+        brand: "example shop",
+        options: "Color: Black",
+        image_url: "https://cdn.shopify.com/s/files/1/0000/dot-grid-notebook.jpg",
+      },
+    ],
+    subtotal: 1900,
+    shipping: 250,
+    tax: 156,
+  },
+});
+```
+
+```python Python
+card = kernel.vaults.items.upsert(
+    "notebook-order",
+    id_or_name=vault.id,
+    type="card",
+    spec={
+        "provider": "agentcard",
+        "wallet": wallet.key,
+        "merchant": "example shop",
+        "amount": 2306,
+        "currency": "usd",
+        "checkout_origin": "https://shop.example.com",
+        "line_items": [
+            {
+                "title": "Dot grid notebook, A5",
+                "quantity": 2,
+                "unit_amount": 950,
+                "brand": "example shop",
+                "options": "Color: Black",
+                "image_url": "https://cdn.shopify.com/s/files/1/0000/dot-grid-notebook.jpg",
+            }
+        ],
+        "subtotal": 1900,
+        "shipping": 250,
+        "tax": 156,
+    },
+)
+```
+
+```bash CLI
+kernel vaults cards create user-12345 notebook-order \
+  --provider agentcard \
+  --spec '{
+    "wallet": "agentcard-wallet",
+    "merchant": "example shop",
+    "amount": 2306,
+    "currency": "usd",
+    "checkout_origin": "https://shop.example.com",
+    "line_items": [
+      {
+        "title": "Dot grid notebook, A5",
+        "quantity": 2,
+        "unit_amount": 950,
+        "brand": "example shop",
+        "options": "Color: Black",
+        "image_url": "https://cdn.shopify.com/s/files/1/0000/dot-grid-notebook.jpg"
+      }
+    ],
+    "subtotal": 1900,
+    "shipping": 250,
+    "tax": 156
+  }'
+```
+
+</CodeGroup>
+
+The cart is display-only. The cardholder still approves `amount`, or the amount
+the processor charges, and a cart total that disagrees with it doesn't change
+what they pay. Each line needs a `title` and a `quantity` of at least 1, and can
+include `unit_amount` (the price of one), `amount` (the line total, shown
+instead of `unit_amount` times `quantity`), `brand`, `options` as a single
+string, and an HTTPS `image_url`. AgentCard shows images only from the hosts it
+allows, and shows the line without a picture otherwise.
+
+Kernel validates the cart when you create or update the card, so a cart that
+AgentCard would refuse returns a `400` before any checkout starts. Kernel sends
+the cart only on non-prepared checkout authorizations; prepared checkout
+doesn't carry it. Card updates replace the full `spec`, so set the cart again,
+together with `amount`, for each purchase.
+
 ### Reuse a card item for a new purchase
 
 `upsert` can retrieve an identical item, but it cannot replace the purchase
@@ -859,7 +966,9 @@ wallet and card items accept these `spec` fields. fields not listed here are rej
 | item | required fields | optional fields |
 | --- | --- | --- |
 | wallet | `provider: 'agentcard'` | `provider_config`; `user_id` to import a connected user with customer-owned credentials, or reuse an organization-local user with KERNEL-managed credentials |
-| card | `provider`, `wallet`, `merchant`, `amount`, `currency`                                                      | `card_id`, `checkout_origin`                    |
+| card | `provider`, `wallet`, `merchant`, `amount`, `currency` | `card_id`, `checkout_origin`, `line_items`, `subtotal`, `shipping`, `tax`, `discount` |
+
+`line_items` adds the next checkout's cart to the cardholder's approval screen for checkouts that don't use a preparation. it accepts 1–20 entries. each entry requires `title` and a positive `quantity`, and can include `unit_amount`, `amount`, `brand`, `options`, and an HTTPS `image_url`. all amounts use minor currency units. `subtotal`, `shipping`, `tax`, and the positive discount amount require `line_items`. these fields are display-only: the cardholder still approves `amount` or the amount the processor charges. because card updates replace the complete `spec`, include the full cart again for each checkout where you want it shown.
 
 agentcard accepts amounts from 1–9007199254740991 and a three-letter `currency`. `merchant` accepts 1–120 printable characters without control characters. `card_id` uses the provider's `vc_` identifier, and wallet `user_id` uses its `usr_` identifier.
 
