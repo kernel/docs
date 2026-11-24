@@ -418,7 +418,7 @@ func main() {
 Rename a key when the owner or purpose changes. Update its `policy` to add, change, or remove IP rules and permissions without rotating the credential. Delete a key when the workload no longer needs access.
 
 <Warning>
-An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
+An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. A deleted key stops authenticating new requests within the authorization cache (~10 seconds). Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
 </Warning>
 
 <CodeGroup>
