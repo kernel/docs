@@ -38,7 +38,7 @@ Choose `kind` from the following resource types:
 | Organization | `credential_providers`, `vault_provider_configs`, `audit_log_export_destinations` |
 | Matches the target key | `api_keys`: a project key belongs to its project; a key without a project belongs to the organization, not the default project. |
 
-Kernel checks that each object ID exists within the credential's boundary when you create or update a key or rule. Existing project-owned resources without a project are treated as belonging to the default project.
+Use IDs, not display names, in policy resources, even when an endpoint accepts either. Kernel checks that each object ID exists within the credential's boundary when you create or update a key or rule. Existing project-owned resources without a project are treated as belonging to the default project.
 
 Creation actions need a container selector ending in `/*`, rather than an existing object's ID. Project creation and creation of organization-owned resources need `organizations/{org_id}/*`. Audit log access also uses an organization container. Configuration registry actions use a project or organization container rather than individual analysis IDs.
 
@@ -114,7 +114,7 @@ How conditions evaluate:
 | Action | Allows |
 | --- | --- |
 | `proxies:create` | Create and validate proxies. |
-| `proxies:read` | List proxies and view their configuration, without credentials. |
+| `proxies:read` | List proxies and view their configuration, without credentials. Listing or inspecting reserved proxy IPs needs container-wide `proxies:read`. |
 | `proxies:use` | Select saved proxies for browsers and run health checks. |
 | `proxies:write` | Rename proxies. |
 | `proxies:delete` | Delete proxies. |
@@ -123,7 +123,7 @@ How conditions evaluate:
 
 | Action | Allows |
 | --- | --- |
-| `extensions:create` | Upload saved extensions and import them from the Chrome Web Store. |
+| `extensions:create` | Upload saved extensions or fetch a ZIP from the Chrome Web Store. Fetching a ZIP doesn’t save it. |
 | `extensions:read` | List extensions and read their metadata. |
 | `extensions:use` | Attach saved extensions to browsers and download their archives. |
 | `extensions:delete` | Delete extensions. |
@@ -252,6 +252,8 @@ Native OAuth tokens can’t manage API keys. This applies to human sign-ins (inc
 | --- | --- |
 | Create a browser | Container-wide `browsers:create` and `browsers:use`, because the response includes connection URLs. Add `profiles:use` on its profile, `profiles:write` if it saves changes, `vaults:use` on each linked vault, `extensions:use` on saved extensions, `proxies:use` on selected saved proxies, and `telemetry_destinations:use` on an export destination. |
 | Access an existing browser | The browser action, plus `profiles:use` on its attached profile, `vaults:use` on linked vaults, and `extensions:use` on saved extensions. If the browser saves profile changes, also grant `profiles:write`. |
+| Save a browser to a profile | `browsers:use` and the attachment permissions above. Grant `profiles:write` on an existing destination profile, or container-wide `profiles:create` to save under a new name. |
+| Upload extensions directly to a running browser | `browsers:use` and its attachment permissions. This uploads files to the browser rather than creating a saved extension. |
 | Update a browser | `browsers:write` and `browsers:use`, plus permissions on attached resources and newly selected resources. |
 | Create or update a pool | The pool's `create` or `write` action, plus `profiles:use` and `proxies:use` on selected resources, including proxy routes. Selecting saved extensions isn't supported for scoped credentials yet. |
 | Acquire a pooled browser | `browser_pools:use`, container-wide `browsers:use`, and permissions on the pool's profile/extensions and the browser's actual attachments. An acquire-time profile also requires `profiles:write` when saving changes. |

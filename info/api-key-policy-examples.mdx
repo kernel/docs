@@ -96,7 +96,7 @@ policy = {
 ```
 </CodeGroup>
 
-Select destination ID `tdst_8k2q4m6r` in `telemetry.export.otlp.destination`. `telemetry_destinations:read` lets you inspect the destination; `telemetry_destinations:use` authorizes export.
+Set `telemetry.export.otlp.destination` to `{"id": "tdst_8k2q4m6r"}`. `telemetry_destinations:read` lets you inspect the destination; `telemetry_destinations:use` authorizes export.
 </Accordion>
 
 <Accordion title="Acquire pooled browsers">
@@ -244,7 +244,7 @@ A key with only `invocations:create` still fails to invoke this app: it doesn't 
 </Accordion>
 
 <Accordion title="Inspect keys and audit activity">
-Read staging API-key metadata, read organization audit logs, and look up browser configuration recommendations. Issue this as an organization-scoped key by omitting `project_id`.
+Read staging API-key metadata, read organization audit logs, and look up browser configuration recommendations. Issue this as an organization-scoped key by omitting `project_id`. For configuration registry requests, send `X-Kernel-Project-Id: proj_staging_9f3k` to select the project named in the policy.
 
 <CodeGroup>
 ```typescript TypeScript

@@ -318,7 +318,18 @@ An app’s runtime policy controls which Kernel API calls that version can make.
 
 **Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant applies to all invocations in the project, not just this app’s runs.
 
-**To grant more access**, send your policy as JSON in the `runtime_policy` multipart field of `POST /deployments`. Include the unconditional project-wide `invocations:write` grant and any additional permissions your app needs. The policy must fit within the app’s project and your own permissions, reference existing resources, and exclude `api_keys:issue_beyond_expiry`.
+**To grant more access**, use `POST /deployments`. For example, set `KERNEL_PROJECT_ID` to your project ID and `KERNEL_API_KEY` to your deploying key. With an `app.zip` containing `main.py` and its dependency manifest at the archive root, run:
+
+```bash
+curl --fail-with-body https://api.onkernel.com/deployments \
+  -H "Authorization: Bearer $KERNEL_API_KEY" \
+  -H "X-Kernel-Project-Id: $KERNEL_PROJECT_ID" \
+  -F file=@app.zip \
+  -F entrypoint_rel_path=main.py \
+  --form-string "runtime_policy={\"statements\":[{\"action\":\"invocations:write\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"},{\"action\":\"browsers:create\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"},{\"action\":\"browsers:use\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"}]}"
+```
+
+This app can report results and create browsers without attachments. Include the unconditional project-wide `invocations:write` grant and any additional permissions your app needs. The policy must fit within the app’s project and your own permissions, reference existing resources, and exclude `api_keys:issue_beyond_expiry`.
 
 To deploy with a scoped key, grant it container-wide `deployments:create`, `deployments:delete`, and `invocations:write`, plus any additional permissions in the app’s policy. To run the app with a scoped key, grant it `invocations:create` on the container and every permission in the app’s policy.
 
@@ -330,7 +341,7 @@ See the [app policy example](/info/api-key-policy-examples) for separate deploye
 
 ## List and inspect API keys
 
-List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key.
+List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key. If `policy` is absent, the key is unrestricted within its project or organization.
 
 The list returns `active` keys by default: keys that are neither deleted nor expired. Pass `status` to see the others, and combine these filters to narrow the list:
 
@@ -392,7 +403,7 @@ func main() {
 		panic(err)
 	}
 
-	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2", kernel.APIKeyGetParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -451,7 +462,7 @@ func main() {
 		ctx,
 		"key_01jwv4tn5m8k3q2v7x9p0a1bc2",
 		kernel.APIKeyUpdateParams{
-			Name: "staging-ci-rotated",
+			Name: kernel.String("staging-ci-rotated"),
 		},
 	)
 	if err != nil {
