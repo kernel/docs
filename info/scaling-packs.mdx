@@ -1,0 +1,153 @@
+---
+title: "Scaling Packs"
+description: "Raise your Start-Up organization's concurrent browser limit above 150, in steps of 25"
+---
+
+<Warning>
+  Draft. Scaling packs aren't available in the dashboard yet. Remove this notice at launch.
+</Warning>
+
+The Start-Up plan includes 150 [concurrent browsers](/browsers/concurrency-and-limits#concurrency). A scaling pack raises that limit by 25, and you can add packs until the limit reaches 500.
+
+| | |
+| --- | --- |
+| Each pack adds | 25 concurrent browsers and 10 browser creates per minute |
+| Price | \$100 per pack per month |
+| Limit range | 150 with no packs, up to 500 with 14 packs |
+| Usage above 150 | Billed at the [overage rate](#overage-above-150) |
+
+Raising your limit applies right away. Lowering it applies at the start of the next month. You manage packs in the dashboard.
+
+If you need more than 500 concurrent browsers, [contact sales](/info/contact-sales) about the Enterprise plan.
+
+## Who can buy packs
+
+Your organization can buy packs when all of these are true:
+
+- It's on the Start-Up plan and isn't in a trial.
+- Its plan is active.
+- It pays KERNEL by card. Organizations billed another way, such as through the [Vercel Marketplace](/integrations/vercel/marketplace), can't buy packs.
+- You're an organization admin.
+
+## Raise your limit
+
+<Steps>
+  <Step title="Open billing">
+    Go to the [KERNEL billing page](https://dashboard.onkernel.com/billing) as an organization admin.
+  </Step>
+  <Step title="Choose a higher limit">
+    Pick a limit from 175 to 500, in steps of 25. Before you confirm, the dashboard shows the charge due today and your new monthly total.
+  </Step>
+  <Step title="Confirm">
+    KERNEL charges your card for the added packs, then raises your limit. The new limit can take up to 15 minutes to apply.
+  </Step>
+</Steps>
+
+{/* TODO before publishing: add screenshots of the billing card, and match the step wording to the final control names. */}
+
+<Warning>
+  Placeholder: dashboard screenshots and final control names go here.
+</Warning>
+
+### What you're charged
+
+- **Today:** the packs you add, prorated for the rest of the current month. Packs you already have aren't charged again.
+- **Every month after:** \$100 per pack, billed in advance, the same way as your plan fee.
+
+For example, you raise your limit from 150 to 200 halfway through the month. That's two packs. You're charged about \$100 today, which is half of \$200, and \$200 at the start of each month after that.
+
+One change runs at a time. If a change is still in progress, wait for it to finish before you make another.
+
+## Lower your limit
+
+Choose a lower limit on the same page. Choose 150 to remove every pack.
+
+- **It takes effect on the first day of next month at 00:00 utc.** Until then, nothing changes: you keep the limit and the create rate you paid for.
+- **There's no refund or credit for the current month.** From next month, you're billed for the lower number of packs.
+- **On that date, KERNEL lowers your limit and your create rate,** then [shrinks your browser pools](#what-happens-to-browser-pools) if they no longer fit.
+
+### Change or cancel a scheduled lowering
+
+Until the lowering takes effect, you can replace or cancel it from the same page.
+
+| You choose | What happens |
+| --- | --- |
+| A limit higher than the one you have now | You're charged for the added packs today and the limit goes up right away. The scheduled lowering is cancelled. |
+| The limit you have now, or cancel | The scheduled lowering is cancelled. Nothing is charged and nothing changes. |
+| A different lower limit | It replaces the scheduled lowering. The date stays the same. |
+
+After a lowering takes effect, you can't reverse it. To get the capacity back, raise your limit again. That's charged like any other raise.
+
+## What happens to browser pools
+
+A [browser pool](/browsers/pools) reserves its full size against your concurrent browser limit, so a lower limit can leave your pools reserving more than you're allowed.
+
+When a lowering takes effect and your pools together reserve more than the new limit, KERNEL resizes them to fit:
+
+- Every pool is reduced by the same proportion, so the pools together reserve exactly the new limit.
+- Each pool keeps at least one browser. No pool is deleted.
+- Browsers in use aren't interrupted. A pool removes idle browsers above its new size, and a browser you've acquired keeps running until you release it.
+
+Pools that already fit aren't changed. To decide for yourself where the capacity goes, [resize your pools](/browsers/pools) before the first of the month.
+
+## What happens when you change plans
+
+Packs belong to the Start-Up plan. When your organization leaves Start-Up, its packs end with the plan, and the limits they added are removed at the moment the plan changes.
+
+### Downgrade
+
+<Steps>
+  <Step title="You schedule the downgrade">
+    A downgrade takes effect at the start of your next billing period. Until then, your packs and limits stay as they are. You can still add packs in the meantime, and they end on the same date.
+  </Step>
+  <Step title="The plan changes">
+    Your packs end with the Start-Up plan, so there's nothing to cancel separately. Your limits become the new plan's [limits](/browsers/concurrency-and-limits). A lowering scheduled for the same date has no further effect.
+  </Step>
+  <Step title="KERNEL resizes your pools">
+    Right after the plan changes, KERNEL shrinks your browser pools to fit the new plan's concurrent browser limit, the [same way](#what-happens-to-browser-pools) as a lowering. This applies to every downgrade from Start-Up, with or without packs.
+  </Step>
+</Steps>
+
+### Upgrade to Enterprise
+
+When your organization moves to Enterprise, its packs end with the Start-Up plan and the limits in your Enterprise contract apply instead. Browser pools aren't resized.
+
+## Overage above 150
+
+With packs, your plan still includes 150 concurrent browsers at the standard [usage rates](/info/pricing#usage-rates). Browsers above 150 are billed at the overage rate.
+
+{/* TODO before publishing: the overage rate is not final. This table is the only place it appears. Fill it in here and nowhere else. */}
+
+| | Rate |
+| --- | --- |
+| Overage rate | **Not final. To be confirmed before this page is published.** |
+
+KERNEL decides which rate a browser gets when it starts, and the browser keeps that rate until it ends:
+
+- A browser you create, or acquire from a pool, is billed at the overage rate when it's your 151st or later at that moment.
+- Idle browsers in a pool don't count toward the 150.
+- Without packs, your limit is 150, so no browser is billed at the overage rate.
+
+## Rate limits
+
+Each pack also adds 10 browser creates per minute to your organization's [create rate](/browsers/concurrency-and-limits#rate-limits). It applies to both the burst you can send at once and the per-minute refill.
+
+The added rate follows your packs: it goes up when you raise your limit, comes down when a lowering takes effect, and is removed when you remove every pack or leave the Start-Up plan.
+
+## Operational details
+
+<Accordion title="Who can manage packs?">
+  Only organization admins can raise, lower, or cancel packs.
+</Accordion>
+
+<Accordion title="How do I check my current limit?">
+  The billing page shows your current limit. You can also run [`kernel org limits get`](/reference/cli/org#kernel-org-limits-get), which reports your organization's effective concurrency limit and current browser usage.
+</Accordion>
+
+<Accordion title="Do packs change my project limits?">
+  No. Packs raise the organization-wide limit. [Project concurrency limits](/info/projects#concurrency-limits) you've set stay as they are.
+</Accordion>
+
+<Accordion title="KERNEL support already raised my limit. Can I add packs?">
+  A limit that was raised without packs can't be changed with packs. [Email support@kernel.sh](mailto:support@kernel.sh) to change it.
+</Accordion>
