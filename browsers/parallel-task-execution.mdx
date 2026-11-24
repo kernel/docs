@@ -30,7 +30,8 @@ import Kernel from '@onkernel/sdk';
 
 const kernel = new Kernel();
 const browser = await kernel.browsers.create({
-  stealth: true,
+  captcha_solver: { enabled: true },
+  proxy: { mode: 'default' },
   start_url: 'https://www.kernel.sh/',
   profile: {
     name: 'parallel-task-demo',
@@ -74,7 +75,8 @@ kernel = AsyncKernel()
 
 async def main():
     browser = await kernel.browsers.create(
-        stealth=True,
+        captcha_solver={"enabled": True},
+        proxy={"mode": "default"},
         start_url="https://www.kernel.sh/",
         profile={
             "name": "parallel-task-demo",

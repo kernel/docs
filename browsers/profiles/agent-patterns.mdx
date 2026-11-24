@@ -45,7 +45,8 @@ const browser = await kernel.browsers.create({
     name: userId,
     save_changes: true,
   },
-  stealth: true,
+  captcha_solver: { enabled: true },
+  proxy: { mode: 'default' },
 });
 ```
 
@@ -57,7 +58,8 @@ browser = await kernel.browsers.create(
         "name": user_id,
         "save_changes": True,
     },
-    stealth=True,
+    captcha_solver={"enabled": True},
+    proxy={"mode": "default"},
 )
 ```
 
@@ -69,7 +71,12 @@ browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
 		Name:        kernel.String(userID),
 		SaveChanges: kernel.Bool(true),
 	},
-	Stealth: kernel.Bool(true),
+	CaptchaSolver: kernel.BrowserCaptchaSolverParam{
+		Enabled: true,
+	},
+	Proxy: kernel.BrowserProxyConfigParam{
+		Mode: kernel.BrowserProxyModeDefault,
+	},
 })
 if err != nil {
 	panic(err)
@@ -97,7 +104,8 @@ await kernel.auth.connections.create({
 
 const browser = await kernel.browsers.create({
   profile: { name: profileName },
-  stealth: true,
+  captcha_solver: { enabled: true },
+  proxy: { mode: 'default' },
 });
 ```
 
@@ -116,7 +124,8 @@ await kernel.auth.connections.create(
 
 browser = await kernel.browsers.create(
     profile={"name": profile_name},
-    stealth=True,
+    captcha_solver={"enabled": True},
+    proxy={"mode": "default"},
 )
 ```
 
@@ -139,7 +148,12 @@ browser, err := client.Browsers.New(ctx, kernel.BrowserNewParams{
 	Profile: shared.BrowserProfileParam{
 		Name: kernel.String(profileName),
 	},
-	Stealth: kernel.Bool(true),
+	CaptchaSolver: kernel.BrowserCaptchaSolverParam{
+		Enabled: true,
+	},
+	Proxy: kernel.BrowserProxyConfigParam{
+		Mode: kernel.BrowserProxyModeDefault,
+	},
 })
 if err != nil {
 	panic(err)

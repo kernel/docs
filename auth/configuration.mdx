@@ -1009,6 +1009,7 @@ After creating a connection, you can update its configuration with `auth.connect
 | `hitl` | Pause interactive logins on an unsolvable CAPTCHA so a person can complete it. See [human verification for CAPTCHAs](#human-verification-for-captchas) |
 | `browser.region` | Region for login, health-check, and reauth browsers. Takes effect on the next browser created for the connection |
 | `browser.location.locale` | Language for login, health-check, and reauth browsers, such as `sv-SE`. Set to `null` to go back to the region default. Takes effect on the next browser created for the connection |
+| `browser.captcha_solver` | Enable or disable automatic CAPTCHA solving. This doesn't select a proxy; set `proxy` separately. |
 | `proxy` | Pin login, health-check, and reauth sessions to a proxy. Takes effect on the next health check or reauth |
 
 Only the fields you include are updated—everything else stays the same. Changes to `health_check_interval`, `health_checks`, `auto_reauth`, and `proxy` take effect immediately on the running connection.
