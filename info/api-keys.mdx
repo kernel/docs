@@ -310,6 +310,8 @@ Attaching a policy to a key that doesn't have one makes the key scoped: every ac
 A key used through a hosted MCP server is evaluated against the MCP server's egress address, so an IP-restricted key is denied everywhere until MCP support ships. If you route keys through a hosted MCP server, leave `source_ip` conditions off those keys for now.
 </Note>
 
+<a id="deployment-api-keys" />
+
 ## App runtime policy
 
 An app’s runtime policy controls which Kernel API calls that version can make. Set it when you deploy. Your app keeps those permissions if the key you used to deploy expires or is revoked; you don’t need to redeploy or store a key for the app.
