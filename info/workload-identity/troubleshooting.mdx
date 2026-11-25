@@ -81,7 +81,7 @@ To allow reuse on a Microsoft Entra, Kubernetes, or custom OIDC issuer, select *
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `403` with `insufficient_scope` | The rule's policy doesn't grant the action on that resource. | The message names the missing action and resource. Add it to the rule. Operations such as creating a browser need [more than one action](/info/api-key-permissions#operations-that-need-more-than-one-action). |
-| A pool acquire, a deployment, or an invocation is refused | These are [closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do). | Use a personal API key for that part of the workload. |
+| A deployment or an invocation is refused | These are [closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do). | Use a personal API key for that part of the workload. |
 | A request that names another project fails | The token is bound to the rule's project. | Create a rule for the other project. |
 | `401` shortly after it worked | The rule, issuer, or service account was disabled, archived, or changed. Issued tokens stop working within about 10 seconds. | Check the **Rules** and **Issuers** tabs. The SDK retries once with a fresh exchange, so a re-enabled rule recovers by itself. |
 | Lists come back empty | List endpoints return only what the policy can access. | Grant the matching read or use action. |
