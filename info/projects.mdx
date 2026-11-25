@@ -25,12 +25,12 @@ A project must also be empty before it can be deleted. If active resources remai
 
 ## Scoping requests to a project
 
-Pass the `X-Kernel-Project-Id` header with a project ID on any API request to scope it to a specific project. Project names are not accepted in this header. Without the header (and without a project-scoped API key), requests act on your organization's **default project**: reads return the default project's resources, and writes create resources in it.
+Use `X-Kernel-Project` to select a project by exact name or ID. `X-Kernel-Project-Id` accepts only an ID. Send one header, not both: sending both returns `400 conflicting_project_headers`. Without either header or a project-scoped credential, reads and writes use your organization's **default project**.
 
 ```bash
 curl https://api.onkernel.com/browsers \
   -H "Authorization: Bearer $KERNEL_API_KEY" \
-  -H "X-Kernel-Project-Id: proj_abc123"
+  -H "X-Kernel-Project: proj_abc123"
 ```
 
 ### Resolution rules
@@ -104,13 +104,13 @@ func main() {
 
 API keys can be **org-wide** or **project-scoped**.
 
-- **Existing API keys are org-wide.** They see every resource in your organization across all projects. Include an `X-Kernel-Project-Id` header to restrict a single request to one project.
+- **Organization-scoped API keys** can reach resources across projects. If the key has a [policy](/info/api-key-permissions), its grants determine which actions and resources it can access. Include an `X-Kernel-Project-Id` header to select a project for a request.
 - **Project-scoped API keys** can only access resources inside the project they were issued for. Create one from the **API Keys** page in the dashboard, the [CLI](/reference/cli/api-keys), an SDK, or the [API keys guide](/info/api-keys), and pass the target `project_id` when generating the key. Requests made with a scoped key are automatically limited to that project — no header required. If you do send an `X-Kernel-Project-Id` header and it conflicts with the key's project, the request is rejected with `403 Forbidden`.
-- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, or delete projects, or change project limits.
+- **Most project administration requires an org-wide credential.** A project-scoped key may rename its own project, but cannot create, archive, restore, or delete projects, or change project limits. See the [project permissions](/info/api-key-permissions#organizations-and-projects).
 
 ### OAuth
 
-OAuth tokens (used by the Kernel CLI and MCP server) are **always org-wide**. You cannot bind an OAuth session to a single project. To scope OAuth-authenticated requests, send the `X-Kernel-Project-Id` header with each request — or use the CLI's `--project` flag (see below).
+At native OAuth consent, you choose which actions the client can take and whether it can use one project or all projects. With one project selected, requests use that project automatically. With all projects selected, use `X-Kernel-Project-Id` or the CLI’s `--project` flag to target a project other than the default. Selecting a project for a request never grants access to it.
 
 ### Workload identity federation
 
@@ -120,9 +120,9 @@ A [federation rule](/info/workload-identity/overview#federation-rules) names exa
 
 The Kernel [CLI](/reference/cli/projects) has first-class project support:
 
-- A global `--project <project-id>` flag scopes any command to a single project ID.
+- A global `--project <id-or-name>` flag scopes a command to a project by ID or exact name.
 - The `KERNEL_PROJECT` environment variable does the same, so you can set it once in your shell or CI.
-- A `kernel projects` command group lets you list, create, get, and delete projects, and manage per-project limit overrides.
+- A `kernel projects` command group lets you list, create, get, update, and delete projects, and manage per-project limit overrides.
 
 ```bash
 # Scope a single command
@@ -138,7 +138,7 @@ kernel projects create staging
 kernel projects limits set staging --max-concurrent-sessions 5
 ```
 
-Under the hood, `--project` (or the env var) adds the `X-Kernel-Project-Id` header to every authenticated request. It's the recommended way to target a specific project when you're logged in with OAuth (`kernel login`), since OAuth itself is always org-wide.
+Under the hood, `--project` (or the env var) adds the `X-Kernel-Project` header to every authenticated request. The project must be covered by your credential.
 
 ## Managing projects
 

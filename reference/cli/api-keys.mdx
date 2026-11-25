@@ -2,7 +2,7 @@
 title: "API Keys"
 ---
 
-Manage [API keys](/info/api-keys) from the CLI.
+Manage [API keys](/info/api-keys) from the CLI. Native OAuth sessions can’t manage keys. Set `KERNEL_API_KEY` to a personal API key with the permissions you need, or use the dashboard.
 
 <Tip>
 For CI jobs, cloud services, and Kubernetes pods, use [workload identity federation](/info/workload-identity/overview) instead of an API key. There's no secret to store, and the credential expires in minutes. Service accounts, issuers, and federation rules are managed from the dashboard.
@@ -23,7 +23,10 @@ kernel api-keys create \
 | Flag | Description |
 |------|-------------|
 | `--name <name>` | API key name. Required. |
-| `--days-to-expire <days>` | Number of days until expiry, from `1` to `3650`. Omit for no expiry. |
+| `--days-to-expire <days>` | Number of days until expiry, from `1` to `3650`. Use this or `--expires-at`, not both. |
+| `--expires-at <timestamp>` | Exact future expiry in RFC 3339 format. See [issuer expiry limits](/info/api-keys#delegate-a-narrower-key). |
+| `--policy <json>` | Grant only the actions and resources in this [policy](/info/api-key-policy-examples). Without a policy, the key is unrestricted within its project or organization. |
+| `--service-account-id <id>` | Issue a key for this service account instead of yourself. Requires organization administrator access, `--project-id`, and a non-empty `--policy`. |
 | `--project-id <project_id>` | Create a project-scoped API key for this project. Omit for org-wide. |
 | `--output json`, `-o json` | Output the raw JSON object, including the plaintext `key` on create. |
 
@@ -33,7 +36,7 @@ kernel api-keys create \
 
 ## `kernel api-keys list`
 
-List API keys in the authenticated organization. API keys are masked. The list shows active keys: keys that are neither deleted nor expired.
+List API keys in the authenticated organization. API keys are masked. By default, the list shows active keys: keys that are neither deleted nor expired.
 
 ```bash
 kernel api-keys list --limit 20
@@ -43,6 +46,11 @@ kernel api-keys list --limit 20
 |------|-------------|
 | `--limit <n>` | Maximum number of results to return. |
 | `--offset <n>` | Number of results to skip. |
+| `--status <status>` | `active`, `expired`, `deleted`, or `all`. Use `--status all` instead of the deprecated list flag `--include-deleted`. |
+| `--name <name>`, `--query <text>` | `--name` matches an exact name. `--query` searches names, creators, and projects; IDs and masked keys must match exactly. |
+| `--project-id <id>`, `--created-by <id>` | Filter by project (or `org` for organization-wide keys) or creator. |
+| `--principal-type <type>`, `--service-account-id <id>` | Filter by principal type (`user` or `service_account`) or service account. |
+| `--sort-by <field>`, `--sort-direction <direction>` | Sort by `created_at`, `name`, `expires_at`, or `last_used_at`, in `asc` or `desc` order. |
 | `--output json`, `-o json` | Output the raw JSON array. |
 
 ## `kernel api-keys get <id>`
@@ -60,7 +68,7 @@ kernel api-keys get key_01jwv4tn5m8k3q2v7x9p0a1bc2
 
 ## `kernel api-keys update <id>`
 
-Rename an API key.
+Rename an API key, replace its policy, or both. Supply at least one of `--name` and `--policy`.
 
 ```bash
 kernel api-keys update key_01jwv4tn5m8k3q2v7x9p0a1bc2 --name staging-ci-rotated
@@ -68,7 +76,8 @@ kernel api-keys update key_01jwv4tn5m8k3q2v7x9p0a1bc2 --name staging-ci-rotated
 
 | Flag | Description |
 |------|-------------|
-| `--name <name>` | New API key name. Required. |
+| `--name <name>` | New API key name. |
+| `--policy <json>` | Complete replacement policy. Omitted statements are not retained. |
 | `--output json`, `-o json` | Output the raw JSON object. |
 
 ## `kernel api-keys rotate <id>`
