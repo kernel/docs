@@ -45,6 +45,10 @@ kernel deploy github \
 - The CLI automatically downloads and extracts the GitHub source code and uploads your app for deployment.
 - For private repositories, provide a `--github-token` or set the `GITHUB_TOKEN` environment variable.
 
+## Use a scoped API key
+
+When you run `kernel deploy` with a scoped API key, the app gets only project-wide `invocations:write` to report results. Deployment succeeds, but browser calls from the app return `403`. The CLI has no runtime policy flag. To grant browser access, [deploy through the API with an explicit app runtime policy](/info/api-keys#app-runtime-policy).
+
 ## Environment variables
 
 You can set environment variables for your app using the `--env` flag. For example:
@@ -71,7 +75,7 @@ kernel deploy my_app.py --env-file .env
 
 Kernel injects a few environment variables into every deployment and its invocations. These names are **reserved** — if you set them via `--env` or `--env-file`, Kernel overrides your value, so setting them has no effect:
 
-- `KERNEL_API_KEY` — a per-deployment API key Kernel mints at deploy time (see [Deployment API keys](/info/api-keys#deployment-api-keys)). The SDKs read it from the environment by default, so your app authenticates with this key automatically.
+- `KERNEL_API_KEY` — the SDK uses this key automatically. For apps with a runtime policy, the key grants only the [app runtime permissions](/info/api-keys#app-runtime-policy).
 - `ENTRYPOINT_RELPATH` — set by the platform to locate your entrypoint.
 
 #### Using a different key for your app's calls

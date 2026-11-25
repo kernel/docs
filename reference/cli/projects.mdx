@@ -6,7 +6,7 @@ Manage [Projects](/info/projects) from the CLI and scope other commands to a spe
 
 ## Scoping commands to a project
 
-Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to scope any `kernel` command to a project ID. Project names are accepted by project-management commands whose arguments say `<id-or-name>`, but not by this global request-scoping flag.
+Use the global `--project` flag (or the `KERNEL_PROJECT` environment variable) to select a project by ID or exact name.
 
 ```bash
 # Scope by ID
@@ -17,7 +17,7 @@ export KERNEL_PROJECT=proj_abc123
 kernel apps list
 ```
 
-Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenticated API request. OAuth-based logins (`kernel login`) remain org-wide by default, so this is the recommended way to target a single project when logged in with OAuth.
+Under the hood, the flag adds the `X-Kernel-Project` header to every authenticated API request. With a [single-project OAuth grant](/info/projects#oauth), requests use that project automatically. With an all-projects grant, use the flag to target a project other than the default.
 
 <Info>
   Project-scoped API keys are already bound to a project server-side, so you don't need `--project` when using them — but if you do pass it, it must match the key's project or the request is rejected.
@@ -27,7 +27,7 @@ Under the hood, the flag adds the `X-Kernel-Project-Id` header to every authenti
 
 ### `kernel projects list`
 
-List all projects in the authenticated organization.
+List visible projects. Filter by exact name with `--name` or search with `--query`; use `--limit` and `--offset` to paginate.
 
 ### `kernel projects create <name>`
 

@@ -23,6 +23,8 @@ API keys can be **org** or **project** scoped:
 - Set `project_id` to create a project-scoped key that can only access resources in that project.
 - When you authenticate with a project-scoped key, you can only create another project-scoped key for the same project.
 
+Organization/project scope sets the key's boundary. A `policy` separately limits which actions and resources it can access inside that boundary. Both organization- and project-scoped keys can have policies.
+
 ## Create an API key
 
 Use the SDKs when your backend needs to provision keys for environments, customers, or automation jobs.
@@ -94,7 +96,7 @@ func main() {
 
 ## Scope a key to specific resources
 
-By default, an API key can do anything in its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
+A personal API key without a policy is unrestricted within its organization or project. Add a `policy` when you create a key to limit what it can do. Keys created without `policy` work exactly as before.
 
 Use scoped keys when you hand a credential to code you trust less than your backend, such as an AI agent or a short-lived job.
 
@@ -102,12 +104,14 @@ Use scoped keys when you hand a credential to code you trust less than your back
 
 A policy is a list of **statements**. Each statement allows one **action** on one **resource**, and the key is denied everything no statement allows.
 
-- A **resource** is either one object, `projects/{project_id}/{kind}/{id}`, or everything in a container, `projects/{project_id}/*` or `organizations/{org_id}/*`.
-- An **action** is `{kind}:{verb}`, such as `browsers:use` or `vaults:read`.
+- A **resource** selects one project-owned object, such as `projects/{project_id}/extensions/{extension_id}`, an organization-owned object, such as `credential_providers/{provider_id}`, or a container such as `projects/{project_id}/*` or `organizations/{org_id}/*`.
+- An **action** is an exact name such as `browsers:use`, `extensions:read`, or `api_keys:create`. A container wildcard grants that action throughout the container, not every action. To grant several actions at once, see [action wildcards](/info/api-key-permissions#action-wildcards).
 
 A statement can also carry a **condition** that narrows it to matching requests. A condition names a request attribute, a comparison operator, and that operator's values. See [Limit a key to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges).
 
 Some operations need more than one action. For example, creating a browser with a profile needs `browsers:create` and `browsers:use` on the project, plus `profiles:use` on that profile. See [API key permissions](/info/api-key-permissions) for every action and what each operation requires.
+
+Policies cover browsers, profiles, vaults, proxies, extensions, telemetry destinations, browser pools, tasks and reports, apps, managed auth, credentials, organization/project administration, API keys, audit logs, and the configuration registry. Start with a [policy example](/info/api-key-policy-examples) for your workload.
 
 ### Create a scoped key
 
@@ -164,10 +168,11 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 
 ### Expiry and revocation
 
-- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. A scoped key can't outlive the key that creates it.
+- Use `expires_at` instead of `days_to_expire` for an exact expiry. When creating a key with a policy, follow the [issuer expiry rule](#delegate-a-narrower-key).
 - Expired and deleted keys can't authenticate new API requests.
-- Deleting a key through the API or dashboard, or rotating it with `expire_in_days: 0`, also ends browser sessions associated with that key. Cleanup runs asynchronously and discards unsaved profile changes.
+- Deleting a key through the API or dashboard, or rotating it with `expire_in_days: 0`, also ends browser sessions associated with that key, including pool browsers it acquired and hasn't released. Cleanup runs asynchronously and discards unsaved profile changes.
 - Grace-period expiry and natural expiry do **not** end existing browsers. Delete those browsers explicitly if you need to stop them.
+- Connection URLs (CDP, WebDriver, live view) stop working when their browser ends, not when the key stops authenticating.
 - If browser cleanup can't be scheduled, deletion or immediate rotation fails without committing the key change.
 - Rotating a scoped key keeps its policy.
 
@@ -175,7 +180,61 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 Automatic cleanup only covers browsers associated with the key. Some browsers created before this behavior was introduced may not have that association. Delete those browsers directly. Cleanup doesn't undo profile changes you've already saved, delete browser pools, or stop app invocations or deployments.
 </Note>
 
-Scoped keys can't manage API keys, and they get `403` on endpoints that don't support scoped access yet.
+### Delegate a narrower key
+
+You can use a scoped key to create another scoped key:
+
+1. Grant the issuer `api_keys:create` on the new key's project or organization container.
+2. Supply a `policy` whose statements are covered by the issuer's policy, and keep the new key inside the issuer's organization/project boundary.
+3. If the issuer expires, set the child's expiry no later than the issuer's. To issue a longer-lived child, the issuer needs `api_keys:issue_beyond_expiry` on the new key's container and must request a finite lifetime of at most 3650 days. Kernel returns `400` rather than shortening a disallowed lifetime. When rotating with a scoped key, the same expiry rule applies, but Kernel checks the permission on the existing key.
+
+For example, an issuer with `api_keys:create` and `browsers:use` on a project can issue a key with only `browsers:use` on one browser in that project. Use the same SDK creation call shown above with the narrower policy.
+
+Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. Grant these actions separately from key issuance.
+
+### Allow longer-lived child keys
+
+Use an unscoped credential to issue a trusted key with `api_keys:issue_beyond_expiry`. This permission doesn't grant creation, rotation, or resource access by itself.
+
+<CodeGroup>
+```typescript TypeScript
+const issuer = await kernel.apiKeys.create({
+  name: 'ci-key-issuer',
+  project_id: 'proj_staging_9f3k',
+  days_to_expire: 30,
+  policy: {
+    statements: [
+      { action: 'api_keys:create', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'api_keys:issue_beyond_expiry', resource: 'projects/proj_staging_9f3k/*' },
+      { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+    ],
+  },
+});
+```
+
+```python Python
+issuer = client.api_keys.create(
+    name="ci-key-issuer",
+    project_id="proj_staging_9f3k",
+    days_to_expire=30,
+    policy={
+        "statements": [
+            {"action": "api_keys:create", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "api_keys:issue_beyond_expiry", "resource": "projects/proj_staging_9f3k/*"},
+            {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+        ],
+    },
+)
+```
+</CodeGroup>
+
+Authenticate with `issuer.key` to create a child with `days_to_expire: 365` and only `browsers:use` on this project. Its expiry is one year, not silently shortened to the issuer's 30 days. Without the special permission, that request returns `400`.
+
+Scoped callers cannot create or rotate keys whose policies contain `api_keys:issue_beyond_expiry`, so the child can't inherit this authority. Add `api_keys:rotate` separately to let the issuer rotate other keys.
+
+<Warning>
+Grant this permission only to trusted issuers. Their child keys can remain valid after the issuer expires or is revoked.
+</Warning>
 
 ## Limit a key to your IP ranges
 
@@ -241,6 +300,8 @@ client.api_keys.update(
 ```
 </CodeGroup>
 
+To change permissions with a scoped key, you need `api_keys:set_policy` on the target key. You must cover both its current and replacement policies; you can’t convert an unrestricted key this way. To change its name in the same request, you also need `api_keys:write`.
+
 Updating `policy` **fully replaces** the key's permissions, so send the complete policy, not just the statements you're changing. The new policy takes effect within the authorization cache (~10 seconds) and applies only to new requests—already-open browser connections keep running.
 
 Attaching a policy to a key that doesn't have one makes the key scoped: every action and resource the policy doesn't list is denied. There's no way to remove a policy from a key and go back to unrestricted—if you no longer need a scoped key, delete it.
@@ -249,21 +310,101 @@ Attaching a policy to a key that doesn't have one makes the key scoped: every ac
 A key used through a hosted MCP server is evaluated against the MCP server's egress address, so an IP-restricted key is denied everywhere until MCP support ships. If you route keys through a hosted MCP server, leave `source_ip` conditions off those keys for now.
 </Note>
 
-## Deployment API keys
+<a id="deployment-api-keys" />
 
-When you deploy an app, Kernel mints a **deployment-scoped API key** for that deployment and injects it into the deployment (and every invocation it runs) as the `KERNEL_API_KEY` environment variable. Because the SDKs read `KERNEL_API_KEY` from the environment by default, your app can call the Kernel API as itself without you managing a key.
+## App runtime policy
 
-Key points about deployment keys:
+An app’s runtime policy controls which Kernel API calls that version can make. Set it when you deploy. Your app keeps those permissions if the key you used to deploy expires or is revoked; you don’t need to redeploy or store a key for the app.
 
-- **One key per deployment.** Each deploy (including a redeploy of the same app) mints a fresh deployment key. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables) — a value you supply at deploy time is overridden by the injected key. To use your own long-lived key, pass it under a non-reserved name.
-- **Lifecycle tied to the deployment.** A deployment key stays valid while its deployment is active. When you redeploy, the new deployment supersedes the old one, and the old deployment's key is released once it is no longer needed — that is, once the superseded deployment is stopped **and** no invocation is still running on it.
-- **In-flight invocations are drained, not cut off.** If an invocation is still running on a deployment that gets superseded, its key is kept valid until that invocation completes; the key is released right after. An idle redeploy (nothing in flight) releases the old key immediately. In the rare case where an invocation's workflow terminates without releasing the key, a background sweep releases it after a grace period (~95 minutes). You do not need to manage any of this — it is automatic.
+**Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant lets the app update other apps’ invocations in the same project. Put apps that don’t trust each other in separate projects.
 
-If you need a credential whose lifetime you control (for CI, a persistent backend, or a resource that should outlive any single deployment), create an org- or project-scoped key as described below and pass it explicitly to the client. This only affects the calls your app makes — the platform still injects the deployment key and uses it to run the invocation and report its result, so you're choosing the credential for your own calls, not replacing the deployment key.
+**To grant more access**, send `runtime_policy` as a JSON form field on `POST /deployments`. The SDKs don't accept `runtime_policy` yet, so these examples call the API directly. Set `KERNEL_PROJECT_ID` to your project ID and `KERNEL_API_KEY` to your deploying key, and put `main.py` and its dependency manifest at the root of `app.zip`:
+
+<CodeGroup>
+```typescript TypeScript
+import { readFile } from 'node:fs/promises';
+
+const projectId = process.env.KERNEL_PROJECT_ID!;
+const resource = `projects/${projectId}/*`;
+const runtimePolicy = {
+  statements: [
+    { action: 'invocations:write', resource },
+    { action: 'browsers:create', resource },
+    { action: 'browsers:use', resource },
+  ],
+};
+
+const form = new FormData();
+form.append('file', new Blob([await readFile('app.zip')]), 'app.zip');
+form.append('entrypoint_rel_path', 'main.py');
+form.append('runtime_policy', JSON.stringify(runtimePolicy));
+
+const response = await fetch('https://api.onkernel.com/deployments', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.KERNEL_API_KEY}`,
+    'X-Kernel-Project-Id': projectId,
+  },
+  body: form,
+});
+if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+console.log(await response.json());
+```
+
+```python Python
+import json
+import os
+
+import httpx
+
+project_id = os.environ["KERNEL_PROJECT_ID"]
+resource = f"projects/{project_id}/*"
+runtime_policy = {
+    "statements": [
+        {"action": "invocations:write", "resource": resource},
+        {"action": "browsers:create", "resource": resource},
+        {"action": "browsers:use", "resource": resource},
+    ]
+}
+
+with open("app.zip", "rb") as app:
+    response = httpx.post(
+        "https://api.onkernel.com/deployments",
+        headers={
+            "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
+            "X-Kernel-Project-Id": project_id,
+        },
+        files={"file": ("app.zip", app, "application/zip")},
+        data={
+            "entrypoint_rel_path": "main.py",
+            "runtime_policy": json.dumps(runtime_policy),
+        },
+        timeout=120,
+    )
+response.raise_for_status()
+print(response.json())
+```
+</CodeGroup>
+
+This app can report results and create browsers without attachments. Include the unconditional project-wide `invocations:write` grant and any additional permissions your app needs. The policy must fit within the app’s project and your own permissions, reference existing resources, and exclude `api_keys:issue_beyond_expiry`.
+
+To deploy with a scoped key, grant it container-wide `deployments:create`, `deployments:delete`, and `invocations:write`, plus any additional permissions in the app’s policy. To run the app with a scoped key, grant it `invocations:create` on the container and every permission in the app’s policy.
+
+Kernel supplies a short-lived `KERNEL_API_KEY` with the app’s permissions for each run. Moving a deployment to another host preserves the policy. Stopping it prevents new runs; it doesn't revoke keys already issued. `KERNEL_API_KEY` is a [reserved environment variable](/apps/deploy#reserved-environment-variables). To supply a credential for your own API calls, pass it under another name.
+
+See the [app policy example](/info/api-key-policy-examples) for separate deployer, runtime, and invoker permissions.
+
+### Existing deployments
+
+<Warning>
+Scoped callers can't invoke an app that runs with an unrestricted shared key, even with `invocations:create`. To let them run it, redeploy with an explicit runtime policy that their permissions cover.
+</Warning>
+
+Deploying with an unrestricted credential and omitting `runtime_policy` creates a shared key; it doesn't migrate the app to per-invocation keys. If the shared key has a policy, it must be live, its permissions must be covered by the caller, and it must expire no later than the caller. Host moves preserve these rules; superseded deployments keep their shared key until in-flight runs drain.
 
 ## List and inspect API keys
 
-List keys to audit what exists. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key.
+Use `GET /org/api_keys` to list keys and `GET /org/api_keys/{id}` to inspect one. List and retrieve responses include `masked_key`, `project_id`, `project_name`, `created_by`, expiry metadata, and `policy` for scoped keys, but they don't include the plaintext key. If `policy` is absent, the key is unrestricted within its project or organization.
 
 The list returns `active` keys by default: keys that are neither deleted nor expired. Pass `status` to see the others, and combine these filters to narrow the list:
 
@@ -325,7 +466,7 @@ func main() {
 		panic(err)
 	}
 
-	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2")
+	apiKey, err := client.APIKeys.Get(ctx, "key_01jwv4tn5m8k3q2v7x9p0a1bc2", kernel.APIKeyGetParams{})
 	if err != nil {
 		panic(err)
 	}
@@ -340,7 +481,7 @@ func main() {
 Rename a key when the owner or purpose changes. Update its `policy` to add, change, or remove IP rules and permissions without rotating the credential. Delete a key when the workload no longer needs access.
 
 <Warning>
-An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
+An API key cannot delete itself. Authenticate with a different key when deleting a key, so the request cannot revoke the credential that is authorizing it. A deleted key stops authenticating new requests within the authorization cache (~10 seconds). Deleting a key also ends its associated browsers asynchronously and discards their unsaved profile changes.
 </Warning>
 
 <CodeGroup>
@@ -384,7 +525,7 @@ func main() {
 		ctx,
 		"key_01jwv4tn5m8k3q2v7x9p0a1bc2",
 		kernel.APIKeyUpdateParams{
-			Name: "staging-ci-rotated",
+			Name: kernel.String("staging-ci-rotated"),
 		},
 	)
 	if err != nil {
@@ -407,6 +548,10 @@ Two optional parameters control the timing:
 
 - `days_to_expire` sets the new key's lifetime in days (`1`-`3650`). Omit it to give the new key the same lifetime the rotated key originally had, or to never expire if the old key never did.
 - `expire_in_days` sets how long the old key keeps working before it expires. Use `0` to revoke it immediately, or omit it for the default 7-day grace window. The old key stops authenticating automatically once the window passes—you don't need to delete it.
+
+If the key you rotate with has no policy, these lifetime rules apply to every target, including keys with policies, and you don't need `api_keys:issue_beyond_expiry`.
+
+If the key you rotate with has a policy, it needs `api_keys:rotate` on the target and must cover the target's policy. The [issuer expiry rule](#delegate-a-narrower-key) applies even when you omit `days_to_expire` and reuse the old lifetime. A scoped caller can't rotate a key that itself carries `api_keys:issue_beyond_expiry`.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -489,7 +634,8 @@ It's still a stored secret. Prefer federation wherever your workload has an iden
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (scoped key) | The policy has an unknown action or a resource outside the key's organization or project, the expiry is invalid or later than your own key's, or a condition is malformed: `source_ip` values must be CIDR networks (not bare addresses, host-bit entries, or IPv4-in-IPv6 notation), name a supported `key` and `operator`, and `policy: null` isn't accepted on update. | Check the policy against [API key permissions](/info/api-key-permissions) and send one expiry field. |
+| `400 Bad Request` (policy) | The action, resource, or condition is invalid, or the update sets `policy: null`. | For `source_ip`, use CIDR notation without host bits or IPv4-in-IPv6 addresses. Check the [permission reference](/info/api-key-permissions) and send the complete replacement policy. |
+| `400 Bad Request` (issuer expiry) | The requested lifetime exceeds what the issuer can grant. | Check the [issuer expiry rule](#delegate-a-narrower-key). |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |

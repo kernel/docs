@@ -1,0 +1,269 @@
+---
+title: "API Key Policy Examples"
+description: "Policies for browser automation, pools, managed auth, app execution, and administration"
+---
+
+Start with the example closest to your workload and keep only the permissions you need. Each snippet defines a `policy` value to pass to the [API key creation call](/info/api-keys#create-a-scoped-key). TypeScript and Python examples grant the same permissions.
+
+The IDs below represent resources you've already created. Replace them with IDs returned by your own API requests; exact resource IDs are validated when you issue a key. Most examples fit a project-scoped key with `project_id: 'proj_staging_9f3k'`. Examples that include organization resources require an organization-scoped key.
+
+For every available action and its prerequisites, see [API key permissions](/info/api-key-permissions).
+
+<AccordionGroup>
+
+<Accordion title="Manage one project">
+Use an organization-scoped key to read organization limits and view or update one project. Omit `project_id` when issuing this key.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'organizations:read', resource: 'organizations/org_8f3k9m2q' },
+    { action: 'projects:read', resource: 'projects/proj_staging_9f3k' },
+    { action: 'projects:write', resource: 'projects/proj_staging_9f3k' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "organizations:read", "resource": "organizations/org_8f3k9m2q"},
+        {"action": "projects:read", "resource": "projects/proj_staging_9f3k"},
+        {"action": "projects:write", "resource": "projects/proj_staging_9f3k"},
+    ],
+}
+```
+</CodeGroup>
+
+Add `projects:delete` on `projects/proj_staging_9f3k` to archive or restore the project. Create additional projects with `projects:create` on `organizations/org_8f3k9m2q/*`.
+</Accordion>
+
+<Accordion title="Create browsers with a saved extension">
+Create and control browsers in the staging project using one saved extension.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'extensions:use', resource: 'projects/proj_staging_9f3k/extensions/ext_9k4m2q7s' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "extensions:use", "resource": "projects/proj_staging_9f3k/extensions/ext_9k4m2q7s"},
+    ],
+}
+```
+</CodeGroup>
+
+Pass `ext_9k4m2q7s` in the browser request's `extensions` list. Include `extensions:use` on every saved extension attached to a browser you access.
+</Accordion>
+
+<Accordion title="Export browser telemetry">
+Create browsers in staging and send their telemetry to one saved destination.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'telemetry_destinations:read', resource: 'projects/proj_staging_9f3k/telemetry_destinations/tdst_8k2q4m6r' },
+    { action: 'telemetry_destinations:use', resource: 'projects/proj_staging_9f3k/telemetry_destinations/tdst_8k2q4m6r' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "telemetry_destinations:read", "resource": "projects/proj_staging_9f3k/telemetry_destinations/tdst_8k2q4m6r"},
+        {"action": "telemetry_destinations:use", "resource": "projects/proj_staging_9f3k/telemetry_destinations/tdst_8k2q4m6r"},
+    ],
+}
+```
+</CodeGroup>
+
+When creating the browser, enable at least one telemetry source (for example, set `telemetry.browser.console.enabled` to `true`) and set `telemetry.export.otlp.destination` to `{"id": "tdst_8k2q4m6r"}`. Export without capture returns `400`. See the [complete browser request](/browsers/telemetry/export#export-a-sessions-telemetry).
+</Accordion>
+
+<Accordion title="Acquire pooled browsers">
+Acquire and release browsers from one pool that uses a saved profile.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'browser_pools:use', resource: 'projects/proj_staging_9f3k/browser_pools/pool_6m2k9q4s' },
+    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'profiles:use', resource: 'projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "browser_pools:use", "resource": "projects/proj_staging_9f3k/browser_pools/pool_6m2k9q4s"},
+        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "profiles:use", "resource": "projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1"},
+    ],
+}
+```
+</CodeGroup>
+
+Use pool `pool_6m2k9q4s`, configured with profile `prof_7h2kq9x4m1`. If its browsers also carry vaults or saved extensions, grant use of those resources too. An acquire-time profile that saves changes also needs `profiles:write`.
+</Accordion>
+
+<Accordion title="Run an existing auth connection">
+Read a connection and start logins using its saved profile and credential, including saving updated credential values.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'auth_connections:read', resource: 'projects/proj_staging_9f3k/auth_connections/mconn_5k3m8q2r' },
+    { action: 'auth_connections:use', resource: 'projects/proj_staging_9f3k/auth_connections/mconn_5k3m8q2r' },
+    { action: 'profiles:use', resource: 'projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1' },
+    { action: 'profiles:write', resource: 'projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1' },
+    { action: 'credentials:use', resource: 'projects/proj_staging_9f3k/credentials/cred_4q8m2k6s' },
+    { action: 'credentials:write', resource: 'projects/proj_staging_9f3k/credentials/cred_4q8m2k6s' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "auth_connections:read", "resource": "projects/proj_staging_9f3k/auth_connections/mconn_5k3m8q2r"},
+        {"action": "auth_connections:use", "resource": "projects/proj_staging_9f3k/auth_connections/mconn_5k3m8q2r"},
+        {"action": "profiles:use", "resource": "projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1"},
+        {"action": "profiles:write", "resource": "projects/proj_staging_9f3k/profiles/prof_7h2kq9x4m1"},
+        {"action": "credentials:use", "resource": "projects/proj_staging_9f3k/credentials/cred_4q8m2k6s"},
+        {"action": "credentials:write", "resource": "projects/proj_staging_9f3k/credentials/cred_4q8m2k6s"},
+    ],
+}
+```
+</CodeGroup>
+
+Use connection `mconn_5k3m8q2r`, configured with profile `prof_7h2kq9x4m1` and credential `cred_4q8m2k6s`. Provider-backed connections additionally require `credential_providers:use` on the organization-owned provider, so they need an organization-scoped key. If the connection must create a credential, grant container-wide `credentials:create`, `credentials:use`, and `credentials:write` instead of exact-ID credential grants.
+</Accordion>
+
+<Accordion title="Deploy and invoke an app">
+Deploy and run an app in staging, and read its deployment and invocation results.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'deployments:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'deployments:delete', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'deployments:read', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'invocations:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'invocations:write', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'invocations:read', resource: 'projects/proj_staging_9f3k/*' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "deployments:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "deployments:delete", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "deployments:read", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "invocations:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "invocations:write", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "invocations:read", "resource": "projects/proj_staging_9f3k/*"},
+    ],
+}
+```
+</CodeGroup>
+
+Use this key to deploy and invoke the app. If you omit `runtime_policy`, the [app runtime policy](/info/api-keys#app-runtime-policy) grants only project-wide `invocations:write`, not the rest of the deploying key’s permissions. The next example adds browser access.
+</Accordion>
+
+<Accordion title="Invoke without deployment-management permissions">
+Use an explicit runtime policy to give the app browser access without deployment-management permissions. This app creates browsers without saved profiles or other attached resources.
+
+<CodeGroup>
+```typescript TypeScript
+const runtimePolicy = {
+  statements: [
+    { action: 'invocations:write', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:create', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'browsers:use', resource: 'projects/proj_staging_9f3k/*' },
+  ],
+};
+
+const invokerPolicy = {
+  statements: [
+    { action: 'invocations:create', resource: 'projects/proj_staging_9f3k/*' },
+    ...runtimePolicy.statements,
+  ],
+};
+```
+
+```python Python
+runtime_policy = {
+    "statements": [
+        {"action": "invocations:write", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:create", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "browsers:use", "resource": "projects/proj_staging_9f3k/*"},
+    ],
+}
+
+invoker_policy = {
+    "statements": [
+        {"action": "invocations:create", "resource": "projects/proj_staging_9f3k/*"},
+        *runtime_policy["statements"],
+    ],
+}
+```
+</CodeGroup>
+
+Send the runtime policy as JSON in the `runtime_policy` multipart field of `POST /deployments`. The deploying key needs every runtime permission plus `deployments:create` and `deployments:delete` on the project. Issue a separate key with the invoker policy to start actions without deployment-management access.
+
+A supplied runtime policy with only `browsers:create` and `browsers:use` is rejected with `400`: it must explicitly include project-wide `invocations:write`. Permissions aren't silently added.
+
+A key with only `invocations:create` can't invoke this app: it doesn't cover the runtime's browser and callback permissions. Add `invocations:read` to read results and `deployments:read` as well to read the event stream.
+</Accordion>
+
+<Accordion title="Inspect keys and audit activity">
+Read staging API-key metadata, read organization audit logs, and look up browser configuration recommendations. Issue this as an organization-scoped key by omitting `project_id`. For configuration registry requests, send `X-Kernel-Project-Id: proj_staging_9f3k` to select the project named in the policy.
+
+<CodeGroup>
+```typescript TypeScript
+const policy = {
+  statements: [
+    { action: 'api_keys:read', resource: 'projects/proj_staging_9f3k/*' },
+    { action: 'audit_logs:read', resource: 'organizations/org_8f3k9m2q/*' },
+    { action: 'config_registry:read', resource: 'projects/proj_staging_9f3k/*' },
+  ],
+};
+```
+
+```python Python
+policy = {
+    "statements": [
+        {"action": "api_keys:read", "resource": "projects/proj_staging_9f3k/*"},
+        {"action": "audit_logs:read", "resource": "organizations/org_8f3k9m2q/*"},
+        {"action": "config_registry:read", "resource": "projects/proj_staging_9f3k/*"},
+    ],
+}
+```
+</CodeGroup>
+
+API-key reads return metadata and policies. Creating delegated keys requires `api_keys:create` on their container plus the permissions you intend to delegate; rotating keys requires `api_keys:rotate` and coverage of their policy.
+</Accordion>
+</AccordionGroup>
