@@ -168,7 +168,7 @@ print(api_key.key)  # Save this value now. Kernel won't show it again.
 
 ### Expiry and revocation
 
-- Use `expires_at` for an exact expiry, such as minutes from now, instead of `days_to_expire`. When you create a key with a policy, it can't outlive the issuing credential unless that credential holds `api_keys:issue_beyond_expiry` on the target. Kernel returns `400` for an expiry it can't honor; it never silently shortens the requested lifetime.
+- Use `expires_at` instead of `days_to_expire` for an exact expiry. When creating a key with a policy, follow the [issuer expiry rule](#delegate-a-narrower-key).
 - Expired and deleted keys can't authenticate new API requests.
 - Deleting a key through the API or dashboard, or rotating it with `expire_in_days: 0`, also ends browser sessions associated with that key, including pool browsers it acquired and hasn't released. Cleanup runs asynchronously and discards unsaved profile changes.
 - Grace-period expiry and natural expiry do **not** end existing browsers. Delete those browsers explicitly if you need to stop them.
@@ -186,11 +186,11 @@ You can use a scoped key to create another scoped key:
 
 1. Grant the issuer `api_keys:create` on the new key's project or organization container.
 2. Supply a `policy` whose statements are covered by the issuer's policy, and keep the new key inside the issuer's organization/project boundary.
-3. Set the new key's expiry no later than the issuer's expiry, or grant the issuer `api_keys:issue_beyond_expiry` on that container and request a finite lifetime of at most 3650 days.
+3. If the issuer expires, set the child's expiry no later than the issuer's. To issue a longer-lived child, the issuer needs `api_keys:issue_beyond_expiry` on the new key's container and must request a finite lifetime of at most 3650 days. Kernel returns `400` rather than shortening a disallowed lifetime. When rotating with a scoped key, the same expiry rule applies, but Kernel checks the permission on the existing key.
 
 For example, an issuer with `api_keys:create` and `browsers:use` on a project can issue a key with only `browsers:use` on one browser in that project. Use the same SDK creation call shown above with the narrower policy.
 
-Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. When a scoped key rotates another key, it must also cover the target key's policy, and the replacement's expiry follows the same rule as creation, with `api_keys:issue_beyond_expiry` checked on the existing key. These permissions are separate, so you can grant metadata access without granting key issuance or rotation.
+Use `api_keys:read` to inspect keys, `api_keys:write` to rename them, `api_keys:delete` to revoke them, and `api_keys:rotate` to replace them. Grant these actions separately from key issuance.
 
 ### Allow longer-lived child keys
 
@@ -230,7 +230,7 @@ issuer = client.api_keys.create(
 
 Authenticate with `issuer.key` to create a child with `days_to_expire: 365` and only `browsers:use` on this project. Its expiry is one year, not silently shortened to the issuer's 30 days. Without the special permission, that request returns `400`.
 
-The child must have a finite expiry of at most 3650 days. Scoped callers cannot create or rotate keys whose policies contain `api_keys:issue_beyond_expiry`, so the child can't inherit this authority. Add `api_keys:rotate` separately to let the issuer rotate other keys.
+Scoped callers cannot create or rotate keys whose policies contain `api_keys:issue_beyond_expiry`, so the child can't inherit this authority. Add `api_keys:rotate` separately to let the issuer rotate other keys.
 
 <Warning>
 Grant this permission only to trusted issuers. Their child keys can remain valid after the issuer expires or is revoked.
@@ -316,7 +316,7 @@ A key used through a hosted MCP server is evaluated against the MCP server's egr
 
 An app’s runtime policy controls which Kernel API calls that version can make. Set it when you deploy. Your app keeps those permissions if the key you used to deploy expires or is revoked; you don’t need to redeploy or store a key for the app.
 
-**Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant applies to all invocations in the project, not just this app’s runs.
+**Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant lets the app update other apps’ invocations in the same project. Put apps that don’t trust each other in separate projects.
 
 **To grant more access**, send `runtime_policy` as a JSON form field on `POST /deployments`. The SDKs don't accept `runtime_policy` yet, so these examples call the API directly. Set `KERNEL_PROJECT_ID` to your project ID and `KERNEL_API_KEY` to your deploying key, and put `main.py` and its dependency manifest at the root of `app.zip`:
 
@@ -394,7 +394,13 @@ Kernel supplies a short-lived `KERNEL_API_KEY` with the app’s permissions for 
 
 See the [app policy example](/info/api-key-policy-examples) for separate deployer, runtime, and invoker permissions.
 
-**Existing deployments and unscoped defaults:** Existing shared keys aren't migrated. Deploying with an unrestricted credential and omitting `runtime_policy` still creates one shared runtime key; supplying the field opts into per-invocation keys. Scoped callers cannot invoke an unrestricted runtime. For an existing shared key with a policy, the key must be live, its permissions covered, and its expiry no later than the invoker's. Host moves preserve these bounds, and superseded deployments keep their shared key until in-flight runs drain.
+### Existing deployments
+
+<Warning>
+Scoped callers can't invoke an app that runs with an unrestricted shared key, even with `invocations:create`. To let them run it, redeploy with an explicit runtime policy that their permissions cover.
+</Warning>
+
+Deploying with an unrestricted credential and omitting `runtime_policy` creates a shared key; it doesn't migrate the app to per-invocation keys. If the shared key has a policy, it must be live, its permissions must be covered by the caller, and it must expire no later than the caller. Host moves preserve these rules; superseded deployments keep their shared key until in-flight runs drain.
 
 ## List and inspect API keys
 
@@ -545,7 +551,7 @@ Two optional parameters control the timing:
 
 If the key you rotate with has no policy, these lifetime rules apply to every target, including keys with policies, and you don't need `api_keys:issue_beyond_expiry`.
 
-If the key you rotate with has a policy, it needs `api_keys:rotate` on the target and must cover the target's policy. When the caller expires, the replacement must expire no later than the caller, or the caller must hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. The same check applies when you omit `days_to_expire` and reuse the old lifetime. A disallowed expiry returns `400`, never a shortened replacement. A caller with a policy cannot rotate a key that itself carries `api_keys:issue_beyond_expiry`.
+If the key you rotate with has a policy, it needs `api_keys:rotate` on the target and must cover the target's policy. The [issuer expiry rule](#delegate-a-narrower-key) applies even when you omit `days_to_expire` and reuse the old lifetime. A scoped caller can't rotate a key that itself carries `api_keys:issue_beyond_expiry`.
 
 <CodeGroup>
 ```typescript TypeScript
@@ -628,8 +634,8 @@ It's still a stored secret. Prefer federation wherever your workload has an iden
 | --- | --- | --- |
 | `400 Bad Request` | The name is missing, `days_to_expire` is outside `1`-`3650`, `expire_in_days` is outside `0`-`3650`, or `project_id` is empty. | Send a name, choose a valid expiry, or omit `project_id` for an org-scoped key. |
 | `400 Bad Request` (rotate) | `days_to_expire` is shorter than `expire_in_days`, so the new key would expire before the old key's grace window ends. | Raise `days_to_expire` or lower `expire_in_days`. |
-| `400 Bad Request` (policy) | The action, resource, or condition is invalid, or the update sets `policy: null`. | Check the [permission reference](/info/api-key-permissions) and send the complete replacement policy. |
-| `400 Bad Request` (issuer expiry) | The requested lifetime exceeds the issuer’s when creating a key with a policy or rotating with a scoped caller. | Request a shorter lifetime or check the [longer-lived key exception](#allow-longer-lived-child-keys). |
+| `400 Bad Request` (policy) | The action, resource, or condition is invalid, or the update sets `policy: null`. | For `source_ip`, use CIDR notation without host bits or IPv4-in-IPv6 addresses. Check the [permission reference](/info/api-key-permissions) and send the complete replacement policy. |
+| `400 Bad Request` (issuer expiry) | The requested lifetime exceeds what the issuer can grant. | Check the [issuer expiry rule](#delegate-a-narrower-key). |
 | `401 Unauthorized` | Kernel couldn't authenticate the request. | Set a valid `KERNEL_API_KEY`. |
 | `403 Forbidden` (`insufficient_scope`) | A scoped key is missing a permission. | The message names the missing action and resource. Add it to the policy. |
 | `404 Not Found` | The project, API key, or a resource named in the policy doesn't exist, or the caller can't access it. | Check the ID. If you're using a project-scoped key, you can only rotate keys in that same project. |

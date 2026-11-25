@@ -28,7 +28,7 @@ For a CI job, cloud service, or Kubernetes pod, put the policy on a federation r
 | `organizations/{org_id}/*` | Resources throughout the organization, for the statement's action. |
 | `projects/{project_id}/*` | Resources in one project, for the statement's action. |
 | `projects/{project_id}/{kind}/{id}` | One project-owned resource. |
-| `{kind}/{id}` | One resource. For a project-owned resource, the request's project determines its scope. Use this form for organization-owned resources. |
+| `{kind}/{id}` | Use for organization-owned resources. For project resources this resolves against the request's project; prefer `projects/{project_id}/{kind}/{id}` to name the project explicitly. |
 
 Choose `kind` from the following resource types:
 
@@ -91,7 +91,7 @@ How conditions evaluate:
 | --- | --- |
 | `organizations:read` | Read organization entitlements and limits. |
 | `organizations:write` | Set the organization's default per-project limits. |
-| `projects:create` | Create projects. Grant on the organization container. |
+| `projects:create` | Create projects. |
 | `projects:read` | List projects and read project metadata and limits. |
 | `projects:write` | Rename projects and set their limits. |
 | `projects:delete` | Archive or restore projects, and delete empty projects. A project update that changes `status` along with other fields also needs `projects:write`. |
@@ -170,7 +170,7 @@ Scoped keys resolve destinations within the request's project. Reading and selec
 
 | Action | Allows |
 | --- | --- |
-| `tasks:create` | Create tasks. Grant on the project or organization container. |
+| `tasks:create` | Create tasks. |
 | `tasks:read` | List and read tasks, linked browser IDs, and reports; find report types for a task. |
 | `tasks:write` | Link browsers and submit reports. Also requires `tasks:read` on the task. |
 
@@ -180,10 +180,10 @@ Reports use their parent task's permissions; they don't have separate policy sel
 
 | Action | Allows |
 | --- | --- |
-| `deployments:create` | Deploy apps, together with `deployments:delete` and `invocations:write`. |
+| `deployments:create` | Deploy apps. |
 | `deployments:read` | List apps and deployments, and read deployment details, events, and logs. |
 | `deployments:delete` | Stop and delete deployments, including versions replaced by a new deployment. |
-| `invocations:create` | Run app actions, subject to the runtime-key requirements below. |
+| `invocations:create` | Run app actions. |
 | `invocations:read` | List invocations and read payloads, outputs, events, and logs. |
 | `invocations:write` | Update invocation status and output, and attach new browsers to invocations. |
 
@@ -230,14 +230,14 @@ A read grant returns connection metadata. To receive hosted login or live view U
 | Action | Allows |
 | --- | --- |
 | `api_keys:create` | Issue keys in the authorized container. A scoped issuer must grant a subset of its own policy. |
-| `api_keys:issue_beyond_expiry` | Allow a scoped key's finite expiry to exceed the caller's, up to 3650 days. Grant it on the new key's container for creation, or the existing key for rotation. Scoped callers cannot pass this permission to another key. |
+| `api_keys:issue_beyond_expiry` | Issue longer-lived keys under the [issuer expiry rule](/info/api-keys#delegate-a-narrower-key). Scoped callers can't delegate this permission. |
 | `api_keys:read` | List keys and read metadata and policies, without plaintext keys. |
 | `api_keys:write` | Rename keys. |
 | `api_keys:set_policy` | Replace a key’s entire policy without rotating its secret. A scoped caller must cover both the existing and replacement policies and can’t convert an unrestricted key. Renaming the key in the same request also requires `api_keys:write`. |
 | `api_keys:rotate` | Replace keys whose policies the caller covers, returning the new plaintext key. |
 | `api_keys:delete` | Revoke keys. |
 
-A new key with a policy must expire no later than the credential that creates it unless that credential holds `api_keys:issue_beyond_expiry` on the target container. The same limit applies when a caller with a policy rotates a key, checked on the existing key. Rotation by a caller without a policy keeps its existing replacement-lifetime behavior. Excessive expiry requests return `400`; Kernel never silently shortens them. Other permission checks still apply. See [Delegating access](/info/api-keys#delegate-a-narrower-key).
+See [Delegate a narrower key](/info/api-keys#delegate-a-narrower-key) for policy and expiry requirements.
 
 Native OAuth tokens can’t manage API keys. This applies to human sign-ins (including requests for identity scopes only), machine tokens, and exchanged tokens. OAuth rejects requests for `api_keys:` permissions. Use a personal API key with the required permissions instead.
 
@@ -297,10 +297,10 @@ Connection updates check the resulting configuration. Turning off credential sav
 | Operation | Requires |
 | --- | --- |
 | Deploy an app | Container-wide `deployments:create`, `deployments:delete`, and `invocations:write`, plus any additional permissions in the [app runtime policy](/info/api-keys#app-runtime-policy). |
-| Invoke an app action | Container-wide `invocations:create`. Your policy must cover the runtime policy. Existing shared runtime keys must also be live and expire no later than yours. |
+| Invoke an app action | Container-wide `invocations:create`. Your policy must cover the [app runtime policy](/info/api-keys#app-runtime-policy). For apps with a shared key, see [Existing deployments](/info/api-keys#existing-deployments). |
 | Read invocation events | `invocations:read` and `deployments:read`, because the stream includes deployment state. |
 | Create a browser attached to an invocation | Browser creation permissions plus `invocations:write` on the invocation. |
-| Create or rotate an API key with a key that has a policy | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting key's policy. If your key expires, the new or replacement key must expire no later than it unless you also hold `api_keys:issue_beyond_expiry` on the target and request a finite lifetime of up to 3650 days. You can't issue or rotate a key carrying that permission. |
+| Create or rotate an API key with a key that has a policy | `api_keys:create` on the new key's container, or `api_keys:rotate` on the existing key, plus every permission in the resulting policy. The [issuer expiry rule](/info/api-keys#delegate-a-narrower-key) also applies. |
 | Update an audit export destination | `audit_log_export_destinations:write` and organization-wide `audit_logs:read`. |
 | Resolve a browser configuration | `config_registry:create` and `config_registry:read`. |
 
