@@ -318,16 +318,73 @@ An app’s runtime policy controls which Kernel API calls that version can make.
 
 **Default:** When you deploy with a scoped key and omit `runtime_policy`, the app gets only `invocations:write` on `projects/{project_id}/*` so it can report results. That grant applies to all invocations in the project, not just this app’s runs.
 
-**To grant more access**, use `POST /deployments`. For example, set `KERNEL_PROJECT_ID` to your project ID and `KERNEL_API_KEY` to your deploying key. With an `app.zip` containing `main.py` and its dependency manifest at the archive root, run:
+**To grant more access**, send `runtime_policy` as a JSON form field on `POST /deployments`. The SDKs don't accept `runtime_policy` yet, so these examples call the API directly. Set `KERNEL_PROJECT_ID` to your project ID and `KERNEL_API_KEY` to your deploying key, and put `main.py` and its dependency manifest at the root of `app.zip`:
 
-```bash
-curl --fail-with-body https://api.onkernel.com/deployments \
-  -H "Authorization: Bearer $KERNEL_API_KEY" \
-  -H "X-Kernel-Project-Id: $KERNEL_PROJECT_ID" \
-  -F file=@app.zip \
-  -F entrypoint_rel_path=main.py \
-  --form-string "runtime_policy={\"statements\":[{\"action\":\"invocations:write\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"},{\"action\":\"browsers:create\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"},{\"action\":\"browsers:use\",\"resource\":\"projects/$KERNEL_PROJECT_ID/*\"}]}"
+<CodeGroup>
+```typescript TypeScript
+import { readFile } from 'node:fs/promises';
+
+const projectId = process.env.KERNEL_PROJECT_ID!;
+const resource = `projects/${projectId}/*`;
+const runtimePolicy = {
+  statements: [
+    { action: 'invocations:write', resource },
+    { action: 'browsers:create', resource },
+    { action: 'browsers:use', resource },
+  ],
+};
+
+const form = new FormData();
+form.append('file', new Blob([await readFile('app.zip')]), 'app.zip');
+form.append('entrypoint_rel_path', 'main.py');
+form.append('runtime_policy', JSON.stringify(runtimePolicy));
+
+const response = await fetch('https://api.onkernel.com/deployments', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.KERNEL_API_KEY}`,
+    'X-Kernel-Project-Id': projectId,
+  },
+  body: form,
+});
+if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+console.log(await response.json());
 ```
+
+```python Python
+import json
+import os
+
+import httpx
+
+project_id = os.environ["KERNEL_PROJECT_ID"]
+resource = f"projects/{project_id}/*"
+runtime_policy = {
+    "statements": [
+        {"action": "invocations:write", "resource": resource},
+        {"action": "browsers:create", "resource": resource},
+        {"action": "browsers:use", "resource": resource},
+    ]
+}
+
+with open("app.zip", "rb") as app:
+    response = httpx.post(
+        "https://api.onkernel.com/deployments",
+        headers={
+            "Authorization": f"Bearer {os.environ['KERNEL_API_KEY']}",
+            "X-Kernel-Project-Id": project_id,
+        },
+        files={"file": ("app.zip", app, "application/zip")},
+        data={
+            "entrypoint_rel_path": "main.py",
+            "runtime_policy": json.dumps(runtime_policy),
+        },
+        timeout=120,
+    )
+response.raise_for_status()
+print(response.json())
+```
+</CodeGroup>
 
 This app can report results and create browsers without attachments. Include the unconditional project-wide `invocations:write` grant and any additional permissions your app needs. The policy must fit within the app’s project and your own permissions, reference existing resources, and exclude `api_keys:issue_beyond_expiry`.
 
