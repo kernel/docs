@@ -3,25 +3,25 @@ title: "Scaling Packs"
 description: "Add concurrent browsers to your Start-Up plan, 25 at a time"
 ---
 
-<Warning>
-  Draft. Scaling packs aren't available in the dashboard yet. Remove this notice at launch.
-</Warning>
-
 The Start-Up plan includes 150 [concurrent browsers](/browsers/concurrency-and-limits#concurrency). When you need more, add scaling packs. Each pack raises your limit by 25, up to 500 concurrent browsers.
 
 | Each pack | |
 | --- | --- |
 | Concurrent browsers | +25 |
 | [Browser create rate](/browsers/concurrency-and-limits#rate-limits) | +10 per minute |
-| Price | \$100 per month |
+| Price | \$100 per month, recurring |
 
-You can add up to 14 packs. If you need more than 500 concurrent browsers, [contact sales](/info/contact-sales) about the Enterprise plan.
+Packs renew automatically every month until you remove them. You can add up to 14 packs. If you need more than 500 concurrent browsers, [contact sales](/info/contact-sales) about the Enterprise plan.
 
 ## Availability
 
 Scaling packs are available to organizations on an active Start-Up plan that pay by card. Only organization admins can add or remove packs.
 
 Organizations in a trial, and organizations billed through the [Vercel Marketplace](/integrations/vercel/marketplace), can't add packs.
+
+<Note>
+  Scaling packs are rolling out gradually. If you don't see them on your billing page and want to be opted in, [email support@kernel.sh](mailto:support@kernel.sh?subject=Scaling%20packs%20access).
+</Note>
 
 ## Add packs
 
@@ -30,31 +30,25 @@ Organizations in a trial, and organizations billed through the [Vercel Marketpla
     Go to the [KERNEL billing page](https://dashboard.onkernel.com/billing) as an organization admin.
   </Step>
   <Step title="Choose your new limit">
-    Pick a limit from 175 to 500, in steps of 25. The dashboard shows what you'll pay today and your new monthly total.
+    In the **Subscription** card, select **Raise max concurrency**. If you already have packs, the button reads **Change max concurrency**. Pick a limit from 175 to 500, in steps of 25. The dashboard shows what you'll pay today and your new monthly total.
   </Step>
   <Step title="Confirm">
-    Your new limit is available within 15 minutes.
+    Select the **Raise to** button, which shows the limit you picked. Your new limit is available within 15 minutes.
   </Step>
 </Steps>
 
-{/* TODO before publishing: add screenshots of the billing card, and match the step wording to the final control names. */}
-
-<Warning>
-  Placeholder: dashboard screenshots and final control names go here.
-</Warning>
-
-You pay for new packs when you add them, prorated for the rest of the month. After that, each pack is \$100 per month.
+You pay for new packs when you add them, prorated for the rest of the month. After that, each pack is charged at \$100 every month until you remove it.
 
 For example, add two packs halfway through the month and you pay about \$100 that day, then \$200 each month after.
 
 ## Remove packs
 
-Choose a lower limit on the billing page. Choose 150 to remove every pack.
+On the billing page, select **Lower max concurrency** or **Change max concurrency** and choose a lower limit. Choose 150 to remove every pack.
 
 - **The change takes effect on the first of next month at 00:00 utc.** You keep your current limit until then.
 - **There's no refund or credit for the current month.** Your next bill reflects the lower number of packs.
 
-Until the change takes effect, you can cancel it or choose a different limit. If you choose a limit higher than the one you have now, that's a new purchase: you pay for the added packs that day and get the higher limit right away.
+Until the change takes effect, you can cancel it with **Cancel decrease** or choose a different limit. If you choose a limit higher than the one you have now, that's a new purchase: you pay for the added packs that day and get the higher limit right away.
 
 ## Browser pools
 
@@ -75,15 +69,15 @@ Packs are part of the Start-Up plan, so they end when you leave it.
 
 ## Usage above 150 browsers
 
-Your plan's [usage rates](/info/pricing#usage-rates) cover your first 150 concurrent browsers. Browsers you run above 150 are billed at the overage rate.
+Your plan's [usage rates](/info/pricing#usage-rates) cover your first 150 concurrent browsers. Browsers you run above 150 are billed at the overage rate, which is 1.5 times the standard rate.
 
-{/* TODO before publishing: the overage rate is not final. This table is the only place it appears. Fill it in here and nowhere else. */}
+| Usage type | Standard ($/sec) | Above 150 ($/sec) |
+| --- | --- | --- |
+| Headful browser | 0.0001333336 | 0.0002 |
+| Headless browser | 0.0000166667 | 0.000025 |
+| Headful browser + GPU acceleration | 0.0008000016 | 0.0012 |
 
-| | Rate |
-| --- | --- |
-| Overage rate | **Not final. To be confirmed before this page is published.** |
-
-If you don't have packs, your limit is 150 and the overage rate never applies.
+App invocation rates don't change. If you don't have packs, your limit is 150 and the overage rate never applies.
 
 ## FAQ
 
