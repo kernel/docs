@@ -74,7 +74,7 @@ kernel browsers create --captcha-solver --fingerprint-os macos
 
 Both `os` values need SDK `0.150.0` or later and CLI `v0.53.0` or later.
 
-`captcha_solver` on its own doesn't select a proxy, so the browser uses direct egress unless you attach a [proxy](/proxies/overview). [`stealth: true`](/browsers/bot-detection/stealth) also satisfies the requirement: it enables the CAPTCHA solver and routes the session through Kernel's default stealth proxy.
+`captcha_solver` on its own doesn't select a proxy, so the browser uses direct egress unless you attach a [proxy](/proxies/overview).
 
 ## Supported values
 
@@ -167,7 +167,7 @@ Requests that can't be served with a fingerprint fail instead of falling back to
 | 400 | `fingerprint_disabled` | `fingerprint configuration is in closed beta; contact Kernel to enable it for your organization` | Contact support to join the beta. |
 | 400 | `invalid_fingerprint` | `fingerprint.os linux is not enabled for this organization` | Ask support to enable `linux`, or use `macos`. |
 | 400 | `invalid_fingerprint` | `fingerprint.os must be macos or linux` | Send `macos` or `linux`. Values are case-sensitive. |
-| 400 | `invalid_fingerprint` | `fingerprint requires captcha_solver.enabled=true during the closed beta` | Enable the CAPTCHA solver or `stealth`. |
+| 400 | `invalid_fingerprint` | `fingerprint requires captcha_solver.enabled=true during the closed beta` | Enable the CAPTCHA solver. |
 | 400 | `invalid_fingerprint` | `fingerprint requires a headful, non-GPU browser with default memory` | Omit `headless` and `gpu` or set them to `false`, and omit `memory`. |
 | 500 | `fingerprint_apply_failed` | `failed to apply the requested fingerprint to the browser` | Retry the request. If it keeps failing, contact support. |
 | 529 | `capacity_exhausted` | Varies | No browser that supports the fingerprint is available right now. Retry later. |
