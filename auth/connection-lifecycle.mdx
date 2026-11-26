@@ -15,6 +15,8 @@ After the initial login, every connection moves through this loop:
     On a configurable cadence, Kernel spins up a browser with the profile and verifies the session. A check reaches one of three conclusions: still logged in, definitely logged out, or **inconclusive** — the page didn't prove either way.
 
     A check needs concrete evidence to conclude. If the site returns a challenge page, times out, partially loads, or shows something ambiguous, the result is inconclusive and the connection is left exactly as it was. Nothing happens until the next check.
+
+    each check that runs is recorded on the timeline with an [outcome](/auth/attempt-outcomes): `SUCCEEDED`, `SIGNED_OUT`, `INCONCLUSIVE`, or `FAILED`. all but `FAILED` also report the `health_check_evidence` the check saw on the page.
   </Step>
   <Step title="Auto-reauth (if eligible)">
     If the check finds the session **definitely** expired and the connection's `can_reauth` is `true`, Kernel runs the saved credential-based login flow in the background. A successful login resets the loop.
@@ -209,6 +211,8 @@ _ = kernelBrowser
 
 If a login attempt fails — whether triggered by a health check, an auto-reauth, or a manual `.login()` — the flow is marked `FAILED` and the event includes `error_code` and `error_message`.
 
+the connection's `last_attempt` and each timeline event's `outcome` also say which phase stopped, give a specific `code` and a `debug_message` for developers, and, for recorded attempts, the replay offset where the attempt ended. see [attempt outcomes](/auth/attempt-outcomes) for every code and what to do about it.
+
 How much Kernel retries depends on the failure. A transient site problem (a 5xx page, a maintenance screen) is retried once against the login page before giving up. A conclusive rejection by the site — wrong credentials, a locked account, an unsupported method — is **not** retried, because retrying would burn attempts against a lockout or fail identically.
 
 Common codes:
@@ -230,7 +234,7 @@ Common codes:
 | `bot_detected` | The login page blocked the session as automated. | No |
 | `captcha_blocked` | A CAPTCHA was presented and couldn't be solved, or a person was asked to solve it and didn't finish in time. | No |
 
-See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list.
+See the [API reference](https://kernel.sh/docs/api-reference/managed-auth/start-login-flow) for the full list. `error_code` keeps these values; new and more specific codes appear only in the outcome [`code`](/auth/attempt-outcomes#outcome-codes).
 
 ### Recovering
 
@@ -279,8 +283,11 @@ _ = login
 
 To record every auth session on the connection (logins, health checks, and reauths), set `record_session: true` connection-wide — see [Record Sessions for Debugging](/auth/configuration#record-sessions-for-debugging).
 
+for a recorded attempt, `last_attempt.replay` and the timeline `outcome.replay` carry the `replay_id` and `offset_ms`, the time from the start of the recording to the moment the attempt ended. skip to that point instead of watching from the start. see [replay offset](/auth/attempt-outcomes#replay-offset).
+
 ## See also
 
 - [Connection Configuration](/auth/configuration) — `health_check_interval`, `proxy`, `record_session`, and other shared options
 - [Credentials](/auth/configuration#credentials-and-auto-reauth) — what gets stored and how it powers auto-reauth
+- [attempt outcomes](/auth/attempt-outcomes): result, phase, code, and replay offset for every login, reauth, and health check
 - [FAQ](/auth/faq) — quick answers to common questions
