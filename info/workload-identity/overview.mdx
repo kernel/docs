@@ -6,7 +6,7 @@ description: "Authenticate CI jobs, cloud services, and Kubernetes pods to KERNE
 
 Workload identity federation lets a workload authenticate to KERNEL without an API key. The workload presents a short-lived OpenID Connect (OIDC) token from an identity provider it already has: GitHub Actions, AWS, Google Cloud, Microsoft Entra, Kubernetes, or any OIDC issuer. KERNEL checks the token against rules you configure and returns a KERNEL access token that expires in five minutes.
 
-Use it for every workload that isn't a person at a keyboard. A few operations, such as acquiring a browser from a pool and running app deployments, [stay closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do), so check them before you plan a migration. A stored API key works until someone revokes it, so one leaked CI variable is standing access to your browsers, profiles, and credentials. With federation:
+Use it for every workload that isn't a person at a keyboard. A few operations, such as running app deployments, [stay closed to service accounts](/info/workload-identity/service-accounts#what-a-service-account-cant-do), so check them before you plan a migration. A stored API key works until someone revokes it, so one leaked CI variable is standing access to your browsers, profiles, and credentials. With federation:
 
 - **There's no secret to leak.** Nothing is stored in CI variables, config files, or secret managers. The federation rule ID your workload sends is an identifier, not a credential.
 - **Tokens expire in minutes.** An access token lasts 300 seconds by default and 600 at most. The SDKs exchange a fresh one before it expires.
@@ -275,7 +275,7 @@ The built-in SDK sources request a new identity token for every exchange, so you
 
 ## What a workload can do
 
-A federated credential can do what its rule's policy grants, inside the rule's one project. Three things stay closed to service accounts whatever the policy says: acquiring a browser from a pool, using app deployments and invocations, and managing API keys. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
+A federated credential can do what its rule's policy grants, inside the rule's one project. Two things stay closed to service accounts whatever the policy says: using app deployments and invocations, and managing API keys. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
 
 A workload can inspect its own identity and permissions:
 

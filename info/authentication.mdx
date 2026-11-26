@@ -44,7 +44,7 @@ For some jobs an API key is still a reasonable choice:
 - **Local development.** Your laptop has no workload identity. Sign in with `kernel login`, or create a personal key with a short expiry.
 - **Environments with no identity provider.** A VM at a host that issues no OIDC tokens, or a third-party tool that only accepts a key, can't federate. Give it a [service account API key](/info/workload-identity/service-accounts#service-account-api-keys) so the key belongs to your organization, not to the person who created it.
 - **Access across projects.** A federation rule covers one project. A task that needs every project in your organization at once needs an organization-scoped key.
-- **Features closed to service accounts.** Acquiring a browser from a [pool](/browsers/pools), deploying or invoking [apps](/apps/deploy), and managing API keys aren't available to federated credentials. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
+- **Features closed to service accounts.** Deploying or invoking [apps](/apps/deploy) and managing API keys aren't available to federated credentials. See [what a service account can't do](/info/workload-identity/service-accounts#what-a-service-account-cant-do).
 
 When you do use an API key, limit what a leak can reach: scope it to one project, give it a [policy](/info/api-keys#scope-a-key-to-specific-resources) and a short expiry, and [limit it to your IP ranges](/info/api-keys#limit-a-key-to-your-ip-ranges) if it's used from a fixed network.
 
